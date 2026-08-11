@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import PdfExportButton from './PdfExportButton';
 
 // Typ pre záznam ošetrenia
 export interface MedicalRecordItem {
@@ -22,7 +23,7 @@ const MOCK_RECORDS: MedicalRecordItem[] = [
     patientName: 'Ján Novák',
     birthNumber: '800512/7412',
     diagnosisCode: 'J20.9',
-    notes: 'Akútna bronchitída, predpísaný ATB liek.',
+    notes: 'Akútna bronchitída, predpísaný ATB liek. Pacient poučený o kľudovom režime.',
     date: '11.08.2026 09:15',
     doctorName: 'MUDr. Peter Kováč',
     healthproStatus: 'SENT',
@@ -33,7 +34,7 @@ const MOCK_RECORDS: MedicalRecordItem[] = [
     patientName: 'Anna Kováčová',
     birthNumber: '925315/6548',
     diagnosisCode: 'I10',
-    notes: 'Esenciálna hypertenzia - kontrola tlaku krvi.',
+    notes: 'Esenciálna hypertenzia - kontrola tlaku krvi. Tlak 135/85. Pokračovať v liečbe.',
     date: '11.08.2026 10:30',
     doctorName: 'MUDr. Peter Kováč',
     healthproStatus: 'SENT',
@@ -44,7 +45,7 @@ const MOCK_RECORDS: MedicalRecordItem[] = [
     patientName: 'Katarína Slaná',
     birthNumber: '885820/1234',
     diagnosisCode: 'E11.9',
-    notes: 'Diabetes mellitus 2. typu bez komplikácií.',
+    notes: 'Diabetes mellitus 2. typu bez komplikácií. Glukóza v norme.',
     date: '10.08.2026 14:00',
     doctorName: 'Sestra Mária Nováková',
     healthproStatus: 'FAILED',
@@ -55,7 +56,7 @@ export default function HistoryTable() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
-  // Filtrovanie záznamov
+  // Filtrovanie záznamov na základe vyhľadávania a statusu
   const filteredRecords = MOCK_RECORDS.filter((rec) => {
     const matchesSearch =
       rec.birthNumber.includes(searchTerm) ||
@@ -109,6 +110,7 @@ export default function HistoryTable() {
               <th className="py-3 px-4">Diagnóza</th>
               <th className="py-3 px-4">Ošetrujúci</th>
               <th className="py-3 px-4">Stav eZdravia</th>
+              <th className="py-3 px-4 text-center">Akcie</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 text-sm">
@@ -135,11 +137,24 @@ export default function HistoryTable() {
                       </span>
                     )}
                   </td>
+                  <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                    <PdfExportButton
+                      record={{
+                        patientName: rec.patientName,
+                        birthNumber: rec.birthNumber,
+                        diagnosisCode: rec.diagnosisCode,
+                        notes: rec.notes,
+                        date: rec.date,
+                        doctorName: rec.doctorName,
+                        transactionId: rec.transactionId,
+                      }}
+                    />
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-gray-500">
+                <td colSpan={7} className="py-8 text-center text-gray-500">
                   Nenašli sa žiadne záznamy zodpovedajúce vyhľadávaniu.
                 </td>
               </tr>
