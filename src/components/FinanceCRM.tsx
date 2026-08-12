@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { SaleItem } from '../app/page';
 
 interface ExpenseItem {
   id: string;
@@ -10,38 +11,20 @@ interface ExpenseItem {
   amount: number;
 }
 
-interface SaleItem {
-  id: string;
-  date: string;
-  patientName: string;
-  doctorName: string;
-  serviceType: string;
-  amount: number;
-}
-
-// Simulované dáta pre tržby a náklady SAY CLINIC
-const INITIAL_SALES: SaleItem[] = [
-  { id: 'S1', date: '2026-08-11', patientName: 'Ján Novák', doctorName: 'MUDr. Ján Mráz', serviceType: 'Augmentácia prsníkov', amount: 4100 },
-  { id: 'S2', date: '2026-08-11', patientName: 'Anna Kováčová', doctorName: 'MUDr. Ján Mráz', serviceType: 'Botox - 1 oblasť', amount: 120 },
-  { id: 'S3', date: '2026-08-10', patientName: 'Katarína Slaná', doctorName: 'MUDr. Zuzana Sroková', serviceType: 'Kyselina Hyalurónová 1ml', amount: 290 },
-];
-
 const INITIAL_EXPENSES: ExpenseItem[] = [
   { id: 'E1', date: '2026-08-01', title: 'Nákup implantátov Motiva', category: 'Implants', amount: 1200 },
   { id: 'E2', date: '2026-08-02', title: 'Nájomné priestorov', category: 'Rent', amount: 1500 },
   { id: 'E3', date: '2026-08-05', title: 'Zdravotnícky materiál & ihly', category: 'Material', amount: 450 },
 ];
 
-export default function FinanceCRM() {
-  const [sales] = useState<SaleItem[]>(INITIAL_SALES);
+export default function FinanceCRM({ sales }: { sales: SaleItem[] }) {
   const [expenses, setExpenses] = useState<ExpenseItem[]>(INITIAL_EXPENSES);
 
-  // Form pre nový náklad
   const [expTitle, setExpTitle] = useState('');
   const [expCategory, setExpCategory] = useState<ExpenseItem['category']>('Material');
   const [expAmount, setExpAmount] = useState('');
 
-  // Výpočty
+  // Výpočty v reálnom čase
   const totalRevenue = sales.reduce((acc, item) => acc + item.amount, 0);
   const totalExpenses = expenses.reduce((acc, item) => acc + item.amount, 0);
   const netProfit = totalRevenue - totalExpenses;
@@ -82,7 +65,7 @@ export default function FinanceCRM() {
 
   return (
     <div className="space-y-8">
-      {/* 3 HLAVNÉ METRIKY: TRŽBY, NÁKLADY, ZISK */}
+      {/* METRIKY */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm border-l-4 border-l-emerald-600">
           <p className="text-[10px] uppercase tracking-widest text-[#8C857B] font-semibold">Celkové Tržby</p>
@@ -103,7 +86,6 @@ export default function FinanceCRM() {
         </div>
       </div>
 
-      {/* FORMULÁR PRE PRIDANIE NÁKLADU + EXPORT */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-4">
           <div className="border-b border-[#E8E2D9] pb-3">
@@ -163,7 +145,7 @@ export default function FinanceCRM() {
           </form>
         </div>
 
-        {/* TABUĽKA POHYBOV & EXPORT DO CSV */}
+        {/* TABUĽKA POHYBOV */}
         <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-4">
           <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
             <div>
@@ -189,7 +171,6 @@ export default function FinanceCRM() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8E2D9]">
-                {/* Tržby */}
                 {sales.map((s) => (
                   <tr key={s.id} className="hover:bg-[#FBF9F6]">
                     <td className="p-2.5 text-[#8C857B] font-mono">{s.date}</td>
@@ -198,7 +179,6 @@ export default function FinanceCRM() {
                     <td className="p-2.5 text-right font-bold text-emerald-700">+{s.amount.toFixed(2)} €</td>
                   </tr>
                 ))}
-                {/* Náklady */}
                 {expenses.map((e) => (
                   <tr key={e.id} className="hover:bg-[#FBF9F6]">
                     <td className="p-2.5 text-[#8C857B] font-mono">{e.date}</td>

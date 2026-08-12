@@ -6,9 +6,33 @@ import HistoryTable from '../components/HistoryTable';
 import LoginForm from '../components/LoginForm';
 import FinanceCRM from '../components/FinanceCRM';
 
+export interface SaleItem {
+  id: string;
+  date: string;
+  patientName: string;
+  doctorName: string;
+  serviceType: string;
+  amount: number;
+}
+
+const INITIAL_SALES: SaleItem[] = [
+  { id: 'S1', date: '2026-08-11', patientName: 'Ján Novák', doctorName: 'MUDr. Ján Mráz', serviceType: 'Augmentácia prsníkov', amount: 4100 },
+  { id: 'S2', date: '2026-08-11', patientName: 'Anna Kováčová', doctorName: 'MUDr. Ján Mráz', serviceType: 'Botox - 1 oblasť', amount: 120 },
+  { id: 'S3', date: '2026-08-10', patientName: 'Katarína Slaná', doctorName: 'MUDr. Zuzana Sroková', serviceType: 'Kyselina Hyalurónová 1ml', amount: 290 },
+];
+
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'generator' | 'history' | 'finance'>('generator');
+  const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
+
+  const handleAddSale = (newSale: Omit<SaleItem, 'id'>) => {
+    const item: SaleItem = {
+      ...newSale,
+      id: `S-${Date.now()}`,
+    };
+    setSales((prev) => [item, ...prev]);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FBF9F6]">
@@ -88,9 +112,11 @@ export default function Home() {
           <LoginForm onLoginSuccess={(user) => setCurrentUser(user)} />
         ) : (
           <>
-            {activeTab === 'generator' && <MedicalRecordForm />}
+            {activeTab === 'generator' && (
+              <MedicalRecordForm onRecordCreated={handleAddSale} />
+            )}
             {activeTab === 'history' && <HistoryTable />}
-            {activeTab === 'finance' && <FinanceCRM />}
+            {activeTab === 'finance' && <FinanceCRM sales={sales} />}
           </>
         )}
       </main>
