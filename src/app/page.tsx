@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
-import HistoryTable from '../components/HistoryTable';
+import PatientDatabase from '../components/PatientDatabase';
 import LoginForm from '../components/LoginForm';
 import FinanceCRM from '../components/FinanceCRM';
 
@@ -17,13 +17,11 @@ export interface SaleItem {
 
 const INITIAL_SALES: SaleItem[] = [
   { id: 'S1', date: '2026-08-11', patientName: 'Ján Novák', doctorName: 'MUDr. Ján Mráz', serviceType: 'Augmentácia prsníkov', amount: 4100 },
-  { id: 'S2', date: '2026-08-11', patientName: 'Anna Kováčová', doctorName: 'MUDr. Ján Mráz', serviceType: 'Botox - 1 oblasť', amount: 120 },
-  { id: 'S3', date: '2026-08-10', patientName: 'Katarína Slaná', doctorName: 'MUDr. Zuzana Sroková', serviceType: 'Kyselina Hyalurónová 1ml', amount: 290 },
 ];
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'generator' | 'history' | 'finance'>('generator');
+  const [activeTab, setActiveTab] = useState<'generator' | 'patients' | 'finance'>('generator');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
 
   const handleAddSale = (newSale: Omit<SaleItem, 'id'>) => {
@@ -50,43 +48,37 @@ export default function Home() {
             </div>
           </div>
 
-          {/* NAVIGÁCIA AK JE PRIHLÁSENÝ */}
+          {/* NAVIGÁCIA */}
           {currentUser && (
             <nav className="flex gap-2 text-[11px] font-light uppercase tracking-wider text-[#8C857B]">
               <button
                 onClick={() => setActiveTab('generator')}
                 className={`px-3 py-2 transition-all ${
-                  activeTab === 'generator'
-                    ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold'
-                    : 'hover:text-[#2C2A29]'
+                  activeTab === 'generator' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
                 }`}
               >
                 📄 Generátor Dokumentov
               </button>
               <button
-                onClick={() => setActiveTab('history')}
+                onClick={() => setActiveTab('patients')}
                 className={`px-3 py-2 transition-all ${
-                  activeTab === 'history'
-                    ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold'
-                    : 'hover:text-[#2C2A29]'
+                  activeTab === 'patients' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
                 }`}
               >
-                📋 História & NCZI
+                🗂️ Kartotéka Pacientov
               </button>
               <button
                 onClick={() => setActiveTab('finance')}
                 className={`px-3 py-2 transition-all ${
-                  activeTab === 'finance'
-                    ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold'
-                    : 'hover:text-[#2C2A29]'
+                  activeTab === 'finance' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
                 }`}
               >
-                📊 Financie & CRM
+                📊 Financie & Výsledky
               </button>
             </nav>
           )}
 
-          {/* PROFIL / ODHLÁSENIE */}
+          {/* PROFIL */}
           {currentUser && (
             <div className="border-l border-[#E8E2D9] pl-4 flex items-center gap-3">
               <div className="text-right hidden sm:block">
@@ -112,10 +104,8 @@ export default function Home() {
           <LoginForm onLoginSuccess={(user) => setCurrentUser(user)} />
         ) : (
           <>
-            {activeTab === 'generator' && (
-              <MedicalRecordForm onRecordCreated={handleAddSale} />
-            )}
-            {activeTab === 'history' && <HistoryTable />}
+            {activeTab === 'generator' && <MedicalRecordForm onRecordCreated={handleAddSale} />}
+            {activeTab === 'patients' && <PatientDatabase />}
             {activeTab === 'finance' && <FinanceCRM sales={sales} />}
           </>
         )}

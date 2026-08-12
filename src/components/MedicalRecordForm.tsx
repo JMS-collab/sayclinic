@@ -110,7 +110,7 @@ const SERVICES_DATABASE = {
     { id: 'pr13', name: 'lipoelastic gel', price: 35 },
   ],
   services: [
-    { id: 'sl1', name: 'Konzultácia', price: 50 },
+    { id: 'sl1', name: 'Konzultácia / Vstupné vyšetrenie', price: 50 },
     { id: 'sl2', name: 'Predoperačné vyšetrenia', price: 150 },
     { id: 'sl3', name: 'Histologické vyšetrenie', price: 30 },
     { id: 'sl4', name: 'Nadštandardná samostatná lôžková izba', price: 30 },
@@ -144,7 +144,7 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
 
   const [selectedItems, setSelectedItems] = useState<ServiceCategory[]>([]);
 
-  // Špeciálne operačné poplatky
+  // Anestézia & Pobyt
   const [hasOperation, setHasOperation] = useState(false);
   const [anesthesiaHours, setAnesthesiaHours] = useState(1);
   const [hospitalizationType, setHospitalizationType] = useState<'none' | 'half' | 'full'>('none');
@@ -211,7 +211,7 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      {/* FORMULÁR */}
+      {/* FORMULÁR LEKÁRA */}
       <div className="lg:col-span-6 bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-5">
         <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
           <div>
@@ -230,7 +230,7 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
                 docType === 'dekurzus' ? 'bg-[#2C2A29] text-white' : 'text-[#8C857B]'
               }`}
             >
-              Dekurzus
+              Dekurzus / Vstupné
             </button>
             <button
               type="button"
@@ -414,7 +414,7 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
               </div>
             </div>
 
-            {/* OPERAČNÉ POPLATKY (Rozšírená anestézia 1 až 8 hodín) */}
+            {/* OPERAČNÉ POPLATKY */}
             <div className="border-t border-[#E8E2D9] pt-2 mt-2">
               <label className="flex items-center space-x-2 text-xs font-bold text-[#2C2A29] cursor-pointer">
                 <input
@@ -490,12 +490,12 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Lekársky nález / Poznámky k ponuke</label>
+            <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Lekársky nález / Poznámky k vyšetreniu</label>
             <textarea
               rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Anamnéza, lokalizácia, nález alebo podmienky cenovej ponuky..."
+              placeholder="Anamnéza, lokalizácia, nález alebo podmienky..."
               className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29]"
             />
           </div>
@@ -517,10 +517,10 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
         )}
       </div>
 
-      {/* Náhľad A4 */}
+      {/* NÁHĽAD A4 TLAČOVÉHO DOKUMENTU */}
       <div className="lg:col-span-6 bg-white p-8 rounded-2xl border border-[#E8E2D9] shadow-sm">
         <h3 className="text-[10px] font-light text-[#8C857B] uppercase tracking-widest mb-4">
-          Náhľad tlačového dokumentu (A4) — {docType === 'cenova_ponuka' ? 'CENOVÁ PONUKA' : 'DEKURZUS'}
+          Náhľad tlačového dokumentu (A4) — {docType === 'cenova_ponuka' ? 'CENOVÁ PONUKA' : 'VSTUPNÉ VYŠETRENIE'}
         </h3>
 
         <div className="border border-[#E8E2D9] p-6 rounded-xl bg-white text-xs leading-relaxed min-h-[520px]">
@@ -532,13 +532,13 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
               <p className="text-[9px] uppercase tracking-[0.2em] text-[#C5A059] font-semibold">
                 PLASTICKÁ CHIRURGIA & DERMATOLÓGIA
               </p>
+              <p className="text-[9px] text-[#8C857B]">Rudlovská cesta 83, Banská Bystrica</p>
             </div>
             <div className="text-right text-[10px] text-[#8C857B]">
               <span className="bg-[#2C2A29] text-white px-2 py-0.5 rounded text-[8px] uppercase tracking-wider font-bold">
                 {docType === 'cenova_ponuka' ? 'CENOVÁ PONUKA' : 'AMBULANTNÝ NÁLEZ'}
               </span>
               <p className="font-semibold text-[#2C2A29] mt-1">{doctor}</p>
-              <p>Banská Bystrica</p>
             </div>
           </div>
 
@@ -548,7 +548,7 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
             <p><strong>Diagnóza:</strong> {diagnosis}</p>
           </div>
 
-          {/* Rozpis položiek cenníka na A4 (CENY IBA V CENOVEJ PONUKE) */}
+          {/* Rozpis položiek (CENY ZOBRAZENÉ IBA V CENOVEJ PONUKE) */}
           <div className="space-y-2 mb-6">
             <p className="font-semibold text-[10px] uppercase text-[#8C857B]">
               {docType === 'cenova_ponuka' ? 'Rozpis zvolených výkonov a služieb:' : 'Zvolené výkony a zákroky:'}
@@ -594,16 +594,35 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
             )}
           </div>
 
-          <div className="space-y-2 mb-8">
+          <div className="space-y-2 mb-6">
             <p className="font-semibold text-[10px] uppercase text-[#8C857B]">
               {docType === 'cenova_ponuka' ? 'Podmienky cenovej ponuky:' : 'Lekársky nález / Dekurzus:'}
             </p>
             <div className="whitespace-pre-line text-xs text-[#2C2A29]">
-              {notes || 'Tuto sa zobrazí text...'}
+              {notes || 'Tuto sa zobrazí text nálezu...'}
             </div>
           </div>
 
-          <div className="mt-12 border-t border-[#E8E2D9] pt-4 flex justify-between items-end text-[10px] text-[#8C857B]">
+          {/* PRESNÉ ZNENIE POUČENIA, SÚHLASU A GDPR PRE VSTUPNÉ VYŠETRENIE */}
+          <div className="text-[8px] text-[#8C857B] space-y-1.5 border-t border-[#E8E2D9] pt-3 leading-tight text-justify">
+            <p>
+              Po vyšetreniach a zhodnotení anamnézy, objektívneho nálezu a rizikových faktorov je možné očakávať priaznivý efekt výkonu.
+            </p>
+            <p className="font-semibold text-[#2C2A29]">
+              Bez zjavnej kontraindikácie k výkonu (t.č.).
+            </p>
+            <p>
+              Klient/ka súhlasí s vykonaním vyšetrení v stanovenom rozsahu. Klient/ka prehlasuje, že bol/a poučený/á o výkone jeho priebehu a podstate, výsledných jazvách, rizikách a komplikáciách, pooperačnom režime a starostlivosti vrátane jeho trvania. Bol/a tiež poučený/á o možnosti pooperačnej asymetrie, možnosti následnej korekcie, o cene a jej zložkách. Bol podrobne prerokovaný miestny nález vrátane predoperačnej asymetrie, kvality tkanív a vysvetlené, čo operáciou možno dosiahnuť. Boli diskutované rizikové faktory a bolo upozornené na ich vplyv na priebeh výkonu, hojenie, alebo na výskyt komplikácií. Klient/ka rozumie, nemá ďalšie otázky, preberá podrobné poučenie v písomnej forme na ďalšie preštudovanie.
+            </p>
+            <p>
+              Prevádzkovateľ spracúva osobné údaje pacienta, vrátane údajov o zdraví a medicínskej fotodokumentácie, za účelom poskytovania zdravotnej starostlivosti podľa zákona č. 576/2004 Z. z. Medicínske fotografie sú súčasťou zdravotnej dokumentácie. Priestory kliniky sú z dôvodu bezpečnosti a ochrany majetku monitorované kamerovým systémom (CCTV) na základe oprávneného záujmu prevádzkovateľa. Záznamy sú uchovávané po dobu [napr. 72 hodín / 14 dní]. Podrobné informácie o ochrane údajov a Vašich právach sú zverejnené v priestoroch recepcie.
+            </p>
+            <p className="font-semibold text-[#2C2A29]">
+              Rizikové faktory — Fajčenie: 3-násobne vyššie riziko komplikácií. Je vhodné prestať fajčiť minimálne 4 týždne pred operáciou a po operácii.
+            </p>
+          </div>
+
+          <div className="mt-8 border-t border-[#E8E2D9] pt-4 flex justify-between items-end text-[10px] text-[#8C857B]">
             <p>www.sayclinic.sk</p>
             <p className="text-center">
               <span className="font-semibold text-[#2C2A29]">{doctor}</span><br />
