@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HealthProService, HealthProResponse } from '../services/healthpro';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 export interface ServiceCategory {
   id: string;
@@ -9,6 +11,7 @@ export interface ServiceCategory {
   price: number;
 }
 
+// KOMPLETNÝ CENNÍK SAY CLINIC (94 POLOŽIEK)
 const SERVICES_DATABASE = {
   operations: [
     { id: 'op1', name: 'Zväčšenie prsníkov silikónovými implantátmi (augmentácia)', price: 4100 },
@@ -117,6 +120,24 @@ const SERVICES_DATABASE = {
   ],
 };
 
+// DATABÁZA MKCH-10 DIAGNÓZ
+const MKCH_DATABASE = [
+  { code: 'Z41.1', name: 'Z41.1 - Estetická chirurgická úprava' },
+  { code: 'Z41.8', name: 'Z41.8 - Iné výkony na estetické účely' },
+  { code: 'N62', name: 'N62 - Hypertrofia prsníka (Gigantomastia / Macromastia)' },
+  { code: 'N64.8', name: 'N64.8 - Iné špecifikované choroby prsníka (Ptóza / Asymetria)' },
+  { code: 'G56.0', name: 'G56.0 - Syndróm karpálneho tunela' },
+  { code: 'M65.3', name: 'M65.3 - Skákavý prst (Trigger finger)' },
+  { code: 'M72.0', name: 'M72.0 - Palmárna fasciálna fibromatóza (Dupuytrenova kontraktúra)' },
+  { code: 'D22.9', name: 'D22.9 - Melanocytový névus (Znamienko / Neuspecifikovaný)' },
+  { code: 'D17.9', name: 'D17.9 - Benígny lipomatózny nádor (Lipóm)' },
+  { code: 'L70.0', name: 'L70.0 - Acne vulgaris' },
+  { code: 'L91.0', name: 'L91.0 - Keloidná jazva' },
+  { code: 'L90.5', name: 'L90.5 - Jazvové stavy a atrofia kože' },
+  { code: 'L81.4', name: 'L81.4 - Iné epidermové hyperpigmentácie' },
+  { code: 'Z01.9', name: 'Z01.9 - Všeobecné vyšetrenie' },
+];
+
 const OBJ_MACROS: Record<string, string> = {
   viecka: "VIEČKA:\n• Objem znížený, v neadekvátnej distribúcii\n• Koža v prebytku\n• Orbitálny tuk prolabuje na horných aj dolných mihalniciach",
   nos: "NOS:\n• Dorsum: vyššej projekcie, primeranej šírky\n• Špička: v hyperprojekcii, bulbózna",
@@ -125,53 +146,70 @@ const OBJ_MACROS: Record<string, string> = {
 };
 
 interface FormProps {
-  onRecordCreated?: (sale: {
-    date: string;
-    patientName: string;
-    doctorName: string;
-    serviceType: string;
-    amount: number;
-  }) => void;
+  onRecordCreated?: (sale: { date: string; patientName: string; doctorName: string; serviceType: string; amount: number; }) => void;
+  initialPatient?: { name: string; birthNumber: string } | null;
 }
 
-export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
+export default function MedicalRecordForm({ onRecordCreated, initialPatient }: FormProps) {
   const [docType, setDocType] = useState<'dekurzus' | 'cenova_ponuka'>('dekurzus');
-  const [patientName, setPatientName] = useState('');
-  const [birthNumber, setBirthNumber] = useState('');
+  
+  const [patientName, setPatientName] = useState(initialPatient?.name || '');
+  const [birthNumber, setBirthNumber] = useState(initialPatient?.birthNumber || '');
+  
   const [doctor, setDoctor] = useState('MUDr. Ján Mráz');
   const [diagnosis, setDiagnosis] = useState('Z41.1 - Estetická chirurgická úprava');
+  const [manualProcedure, setManualProcedure] = useState(''); // Ručný zápis pre Dekurzus
   const [notes, setNotes] = useState('');
 
+  // Vybrané položky cenníka (iba pre Cenovú ponuku)
   const [selectedItems, setSelectedItems] = useState<ServiceCategory[]>([]);
 
-  // Anestézia & Pobyt
+  // Operačné poplatky
   const [hasOperation, setHasOperation] = useState(false);
   const [anesthesiaHours, setAnesthesiaHours] = useState(1);
   const [hospitalizationType, setHospitalizationType] = useState<'none' | 'half' | 'full'>('none');
-
+  
   const [loading, setLoading] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [result, setResult] = useState<HealthProResponse | null>(null);
 
-  const toggleItem = (item: ServiceCategory, isOperation = false) => {
-    const exists = selectedItems.find((i) => i.id === item.id);
-    if (exists) {
-      const updated = selectedItems.filter((i) => i.id !== item.id);
-      setSelectedItems(updated);
-    } else {
-      setSelectedItems([...selectedItems, item]);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  // Prepojenie z Kartotéky
+  useEffect(() => {
+    if (initialPatient) {
+      setPatientName(initialPatient.name);
+      setBirthNumber(initialPatient.birthNumber);
+    }
+  }, [initialPatient]);
+
+  // PRIDANIE POLOŽKY Z DROPDOWNU
+  const handleAddItemFromDropdown = (itemId: string, isOperation = false) => {
+    if (!itemId) return;
+    
+    const allServices = [
+      ...SERVICES_DATABASE.operations,
+      ...SERVICES_DATABASE.operationExtras,
+      ...SERVICES_DATABASE.applications,
+      ...SERVICES_DATABASE.cosmetics,
+      ...SERVICES_DATABASE.services,
+    ];
+    
+    const found = allServices.find((s) => s.id === itemId);
+    if (found && !selectedItems.some((i) => i.id === found.id)) {
+      setSelectedItems([...selectedItems, found]);
       if (isOperation) setHasOperation(true);
     }
   };
 
-  // Výpočet Ceny
+  const handleRemoveItem = (id: string) => {
+    setSelectedItems(selectedItems.filter((i) => i.id !== id));
+  };
+
   const basePrice = selectedItems.reduce((acc, curr) => acc + curr.price, 0);
   const anesthesiaPrice = hasOperation ? anesthesiaHours * 130 : 0;
   const hospitalizationPrice = hasOperation
-    ? hospitalizationType === 'half'
-      ? 100
-      : hospitalizationType === 'full'
-      ? 200
-      : 0
+    ? hospitalizationType === 'half' ? 100 : hospitalizationType === 'full' ? 200 : 0
     : 0;
 
   const totalPrice = basePrice + anesthesiaPrice + hospitalizationPrice;
@@ -181,12 +219,41 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
     setNotes((prev) => (prev ? prev + "\n\n" + OBJ_MACROS[key] : OBJ_MACROS[key]));
   };
 
+  const downloadPDF = async () => {
+    if (!printRef.current) return;
+    setIsGeneratingPdf(true);
+    try {
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      const safeName = (patientName || 'Neznamy_Pacient').replace(/[^a-z0-9]/gi, '_');
+      const docName = docType === 'cenova_ponuka' ? 'Cenova_Ponuka' : 'Dekurzus';
+      pdf.save(`SAYCLINIC_${docName}_${safeName}.pdf`);
+    } catch (error) {
+      console.error('Chyba pri generovaní PDF:', error);
+      alert('Nepodarilo sa vygenerovať PDF.');
+    }
+    setIsGeneratingPdf(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setResult(null);
 
-    const serviceTitle = selectedItems.map((i) => i.name).join(', ') || 'Klinický úkon';
+    const serviceTitle = docType === 'cenova_ponuka'
+      ? selectedItems.map((i) => i.name).join(', ') || 'Klinický úkon'
+      : manualProcedure || 'Klinický úkon';
 
     const response = await HealthProService.sendMedicalRecord({
       patientBirthNumber: birthNumber,
@@ -204,43 +271,23 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
         patientName: patientName || 'Neznámy pacient',
         doctorName: doctor,
         serviceType: docType === 'cenova_ponuka' ? `Cenová ponuka: ${serviceTitle}` : serviceTitle,
-        amount: totalPrice,
+        amount: docType === 'cenova_ponuka' ? totalPrice : 0,
       });
     }
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      {/* FORMULÁR LEKÁRA */}
+      {/* ĽAVÁ ČASŤ - FORMULÁR LEKÁRA */}
       <div className="lg:col-span-6 bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-5">
         <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
           <div>
-            <h2 className="font-brand text-xl font-light text-[#2C2A29] uppercase font-bold">
-              Generátor Dokumentov SAY CLINIC
-            </h2>
-            <p className="text-[9px] uppercase tracking-widest text-[#8C857B]">
-              Ambulantný nález & Cenové ponuky
-            </p>
+            <h2 className="font-brand text-xl font-light text-[#2C2A29] uppercase font-bold">Generátor Dokumentov SAY CLINIC</h2>
+            <p className="text-[9px] uppercase tracking-widest text-[#8C857B]">Ambulantný nález & Cenové ponuky</p>
           </div>
           <div className="flex gap-1 bg-[#FBF9F6] p-1 rounded-xl border border-[#E8E2D9]">
-            <button
-              type="button"
-              onClick={() => setDocType('dekurzus')}
-              className={`px-3 py-1 text-[10px] uppercase font-semibold rounded-lg transition-all ${
-                docType === 'dekurzus' ? 'bg-[#2C2A29] text-white' : 'text-[#8C857B]'
-              }`}
-            >
-              Dekurzus / Vstupné
-            </button>
-            <button
-              type="button"
-              onClick={() => setDocType('cenova_ponuka')}
-              className={`px-3 py-1 text-[10px] uppercase font-semibold rounded-lg transition-all ${
-                docType === 'cenova_ponuka' ? 'bg-[#C5A059] text-white' : 'text-[#8C857B]'
-              }`}
-            >
-              Cenová ponuka
-            </button>
+            <button type="button" onClick={() => setDocType('dekurzus')} className={`px-3 py-1 text-[10px] uppercase font-semibold rounded-lg transition-all ${ docType === 'dekurzus' ? 'bg-[#2C2A29] text-white' : 'text-[#8C857B]' }`}>Dekurzus / Vstupné</button>
+            <button type="button" onClick={() => setDocType('cenova_ponuka')} className={`px-3 py-1 text-[10px] uppercase font-semibold rounded-lg transition-all ${ docType === 'cenova_ponuka' ? 'bg-[#C5A059] text-white' : 'text-[#8C857B]' }`}>Cenová ponuka</button>
           </div>
         </div>
 
@@ -248,239 +295,207 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Ošetrujúci lekár</label>
-              <select
-                value={doctor}
-                onChange={(e) => setDoctor(e.target.value)}
-                className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]"
-              >
+              <select value={doctor} onChange={(e) => setDoctor(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]">
                 <option value="MUDr. Ján Mráz">MUDr. Ján Mráz</option>
                 <option value="MUDr. Zuzana Sroková, MPH">MUDr. Zuzana Sroková, MPH</option>
               </select>
             </div>
             <div>
               <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Meno a priezvisko</label>
-              <input
-                type="text"
-                required
-                value={patientName}
-                onChange={(e) => setPatientName(e.target.value)}
-                placeholder="napr. Mária Kováčová"
-                className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]"
-              />
+              <input type="text" required value={patientName} onChange={(e) => setPatientName(e.target.value)} placeholder="napr. Mária Kováčová" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Rodné číslo</label>
-              <input
-                type="text"
-                required
-                value={birthNumber}
-                onChange={(e) => setBirthNumber(e.target.value)}
-                placeholder="885512/6789"
-                className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]"
-              />
+              <input type="text" required value={birthNumber} onChange={(e) => setBirthNumber(e.target.value)} placeholder="885512/6789" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" />
             </div>
+            
+            {/* VYHĽADÁVANIE MKCH-10 DIAGNÓZ */}
             <div>
-              <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Diagnóza (MKCH-10)</label>
-              <input
-                type="text"
-                value={diagnosis}
-                onChange={(e) => setDiagnosis(e.target.value)}
-                className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]"
+              <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Diagnóza (MKCH-10 kód / názov)</label>
+              <input 
+                type="text" 
+                list="mkch-suggestions" 
+                value={diagnosis} 
+                onChange={(e) => setDiagnosis(e.target.value)} 
+                placeholder="Začnite písať (napr. Z41, karpál...)"
+                className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" 
               />
+              <datalist id="mkch-suggestions">
+                {MKCH_DATABASE.map((item) => (
+                  <option key={item.code} value={item.name} />
+                ))}
+              </datalist>
             </div>
           </div>
 
-          {/* DYNAMICKÝ CENNÍK (5 KATEGÓRIÍ) */}
-          <div className="border border-[#E8E2D9] rounded-xl p-3 bg-[#FBF9F6] space-y-3 max-h-96 overflow-y-auto">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-[#2C2A29]">
-              Výber výkonov z cenníka SAY CLINIC ({selectedItems.length} vybraných)
-            </p>
+          {/* DYNAMICKÉ ZOBRAZENIE: CENNÍK PRE CENOVÚ PONUKU VS. RUČNÝ ZÁPIS PRE DEKURZUS */}
+          {docType === 'cenova_ponuka' ? (
+            <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-[#2C2A29]">
+                Výber výkonov z cenníka SAY CLINIC ({selectedItems.length} vybraných)
+              </p>
 
-            {/* 1. Operácie */}
-            <div>
-              <p className="text-[10px] text-[#C5A059] font-bold uppercase mb-1">1. Operácie</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {SERVICES_DATABASE.operations.map((item) => {
-                  const selected = selectedItems.some((i) => i.id === item.id);
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => toggleItem(item, true)}
-                      className={`text-left text-[11px] p-2 rounded-lg border transition-all flex justify-between items-center ${
-                        selected ? 'bg-[#2C2A29] text-white border-[#2C2A29]' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
-                      }`}
-                    >
-                      <span className="truncate mr-2">{item.name}</span>
-                      <span className="font-bold">{item.price}€</span>
-                    </button>
-                  );
-                })}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* 1. Operácie */}
+                <div>
+                  <label className="block text-[9px] uppercase font-bold text-[#C5A059] mb-1">1. Operácie</label>
+                  <select 
+                    onChange={(e) => { handleAddItemFromDropdown(e.target.value, true); e.target.value = ''; }}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]"
+                  >
+                    <option value="">-- Pridať Operáciu --</option>
+                    {SERVICES_DATABASE.operations.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name} ({item.price} €)</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Príplatky */}
+                <div>
+                  <label className="block text-[9px] uppercase font-bold text-[#C5A059] mb-1">2. Príplatky k operáciám</label>
+                  <select 
+                    onChange={(e) => { handleAddItemFromDropdown(e.target.value); e.target.value = ''; }}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]"
+                  >
+                    <option value="">-- Pridať Príplatok --</option>
+                    {SERVICES_DATABASE.operationExtras.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name} (+{item.price} €)</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 3. Aplikácie */}
+                <div>
+                  <label className="block text-[9px] uppercase font-bold text-[#C5A059] mb-1">3. Aplikácie (Botox / Výplne)</label>
+                  <select 
+                    onChange={(e) => { handleAddItemFromDropdown(e.target.value); e.target.value = ''; }}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]"
+                  >
+                    <option value="">-- Pridať Aplikáciu --</option>
+                    {SERVICES_DATABASE.applications.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name} ({item.price} €)</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 4. Kozmetika & Prádlo */}
+                <div>
+                  <label className="block text-[9px] uppercase font-bold text-[#C5A059] mb-1">4. Kozmetika & Lipoelastic prádlo</label>
+                  <select 
+                    onChange={(e) => { handleAddItemFromDropdown(e.target.value); e.target.value = ''; }}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]"
+                  >
+                    <option value="">-- Pridať Kozmetiku / Prádlo --</option>
+                    {SERVICES_DATABASE.cosmetics.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name} ({item.price} €)</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
 
-            {/* 2. Príplatkové služby k operáciám */}
-            <div>
-              <p className="text-[10px] text-[#C5A059] font-bold uppercase mb-1">2. Príplatkové služby k operáciám</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {SERVICES_DATABASE.operationExtras.map((item) => {
-                  const selected = selectedItems.some((i) => i.id === item.id);
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => toggleItem(item)}
-                      className={`text-left text-[11px] p-2 rounded-lg border transition-all flex justify-between items-center ${
-                        selected ? 'bg-[#2C2A29] text-white border-[#2C2A29]' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
-                      }`}
-                    >
-                      <span className="truncate mr-2">{item.name}</span>
-                      <span className="font-bold">+{item.price}€</span>
-                    </button>
-                  );
-                })}
+              {/* 5. Služby */}
+              <div>
+                <label className="block text-[9px] uppercase font-bold text-[#C5A059] mb-1">5. Služby & Vyšetrenia</label>
+                <select 
+                  onChange={(e) => { handleAddItemFromDropdown(e.target.value); e.target.value = ''; }}
+                  className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]"
+                >
+                  <option value="">-- Pridať Službu / Vyšetrenie --</option>
+                  {SERVICES_DATABASE.services.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name} ({item.price} €)</option>
+                  ))}
+                </select>
               </div>
-            </div>
 
-            {/* 3. Aplikácie */}
-            <div>
-              <p className="text-[10px] text-[#C5A059] font-bold uppercase mb-1">3. Aplikácie (Botox & Výplne)</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {SERVICES_DATABASE.applications.map((item) => {
-                  const selected = selectedItems.some((i) => i.id === item.id);
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => toggleItem(item)}
-                      className={`text-left text-[11px] p-2 rounded-lg border transition-all flex justify-between items-center ${
-                        selected ? 'bg-[#2C2A29] text-white border-[#2C2A29]' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
-                      }`}
-                    >
-                      <span className="truncate mr-2">{item.name}</span>
-                      <span className="font-bold">{item.price}€</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 4. Kozmetika & Pooperačné Prádlo */}
-            <div>
-              <p className="text-[10px] text-[#C5A059] font-bold uppercase mb-1">4. Kozmetika, Zákroky & Lipoelastic prádlo</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {SERVICES_DATABASE.cosmetics.map((item) => {
-                  const selected = selectedItems.some((i) => i.id === item.id);
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => toggleItem(item)}
-                      className={`text-left text-[11px] p-2 rounded-lg border transition-all flex justify-between items-center ${
-                        selected ? 'bg-[#2C2A29] text-white border-[#2C2A29]' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
-                      }`}
-                    >
-                      <span className="truncate mr-2">{item.name}</span>
-                      <span className="font-bold">{item.price}€</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 5. Služby */}
-            <div>
-              <p className="text-[10px] text-[#C5A059] font-bold uppercase mb-1">5. Služby & Vyšetrenia</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {SERVICES_DATABASE.services.map((item) => {
-                  const selected = selectedItems.some((i) => i.id === item.id);
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => toggleItem(item)}
-                      className={`text-left text-[11px] p-2 rounded-lg border transition-all flex justify-between items-center ${
-                        selected ? 'bg-[#2C2A29] text-white border-[#2C2A29]' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
-                      }`}
-                    >
-                      <span className="truncate mr-2">{item.name}</span>
-                      <span className="font-bold">{item.price}€</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* OPERAČNÉ POPLATKY */}
-            <div className="border-t border-[#E8E2D9] pt-2 mt-2">
-              <label className="flex items-center space-x-2 text-xs font-bold text-[#2C2A29] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={hasOperation}
-                  onChange={(e) => setHasOperation(e.target.checked)}
-                  className="accent-[#C5A059]"
-                />
-                <span>Započítať Celkovú Anestéziu a Pobyt</span>
-              </label>
-
-              {hasOperation && (
-                <div className="mt-2 bg-white p-2.5 rounded-lg border border-[#E8E2D9] space-y-2 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span>Celková anestézia (130 € / hod):</span>
-                    <select
-                      value={anesthesiaHours}
-                      onChange={(e) => setAnesthesiaHours(parseFloat(e.target.value))}
-                      className="border border-[#E8E2D9] p-1 rounded bg-[#FBF9F6]"
-                    >
-                      <option value={1}>1 hodina (130 €)</option>
-                      <option value={1.5}>1.5 hodiny (195 €)</option>
-                      <option value={2}>2 hodiny (260 €)</option>
-                      <option value={2.5}>2.5 hodiny (325 €)</option>
-                      <option value={3}>3 hodiny (390 €)</option>
-                      <option value={3.5}>3.5 hodiny (455 €)</option>
-                      <option value={4}>4 hodiny (520 €)</option>
-                      <option value={5}>5 hodín (650 €)</option>
-                      <option value={6}>6 hodín (780 €)</option>
-                      <option value={7}>7 hodín (910 €)</option>
-                      <option value={8}>8 hodín (1040 €)</option>
-                    </select>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span>Hospitalizácia / Pobyt:</span>
-                    <select
-                      value={hospitalizationType}
-                      onChange={(e) => setHospitalizationType(e.target.value as 'none' | 'half' | 'full')}
-                      className="border border-[#E8E2D9] p-1 rounded bg-[#FBF9F6]"
-                    >
-                      <option value="none">Bez hospitalizácie (0 €)</option>
-                      <option value="half">Hospitalizácia - 1/2 dňa (100 €)</option>
-                      <option value="full">Hospitalizácia - 1 deň (200 €)</option>
-                    </select>
+              {/* ZOBRAZENIE VYBRANÝCH ŠTÍTKOV */}
+              {selectedItems.length > 0 && (
+                <div className="pt-2 border-t border-[#E8E2D9]">
+                  <p className="text-[9px] uppercase text-[#8C857B] font-bold mb-1.5">Zvolené položky:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedItems.map((item) => (
+                      <span 
+                        key={item.id} 
+                        className="bg-[#2C2A29] text-white text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm"
+                      >
+                        <span>{item.name} ({item.price} €)</span>
+                        <button 
+                          type="button" 
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="text-[#C5A059] hover:text-white font-bold text-xs"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* CELKOVÁ SUMA */}
-            <div className="bg-[#2C2A29] text-white p-3 rounded-xl flex justify-between items-center text-xs sticky bottom-0 shadow-md">
-              <span>Celková vypočítaná cena:</span>
-              <span className="text-base font-bold text-[#C5A059]">{totalPrice.toFixed(2)} €</span>
-            </div>
-          </div>
+              {/* OPERAČNÉ POPLATKY */}
+              <div className="border-t border-[#E8E2D9] pt-2 mt-2">
+                <label className="flex items-center space-x-2 text-xs font-bold text-[#2C2A29] cursor-pointer">
+                  <input type="checkbox" checked={hasOperation} onChange={(e) => setHasOperation(e.target.checked)} className="accent-[#C5A059]" />
+                  <span>Započítať Celkovú Anestéziu a Pobyt</span>
+                </label>
 
-          {/* Makrá */}
+                {hasOperation && (
+                  <div className="mt-2 bg-white p-2.5 rounded-lg border border-[#E8E2D9] space-y-2 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span>Celková anestézia (130 € / hod):</span>
+                      <select value={anesthesiaHours} onChange={(e) => setAnesthesiaHours(parseFloat(e.target.value))} className="border border-[#E8E2D9] p-1 rounded bg-[#FBF9F6]">
+                        <option value={1}>1 hodina (130 €)</option>
+                        <option value={1.5}>1.5 hodiny (195 €)</option>
+                        <option value={2}>2 hodiny (260 €)</option>
+                        <option value={2.5}>2.5 hodiny (325 €)</option>
+                        <option value={3}>3 hodiny (390 €)</option>
+                        <option value={3.5}>3.5 hodiny (455 €)</option>
+                        <option value={4}>4 hodiny (520 €)</option>
+                        <option value={5}>5 hodín (650 €)</option>
+                        <option value={6}>6 hodín (780 €)</option>
+                        <option value={7}>7 hodín (910 €)</option>
+                        <option value={8}>8 hodín (1040 €)</option>
+                      </select>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span>Hospitalizácia / Pobyt:</span>
+                      <select value={hospitalizationType} onChange={(e) => setHospitalizationType(e.target.value as 'none' | 'half' | 'full')} className="border border-[#E8E2D9] p-1 rounded bg-[#FBF9F6]">
+                        <option value="none">Bez hospitalizácie (0 €)</option>
+                        <option value="half">Hospitalizácia - 1/2 dňa (100 €)</option>
+                        <option value="full">Hospitalizácia - 1 deň (200 €)</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#2C2A29] text-white p-3 rounded-xl flex justify-between items-center text-xs shadow-md">
+                <span>Celková vypočítaná cena:</span>
+                <span className="text-base font-bold text-[#C5A059]">{totalPrice.toFixed(2)} €</span>
+              </div>
+            </div>
+          ) : (
+            /* AK JE ZVOLENÝ DEKURZUS - ZOBRAZÍ SA IBA RUČNÁ KOLÓNKA */
+            <div className="border border-[#E8E2D9] rounded-xl p-3 bg-[#FBF9F6]">
+              <label className="block text-[10px] uppercase font-bold text-[#2C2A29] mb-1">
+                Vykonaný úkon / Zákrok
+              </label>
+              <input 
+                type="text" 
+                value={manualProcedure} 
+                onChange={(e) => setManualProcedure(e.target.value)} 
+                placeholder="napr. Blefaroplastika horných viečok, Konzultácia..." 
+                className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" 
+              />
+            </div>
+          )}
+
           <div>
-            <label className="block font-light text-[#8C857B] uppercase text-[10px] tracking-wider mb-1">
-              Vložiť makro (Plastická chirurgia):
-            </label>
-            <select
-              onChange={(e) => insertMacro(e.target.value)}
-              className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white text-[#2C2A29]"
-            >
+            <label className="block font-light text-[#8C857B] uppercase text-[10px] tracking-wider mb-1">Vložiť makro (Plastická chirurgia):</label>
+            <select onChange={(e) => insertMacro(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white text-[#2C2A29]">
               <option value="">-- Vyberte oblasť (makro) --</option>
               <option value="viecka">Viečka</option>
               <option value="nos">Nos</option>
@@ -491,20 +506,10 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
 
           <div>
             <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Lekársky nález / Poznámky k vyšetreniu</label>
-            <textarea
-              rows={4}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Anamnéza, lokalizácia, nález alebo podmienky..."
-              className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29]"
-            />
+            <textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anamnéza, lokalizácia, nález alebo podmienky..." className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29]" />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#2C2A29] hover:bg-[#C5A059] text-white font-medium py-3 px-6 rounded-xl transition-colors text-xs uppercase tracking-wider disabled:opacity-50"
-          >
+          <button type="submit" disabled={loading} className="w-full bg-[#2C2A29] hover:bg-[#C5A059] text-white font-medium py-3 px-6 rounded-xl transition-colors text-xs uppercase tracking-wider disabled:opacity-50">
             {loading ? 'Spracovávam...' : docType === 'cenova_ponuka' ? 'Vystaviť Cenovú Ponuku' : 'Odoslať do HealthPro & Zaevidovať Tržbu'}
           </button>
         </form>
@@ -517,119 +522,128 @@ export default function MedicalRecordForm({ onRecordCreated }: FormProps) {
         )}
       </div>
 
-      {/* NÁHĽAD A4 TLAČOVÉHO DOKUMENTU */}
-      <div className="lg:col-span-6 bg-white p-8 rounded-2xl border border-[#E8E2D9] shadow-sm">
-        <h3 className="text-[10px] font-light text-[#8C857B] uppercase tracking-widest mb-4">
-          Náhľad tlačového dokumentu (A4) — {docType === 'cenova_ponuka' ? 'CENOVÁ PONUKA' : 'VSTUPNÉ VYŠETRENIE'}
-        </h3>
+      {/* PRAVÁ ČASŤ - NÁHĽAD A PDF */}
+      <div className="lg:col-span-6 bg-[#FBF9F6] p-8 rounded-2xl border border-[#E8E2D9] shadow-sm flex flex-col">
+        
+        <div className="flex justify-between items-center mb-4">
+           <h3 className="text-[10px] font-bold text-[#8C857B] uppercase tracking-widest">
+              Náhľad dokumentu — {docType === 'cenova_ponuka' ? 'CENOVÁ PONUKA' : 'AMBULANTNÝ NÁLEZ'}
+           </h3>
+           <button 
+             onClick={downloadPDF}
+             disabled={isGeneratingPdf}
+             className="bg-[#C5A059] hover:bg-[#b08d48] text-white text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+           >
+             {isGeneratingPdf ? 'Generujem PDF...' : '📥 Stiahnuť PDF'}
+           </button>
+        </div>
 
-        <div className="border border-[#E8E2D9] p-6 rounded-xl bg-white text-xs leading-relaxed min-h-[520px]">
-          <div className="border-b border-[#E8E2D9] pb-4 mb-4 flex justify-between items-start">
+        {/* TLAČOVÝ A4 DOKUMENT */}
+        <div ref={printRef} className="bg-white border border-[#E8E2D9] p-10 shadow-sm text-xs leading-relaxed w-full max-w-[595px] mx-auto" style={{ minHeight: '842px' }}>
+          
+          {/* Hlavička */}
+          <div className="border-b border-[#E8E2D9] pb-6 mb-6 flex justify-between items-start">
             <div>
-              <h2 className="font-brand text-lg font-light tracking-widest uppercase text-[#2C2A29]">
-                SAY CLINIC
-              </h2>
-              <p className="text-[9px] uppercase tracking-[0.2em] text-[#C5A059] font-semibold">
-                PLASTICKÁ CHIRURGIA & DERMATOLÓGIA
-              </p>
-              <p className="text-[9px] text-[#8C857B]">Rudlovská cesta 83, Banská Bystrica</p>
+              <h2 className="font-brand text-2xl font-light tracking-widest uppercase text-[#2C2A29]">SAY CLINIC</h2>
+              <p className="text-[9px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mt-1">PLASTICKÁ CHIRURGIA & DERMATOLÓGIA</p>
+              <p className="text-[10px] text-[#8C857B] mt-1">Rudlovská cesta 83, 974 11 Banská Bystrica</p>
             </div>
             <div className="text-right text-[10px] text-[#8C857B]">
-              <span className="bg-[#2C2A29] text-white px-2 py-0.5 rounded text-[8px] uppercase tracking-wider font-bold">
+              <span className="bg-[#2C2A29] text-white px-2 py-1 rounded text-[8px] uppercase tracking-wider font-bold">
                 {docType === 'cenova_ponuka' ? 'CENOVÁ PONUKA' : 'AMBULANTNÝ NÁLEZ'}
               </span>
-              <p className="font-semibold text-[#2C2A29] mt-1">{doctor}</p>
+              <p className="font-bold text-[#2C2A29] mt-2 text-sm">{doctor}</p>
+              <p className="mt-1">Dátum: {new Date().toLocaleDateString('sk-SK')}</p>
             </div>
           </div>
 
-          <div className="bg-[#FBF9F6] p-3 rounded-xl mb-4 border border-[#E8E2D9] text-xs space-y-1">
-            <p><strong>Pacient / Klient:</strong> {patientName || '---'}</p>
-            <p><strong>Rodné číslo:</strong> {birthNumber || '---'}</p>
-            <p><strong>Diagnóza:</strong> {diagnosis}</p>
+          {/* Údaje pacienta */}
+          <div className="bg-[#FBF9F6] p-4 rounded-xl mb-6 border border-[#E8E2D9] text-xs space-y-2">
+            <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Pacient / Klient:</strong> <span className="text-sm font-bold ml-2">{patientName || '---'}</span></p>
+            <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Rodné číslo:</strong> <span className="ml-2 font-mono">{birthNumber || '---'}</span></p>
+            <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Diagnóza:</strong> <span className="ml-2">{diagnosis}</span></p>
           </div>
 
-          {/* Rozpis položiek (CENY ZOBRAZENÉ IBA V CENOVEJ PONUKE) */}
-          <div className="space-y-2 mb-6">
-            <p className="font-semibold text-[10px] uppercase text-[#8C857B]">
-              {docType === 'cenova_ponuka' ? 'Rozpis zvolených výkonov a služieb:' : 'Zvolené výkony a zákroky:'}
+          {/* Zoznam úkonov */}
+          <div className="space-y-3 mb-8">
+            <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">
+              {docType === 'cenova_ponuka' ? 'Rozpis zvolených výkonov a služieb:' : 'Vykonaný úkon / Zákrok:'}
             </p>
-            {selectedItems.length === 0 ? (
-              <p className="text-xs text-[#8C857B] italic">Žiadne vybrané položky</p>
-            ) : (
-              <ul className="divide-y divide-[#E8E2D9] border border-[#E8E2D9] rounded-xl overflow-hidden">
-                {selectedItems.map((item) => (
-                  <li key={item.id} className="p-2 flex justify-between items-center text-xs bg-white">
-                    <span>{item.name}</span>
-                    {docType === 'cenova_ponuka' && (
-                      <span className="font-bold">{item.price.toFixed(2)} €</span>
-                    )}
-                  </li>
-                ))}
-                {hasOperation && (
-                  <>
-                    <li className="p-2 flex justify-between items-center text-xs bg-[#FBF9F6]">
-                      <span>Celková anestézia ({anesthesiaHours} hod.)</span>
-                      {docType === 'cenova_ponuka' && (
-                        <span className="font-bold">{anesthesiaPrice.toFixed(2)} €</span>
-                      )}
-                    </li>
-                    {hospitalizationType !== 'none' && (
-                      <li className="p-2 flex justify-between items-center text-xs bg-[#FBF9F6]">
-                        <span>{hospitalizationType === 'half' ? 'Hospitalizácia - 1/2 dňa' : 'Hospitalizácia - 1 deň'}</span>
-                        {docType === 'cenova_ponuka' && (
-                          <span className="font-bold">{hospitalizationPrice.toFixed(2)} €</span>
-                        )}
+            
+            {docType === 'cenova_ponuka' ? (
+              <>
+                {selectedItems.length === 0 ? (
+                  <p className="text-xs text-[#8C857B] italic">Žiadne vybrané položky</p>
+                ) : (
+                  <ul className="divide-y divide-[#E8E2D9]">
+                    {selectedItems.map((item) => (
+                      <li key={item.id} className="py-2 flex justify-between items-center text-xs">
+                        <span className="font-medium">{item.name}</span>
+                        <span className="font-bold">{item.price.toFixed(2)} €</span>
                       </li>
+                    ))}
+                    {hasOperation && (
+                      <>
+                        <li className="py-2 flex justify-between items-center text-xs">
+                          <span className="font-medium">Celková anestézia ({anesthesiaHours} hod.)</span>
+                          <span className="font-bold">{anesthesiaPrice.toFixed(2)} €</span>
+                        </li>
+                        {hospitalizationType !== 'none' && (
+                          <li className="py-2 flex justify-between items-center text-xs">
+                            <span className="font-medium">{hospitalizationType === 'half' ? 'Hospitalizácia - 1/2 dňa' : 'Hospitalizácia - 1 deň'}</span>
+                            <span className="font-bold">{hospitalizationPrice.toFixed(2)} €</span>
+                          </li>
+                        )}
+                      </>
                     )}
-                  </>
+                  </ul>
                 )}
-              </ul>
-            )}
 
-            {docType === 'cenova_ponuka' && (
-              <div className="flex justify-between items-center bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9] font-bold text-xs mt-2">
-                <span>Celková suma:</span>
-                <span className="text-sm text-[#C5A059]">{totalPrice.toFixed(2)} €</span>
-              </div>
+                <div className="flex justify-between items-center bg-[#FBF9F6] p-4 rounded-xl border border-[#C5A059] font-bold text-sm mt-4">
+                  <span className="uppercase tracking-wider text-[10px] text-[#8C857B]">Celková suma:</span>
+                  <span className="text-lg text-[#C5A059]">{totalPrice.toFixed(2)} €</span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm font-semibold text-[#2C2A29] py-1">
+                {manualProcedure || 'Klinické vyšetrenie / dekurzus'}
+              </p>
             )}
           </div>
 
-          <div className="space-y-2 mb-6">
-            <p className="font-semibold text-[10px] uppercase text-[#8C857B]">
+          {/* Text nálezu */}
+          <div className="space-y-2 mb-8 flex-1">
+            <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">
               {docType === 'cenova_ponuka' ? 'Podmienky cenovej ponuky:' : 'Lekársky nález / Dekurzus:'}
             </p>
-            <div className="whitespace-pre-line text-xs text-[#2C2A29]">
-              {notes || 'Tuto sa zobrazí text nálezu...'}
+            <div className="whitespace-pre-line text-sm text-[#2C2A29] leading-relaxed pt-2">
+              {notes || 'Text nálezu...'}
             </div>
           </div>
 
-          {/* PRESNÉ ZNENIE POUČENIA, SÚHLASU A GDPR PRE VSTUPNÉ VYŠETRENIE */}
-          <div className="text-[8px] text-[#8C857B] space-y-1.5 border-t border-[#E8E2D9] pt-3 leading-tight text-justify">
-            <p>
-              Po vyšetreniach a zhodnotení anamnézy, objektívneho nálezu a rizikových faktorov je možné očakávať priaznivý efekt výkonu.
-            </p>
-            <p className="font-semibold text-[#2C2A29]">
-              Bez zjavnej kontraindikácie k výkonu (t.č.).
-            </p>
-            <p>
-              Klient/ka súhlasí s vykonaním vyšetrení v stanovenom rozsahu. Klient/ka prehlasuje, že bol/a poučený/á o výkone jeho priebehu a podstate, výsledných jazvách, rizikách a komplikáciách, pooperačnom režime a starostlivosti vrátane jeho trvania. Bol/a tiež poučený/á o možnosti pooperačnej asymetrie, možnosti následnej korekcie, o cene a jej zložkách. Bol podrobne prerokovaný miestny nález vrátane predoperačnej asymetrie, kvality tkanív a vysvetlené, čo operáciou možno dosiahnuť. Boli diskutované rizikové faktory a bolo upozornené na ich vplyv na priebeh výkonu, hojenie, alebo na výskyt komplikácií. Klient/ka rozumie, nemá ďalšie otázky, preberá podrobné poučenie v písomnej forme na ďalšie preštudovanie.
-            </p>
-            <p>
-              Prevádzkovateľ spracúva osobné údaje pacienta, vrátane údajov o zdraví a medicínskej fotodokumentácie, za účelom poskytovania zdravotnej starostlivosti podľa zákona č. 576/2004 Z. z. Medicínske fotografie sú súčasťou zdravotnej dokumentácie. Priestory kliniky sú z dôvodu bezpečnosti a ochrany majetku monitorované kamerovým systémom (CCTV) na základe oprávneného záujmu prevádzkovateľa. Záznamy sú uchovávané po dobu [napr. 72 hodín / 14 dní]. Podrobné informácie o ochrane údajov a Vašich právach sú zverejnené v priestoroch recepcie.
-            </p>
-            <p className="font-semibold text-[#2C2A29]">
-              Rizikové faktory — Fajčenie: 3-násobne vyššie riziko komplikácií. Je vhodné prestať fajčiť minimálne 4 týždne pred operáciou a po operácii.
-            </p>
+          {/* PRÁVNE A GDPR TEXTY */}
+          <div className="text-[8px] text-[#8C857B] space-y-1.5 border-t border-[#E8E2D9] pt-4 mt-6 leading-tight text-justify">
+            <p>Po vyšetreniach a zhodnotení anamnézy, objektívneho nálezu a rizikových faktorov je možné očakávať priaznivý efekt výkonu.</p>
+            <p className="font-semibold text-[#2C2A29]">Bez zjavnej kontraindikácie k výkonu (t.č.).</p>
+            <p>Klient/ka súhlasí s vykonaním vyšetrení v stanovenom rozsahu. Klient/ka prehlasuje, že bol/a poučený/á o výkone jeho priebehu a podstate, výsledných jazvách, rizikách a komplikáciách, pooperačnom režime a starostlivosti vrátane jeho trvania. Bol/a tiež poučený/á o možnosti pooperačnej asymetrie, možnosti následnej korekcie, o cene a jej zložkách. Bol podrobne prerokovaný miestny nález vrátane predoperačnej asymetrie, kvality tkanív a vysvetlené, čo operáciou možno dosiahnuť. Boli diskutované rizikové faktory a bolo upozornené na ich vplyv na priebeh výkonu, hojenie, alebo na výskyt komplikácií. Klient/ka rozumie, nemá ďalšie otázky, preberá podrobné poučenie v písomnej forme na ďalšie preštudovanie.</p>
+            <p>Prevádzkovateľ spracúva osobné údaje pacienta, vrátane údajov o zdraví a medicínskej fotodokumentácie, za účelom poskytovania zdravotnej starostlivosti podľa zákona č. 576/2004 Z. z. Medicínske fotografie sú súčasťou zdravotnej dokumentácie. Priestory kliniky sú z dôvodu bezpečnosti a ochrany majetku monitorované kamerovým systémom (CCTV) na základe oprávneného záujmu prevádzkovateľa.</p>
+            <p className="font-semibold text-[#2C2A29]">Rizikové faktory — Fajčenie: 3-násobne vyššie riziko komplikácií. Je vhodné prestať fajčiť minimálne 4 týždne pred operáciou a po operácii.</p>
           </div>
 
-          <div className="mt-8 border-t border-[#E8E2D9] pt-4 flex justify-between items-end text-[10px] text-[#8C857B]">
-            <p>www.sayclinic.sk</p>
-            <p className="text-center">
-              <span className="font-semibold text-[#2C2A29]">{doctor}</span><br />
+          {/* Podpisy */}
+          <div className="mt-8 pt-6 flex justify-between items-end text-[10px] text-[#8C857B]">
+            <div>
+              <p className="font-bold text-[#C5A059] mb-1">www.sayclinic.sk</p>
+              <p>Generované systémom SAY CLINIC Portal</p>
+            </div>
+            <div className="text-center">
+              <div className="w-40 border-b border-[#2C2A29] mb-2"></div>
+              <span className="font-bold text-[#2C2A29]">{doctor}</span><br />
               Pečiatka a podpis lekára
-            </p>
+            </div>
           </div>
         </div>
+
       </div>
     </div>
   );
