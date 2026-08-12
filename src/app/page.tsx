@@ -4,10 +4,11 @@ import React, { useState } from 'react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import HistoryTable from '../components/HistoryTable';
 import LoginForm from '../components/LoginForm';
+import FinanceCRM from '../components/FinanceCRM';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'generator' | 'history'>('generator');
+  const [activeTab, setActiveTab] = useState<'generator' | 'history' | 'finance'>('generator');
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FBF9F6]">
@@ -25,7 +26,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* NAVIGÁCIA IBA AK JE PRIHLÁSENÝ */}
+          {/* NAVIGÁCIA AK JE PRIHLÁSENÝ */}
           {currentUser && (
             <nav className="flex gap-2 text-[11px] font-light uppercase tracking-wider text-[#8C857B]">
               <button
@@ -47,6 +48,16 @@ export default function Home() {
                 }`}
               >
                 📋 História & NCZI
+              </button>
+              <button
+                onClick={() => setActiveTab('finance')}
+                className={`px-3 py-2 transition-all ${
+                  activeTab === 'finance'
+                    ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold'
+                    : 'hover:text-[#2C2A29]'
+                }`}
+              >
+                📊 Financie & CRM
               </button>
             </nav>
           )}
@@ -71,7 +82,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* HLAVNÝ OBSAH */}
+      {/* OBSAH */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
         {!currentUser ? (
           <LoginForm onLoginSuccess={(user) => setCurrentUser(user)} />
@@ -79,6 +90,7 @@ export default function Home() {
           <>
             {activeTab === 'generator' && <MedicalRecordForm />}
             {activeTab === 'history' && <HistoryTable />}
+            {activeTab === 'finance' && <FinanceCRM />}
           </>
         )}
       </main>
