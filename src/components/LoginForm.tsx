@@ -10,43 +10,35 @@ export default function LoginForm({ onLoginSuccess }: { onLoginSuccess: (user: {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    // Jednoduchá overovacia logika (zatiaľ MOCK prihlásenie)
     if (!email.includes('@')) {
-      setError('Zadajte platný služobný e-mail.');
+      setError('Zadajte platný e-mail.');
       return;
     }
 
-    if (password.length < 4) {
-      setError('Heslo musí mať alespoň 4 znaky.');
-      return;
-    }
-
-    // Simulácia úspešného prihlásenia
-    const userName = role === 'doctor' ? 'MUDr. Peter Kováč' : 'Sestra Mária Nováková';
+    const userName = role === 'doctor' ? 'MUDr. Ján Mráz' : 'Sestra Mária Nováková';
     onLoginSuccess({ name: userName, role });
   };
 
   return (
-    <div className="max-w-md mx-auto mt-12 p-8 bg-white rounded-2xl shadow-lg border border-gray-100">
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Prihlásenie do systému</h2>
-        <p className="text-sm text-gray-500 mt-1">SayClinic • Ambulantný portál</p>
+    <div className="bg-white rounded-3xl p-8 shadow-sm border border-[#E8E3DA] max-w-md mx-auto">
+      <div className="text-center mb-8">
+        <span className="text-xs uppercase tracking-widest text-[#C5A880] font-semibold">Vítajte späť</span>
+        <h2 className="text-2xl font-serif text-[#2C2A29] font-bold mt-1">Prihlásenie personálu</h2>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Výber roly */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Rola v ambulancii:</label>
+          <label className="block text-xs uppercase tracking-wider text-[#8C857B] font-semibold mb-2">
+            Rola
+          </label>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setRole('doctor')}
-              className={`py-2 px-4 rounded-lg font-medium text-sm transition-all border ${
+              className={`py-2.5 px-4 rounded-xl font-medium text-xs uppercase tracking-wider transition-all border ${
                 role === 'doctor'
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                  : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                  ? 'bg-[#3D4A3E] text-white border-[#3D4A3E]'
+                  : 'bg-[#FBF9F5] text-[#8C857B] border-[#E8E3DA]'
               }`}
             >
               👨‍⚕️ Lekár
@@ -54,10 +46,10 @@ export default function LoginForm({ onLoginSuccess }: { onLoginSuccess: (user: {
             <button
               type="button"
               onClick={() => setRole('nurse')}
-              className={`py-2 px-4 rounded-lg font-medium text-sm transition-all border ${
+              className={`py-2.5 px-4 rounded-xl font-medium text-xs uppercase tracking-wider transition-all border ${
                 role === 'nurse'
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                  : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                  ? 'bg-[#3D4A3E] text-white border-[#3D4A3E]'
+                  : 'bg-[#FBF9F5] text-[#8C857B] border-[#E8E3DA]'
               }`}
             >
               👩‍⚕️ Sestra
@@ -65,40 +57,41 @@ export default function LoginForm({ onLoginSuccess }: { onLoginSuccess: (user: {
           </div>
         </div>
 
-        {/* E-mail */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Služobný E-mail:</label>
+          <label className="block text-xs uppercase tracking-wider text-[#8C857B] font-semibold mb-2">
+            Služobný E-mail
+          </label>
           <input
             type="email"
             required
-            placeholder={role === 'doctor' ? 'mraz@sayclinic.sk' : 'sestra@sayclinic.sk'}
+            placeholder="mraz@sayclinic.sk"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+            className="w-full px-4 py-3 bg-[#FBF9F5] border border-[#E8E3DA] rounded-xl text-sm text-[#2C2A29] focus:outline-none focus:border-[#3D4A3E]"
           />
         </div>
 
-        {/* Heslo */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Heslo:</label>
+          <label className="block text-xs uppercase tracking-wider text-[#8C857B] font-semibold mb-2">
+            Heslo
+          </label>
           <input
             type="password"
             required
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+            className="w-full px-4 py-3 bg-[#FBF9F5] border border-[#E8E3DA] rounded-xl text-sm text-[#2C2A29] focus:outline-none focus:border-[#3D4A3E]"
           />
         </div>
 
-        {/* Chybové hlásenie */}
-        {error && <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg">{error}</div>}
+        {error && <div className="p-3 text-xs text-red-600 bg-red-50 rounded-xl border border-red-200">{error}</div>}
 
         <button
           type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors shadow-md"
+          className="w-full bg-[#3D4A3E] hover:bg-[#2E382E] text-white font-medium py-3.5 px-6 rounded-xl transition-all text-xs uppercase tracking-wider shadow-sm"
         >
-          Vstúpiť do systému
+          Vstúpiť do ambulancie
         </button>
       </form>
     </div>
