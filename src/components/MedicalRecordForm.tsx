@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { HealthProService, HealthProResponse } from '../services/healthpro';
+import { MKCH_DATABASE } from '../data/mkch';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -119,24 +120,6 @@ const SERVICES_DATABASE = {
     { id: 'sl4', name: 'Nadštandardná samostatná lôžková izba', price: 30 },
   ],
 };
-
-// DATABÁZA MKCH-10 DIAGNÓZ
-const MKCH_DATABASE = [
-  { code: 'Z41.1', name: 'Z41.1 - Estetická chirurgická úprava' },
-  { code: 'Z41.8', name: 'Z41.8 - Iné výkony na estetické účely' },
-  { code: 'N62', name: 'N62 - Hypertrofia prsníka (Gigantomastia / Macromastia)' },
-  { code: 'N64.8', name: 'N64.8 - Iné špecifikované choroby prsníka (Ptóza / Asymetria)' },
-  { code: 'G56.0', name: 'G56.0 - Syndróm karpálneho tunela' },
-  { code: 'M65.3', name: 'M65.3 - Skákavý prst (Trigger finger)' },
-  { code: 'M72.0', name: 'M72.0 - Palmárna fasciálna fibromatóza (Dupuytrenova kontraktúra)' },
-  { code: 'D22.9', name: 'D22.9 - Melanocytový névus (Znamienko / Neuspecifikovaný)' },
-  { code: 'D17.9', name: 'D17.9 - Benígny lipomatózny nádor (Lipóm)' },
-  { code: 'L70.0', name: 'L70.0 - Acne vulgaris' },
-  { code: 'L91.0', name: 'L91.0 - Keloidná jazva' },
-  { code: 'L90.5', name: 'L90.5 - Jazvové stavy a atrofia kože' },
-  { code: 'L81.4', name: 'L81.4 - Iné epidermové hyperpigmentácie' },
-  { code: 'Z01.9', name: 'Z01.9 - Všeobecné vyšetrenie' },
-];
 
 const OBJ_MACROS: Record<string, string> = {
   viecka: "VIEČKA:\n• Objem znížený, v neadekvátnej distribúcii\n• Koža v prebytku\n• Orbitálny tuk prolabuje na horných aj dolných mihalniciach",
@@ -312,7 +295,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               <input type="text" required value={birthNumber} onChange={(e) => setBirthNumber(e.target.value)} placeholder="885512/6789" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" />
             </div>
             
-            {/* VYHĽADÁVANIE MKCH-10 DIAGNÓZ */}
+            {/* VYHĽADÁVANIE VŠETKÝCH 2 037 MKCH-10 DIAGNÓZ */}
             <div>
               <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Diagnóza (MKCH-10 kód / názov)</label>
               <input 
@@ -320,7 +303,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                 list="mkch-suggestions" 
                 value={diagnosis} 
                 onChange={(e) => setDiagnosis(e.target.value)} 
-                placeholder="Začnite písať (napr. Z41, karpál...)"
+                placeholder="Začnite písať (napr. Z41, N62, lipóm...)"
                 className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" 
               />
               <datalist id="mkch-suggestions">
@@ -331,7 +314,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
             </div>
           </div>
 
-          {/* DYNAMICKÉ ZOBRAZENIE: CENNÍK PRE CENOVÚ PONUKU VS. RUČNÝ ZÁPIS PRE DEKURZUS */}
+          {/* DYNAMICKÉ ZOBRAZENIE: CENNÍK IBA PRE CENOVÚ PONUKU VS. RUČNÝ ZÁPIS PRE DEKURZUS */}
           {docType === 'cenova_ponuka' ? (
             <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
               <p className="text-[10px] uppercase tracking-wider font-bold text-[#2C2A29]">
