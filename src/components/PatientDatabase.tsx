@@ -48,7 +48,6 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
   const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne'>('dokumenty');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // STAVY PRE NOVÉHO PACIENTA (MODAL FORMULÁR)
   const [isAddingPatient, setIsAddingPatient] = useState(false);
   const [newPatientData, setNewPatientData] = useState<Omit<Patient, 'id'>>({
     name: '',
@@ -60,7 +59,6 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
     insurance: '24 (Dôvera)',
   });
 
-  // DATABÁZA DOKUMENTOV
   const [patientRecords, setPatientRecords] = useState<Record<string, MedicalRecord[]>>({
     'P1': [
       { id: 'rec-1', type: 'Operačný protokol', typeColor: 'bg-[#2C2A29]', title: 'Augmentácia prsníkov', doctor: 'MUDr. Ján Mráz', diagnosis: 'Z41.1', date: '2026-08-12', content: 'Zákrok prebehol bez komplikácií v celkovej anestézii.\n\nBoli použité silikónové implantáty Motiva 320ml, vložené pod sval. Rany zašité vstrebateľným stehom.\n\nPacientka stabilizovaná, poučená o pooperačnom režime a nutnosti nosiť kompresné prádlo Lipoelastic PI ideal na 6 týždňov.' },
@@ -73,7 +71,6 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Fotodokumentácia State
   const [activePhotoCategory, setActivePhotoCategory] = useState<string | null>(null);
   const [patientPhotos, setPatientPhotos] = useState<Record<string, UploadedPhoto[]>>({
     'P1_Predoperačné': [
@@ -94,7 +91,6 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
     setActivePhotoCategory(null);
   };
 
-  // VYTVORENIE NOVÉHO PACIENTA
   const handleAddPatientSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPatientData.name || !newPatientData.birthNumber) return;
@@ -107,7 +103,6 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
     setPatients([createdPatient, ...patients]);
     setIsAddingPatient(false);
     
-    // Reset formulára
     setNewPatientData({
       name: '',
       birthNumber: '',
@@ -118,7 +113,6 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
       insurance: '24 (Dôvera)',
     });
 
-    // Rovno otvoríme kartu nového pacienta
     handlePatientSelect(createdPatient);
   };
 
@@ -358,7 +352,7 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
                 <div>
                   <h2 className="font-brand text-2xl font-light tracking-widest uppercase text-[#2C2A29]">SAY CLINIC</h2>
                   <p className="text-[9px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mt-1">PLASTICKÁ CHIRURGIA & DERMATOLÓGIA</p>
-                  <p className="text-[10px] text-[#8C857B] mt-1">Rudlovská cesta 83, 974 11 Banská Bystrica</p>
+                  <p className="text-[10px] text-[#8C857B] mt-1">Lazovná 43, 974 01 Banská Bystrica</p>
                 </div>
                 <div className="text-right text-[10px] text-[#8C857B]">
                   <span className={`text-white px-2 py-1 rounded text-[8px] uppercase tracking-wider font-bold ${previewRecord.typeColor}`}>
@@ -413,7 +407,6 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
               <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Zoznam klientov a ich zdravotná história</p>
             </div>
             
-            {/* TLAČIDLO NA OTVORENIE FORMULÁRA */}
             <button 
               onClick={() => setIsAddingPatient(true)}
               className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors"

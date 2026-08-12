@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
-import PatientDatabase, { Patient } from '../components/PatientDatabase';
+import PatientDatabase from '../components/PatientDatabase';
 import LoginForm from '../components/LoginForm';
 import FinanceCRM from '../components/FinanceCRM';
 
@@ -23,9 +23,9 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'generator' | 'patients' | 'finance'>('generator');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
-  
-  // PRIDANÉ: Stav pre pacienta, ktorého údaje chceme predvyplniť
-  const [prefilledPatient, setPrefilledPatient] = useState<{name: string, birthNumber: string} | null>(null);
+
+  // PRIDANÉ: Stav pre uchovanie vybraného pacienta z Kartotéky
+  const [selectedPatient, setSelectedPatient] = useState<{ name: string; birthNumber: string } | null>(null);
 
   const handleAddSale = (newSale: Omit<SaleItem, 'id'>) => {
     const item: SaleItem = {
@@ -35,9 +35,9 @@ export default function Home() {
     setSales((prev) => [item, ...prev]);
   };
 
-  // PRIDANÉ: Funkcia, ktorá sa zavolá, keď v Kartotéke klikneš na "+ Vytvoriť nový záznam"
-  const handleNavigateToGenerator = (patient: Patient) => {
-    setPrefilledPatient({ name: patient.name, birthNumber: patient.birthNumber });
+  // PRIDANÉ: Funkcia pre navigáciu z Kartotéky do Generátora a prenos pacienta
+  const handleNavigateToGenerator = (patient: { name: string; birthNumber: string }) => {
+    setSelectedPatient(patient);
     setActiveTab('generator');
   };
 
@@ -61,7 +61,10 @@ export default function Home() {
           {currentUser && (
             <nav className="flex gap-2 text-[11px] font-light uppercase tracking-wider text-[#8C857B]">
               <button
-                onClick={() => { setActiveTab('generator'); setPrefilledPatient(null); }}
+                onClick={() => {
+                  setSelectedPatient(null); // Pri bežnom prekliku cez menu vyčistíme pacienta
+                  setActiveTab('generator');
+                }}
                 className={`px-3 py-2 transition-all ${
                   activeTab === 'generator' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
                 }`}
@@ -113,22 +116,24 @@ export default function Home() {
           <LoginForm onLoginSuccess={(user) => setCurrentUser(user)} />
         ) : (
           <>
-            {/* PRIDANÉ: Odovzdávanie prefilledPatient do Generátora */}
+            {/* PRIDANÉ: Odovzdanie initialPatient */}
             {activeTab === 'generator' && (
               <MedicalRecordForm 
                 onRecordCreated={handleAddSale} 
-                initialPatient={prefilledPatient} 
+                initialPatient={selectedPatient} 
               />
             )}
-            
-            {/* PRIDANÉ: Odovzdávanie callbacku do Kartotéky */}
+            {/* PRIDANÉ: Odovzdanie funkcie na navigáciu */}
             {activeTab === 'patients' && (
               <PatientDatabase 
                 onNavigateToGenerator={handleNavigateToGenerator} 
               />
             )}
-            
-            {activeTab === 'finance' && <FinanceCRM sales={sales} />}
+            {activeTab === 'finance' && (
+              <FinanceCRM 
+                sales={sales} 
+              />
+            )}
           </>
         )}
       </main>
