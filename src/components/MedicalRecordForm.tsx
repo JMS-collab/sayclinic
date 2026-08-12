@@ -119,7 +119,6 @@ const SERVICES_DATABASE = {
   ],
 };
 
-// ZJEDNOTENÉ A KOMPLETNÉ MAKRÁ PRE VŠETKY DOKUMENTY
 const CLINIC_MACROS: Record<string, string> = {
   viecka: "VIEČKA:\n• Objem znížený, v neadekvátnej distribúcii\n• Koža v prebytku\n• Orbitálny tuk prolabuje na horných aj dolných mihalniciach\n• laterálny kantálny uhol v norme\n• Scleral show\n• Snap test a distorzný test adekvátny subadekvátny neadekvátny\n• Midface s deficitom v tukových kompartmentoch\n• Výška obočia cca. 5mm pod ideálnou pozíciou",
   nos: "NOS:\n• Dorsum - vyššej projekcie, primeranej šírky, dorzálne línie primeranej šírky nasion, rhinion, keystone, ASA\n• Špička - v hyperprojekcii, bulbózna, poklesnutá, kolumela, koža adekvátna\n• Krídla primeranej šírky a výšky\n• Septum - bez známok deviácie, endonazálne zväčšené conch, inf. bilat.\n• Inspiračný test - , Funkčné problémy -, Operácie nosa neguje",
@@ -131,7 +130,31 @@ const CLINIC_MACROS: Record<string, string> = {
   ruka: "RUKA:\nKarpálny tunel:\n• Tinel -, Phalen +\n• senzitívny deficit neprítomný, paroxyzmálne tŕpnutie, nočné bolesti\n• motorický deficit - slabosť, hypotrofia thenarových svalov\n\nDupuytrenova kontraktúra:\n• dlaňovo - prstová forma\n• DIP v norme, PIP flekč. kontr v 50°, CMP fix. v 20-30°\n• Tubiana II -III"
 };
 
-// VŠETKY TYPY DOKUMENTOV
+// FUNKCIA NA VÝPOČET VEKU Z RODNÉHO ČÍSLA
+const calculateAgeFromRC = (rc: string) => {
+  if (!rc || rc.length < 9) return '';
+  const cleanRc = rc.replace(/\D/g, '');
+  if (cleanRc.length < 9) return '';
+  
+  let year = parseInt(cleanRc.substring(0, 2), 10);
+  let month = parseInt(cleanRc.substring(2, 4), 10);
+  let day = parseInt(cleanRc.substring(4, 6), 10);
+  
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+  
+  if (month > 50) month -= 50;
+  if (month > 20) month -= 20; // Pre niektoré špecifické formáty
+  
+  year += (year > 26) ? 1900 : 2000;
+  
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  if (today.getMonth() + 1 < month || (today.getMonth() + 1 === month && today.getDate() < day)) {
+    age--;
+  }
+  return age.toString();
+};
+
 type DocumentType = 
   | 'vstupne_vysetrenie'
   | 'kontrolne_vysetrenie'
@@ -173,12 +196,13 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<HealthProResponse | null>(null);
 
-  // CENNÍK & ANESTÉZIA (Cenová ponuka)
+  // ZDIEĽANÝ STAV PRE ANESTÉZIU A HOSPITALIZÁCIU (Pre VV aj Cenník)
   const [hasOperation, setHasOperation] = useState(false);
   const [anesthesiaHours, setAnesthesiaHours] = useState(1);
-  const [hospitalizationType, setHospitalizationType] = useState<'none' | 'half' | 'full'>('none');
+  const [hospitalizationType, setHospitalizationType] = useState<'none' | 'half' | 'full' | 'full_2'>('none');
+  const [vvAnesthesiaType, setVvAnesthesiaType] = useState('Lokálna');
 
-  // OPERAČNÉ ÚDAJE (Protokol a Prepúšťacia správa)
+  // OPERAČNÉ ÚDAJE
   const [surgeryDetails, setSurgeryDetails] = useState({
     opStart: '09:00', opEnd: '10:30',
     anesStart: '08:45', anesEnd: '10:45',
@@ -190,19 +214,14 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     diseases: 'Nie', pregnant: 'Nie', medications: 'Nie', allergies: 'Nie', complications: 'Nie'
   });
 
-  // ==========================================
-  // ÚDAJE PRE VSTUPNÉ VYŠETRENIE
-  // ==========================================
+  // VSTUPNÉ VYŠETRENIE
   const [vvPlan, setVvPlan] = useState('');
   const [vvDate, setVvDate] = useState('');
-  const [vvAnesthesiaType, setVvAnesthesiaType] = useState('Lokálna');
-  const [vvDuration, setVvDuration] = useState('1 hod');
-  const [vvHosp, setVvHosp] = useState('ambulantne');
   
   // Anamnéza
   const [vvVek, setVvVek] = useState('');
-  const [vvVyska, setVvVyska] = useState(''); // v cm
-  const [vvVaha, setVvVaha] = useState('');   // v kg
+  const [vvVyska, setVvVyska] = useState('');
+  const [vvVaha, setVvVaha] = useState('');
   const [vvAA, setVvAA] = useState('');
   const [vvOA, setVvOA] = useState('');
   const [vvLA, setVvLA] = useState('');
@@ -214,12 +233,10 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   
   // Vyšetrenia
   const [vvExams, setVvExams] = useState<string[]>([]);
-  const [vvExamsOther, setVvExamsOther] = useState(''); // Textové pole pre iné vyšetrenie
+  const [vvExamsOther, setVvExamsOther] = useState('');
   
-  // Materiál a Implantát
-  const [vvImplVyrobca, setVvImplVyrobca] = useState('');
-  const [vvImplKat, setVvImplKat] = useState('');
-  const [vvImplObjem, setVvImplObjem] = useState('');
+  // Implantáty (Dynamické pole) a Materiál
+  const [vvImplants, setVvImplants] = useState([{ vyrobca: '', kat: '', objem: '' }]);
   const [vvMaterial, setVvMaterial] = useState('');
 
   // Súhlasy / Kontraindikácie
@@ -242,7 +259,23 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     }
   }, [initialPatient]);
 
-  // Výpočet BMI
+  // Automatický výpočet veku pri zmene Rodného čísla
+  useEffect(() => {
+    const computedAge = calculateAgeFromRC(birthNumber);
+    if (computedAge) {
+      setVvVek(computedAge);
+    }
+  }, [birthNumber]);
+
+  // Automatické zapnutie Anestézie pre Cenovú ponuku
+  useEffect(() => {
+    if (vvAnesthesiaType === 'Celková' || vvAnesthesiaType === 'Analgosedácia') {
+      setHasOperation(true);
+    } else {
+      setHasOperation(false);
+    }
+  }, [vvAnesthesiaType]);
+
   const calcBMI = () => {
     const w = parseFloat(vvVaha);
     const h = parseFloat(vvVyska);
@@ -254,9 +287,16 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   };
 
   const handleExamToggle = (exam: string) => {
-    setVvExams(prev => 
-      prev.includes(exam) ? prev.filter(e => e !== exam) : [...prev, exam]
-    );
+    setVvExams(prev => prev.includes(exam) ? prev.filter(e => e !== exam) : [...prev, exam]);
+  };
+
+  // Správa Implantátov
+  const addImplant = () => setVvImplants([...vvImplants, { vyrobca: '', kat: '', objem: '' }]);
+  const removeImplant = (index: number) => setVvImplants(vvImplants.filter((_, i) => i !== index));
+  const updateImplant = (index: number, field: 'vyrobca' | 'kat' | 'objem', value: string) => {
+    const newImplants = [...vvImplants];
+    newImplants[index][field] = value;
+    setVvImplants(newImplants);
   };
 
   const handleAddItemFromDropdown = (itemId: string, isOperation = false) => {
@@ -275,12 +315,15 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
   const basePrice = selectedItems.reduce((acc, curr) => acc + curr.price, 0);
   const anesthesiaPrice = hasOperation ? anesthesiaHours * 130 : 0;
-  const hospitalizationPrice = hasOperation ? hospitalizationType === 'half' ? 100 : hospitalizationType === 'full' ? 200 : 0 : 0;
+  const hospitalizationPrice = hasOperation 
+    ? hospitalizationType === 'half' ? 100 
+    : hospitalizationType === 'full' ? 200 
+    : hospitalizationType === 'full_2' ? 400 
+    : 0 : 0;
   const totalPrice = basePrice + anesthesiaPrice + hospitalizationPrice;
 
   const handlePrint = () => window.print();
 
-  // BEZPEČNÉ VLOŽENIE MAKRA (Funguje spoľahlivo zakaždým)
   const handleMacroInsert = (val: string, target: 'vv' | 'notes') => {
     if (!val || !CLINIC_MACROS[val]) return;
     if (target === 'vv') {
@@ -361,7 +404,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* ZÁKLADNÉ ÚDAJE (Viditeľné vždy) */}
+            {/* ZÁKLADNÉ ÚDAJE */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Ošetrujúci lekár</label>
@@ -390,7 +433,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             </div>
 
-            {/* SEKCIA: VSTUPNÉ VYŠETRENIE (Komplexná anamnéza) */}
+            {/* SEKCIA: VSTUPNÉ VYŠETRENIE */}
             {showVV && (
               <div className="space-y-4">
                 
@@ -408,21 +451,21 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Anestézia</label>
+                      <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Typ Anestézie</label>
                       <select value={vvAnesthesiaType} onChange={e => setVvAnesthesiaType(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
                         <option value="Lokálna">Lokálna</option><option value="Celková">Celková</option><option value="Analgosedácia">Analgosedácia</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Dĺžka zákroku</label>
-                      <select value={vvDuration} onChange={e => setVvDuration(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
-                        {['1 hod', '2 hod', '3 hod', '4 hod', '5 hod', '6 hod', '7 hod'].map(h => <option key={h} value={h}>{h}</option>)}
+                      <select value={anesthesiaHours} onChange={e => setAnesthesiaHours(parseFloat(e.target.value))} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                        {[1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8].map(h => <option key={h} value={h}>{h} hod</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Hospitalizácia</label>
-                      <select value={vvHosp} onChange={e => setVvHosp(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
-                        <option value="ambulantne">ambulantne</option><option value="1/2 dňa">1/2 dňa</option><option value="1 deň">1 deň</option><option value="2 dni">2 dni</option>
+                      <select value={hospitalizationType} onChange={e => setHospitalizationType(e.target.value as any)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                        <option value="none">Ambulantne</option><option value="half">1/2 dňa</option><option value="full">1 deň</option><option value="full_2">2 dni</option>
                       </select>
                     </div>
                   </div>
@@ -481,7 +524,6 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                         </label>
                       ))}
                     </div>
-                    {/* Zobrazenie textového poľa, ak je zaškrtnuté 'Iné' */}
                     {vvExams.includes('Iné') && (
                       <input 
                         type="text" 
@@ -492,20 +534,30 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                       />
                     )}
                   </div>
+                  
                   <div className="border-t border-[#E8E2D9] pt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Implantát</p>
-                      <div className="space-y-2">
-                        <input type="text" placeholder="Výrobca..." value={vvImplVyrobca} onChange={e => setVvImplVyrobca(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
-                        <div className="flex gap-2">
-                          <input type="text" placeholder="Kat. č." value={vvImplKat} onChange={e => setVvImplKat(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
-                          <input type="text" placeholder="Objem" value={vvImplObjem} onChange={e => setVvImplObjem(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                      <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Implantáty</p>
+                      {vvImplants.map((impl, idx) => (
+                        <div key={idx} className="space-y-2 bg-white p-2 rounded-lg border border-[#E8E2D9] mb-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] font-bold text-[#8C857B] uppercase">Implantát {idx + 1}</span>
+                            {vvImplants.length > 1 && (
+                              <button type="button" onClick={() => removeImplant(idx)} className="text-[9px] font-bold text-rose-500 uppercase">Odstrániť</button>
+                            )}
+                          </div>
+                          <input type="text" placeholder="Výrobca..." value={impl.vyrobca} onChange={e => updateImplant(idx, 'vyrobca', e.target.value)} className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FBF9F6]" />
+                          <div className="flex gap-2">
+                            <input type="text" placeholder="Kat. č." value={impl.kat} onChange={e => updateImplant(idx, 'kat', e.target.value)} className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FBF9F6]" />
+                            <input type="text" placeholder="Objem" value={impl.objem} onChange={e => updateImplant(idx, 'objem', e.target.value)} className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FBF9F6]" />
+                          </div>
                         </div>
-                      </div>
+                      ))}
+                      <button type="button" onClick={addImplant} className="text-[10px] uppercase font-bold text-[#C5A059] hover:text-[#2C2A29]">+ Pridať ďalší implantát</button>
                     </div>
                     <div>
                       <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Materiál (poop. prádlo, BTX...)</p>
-                      <textarea rows={3} value={vvMaterial} onChange={e => setVvMaterial(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                      <textarea rows={4} value={vvMaterial} onChange={e => setVvMaterial(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
                     </div>
                   </div>
                 </div>
@@ -581,6 +633,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                         <option value="none">Bez pobytu (0 €)</option>
                         <option value="half">Pobyt 1/2 dňa (100 €)</option>
                         <option value="full">Pobyt 1 deň (200 €)</option>
+                        <option value="full_2">Pobyt 2 dni (400 €)</option>
                       </select>
                     </div>
                   )}
@@ -728,17 +781,20 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
                 <div className="grid grid-cols-3 gap-4 border border-[#E8E2D9] rounded-xl p-3 bg-[#FBF9F6] text-xs">
                   <div><span className="block text-[9px] text-[#8C857B] uppercase font-bold">Anestézia</span>{vvAnesthesiaType}</div>
-                  <div><span className="block text-[9px] text-[#8C857B] uppercase font-bold">Dĺžka zákroku</span>{vvDuration}</div>
-                  <div><span className="block text-[9px] text-[#8C857B] uppercase font-bold">Hospitalizácia</span>{vvHosp}</div>
+                  <div><span className="block text-[9px] text-[#8C857B] uppercase font-bold">Dĺžka zákroku</span>{anesthesiaHours} hod</div>
+                  <div>
+                    <span className="block text-[9px] text-[#8C857B] uppercase font-bold">Hospitalizácia</span>
+                    {hospitalizationType === 'none' ? 'ambulantne' : hospitalizationType === 'half' ? '1/2 dňa' : hospitalizationType === 'full' ? '1 deň' : '2 dni'}
+                  </div>
                 </div>
 
                 <div>
                   <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">Anamnéza:</p>
                   <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs">
-                    <div><strong>Vek:</strong> {vvVek}</div><div><strong>AA:</strong> {vvAA}</div>
-                    <div><strong>Výška:</strong> {vvVyska ? `${vvVyska} cm` : ''}</div><div><strong>OA:</strong> {vvOA}</div>
-                    <div><strong>Váha:</strong> {vvVaha ? `${vvVaha} kg` : ''}</div><div><strong>LA:</strong> {vvLA}</div>
-                    <div><strong>BMI:</strong> {calcBMI()}</div><div><strong>GA:</strong> {vvGA}</div>
+                    <div><strong>Vek:</strong> {vvVek}</div><div><strong>AA:</strong> {vvAA || 'neudáva žiadne'}</div>
+                    <div><strong>Výška:</strong> {vvVyska ? `${vvVyska} cm` : ''}</div><div><strong>OA:</strong> {vvOA || 'neudáva žiadne'}</div>
+                    <div><strong>Váha:</strong> {vvVaha ? `${vvVaha} kg` : ''}</div><div><strong>LA:</strong> {vvLA || 'neudáva žiadne'}</div>
+                    <div><strong>BMI:</strong> {calcBMI()}</div><div><strong>GA:</strong> {vvGA || 'neudáva žiadne'}</div>
                   </div>
                 </div>
 
@@ -769,14 +825,21 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-1">Implantát:</p>
-                      <p className="text-xs"><strong>Výrobca:</strong> {vvImplVyrobca}</p>
-                      <p className="text-xs"><strong>Kat. č.:</strong> {vvImplKat}</p>
-                      <p className="text-xs"><strong>Objem:</strong> {vvImplObjem}</p>
+                      <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">Implantáty:</p>
+                      {vvImplants.some(impl => impl.vyrobca || impl.kat || impl.objem) ? (
+                         vvImplants.map((impl, idx) => (
+                          <div key={idx} className="mb-2">
+                            <p className="text-xs"><strong>Výrobca:</strong> {impl.vyrobca || '---'}</p>
+                            <p className="text-xs"><strong>Kat. č.:</strong> {impl.kat || '---'} | <strong>Objem:</strong> {impl.objem || '---'}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-[#8C857B]">Nevyžaduje sa</p>
+                      )}
                     </div>
                     <div>
                       <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-1">Materiál:</p>
-                      <p className="text-xs">{vvMaterial}</p>
+                      <p className="text-xs">{vvMaterial || '---'}</p>
                     </div>
                   </div>
                 </div>
@@ -796,7 +859,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   {hasOperation && (
                     <>
                       <li className="py-2 flex justify-between text-xs"><span className="font-medium">Celková anestézia ({anesthesiaHours} hod.)</span><span className="font-bold">{anesthesiaPrice.toFixed(2)} €</span></li>
-                      {hospitalizationType !== 'none' && <li className="py-2 flex justify-between text-xs"><span className="font-medium">{hospitalizationType === 'half' ? 'Pobyt 1/2 dňa' : 'Pobyt 1 deň'}</span><span className="font-bold">{hospitalizationPrice.toFixed(2)} €</span></li>}
+                      {hospitalizationType !== 'none' && <li className="py-2 flex justify-between text-xs"><span className="font-medium">{hospitalizationType === 'half' ? 'Pobyt 1/2 dňa' : hospitalizationType === 'full' ? 'Pobyt 1 deň' : 'Pobyt 2 dni'}</span><span className="font-bold">{hospitalizationPrice.toFixed(2)} €</span></li>}
                     </>
                   )}
                 </ul>
