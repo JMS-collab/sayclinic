@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import PatientDriveFiles from './PatientDriveFiles';
 
 export interface Patient {
   id: string;
@@ -11,6 +13,7 @@ export interface Patient {
   address: string;
   dob: string;
   insurance: string;
+  driveFolderLink?: string;
 }
 
 export interface MedicalRecord {
@@ -41,10 +44,12 @@ interface PatientDatabaseProps {
 }
 
 export default function PatientDatabase({ onNavigateToGenerator }: PatientDatabaseProps) {
+  const { data: session } = useSession();
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne'>('dokumenty');
+  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive'>('dokumenty');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   const [isAddingPatient, setIsAddingPatient] = useState(false);
   const [newPatientData, setNewPatientData] = useState<Omit<Patient, 'id'>>({
@@ -113,6 +118,52 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
     handlePatientSelect(createdPatient);
   };
 
+  // Hromadný import klientov z Google Drive zložky "Klienti SAY"
+  const handleRunDriveImport = async () => {
+    if (!session) {
+      alert('Pre import z Google Disku musíte byť prihlásený cez Google účet.');
+      return;
+    }
+
+    if (!confirm('Chcete spustiť automatické načítanie všetkých klientov zo zložky "Klienti SAY" na Google Disku?')) return;
+
+    setIsImporting(true);
+
+    try {
+      const res = await fetch('/api/drive/import', { method: 'POST' });
+      const data = await res.json();
+
+      if (res.ok && data.success && data.patients) {
+        const importedList: Patient[] = data.patients.map((item: any, idx: number) => ({
+          id: item.id || `P-drive-${idx}`,
+          name: item.name,
+          birthNumber: 'Importované z Drive',
+          phone: '---',
+          email: '---',
+          address: '---',
+          dob: '---',
+          insurance: 'Drive Klient',
+          driveFolderLink: item.driveFolderLink
+        }));
+
+        setPatients(prev => {
+          const existingNames = new Set(prev.map(p => p.name.toLowerCase()));
+          const uniqueNew = importedList.filter(p => !existingNames.has(p.name.toLowerCase()));
+          return [...uniqueNew, ...prev];
+        });
+
+        alert(`🎉 Úspešne sa načítalo ${data.totalImported} kariet klientov z Google Disku!`);
+      } else {
+        alert(`Chyba importu: ${data.error || 'Nepodarilo sa načítat zložku Klienti SAY'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Chyba pri komunikácii s Google Drive API.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleDeleteRecord = (recordId: string) => {
     if (!selectedPatient) return;
     if (confirm('Naozaj chcete natrvalo vymazať tento záznam?')) {
@@ -146,14 +197,12 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Natívne tlačenie namiesto PDF
   const handlePrint = () => {
     window.print();
   };
 
   return (
     <>
-      {/* EXTRÉMNE SILNÝ CSS ŠTÝL PRE TLAČ Z MODALU */}
       <style type="text/css" media="print">
         {`
           @page { size: A4; margin: 0; }
@@ -334,11 +383,9 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
           </div>
         )}
 
-        {/* MODAL: NÁHĽAD (tento sa vytlačí) */}
+        {/* MODAL: NÁHĽAD */}
         {previewRecord && selectedPatient && (
-          /* PRIDANÉ: print:absolute print:inset-0 - "rozbije" to modal pri tlači */
           <div className="fixed inset-0 bg-[#2C2A29]/80 flex items-start justify-center z-50 p-6 backdrop-blur-sm overflow-y-auto print:absolute print:inset-0 print:bg-white print:p-0 print:block print:overflow-visible">
-            
             <div className="bg-[#FBF9F6] p-6 rounded-2xl w-full max-w-3xl shadow-xl flex flex-col relative my-8 print:p-0 print:border-none print:shadow-none print:m-0 print:block print:static">
               
               <div className="flex justify-between items-center mb-4 print:hidden">
@@ -353,7 +400,6 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
                 </div>
               </div>
               
-              {/* TLAČOVÝ A4 DOKUMENT so špeciálnym ID "printable-a4" */}
               <div id="printable-a4" ref={printRef} className="bg-white border border-[#E8E2D9] p-10 shadow-sm text-xs leading-relaxed mx-auto w-full max-w-[595px] print:border-none print:shadow-none print:p-0 print:max-w-none print:w-full">
                 <div className="border-b border-[#E8E2D9] pb-6 mb-6 flex justify-between items-start">
                   <div>
@@ -400,7 +446,6 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
                   </div>
                 </div>
               </div>
-
             </div>
           </div>
         )}
@@ -408,31 +453,49 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
         {/* POHĽAD 1: ZOZNAM PACIENTOV */}
         {!selectedPatient ? (
           <div className="space-y-6 print:hidden">
-            <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#E8E2D9] pb-4">
               <div>
                 <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">Kartotéka Pacientov</h2>
-                <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Zoznam klientov a ich zdravotná história</p>
+                <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Zoznam klientov a ich zdravotná história ({patients.length})</p>
               </div>
               
-              <button 
-                onClick={() => setIsAddingPatient(true)}
-                className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors"
-              >
-                + Nový pacient
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button 
+                  onClick={handleRunDriveImport}
+                  disabled={isImporting}
+                  className="bg-[#C5A059] hover:bg-[#b08d4b] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors flex items-center gap-2"
+                >
+                  <span>{isImporting ? '⏳' : '⚡'}</span>
+                  <span>{isImporting ? 'Načítavam 1000 klientov...' : 'Importovať z Google Drive'}</span>
+                </button>
+
+                <button 
+                  onClick={() => setIsAddingPatient(true)}
+                  className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors"
+                >
+                  + Nový pacient
+                </button>
+              </div>
             </div>
 
-            <input type="text" placeholder="Vyhľadať pacienta..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border border-[#E8E2D9] p-3 rounded-xl bg-[#FBF9F6] text-xs focus:ring-2 focus:ring-[#C5A059] outline-none" />
+            <input type="text" placeholder="Vyhľadať pacienta po mene alebo RČ..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border border-[#E8E2D9] p-3 rounded-xl bg-[#FBF9F6] text-xs focus:ring-2 focus:ring-[#C5A059] outline-none" />
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredPatients.map(patient => (
-                <div key={patient.id} onClick={() => handlePatientSelect(patient)} className="border border-[#E8E2D9] p-4 rounded-xl hover:border-[#C5A059] hover:shadow-md transition-all cursor-pointer bg-white group">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">{patient.name}</h3>
-                    <span className="text-[9px] bg-[#FBF9F6] px-2 py-1 rounded text-[#8C857B] font-bold border border-[#E8E2D9]">{patient.insurance}</span>
+                <div key={patient.id} onClick={() => handlePatientSelect(patient)} className="border border-[#E8E2D9] p-4 rounded-xl hover:border-[#C5A059] hover:shadow-md transition-all cursor-pointer bg-white group flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-bold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">{patient.name}</h3>
+                      <span className="text-[9px] bg-[#FBF9F6] px-2 py-1 rounded text-[#8C857B] font-bold border border-[#E8E2D9]">{patient.insurance}</span>
+                    </div>
+                    <p className="text-xs text-[#8C857B]">RČ: {patient.birthNumber}</p>
+                    <p className="text-xs text-[#8C857B]">Tel: {patient.phone}</p>
                   </div>
-                  <p className="text-xs text-[#8C857B]">RČ: {patient.birthNumber}</p>
-                  <p className="text-xs text-[#8C857B]">Tel: {patient.phone}</p>
+                  {patient.driveFolderLink && (
+                    <div className="mt-3 pt-2 border-t border-[#E8E2D9] text-[10px] text-[#C5A059] font-bold uppercase tracking-wider">
+                      📁 Prepojené s Google Drive
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -459,6 +522,9 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
                 <div><span className="text-[#8C857B] block text-[9px] uppercase">Bydlisko:</span><span className="font-semibold">{selectedPatient.address}</span></div>
               </div>
             </div>
+
+            {/* PREPOJENIE SO ZLOŽKOU "KLIENTI SAY" NA GOOGLE DRIVE */}
+            <PatientDriveFiles patientName={selectedPatient.name} />
 
             <div className="flex gap-2 border-b border-[#E8E2D9]">
               <button onClick={() => { setActiveFolder('dokumenty'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'dokumenty' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📄 Dokumenty</button>
@@ -500,7 +566,7 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-[#8C857B] text-center py-6">Tento pacient zatiaľ nemá žiadne záznamy.</p>
+                    <p className="text-xs text-[#8C857B] text-center py-6">Tento pacient zatiaľ nemá žiadne lokálne záznamy.</p>
                   )}
                 </div>
               )}
@@ -562,7 +628,6 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
                   </div>
                 </div>
               )}
-              
             </div>
           </div>
         )}
