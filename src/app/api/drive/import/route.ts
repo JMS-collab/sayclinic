@@ -10,39 +10,51 @@ export async function POST() {
   }
 
   try {
-    // 1. Vyhľadáme zložku, ktorá sa volá alebo obsahuje "Klienti SAY"
-    const rootQuery = "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
-    const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(rootQuery)}&pageSize=100&fields=files(id, name)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    // 1. Získame zoznam VŠETKÝCH zložiek dostupných pre účet
+    const url = "https://www.googleapis.com/drive/v3/files?q=mimeType%3D'application%2Fvnd.google-apps.folder'+and+trashed%3Dfalse&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true";
 
-    const rootRes = await fetch(searchUrl, {
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${session.accessToken}` },
     });
-    const rootData = await rootRes.json();
-    const folders = rootData.files || [];
 
-    // Hľadáme presnú zhodu alebo čiastočnú zhodu (case-insensitive)
-    const rootFolder = folders.find((f: any) => 
-      f.name.toLowerCase().trim() === 'klienti say' || 
-      f.name.toLowerCase().includes('klienti')
-    );
+    const data = await res.json();
 
-    if (!rootFolder) {
-      const foundNames = folders.map((f: any) => f.name).slice(0, 5).join(', ');
-      return NextResponse.json({ 
-        error: `Zložka "Klienti SAY" nebola nájdená. Na vašom Disku som našiel napríklad tieto zložky: [${foundNames || 'žiadne'}]` 
+    if (!res.ok) {
+      return NextResponse.json({ error: data.error?.message || 'Chyba Google Drive API' }, { status: res.status });
+    }
+
+    const folders = data.files || [];
+
+    // Ak nenašiel vôbec nič
+    if (folders.length === 0) {
+      return NextResponse.json({
+        error: 'Google API nevrátilo žiadne zložky. Uistite sa, že máte zapnuté Google Drive API v Google Console a dali ste aplikácii povolenie pri prihlásení.'
       }, { status: 404 });
     }
 
-    // 2. Načítame podzložky pacientov
+    // 2. Vyhľadáme zložku Klienti SAY
+    const rootFolder = folders.find((f: any) => 
+      f.name.toLowerCase().includes('klienti') || 
+      f.name.toLowerCase().includes('say')
+    );
+
+    if (!rootFolder) {
+      const folderList = folders.map((f: any) => `"${f.name}"`).join(', ');
+      return NextResponse.json({
+        error: `Zložku "Klienti SAY" som nenašiel. Tvoj účet vidí tieto zložky: [${folderList}]`
+      }, { status: 404 });
+    }
+
+    // 3. Načítame podzložky klientov
     let allPatientFolders: any[] = [];
     let pageToken: string | null = null;
 
     do {
       const pageQuery = `'${rootFolder.id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-      let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(pageQuery)}&pageSize=1000&fields=nextPageToken, files(id, name, webViewLink)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
-      if (pageToken) url += `&pageToken=${pageToken}`;
+      let pageUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(pageQuery)}&pageSize=1000&fields=nextPageToken, files(id, name, webViewLink)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+      if (pageToken) pageUrl += `&pageToken=${pageToken}`;
 
-      const foldersRes = await fetch(url, { headers: { Authorization: `Bearer ${session.accessToken}` } });
+      const foldersRes = await fetch(pageUrl, { headers: { Authorization: `Bearer ${session.accessToken}` } });
       const foldersData = await foldersRes.json();
       
       if (foldersData.files) {
