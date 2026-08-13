@@ -28,7 +28,7 @@ export interface GoogleCalendarItem {
 
 interface CalendarProps {
   events?: CalendarEvent[];
-  patients?: Array<{ id: string; name: string }>; // Zoznam pacientov pre inteligentné párovanie
+  patients?: Array<{ id: string; name: string }>; // Zoznam importovaných pacientov z Google Drive
   onOpenPatientFolder?: (patientId: string) => void;
   onAddEvent?: (event: CalendarEvent) => void;
 }
@@ -65,7 +65,7 @@ export default function Calendar({
     calendarId: 'primary'
   });
 
-  // Načítanie kalendárov a udalostí
+  // Načítanie kalendárov a udalostí z API
   const fetchCalendarData = () => {
     if (session) {
       setIsLoadingGoogle(true);
@@ -91,7 +91,7 @@ export default function Calendar({
     fetchCalendarData();
   }, [session]);
 
-  // Filtrovanie udalostí
+  // Filtrovanie udalostí podľa vybraného kalendára
   const filteredEvents = selectedCalendarId === 'all' 
     ? calendarEvents 
     : calendarEvents.filter(e => e.calendarId === selectedCalendarId);
@@ -138,7 +138,7 @@ export default function Calendar({
     }
   };
 
-  // Vytvorenie udalosti a jej zápis do Google API
+  // Vytvorenie udalosti a zápis do Google Calendar API
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvent.patientName || !newEvent.title) return;
@@ -154,7 +154,7 @@ export default function Calendar({
         });
 
         if (res.ok) {
-          fetchCalendarData(); // Obnovíme dáta z Googlu
+          fetchCalendarData();
         } else {
           alert('Nepodarilo sa uložiť udalosť do Google Kalendára.');
         }
@@ -165,7 +165,6 @@ export default function Calendar({
         setIsAddingEvent(false);
       }
     } else {
-      // Lokálny režim ak nie je prihlásený
       const created: CalendarEvent = {
         id: `evt-${Date.now()}`,
         patientName: newEvent.patientName || '',
@@ -185,26 +184,49 @@ export default function Calendar({
     }
   };
 
-  // Párovanie pacienta podľa mena z textu udalosti
+  // INTELIGENTNÉ PÁROVANIE PACIENTA Z UDALOSTI S IMPORTUVOANÝMI ZLOŽKAMI
   const handleOpenFolderForEvent = (event: CalendarEvent) => {
     if (!onOpenPatientFolder) return;
 
-    // Ak má zadané ID priamo
+    // 1. Ak má udalosť nastavené priame ID
     if (event.patientId) {
       onOpenPatientFolder(event.patientId);
       return;
     }
 
-    // Hľadanie v zozname pacientov podľa mena
-    const matchedPatient = patients.find(p => 
-      event.patientName.toLowerCase().includes(p.name.toLowerCase()) || 
-      event.title.toLowerCase().includes(p.name.toLowerCase())
-    );
+    const eventTitleLower = (event.title || '').toLowerCase().trim();
+    const eventPatientLower = (event.patientName || '').toLowerCase().trim();
+
+    // 2. Porovnanie celých mien
+    let matchedPatient = patients.find(p => {
+      const patientNameLower = p.name.toLowerCase().trim();
+      if (!patientNameLower) return false;
+
+      const matchInTitle = eventTitleLower.includes(patientNameLower);
+      const matchInPatientName = eventPatientLower.includes(patientNameLower);
+      const reverseMatchInTitle = patientNameLower.includes(eventTitleLower);
+      const reverseMatchInPatient = patientNameLower.includes(eventPatientLower);
+
+      return matchInTitle || matchInPatientName || reverseMatchInTitle || reverseMatchInPatient;
+    });
+
+    // 3. Ak sa nenájde celá zhoda, vyhľadávame podľa priezviska / slov dlhších ako 3 znaky
+    if (!matchedPatient) {
+      const ignoreWords = ['operacia', 'konzultacia', 'kontrolne', 'vysetrenie', 'augmentacia', 'plastika', 'mraz', 'mudr'];
+      const words = `${event.title} ${event.patientName}`
+        .split(/[\s\-–—,]+/)
+        .map(w => w.toLowerCase().trim())
+        .filter(w => w.length > 3 && !ignoreWords.includes(w));
+
+      matchedPatient = patients.find(p => 
+        words.some(word => p.name.toLowerCase().includes(word))
+      );
+    }
 
     if (matchedPatient) {
       onOpenPatientFolder(matchedPatient.id);
     } else {
-      alert(`Pacient podľa názvu "${event.patientName}" nebol nájdený v kartotéke.`);
+      alert(`Pacient pre udalosť "${event.title}" nebol automaticky nájdený v kartotéke.\nSkontrolujte, či názov zložky na Google Disku obsahuje meno klienta.`);
     }
   };
 
@@ -216,7 +238,7 @@ export default function Calendar({
       <div className="space-y-3">
         {dayEvents.length === 0 ? (
           <div className="text-center py-16 text-[#8C857B] text-xs italic">
-            {isLoadingGoogle ? 'Nahrávam udobrenia z Google Kalendára...' : 'Žiadne zákroky na tento deň.'}
+            {isLoadingGoogle ? 'Nahrávam udalosti z Google Kalendára...' : 'Žiadne udalosti na tento deň.'}
           </div>
         ) : (
           dayEvents.map(evt => (
@@ -269,7 +291,7 @@ export default function Calendar({
                 {dayEvents.map(evt => (
                   <div key={evt.id} onClick={() => setSelectedEvent(evt)} className={`text-[9px] p-1.5 rounded cursor-pointer border ${evt.type === 'operacia' ? 'bg-gray-100 border-gray-300 text-gray-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
                     <strong className="block">{evt.startTime}</strong>
-                    <span className="truncate block">{evt.patientName}</span>
+                    <span className="truncate block">{evt.patientName || evt.title}</span>
                   </div>
                 ))}
               </div>

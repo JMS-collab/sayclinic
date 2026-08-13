@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
-import PatientDatabase from '../components/PatientDatabase';
+import PatientDatabase, { Patient } from '../components/PatientDatabase';
 import LoginForm from '../components/LoginForm';
 import FinanceCRM from '../components/FinanceCRM';
 import Calendar, { CalendarEvent } from '../components/Calendar';
@@ -25,11 +25,26 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'generator' | 'patients' | 'finance' | 'calendar'>('generator');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
 
-  // Stav pre uchovanie vybraného pacienta z Kartotéky
+  // Stav pre uchovanie vybraného pacienta z Kartotéky pre Generátor
   const [selectedPatient, setSelectedPatient] = useState<{ name: string; birthNumber: string } | null>(null);
+
+  // Zoznam pacientov (vrátane tých importovaných z Google Drive)
+  const [patients, setPatients] = useState<Patient[]>([]);
 
   // Stav pre udalosti v Kalendári
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+
+  // Načítanie uložených pacientov pri štarte
+  useEffect(() => {
+    const saved = localStorage.getItem('say_clinic_patients');
+    if (saved) {
+      try {
+        setPatients(JSON.parse(saved));
+      } catch (e) {
+        console.error('Chyba načítania pacientov z localStorage:', e);
+      }
+    }
+  }, []);
 
   const handleAddSale = (newSale: Omit<SaleItem, 'id'>) => {
     const item: SaleItem = {
@@ -152,6 +167,7 @@ export default function Home() {
             {activeTab === 'calendar' && (
               <Calendar 
                 events={calendarEvents}
+                patients={patients}
                 onOpenPatientFolder={handleOpenPatientFromCalendar}
                 onAddEvent={handleAddCalendarEvent}
               />
