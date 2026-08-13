@@ -36,16 +36,31 @@ export async function GET() {
       primary: cal.primary || false,
     }));
 
+    // NASTAVENIE ROZSAHU: 1 ROK DOZADU A 1 ROK DOPREDU
+    const now = new Date();
+    const pastYear = new Date(now);
+    pastYear.setFullYear(pastYear.getFullYear() - 1);
+    
+    const futureYear = new Date(now);
+    futureYear.setFullYear(futureYear.getFullYear() + 1);
+
+    const timeMin = pastYear.toISOString();
+    const timeMax = futureYear.toISOString();
+
     let allEvents: any[] = [];
 
-    // 2. Prejdeme každý kalendár a stiahneme z neho udalosti
+    // 2. Načítanie zo všetkých kalendárov
     for (const cal of calendars) {
-      const eventsRes = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?singleEvents=true&orderBy=startTime`,
-        {
-          headers: { Authorization: `Bearer ${session.accessToken}` },
-        }
-      );
+      const eventsUrl = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`);
+      eventsUrl.searchParams.append('singleEvents', 'true');
+      eventsUrl.searchParams.append('orderBy', 'startTime');
+      eventsUrl.searchParams.append('maxResults', '2500');
+      eventsUrl.searchParams.append('timeMin', timeMin);
+      eventsUrl.searchParams.append('timeMax', timeMax);
+
+      const eventsRes = await fetch(eventsUrl.toString(), {
+        headers: { Authorization: `Bearer ${session.accessToken}` },
+      });
 
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json();
@@ -63,9 +78,9 @@ export async function GET() {
             id: item.id,
             calendarId: cal.id,
             calendarName: cal.summary,
-            patientName: item.summary || 'Udalosť z Google Kalendára',
+            patientName: item.summary || 'Udalosť bez názvu',
             doctorName: cal.summary,
-            title: item.summary || 'Bez názvu',
+            title: item.summary || 'Udalosť bez názvu',
             date: startDate,
             startTime: startTime,
             endTime: endTime,
