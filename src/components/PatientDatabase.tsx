@@ -82,6 +82,55 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 1. Načítanie kešovaných pacientov z localStorage pri štarte (okamžité zobrazenie)
+  useEffect(() => {
+    const saved = localStorage.getItem('say_clinic_patients');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPatients(parsed);
+        }
+      } catch (e) {
+        console.error('Chyba pri načítaní pacientov z localStorage:', e);
+      }
+    }
+  }, []);
+
+  // 2. AUTOMATICKÝ IMPORT NA POZADÍ pri prihlásení do Google účtu
+  useEffect(() => {
+    if (session && session.accessToken) {
+      setIsImporting(true);
+      fetch('/api/drive/import', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.patients) {
+            const importedList: Patient[] = data.patients.map((item: any, idx: number) => ({
+              id: item.id || `P-drive-${idx}`,
+              name: item.name,
+              birthNumber: 'Importované z Drive',
+              phone: '---',
+              email: '---',
+              address: '---',
+              dob: '---',
+              insurance: 'Drive Klient',
+              driveFolderLink: item.driveFolderLink
+            }));
+
+            setPatients(prev => {
+              const existingNames = new Set(prev.map(p => p.name.toLowerCase().trim()));
+              const uniqueNew = importedList.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
+              const updatedAll = [...uniqueNew, ...prev];
+              localStorage.setItem('say_clinic_patients', JSON.stringify(updatedAll));
+              return updatedAll;
+            });
+          }
+        })
+        .catch(err => console.error('Automatický import z Google Drive zlyhal:', err))
+        .finally(() => setIsImporting(false));
+    }
+  }, [session]);
+
   const filteredPatients = patients.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.birthNumber.includes(searchTerm)
@@ -102,7 +151,9 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
       id: `P-${Date.now()}`,
     };
 
-    setPatients([createdPatient, ...patients]);
+    const updatedPatients = [createdPatient, ...patients];
+    setPatients(updatedPatients);
+    localStorage.setItem('say_clinic_patients', JSON.stringify(updatedPatients));
     setIsAddingPatient(false);
     
     setNewPatientData({
@@ -118,14 +169,12 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
     handlePatientSelect(createdPatient);
   };
 
-  // Hromadný import klientov z Google Drive zložky "Klienti SAY"
+  // Manuálne tlačidlo na obnovenie importu
   const handleRunDriveImport = async () => {
     if (!session) {
       alert('Pre import z Google Disku musíte byť prihlásený cez Google účet.');
       return;
     }
-
-    if (!confirm('Chcete spustiť automatické načítanie všetkých klientov zo zložky "Klienti SAY" na Google Disku?')) return;
 
     setIsImporting(true);
 
@@ -147,14 +196,16 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
         }));
 
         setPatients(prev => {
-          const existingNames = new Set(prev.map(p => p.name.toLowerCase()));
-          const uniqueNew = importedList.filter(p => !existingNames.has(p.name.toLowerCase()));
-          return [...uniqueNew, ...prev];
+          const existingNames = new Set(prev.map(p => p.name.toLowerCase().trim()));
+          const uniqueNew = importedList.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
+          const updatedAll = [...uniqueNew, ...prev];
+          localStorage.setItem('say_clinic_patients', JSON.stringify(updatedAll));
+          return updatedAll;
         });
 
-        alert(`🎉 Úspešne sa načítalo ${data.totalImported} kariet klientov z Google Disku!`);
+        alert(`🎉 Úspešne sa načítalo a skontrolovalo ${data.totalImported} kariet klientov z Google Disku!`);
       } else {
-        alert(`Chyba importu: ${data.error || 'Nepodarilo sa načítat zložku Klienti SAY'}`);
+        alert(`Chyba importu: ${data.error || 'Nepodarilo sa načítať zložku Klienti SAY'}`);
       }
     } catch (err) {
       console.error(err);
@@ -456,7 +507,10 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#E8E2D9] pb-4">
               <div>
                 <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">Kartotéka Pacientov</h2>
-                <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Zoznam klientov a ich zdravotná história ({patients.length})</p>
+                <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">
+                  Zoznam klientov a ich zdravotná história ({patients.length})
+                  {isImporting && <span className="ml-2 text-[#C5A059] font-bold animate-pulse">🔄 Synchronizujem s Google Drive...</span>}
+                </p>
               </div>
               
               <div className="flex flex-wrap items-center gap-2">
@@ -466,7 +520,7 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
                   className="bg-[#C5A059] hover:bg-[#b08d4b] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors flex items-center gap-2"
                 >
                   <span>{isImporting ? '⏳' : '⚡'}</span>
-                  <span>{isImporting ? 'Načítavam 1000 klientov...' : 'Importovať z Google Drive'}</span>
+                  <span>{isImporting ? 'Synchronizujem...' : 'Obnoviť z Google Drive'}</span>
                 </button>
 
                 <button 
