@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
 
-// GET: Načítanie súborov z Google Drive (alebo vyhľadanie priečinka pacienta)
 export async function GET(req: Request) {
   const session: any = await getServerSession(authOptions);
 
@@ -11,55 +10,53 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const folderName = searchParams.get('folderName');
+  const patientName = searchParams.get('patientName');
+
+  if (!patientName) {
+    return NextResponse.json({ error: 'Meno pacienta je povinné.' }, { status: 400 });
+  }
 
   try {
-    let query = "trashed = false";
-    if (folderName) {
-      query += ` and mimeType = 'application/vnd.google-apps.folder' and name = '${folderName}'`;
+    // 1. Najprv nájdeme hlavnú zložku "Klienti SAY"
+    const rootFolderRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent("name = 'Klienti SAY' and mimeType = 'application/vnd.google-apps.folder' and trashed = false")}&fields=files(id, name)`,
+      { headers: { Authorization: `Bearer ${session.accessToken}` } }
+    );
+    const rootFolderData = await rootFolderRes.json();
+    const rootFolder = rootFolderData.files?.[0];
+
+    if (!rootFolder) {
+      return NextResponse.json({ error: 'Hlavná zložka "Klienti SAY" nebola na Google Disku nájdená.' }, { status: 404 });
     }
 
-    const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id, name, mimeType, webViewLink, iconLink)`,
-      {
-        headers: { Authorization: `Bearer ${session.accessToken}` },
-      }
+    // 2. V zložke "Klienti SAY" vyhľadáme podzložku pre daného pacienta
+    const patientFolderQuery = `'${rootFolder.id}' in parents and name contains '${patientName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const patientFolderRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(patientFolderQuery)}&fields=files(id, name, webViewLink)`,
+      { headers: { Authorization: `Bearer ${session.accessToken}` } }
     );
+    const patientFolderData = await patientFolderRes.json();
+    const patientFolder = patientFolderData.files?.[0];
 
-    const data = await res.json();
-    return NextResponse.json(data.files || []);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
+    if (!patientFolder) {
+      return NextResponse.json({ found: false, message: `Zložka pre ${patientName} nebola v "Klienti SAY" nájdená.` });
+    }
 
-// POST: Vytvorenie nového priečinka pre pacienta na Google Drive
-export async function POST(req: Request) {
-  const session: any = await getServerSession(authOptions);
+    // 3. Načítame všetky súbory (Google Sheety, PDF, fotky) z podzložky pacienta
+    const filesQuery = `'${patientFolder.id}' in parents and trashed = false`;
+    const filesRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(filesQuery)}&fields=files(id, name, mimeType, webViewLink, iconLink, thumbnailLink)`,
+      { headers: { Authorization: `Bearer ${session.accessToken}` } }
+    );
+    const filesData = await filesRes.json();
 
-  if (!session || !session.accessToken) {
-    return NextResponse.json({ error: 'Nie ste prihlásený.' }, { status: 401 });
-  }
-
-  try {
-    const { folderName } = await req.json();
-
-    const driveMetadata = {
-      name: folderName,
-      mimeType: 'application/vnd.google-apps.folder',
-    };
-
-    const res = await fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${session.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(driveMetadata),
+    return NextResponse.json({
+      found: true,
+      folderId: patientFolder.id,
+      folderLink: patientFolder.webViewLink,
+      files: filesData.files || []
     });
 
-    const data = await res.json();
-    return NextResponse.json(data);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
