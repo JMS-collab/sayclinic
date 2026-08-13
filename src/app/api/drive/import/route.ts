@@ -10,22 +10,30 @@ export async function POST() {
   }
 
   try {
-    // 1. Najprv vyhľadáme zložku "Klienti SAY" (vlastnenú alebo zdieľanú)
-    const rootQuery = "name = 'Klienti SAY' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
-    const rootRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(rootQuery)}&fields=files(id, name, owners)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-      { headers: { Authorization: `Bearer ${session.accessToken}` } }
-    );
+    // 1. Vyhľadáme zložku, ktorá sa volá alebo obsahuje "Klienti SAY"
+    const rootQuery = "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+    const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(rootQuery)}&pageSize=100&fields=files(id, name)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+
+    const rootRes = await fetch(searchUrl, {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+    });
     const rootData = await rootRes.json();
-    const rootFolder = rootData.files?.[0];
+    const folders = rootData.files || [];
+
+    // Hľadáme presnú zhodu alebo čiastočnú zhodu (case-insensitive)
+    const rootFolder = folders.find((f: any) => 
+      f.name.toLowerCase().trim() === 'klienti say' || 
+      f.name.toLowerCase().includes('klienti')
+    );
 
     if (!rootFolder) {
+      const foundNames = folders.map((f: any) => f.name).slice(0, 5).join(', ');
       return NextResponse.json({ 
-        error: 'Zložka "Klienti SAY" nebola na Google Disku nájdená. Uistite sa, že je zložka zdieľaná s Vaším prihláseným účtom.' 
+        error: `Zložka "Klienti SAY" nebola nájdená. Na vašom Disku som našiel napríklad tieto zložky: [${foundNames || 'žiadne'}]` 
       }, { status: 404 });
     }
 
-    // 2. Načítame VŠETKY podzložky klientov zo zložky "Klienti SAY"
+    // 2. Načítame podzložky pacientov
     let allPatientFolders: any[] = [];
     let pageToken: string | null = null;
 
@@ -43,16 +51,13 @@ export async function POST() {
       pageToken = foldersData.nextPageToken || null;
     } while (pageToken);
 
-    // 3. Vytvorenie kariet pre SAY CLINIC
-    const importedPatients = allPatientFolders.map((folder, index) => {
-      return {
-        id: `drive-patient-${folder.id}`,
-        name: folder.name,
-        driveFolderId: folder.id,
-        driveFolderLink: folder.webViewLink,
-        createdAt: new Date().toISOString(),
-      };
-    });
+    const importedPatients = allPatientFolders.map((folder) => ({
+      id: `drive-patient-${folder.id}`,
+      name: folder.name,
+      driveFolderId: folder.id,
+      driveFolderLink: folder.webViewLink,
+      createdAt: new Date().toISOString(),
+    }));
 
     return NextResponse.json({
       success: true,
