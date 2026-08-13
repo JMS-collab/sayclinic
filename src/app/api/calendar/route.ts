@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]/route';
 
-export async function GET(req: Request) {
-  const session: any = await getServerSession();
+export async function GET() {
+  const session: any = await getServerSession(authOptions);
 
   if (!session || !session.accessToken) {
-    return NextResponse.json({ error: 'Nie ste prihlásený do Google účtu.' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Nie ste prihlásený alebo chýba prístupový token.' }, 
+      { status: 401 }
+    );
   }
 
   try {
-    // Načítanie udalostí z primárneho Google Kalendára za posledný mesiac a dopredu
     const res = await fetch(
       'https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime',
       {
@@ -22,10 +25,12 @@ export async function GET(req: Request) {
     const data = await res.json();
 
     if (!res.ok) {
-      return NextResponse.json({ error: data.error?.message || 'Chyba načítania' }, { status: res.status });
+      return NextResponse.json(
+        { error: data.error?.message || 'Chyba Google API' }, 
+        { status: res.status }
+      );
     }
 
-    // Pretransformovanie dát z Googlu do formátu SAY CLINIC
     const formattedEvents = (data.items || []).map((item: any) => {
       const start = item.start?.dateTime || item.start?.date || '';
       const end = item.end?.dateTime || item.end?.date || '';
@@ -36,7 +41,7 @@ export async function GET(req: Request) {
 
       return {
         id: item.id,
-        patientName: item.summary || 'Bez názvu',
+        patientName: item.summary || 'Udalosť z Google Kalendára',
         doctorName: 'Google Calendar',
         title: item.summary || 'Bez názvu',
         date: startDate,
