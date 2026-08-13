@@ -13,46 +13,65 @@ export async function GET() {
   }
 
   try {
-    const res = await fetch(
-      'https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime',
+    // 1. Zistíme zoznam všetkých kalendárov (primárny + všetky zdieľané)
+    const listRes = await fetch(
+      'https://www.googleapis.com/calendar/v3/users/me/calendarList',
       {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
+        headers: { Authorization: `Bearer ${session.accessToken}` },
       }
     );
 
-    const data = await res.json();
+    const listData = await listRes.json();
 
-    if (!res.ok) {
+    if (!listRes.ok) {
       return NextResponse.json(
-        { error: data.error?.message || 'Chyba Google API' }, 
-        { status: res.status }
+        { error: listData.error?.message || 'Chyba pri načítaní zoznamu kalendárov' }, 
+        { status: listRes.status }
       );
     }
 
-    const formattedEvents = (data.items || []).map((item: any) => {
-      const start = item.start?.dateTime || item.start?.date || '';
-      const end = item.end?.dateTime || item.end?.date || '';
+    const calendarIds = (listData.items || []).map((cal: any) => cal.id);
+    let allEvents: any[] = [];
 
-      const startDate = start.split('T')[0];
-      const startTime = start.includes('T') ? start.split('T')[1].substring(0, 5) : '00:00';
-      const endTime = end.includes('T') ? end.split('T')[1].substring(0, 5) : '23:59';
+    // 2. Prejdeme každý kalendár a stiahneme z neho udalosti
+    for (const calId of calendarIds) {
+      const eventsRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?singleEvents=true&orderBy=startTime`,
+        {
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+        }
+      );
 
-      return {
-        id: item.id,
-        patientName: item.summary || 'Udalosť z Google Kalendára',
-        doctorName: 'Google Calendar',
-        title: item.summary || 'Bez názvu',
-        date: startDate,
-        startTime: startTime,
-        endTime: endTime,
-        type: 'operacia',
-        notes: item.description || ''
-      };
-    });
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        const items = eventsData.items || [];
 
-    return NextResponse.json(formattedEvents);
+        const formatted = items.map((item: any) => {
+          const start = item.start?.dateTime || item.start?.date || '';
+          const end = item.end?.dateTime || item.end?.date || '';
+
+          const startDate = start.split('T')[0];
+          const startTime = start.includes('T') ? start.split('T')[1].substring(0, 5) : '00:00';
+          const endTime = end.includes('T') ? end.split('T')[1].substring(0, 5) : '23:59';
+
+          return {
+            id: item.id,
+            patientName: item.summary || 'Udalosť z Google Kalendára',
+            doctorName: 'Google Calendar',
+            title: item.summary || 'Bez názvu',
+            date: startDate,
+            startTime: startTime,
+            endTime: endTime,
+            type: 'operacia',
+            notes: item.description || ''
+          };
+        });
+
+        allEvents = [...allEvents, ...formatted];
+      }
+    }
+
+    return NextResponse.json(allEvents);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
