@@ -41,12 +41,14 @@ interface UploadedPhoto {
 
 interface PatientDatabaseProps {
   onNavigateToGenerator?: (patient: Patient) => void;
+  initialPatient?: Patient | null;
+  onPatientsUpdated?: (patients: Patient[]) => void;
 }
 
-export default function PatientDatabase({ onNavigateToGenerator }: PatientDatabaseProps) {
+export default function PatientDatabase({ onNavigateToGenerator, initialPatient, onPatientsUpdated }: PatientDatabaseProps) {
   const { data: session } = useSession();
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || null);
   const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive'>('dokumenty');
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
@@ -82,6 +84,13 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Reakcia na prípadnú zmenu initialPatient z nadradeného komponentu
+  useEffect(() => {
+    if (initialPatient) {
+      setSelectedPatient(initialPatient);
+    }
+  }, [initialPatient]);
+
   // 1. Načítanie kešovaných pacientov z localStorage pri štarte (okamžité zobrazenie)
   useEffect(() => {
     const saved = localStorage.getItem('say_clinic_patients');
@@ -90,6 +99,7 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setPatients(parsed);
+          if (onPatientsUpdated) onPatientsUpdated(parsed);
         }
       } catch (e) {
         console.error('Chyba pri načítaní pacientov z localStorage:', e);
@@ -99,7 +109,8 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
 
   // 2. AUTOMATICKÝ IMPORT NA POZADÍ pri prihlásení do Google účtu
   useEffect(() => {
-    if (session && session.accessToken) {
+    const userSession = session as any;
+    if (userSession && userSession.accessToken) {
       setIsImporting(true);
       fetch('/api/drive/import', { method: 'POST' })
         .then(res => res.json())
@@ -122,6 +133,7 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
               const uniqueNew = importedList.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
               const updatedAll = [...uniqueNew, ...prev];
               localStorage.setItem('say_clinic_patients', JSON.stringify(updatedAll));
+              if (onPatientsUpdated) onPatientsUpdated(updatedAll);
               return updatedAll;
             });
           }
@@ -154,6 +166,8 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
     const updatedPatients = [createdPatient, ...patients];
     setPatients(updatedPatients);
     localStorage.setItem('say_clinic_patients', JSON.stringify(updatedPatients));
+    if (onPatientsUpdated) onPatientsUpdated(updatedPatients);
+    
     setIsAddingPatient(false);
     
     setNewPatientData({
@@ -200,6 +214,7 @@ export default function PatientDatabase({ onNavigateToGenerator }: PatientDataba
           const uniqueNew = importedList.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
           const updatedAll = [...uniqueNew, ...prev];
           localStorage.setItem('say_clinic_patients', JSON.stringify(updatedAll));
+          if (onPatientsUpdated) onPatientsUpdated(updatedAll);
           return updatedAll;
         });
 
