@@ -8,8 +8,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
       authorization: {
         params: {
-          // Pridaný prístup pre Google Drive (drive.file) aj Google Kalendár
-          scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.file",
+          scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly",
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
@@ -19,6 +18,7 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, account }) {
+      // Vždy zapíšeme čerstvý accessToken z účtu
       if (account) {
         token.accessToken = account.access_token;
       }
