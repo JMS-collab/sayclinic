@@ -5,6 +5,7 @@ import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase from '../components/PatientDatabase';
 import LoginForm from '../components/LoginForm';
 import FinanceCRM from '../components/FinanceCRM';
+import Calendar, { CalendarEvent } from '../components/Calendar';
 
 export interface SaleItem {
   id: string;
@@ -21,11 +22,14 @@ const INITIAL_SALES: SaleItem[] = [
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'generator' | 'patients' | 'finance'>('generator');
+  const [activeTab, setActiveTab] = useState<'generator' | 'patients' | 'finance' | 'calendar'>('generator');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
 
-  // PRIDANÉ: Stav pre uchovanie vybraného pacienta z Kartotéky
+  // Stav pre uchovanie vybraného pacienta z Kartotéky
   const [selectedPatient, setSelectedPatient] = useState<{ name: string; birthNumber: string } | null>(null);
+
+  // Stav pre udalosti v Kalendári
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
 
   const handleAddSale = (newSale: Omit<SaleItem, 'id'>) => {
     const item: SaleItem = {
@@ -35,10 +39,20 @@ export default function Home() {
     setSales((prev) => [item, ...prev]);
   };
 
-  // PRIDANÉ: Funkcia pre navigáciu z Kartotéky do Generátora a prenos pacienta
+  // Navigácia z Kartotéky do Generátora a prenos pacienta
   const handleNavigateToGenerator = (patient: { name: string; birthNumber: string }) => {
     setSelectedPatient(patient);
     setActiveTab('generator');
+  };
+
+  // Navigácia z Kalendára do Kartotéky pacienta
+  const handleOpenPatientFromCalendar = (patientId: string) => {
+    setActiveTab('patients');
+  };
+
+  // Pridanie novej udalosti do Kalendára
+  const handleAddCalendarEvent = (newEvent: CalendarEvent) => {
+    setCalendarEvents((prev) => [...prev, newEvent]);
   };
 
   return (
@@ -59,10 +73,10 @@ export default function Home() {
 
           {/* NAVIGÁCIA */}
           {currentUser && (
-            <nav className="flex gap-2 text-[11px] font-light uppercase tracking-wider text-[#8C857B]">
+            <nav className="flex flex-wrap gap-2 text-[11px] font-light uppercase tracking-wider text-[#8C857B]">
               <button
                 onClick={() => {
-                  setSelectedPatient(null); // Pri bežnom prekliku cez menu vyčistíme pacienta
+                  setSelectedPatient(null);
                   setActiveTab('generator');
                 }}
                 className={`px-3 py-2 transition-all ${
@@ -78,6 +92,14 @@ export default function Home() {
                 }`}
               >
                 🗂️ Kartotéka Pacientov
+              </button>
+              <button
+                onClick={() => setActiveTab('calendar')}
+                className={`px-3 py-2 transition-all ${
+                  activeTab === 'calendar' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+                }`}
+              >
+                📅 Kalendár & Plánovanie
               </button>
               <button
                 onClick={() => setActiveTab('finance')}
@@ -116,17 +138,22 @@ export default function Home() {
           <LoginForm onLoginSuccess={(user) => setCurrentUser(user)} />
         ) : (
           <>
-            {/* PRIDANÉ: Odovzdanie initialPatient */}
             {activeTab === 'generator' && (
               <MedicalRecordForm 
                 onRecordCreated={handleAddSale} 
                 initialPatient={selectedPatient} 
               />
             )}
-            {/* PRIDANÉ: Odovzdanie funkcie na navigáciu */}
             {activeTab === 'patients' && (
               <PatientDatabase 
                 onNavigateToGenerator={handleNavigateToGenerator} 
+              />
+            )}
+            {activeTab === 'calendar' && (
+              <Calendar 
+                events={calendarEvents}
+                onOpenPatientFolder={handleOpenPatientFromCalendar}
+                onAddEvent={handleAddCalendarEvent}
               />
             )}
             {activeTab === 'finance' && (

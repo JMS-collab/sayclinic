@@ -130,6 +130,41 @@ const CLINIC_MACROS: Record<string, string> = {
   ruka: "RUKA:\nKarpálny tunel:\n• Tinel -, Phalen +\n• senzitívny deficit neprítomný, paroxyzmálne tŕpnutie, nočné bolesti\n• motorický deficit - slabosť, hypotrofia thenarových svalov\n\nDupuytrenova kontraktúra:\n• dlaňovo - prstová forma\n• DIP v norme, PIP flekč. kontr v 50°, CMP fix. v 20-30°\n• Tubiana II -III"
 };
 
+const OP_MACROS: Record<string, string> = {
+  op_facelift_macs: "V CA po príprave operačného poľa vykonávame tumescenciu plánovaného operačného poľa /adrenali 1:200000, levobupivacain, exacyl/ 60ml/strana. Následne vykonávame plánované rezy so zachovaním vlasov. folikulov vo vlasovej línii, retrotragálne a retroaurikulárne. Preparácia kožného laloka. Hemostáza. 3x loop slučka /vertikálna pretragálne, šikmá v oblasti líca - fixácia k preaurikulárnej fascii PDS 1.0, loop malárnej oblasti s fixáciou k periostu orbity - vicryl 2.0/. Hemostáza. Excízia prebytočnej kože s vertikálnym vektorom bez ťahu. Sutura, glykolon 4.0. Haemostatic net. Rezom v kapilíciu uvoľnujeme temporo-frontálne ligamentum a orbitálne ligamentá. Po uvolnení elevácia obočia s eleváciou viac vľavo na symetrizáciu /L2mm, P 3mm/, elevácia obmedzená predošlou blefaroplastikou. Fixácia o periost PDS 1.0. Suturam. frontalis a kože glykolon 4.0. Ohlávka.",
+  op_deep_plane: "V CA po zavedení PMK, po príprave operačného poľa vykonávame tumescenciu plánovaného operačného poľa /adrenali 1:200000, levobupivacain, exacyl/ 60ml/strana + krk. Následne vykonávame plánované rezy so zachovaním vlasov. folikulov vo vlasovej línii, retrotragálne a retroaurikulárne. Preparácia kožného laloka. Hemostáza. V plánovanej línii preparujeme deep plane pod SMAS od latr. očného kútika až na krk pod m. platysma. za dôrazného šetrenia nervov a ciev. Prerušenie retaining ligament. Kontrola uvoľnenia tkanív. Sutura SMAS k temp. a parotid. fascii - superolaterálny vektor PDS 4.0. Priečne prerušenie m. platysma 1cm pod mandibolou a fixácia k fascii proc. mastoideu - hammock. Excízia prebytočnej kože. Sutura vo vrstvách. Obdobný postup na kontralat. strane. Haemostatic net. Suturam. frontalis a kože. Ohlávka.",
+  op_necklift: "V CA po príprave operačného poľa vykonávame tumescenciu plánovaného operačného poľa /adrenali 1:200000, levobupivacain, exacyl/ 60ml/strana. Submentálnym prístupom preparujeme subkutánny priestor celej oblasti krku. Preparujeme okraje m. platysma a exstirpujeme submandibulány tuk. preparujeme a excidujeme ptotickú časť mm. digastrici a gl. submandibul. bilat. Dôsledná hemostáza. Fixácia platysma k fascii perihyoidálne. Centrálne raphia platysmy s priečnym nárezom infrahyoidálne",
+  op_lipotransfer: "V CA po príprave operačného poľa v tumescencii vykonávame odber tuku na lat. stranách stehien. Odber celkovo 30ml tukového tkaniva. Sutura vstupov monocryl. Následne spracovámvame tuk na mikro a nano-tuk, ktorý po spracovaní aplikujeme do tváre plošne /mal. oblasť, obočie, čelo, periorálna oblasť, spánky/ - nanotuk /dolné viečka, plošne microneedling kože s nanotukom/.",
+  op_liposukcia_podbradku: "V analgosedácii po príprave operačného poľa v tumescencii vykonávame PAL liposukciu podbradku plánovanom rozsahu. Sutura vstupov monocryl. Poop. prádlo.",
+  op_tvarove_implantaty: "V CA po príprave operačného poľa vykonávame tumescenciu plánovaného operačného poľa /adrenali 1:200000, levobupivacain, exacyl/. Následne zo submentálneho prístupu preparujeme subperiostálnu kapsu. Po namočení v betadine aplikujeme bradový implantát su-por. Spájame implantát stehmi centrálne. Fixujeme samoreznými skrutkami 2x. Kontrola mentálnych nervov. Hemostáza. Zahladenie okrajov voskom. Sutura muskulárnej kapsy, podkožia a kože. Zo slizničného prísupu úst vykonávame subperiostálnu kapsu okraja mandibuly. Po namočení v betadine aplikujeme implantát okraja mandibuly su-por podľa strany. Fixujeme samoreznými skrutkami 2x/strana. hemstáza, Mierne orezenie okraja implantátu v mentálnj časti na zahladenie okrajov aplikueme vosk. Obdobný postup na kontralat. strane.",
+  op_horna_blepharo: "Fotodokumentácia, vyplánovanie a zakreslenie pre výkonom. Po príprave operačného poľa a vyplánovaní , aplikujeme lokálne anestetikum, 1% mesocain s adrenalínom. Na hornej mihalnici bilat. odstraňujeme nadbytočné rias po haemostáze redukujeme retrobulb. tuk med. a centrálne. Sutura kože ID monofil 6/0 Steri stripp, krytie. Rovnaký postup na kontralater. strane.",
+  op_dolna_blepharo: "Po príprave operačného poľa a vyplánovaní , aplikujeme lokálne anestetikum, 1% mesocain s adrenalínom. V subciliárnej incízii resekujeme prebytočnú kožu, následne resekujeme malé porcie lat. mediálneho a centrálneho retrosept. tuku s tenkým pásom prebytočného orbik. svalu. Uvoľnenie retaining ligamenta a zdvih o periost orbity 4.0. Záves m. orbicularis. Sutura kože ID monofil 6/0 Steri stripp, krytie. Rovnaký postup na kontralater. strane.",
+  op_transpalpebral: "Transpalpebrálnym prístupom v submuskulárnej vrstve uvoľnujeme priestor na eleváciu ROOF. Fixácia o periost 2.0 vicryl symetricky na oboch stranách.",
+  op_gliding_brow: "V CA po príprave operačného poľa v tumescencii /adrenali 1:200000, levobupivacain, exacyl/ 40ml/strana, vykonávame z frontálneho prístupu preparáciu kože od podkožných štruktúr. Po kompletnom uvoľnení fixujeme kože pomocou hemostatickej siete do požadovanej pozície. Z temporálneho prístupu fixujeme vicryl 2.0 malárny priestor o temporálnu fasciu. Krytie. Poop. prádlo.",
+  op_endo_brow: "V CA po príprave operačného poľa v tumescencii /adrenali 1:200000, levobupivacain, exacyl/ 40ml/strana, vykonávame z malých incízií v kapilíciu endoskopickú preparáciu subperiosteálnej kapsy na čele, nad hlbokou temporálnu fasciou v oblasti spánkov a v malárnom tukovom kompartmente. Izolujeme a šetríme nervy a cievy. Po kompletnom uvoľnení progresívne fixujeme uvoľnené tkanivá PDS 3.0 o tempor. fasciu a transparietálne. Sutura vo vrstvách. Krytie. Poop. prádlo.",
+  op_rhino_komplet: "V CA aplikujeme vazokonstrikčný roztok /adrenalin, levobupivacain, exacyl, FR/. Kilian. prístupom preparujeme septum od sliznice a odoberáme septálny chrup. štep - low strip 10mm a vertical strip 7mm. Vykonávame septoplastiku QC flap s kompletnou deliberáciou. Subdorzálne osteotómia s excíziou 2mm trojuholník kosti. Zatvorený prítupom si prístupňujeme alárne chrupavky. Rim flap 1mm. Subperichondrálna preparácia alar. chrupaviek a ULC, subperiosteálna preparácia laterálne, bez preparácie dorza. Piezotomické osteotómie s banana nízkou resekciou 1mm. Proximálne osteotómie in-out. Let down. Fixácia septa k ANS PDS 4.0 + kite flap. Modelácia špičky. Zúženie alárnych chrupaviek na 6mm, Osman flap + fix PDS 6.0. Lateral crural steal 3mm, medial crural overlap 2mm, modelácia nových domov. Sturt, subdomal graft, polygon tip, fixácia PDS 6.0. Rekonštrukcia scroll ligamenta. Sutura sliznice a kože PDS 6.0. peDCG nad nasion, WASA, infratip a nad ANS. Alárna redukcia V-rapid 5.0. Doyle splint bilat. Transseptálna sutura vicryl rapid 5.0. Krytie. Taping. Termoplastová dlaha.",
+  op_rhino_spicka: "V LA aplikujeme vazokonstrikčný roztok /adrenalin, marcain, exacyl, FR/. Zatvoreným prístupom si sprístupňujeme alárne chrupavky. Rim flap /2x6mm/ a zúženie chrupaviek na 6mm. Osman flap. Rasping nazálnych kostí. Modelácia špičky - lateral crural steal 1mm, modelácia nových domov - Gruber, TD a ID sutury - skrátenie med. crura o 1mm. Sutura sliznice a kože. Krytie. Taping.",
+  op_usi: "V CA aplikujeme vazokonstrikčný roztok /adrenalin, levobupivacain, TXA, FR/. z dorzálneho prístupu preparujeme chrupavku od perichondria v celom plánovanom rozsahu. Perkutánne uvoľˇujeme kožu ponad plánovanú oblasť. Aplikujeme modelačné stehy PDS 3.0 a tvarujeme antihelix . Kontrola symtrie. Hemostáza. Sutura kože. Krytie. Taping. Poop. prádlo.",
+  op_lip_lift: "V LA po vyplánovaní a kontrole meraní vykonávame bullhorn lip lift s excíziou cca. 5mm kože. Podmínovanie kože a uvoľnenie SMAS. Fixácia SMAS /PDS 5.0/ a sutura kože/Prolene 6.0/. Steristripy.",
+  op_aug_dual: "V CA po príprave oper. podľa Adamsovo plánu, vyplánovaní aplikujeme lok. anestetikum do jaziev. V inframamárnej ryhe vykonávame incíziu a preparujeme dual plane I. Výplach, hemostáza, výmena inštrumentária.Po oplachu implantátov ATB roztokom inzerujeme implantáty Kellerovym tunelom /Polytech, B-lite, ROund-Meme, Mesmo/. SFS fixujeme v celom dolnom a laterálnom póle kavity bilat. Sutura vo vrstvách. Steristrip. Krytie. Poop. podprsenka.",
+  op_aug_sub: "V CA po príprave oper. podľa Adamsovo plánu, vyplánovaní aplikujeme lok. anestetikum do jaziev. V inframamárnej ryhe vykonávame incíziu a preparujeme subfascialnu kapsu. Výplach, hemostáza, výmena inštrumentária.Po oplachu implantátov ATB roztokom inzerujeme implantáty /Motiva E2SM 220cc/. SFS fixujeme v celom dolnom póle kavity bilat. Sutura vo vrstvách. Steristrip. Krytie. Preventívna NPWT na jazvy. Poop. podprsenka.",
+  op_aug_mastopexia: "V CA po príprave oper. podľa Adamsovo plánu, vyplánovaní aplikujeme lok. anestetikum do jaziev. V inframamárnej ryhe vykonávame incíziu a preparujeme dual plane I. Výplach, hemostáza, výmena inštrumentária.Po oplachu implantátov ATB roztokom inzerujeme implantáty /Mentor, anatom., CPG , 395cc/. SFS fixujeme v celom dolnom a laterálnom póle kavity bilat. Sutura vo vrstvách. Následne vykonávame excíziu prebytočného tkaniva kože a dolnej časti žľazy. Žľazu modelujeme a NAC presúvame na hornej stopke do neopozície. Sutura pilonov vicryl 2.0. Kontrola symetrie. Sutura vo vrstvách. Sutura kože glykolon ID. Krytie rany. Poop. prádlo",
+  op_mastopexia: "V CA po príprave oper. poľa, vyplánovaní vykonávame excíziu prebytočného tkaniva kože. Lalok kože na dolnej stopke podľa Ribeira fixujeme o m. pectoralis 2.0. Žľazu modelujeme a NAC presúvame na hornej stopke do neopozície. Sutura pilonov vicryl 2.0. Kontrola symetrie. Sutura vo vrstvách. Sutura kože glykolon ID. Aplikujeme lok. anestetikum do jaziev Krytie rany. Poop. prádlo.",
+  op_redukcia: "V CA po príprave oper. poľa, vyplánovaní - Wise pattern - vykonávame excíziu prebytočného tkaniva kože. Resekujeme prebytočné tkanivo - vľavo - vpravo. Modelujeme žľazu a NAC presúvame na hornej stopke do neopozície. Sutura pilonov vicryl 2.0. Kontrola symetrie. Sutura vo vrstvách. Sutura kože glykolon ID. Aplikujeme lok. anestetikum do jaziev Krytie rany. Poop. prádlo.",
+  op_vymena: "V CA po príprave oper. podľa Adamsovo plánu, vyplánovaní aplikujeme lok. anestetikum do jaziev. V inframamárnej ryhe vykonávame incíziu a preparujeme kapsu vpravo. Kapsa silne fibroticky zmenená - cca. 3mm. Etrahujeme implantát // a excidujeme kapsu subtotálne - ponechávame dolný laterálny pól, ktorý fixujeme K fascii PDS 2.0 ako “internal bra”. Výplach, hemostáza, výmena inštrumentária. Obdobný postup na kontralaterálnej strane. Po oplachu implantátov ATB roztokom Kellerovym tunelom inzerujeme implantáty //. SFS fixujeme v celom dolnom a laterálnom póle kavity bilat. Sutura vo vrstvách. Steristrip. Krytie. Poop. podprsenka.",
+  op_gynekomastia: "V CA po príprave operačného poľa splikujeme tumescenciu /Bikarbonát, FR, adrenalin, mesocain, levobupivacain/. Vykonávame PAL liposukciu označeného okolia a následne exstirpujeme žľazu bilat /2x2cm/ - mat. ad histologiam. Hemostáza. Kontrola symetrie. Sutura vo vrtvách /vycril 4.0 , glycolon 4.0 ID/. Poop. prádlo.",
+  op_lipografting: "V CA po príprave operačného poľa v tumescencii vykonávame PAL liposukvćiu hlbokej a strednej vrstvy tuku trupu. Mierna HD modelácia povrchového tuku. Odber celkovo 1l tukového tkaniva cez lipocollector. Odobratý tuk spracovávame ako makrograft a aplikujeme do prsníkov, 300cc strana. Sutura vstupov monocryl. Pooperačné prádlo.",
+  op_abdominoplastika: "V CA po príprave oper. poľa, vyplánovaní aplikujeme lok. anestetikum do plánovaného oper. poľa. Rezom v podbrušku si preparujeme svalovú fasciu brušnej steny v rozsahu priamych brušných svalov až ku xiphoidu a v rozsahu plánovanej horizontálnej kožnej resekcie. Odpojenie umbilika od kože. Dôsledna hemostáza perforátorov. Diastázu rozsahu šírky 6cm v maxime supraumbilikálne ošetrujeme raphiou v dvoch vrtvách /Stratafix 1.0 a 2.0/ SFS fixujeme progressive tension suturami /vycril 2.0/. Resekcia cca. 10x20cm kože bez ťahu. Sutura vo vrstvách. R-drenáž krytie. Steristrip. Krytie. Poop. podprsenka.",
+  op_abdo_kratky_rez: "V CA po príprave oper. poľa, vyplánovaní aplikujeme lok. anestetikum do plánovaného oper. poľa. Rezom v podbrušku si preparujeme úzkym tunelom svalovú fasciu brušnej steny v rozsahu priamych brušných svalov až ku xiphoidu a v rozsahu plánovanej kožnej resekcie. Odpojenie umbilika pri báze. Dôsledna hemostáza perforátorov. Nález umbilikálnej hernie s bránkou veľkosti 1,5cm ošetrujeme resekciou vaku a suturami sec. Mayo. Diastázu rozsahu v oblasti šírky 6cm v maxime supraumbilikálne ošetrujeme raphiou v dvoch vrtvách /Stratafix 1.0 a 2.0/ SFS fixujeme progressive tension suturami /vycril 2.0/. Resekcia cca. 10x20cm kože bez ťahu. Sutura vo vrstvách. R-drenáž krytie. Steristrip. Krytie. Poop. podprsenka.",
+  op_mini_abdo: "V CA po príprave oper. poľa, vyplánovaní aplikujeme lok. anestetikum do plánovaného oper. poľa. Rezom v podbrušku si preparujeme svalovú fasciu brušnej steny v rozsahu plánovanej kožnej resekcie. Dôsledna hemostáza perforátorov. SFS fixujeme progressive tension suturami /vycril 2.0/. Resekcia cca. 10x20cm kože bez ťahu. Sutura vo vrstvách. Steristrip. Krytie. Poop. podprsenka.",
+  op_lipo_360: "V CA po príprave operačného poľa v tumescencii vykonávame PAL liposukvćiu hlbokej a strednej vrstvy tuku trupu. Mierna HD modelácia povrchového tuku. Odber celkovo 2l tukového tkaniva. Sutura vstupov monocryl. Pooperačné prádlo.",
+  op_armlift: "V CA po príprave operačného poľa a kontrole plánovania v tumescencii vykonávame PAL liposukciu hlbokej a strednej vrstvy tuku rúk. Odber celkovo ml tukového tkaniva. Sutura vstupov monocryl. Následne vykonávame excízie vyplánovananých častí kože a podkožia s prísnym šetrením ciev a nervov. Sura vo vrstvách bez ťahu. Pooperačné prádlo.",
+  op_labioplastika: "V LA/ analgosedácií po príprave operačného poľa v gynekologickej polohe po dôslednom vyplánovaní. zakreslení a kontrole symetrie vykonávame excíziu excesívnych častí labia minora. Hemostáza. sutura vo vrstvách Glykolon 4.0. Krytie.",
+  op_karpal: "V karpálnom bloku /levobupivacain + adrenalin/ - v prídavnej tumescencii LA /mesocain + adrenalin/ po príprave operačného poľa, v bezkrvnom prostredí za použitia končatinového turniketu krátnym pozdĺžnym rezom medzi thenarom a hypothenarom vykonávame discíziu karp. ligamenta a uvoľňujeme tak n. medianus. Kontrola deliberácie. Dôsledná hemostáza. Sutura. Krytie. Bandáž.",
+  op_dupuytren: "V karpálnom bloku /levobupivacain + adrenalin/ - v prídavnej tumescencii LA /mesocain + adrenalin/ po príprave operačného poľa vykonávame v bezkrvnom prostredí za použitia končatinového turniketu plánujeme rezy Z-plastík. Odklápame kožné laloky nad kontraktúrami a s dôsledným šetrením okolitých tkanív preparujeme pruh od med. článku IV. prsta až k stredovej časti dlane. Resekujeme pruh a okolité časti palm. aponeurózy. Dôsledná hemostáza. Sutura kože a R-drenáž. Krytie. Bandáž.",
+  op_excizie: "V ……….. bloku /levobupivacain + adrenalin/ - v prídavnej tumescencii LA /mesocain + adrenalin/ po príprave operačného poľa vykonávame exstirpáciu …………… bez porušenia obalu s dôsledným šetrením okolitých tkanív. Mat. ad. histologiam. Sutura kože."
+};
+
 const calculateAgeFromRC = (rc: string) => {
   if (!rc || rc.length < 9) return '';
   const cleanRc = rc.replace(/\D/g, '');
@@ -187,7 +222,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const [patientPhone, setPatientPhone] = useState(initialPatient?.phone || '');
   const [patientEmail, setPatientEmail] = useState(initialPatient?.email || '');
   const [patientAddress, setPatientAddress] = useState(initialPatient?.address || '');
-  const [patientRelative, setPatientRelative] = useState(''); // Pre Dohodu o cene
+  const [patientRelative, setPatientRelative] = useState('');
 
   const [doctor, setDoctor] = useState('MUDr. Ján Mráz');
   const [diagnosis, setDiagnosis] = useState('Z41.1 - Estetická chirurgická úprava');
@@ -206,15 +241,22 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const [hospitalizationType, setHospitalizationType] = useState<'none' | 'half' | 'full' | 'full_2'>('none');
   const [vvAnesthesiaType, setVvAnesthesiaType] = useState('Lokálna');
 
-  // PLATBY (Záloha pre Dohodu)
+  // PLATBY
   const [depositPaid, setDepositPaid] = useState<number>(0);
 
-  // OPERAČNÉ ÚDAJE
+  // OPERAČNÉ ÚDAJE (A údaje o kontrole)
   const [surgeryDetails, setSurgeryDetails] = useState({
+    opDate: new Date().toISOString().split('T')[0],
     opStart: '09:00', opEnd: '10:30',
     anesStart: '08:45', anesEnd: '10:45',
-    assistant: '', anesthesiologist: '', nurse: '', checkup: '1 týždeň'
+    assistant: '', anesthesiologist: '', anestNurse: '', instrumentalist: '', checkup: '1 týždeň'
   });
+
+  // LIEKY PRE PREPÚŠŤACIU SPRÁVU
+  const [rxAntibiotics, setRxAntibiotics] = useState('');
+  const [rxAnalgesics, setRxAnalgesics] = useState('');
+  const [rxCorticoids, setRxCorticoids] = useState('');
+  const [rxAnticoagulants, setRxAnticoagulants] = useState('');
 
   // ANESTEZIOLOGICKÝ DOTAZNÍK
   const [anesthesiaAnswers, setAnesthesiaAnswers] = useState({
@@ -333,11 +375,14 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const handlePrint = () => window.print();
 
   const handleMacroInsert = (val: string, target: 'vv' | 'notes') => {
-    if (!val || !CLINIC_MACROS[val]) return;
-    if (target === 'vv') {
+    if (!val) return;
+    if (target === 'vv' && CLINIC_MACROS[val]) {
       setVvSPL(prev => prev ? prev + "\n\n" + CLINIC_MACROS[val] : CLINIC_MACROS[val]);
-    } else {
-      setNotes(prev => prev ? prev + "\n\n" + CLINIC_MACROS[val] : CLINIC_MACROS[val]);
+    } else if (target === 'notes') {
+      const selectedMacro = CLINIC_MACROS[val] || OP_MACROS[val];
+      if(selectedMacro) {
+        setNotes(prev => prev ? prev + "\n\n" + selectedMacro : selectedMacro);
+      }
     }
   };
 
@@ -376,6 +421,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const showAnesthesiaQ = docType === 'anesteziologicky_dotaznik';
   const showVV = docType === 'vstupne_vysetrenie';
   const showNotes = docType === 'kontrolne_vysetrenie' || docType === 'operacny_protokol' || docType === 'prepustacia_sprava';
+  const showMaterials = showVV || docType === 'operacny_protokol';
 
   return (
     <>
@@ -531,33 +577,38 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   </div>
                   <textarea rows={6} value={vvSPL} onChange={e => setVvSPL(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" placeholder="Nález..." />
                 </div>
+              </div>
+            )}
 
-                {/* 4. Vyšetrenia, Implantáty, Materiál */}
+            {/* MATERIÁLY A IMPLANTÁTY (Spoločné pre VV a Operačný protokol) */}
+            {showMaterials && (
                 <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-4">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Predoperačné vyšetrenia</p>
-                    <div className="flex flex-wrap gap-3">
-                      {['Štandardné (KO, Bio, OHV)', 'Ultrazvuk prsníkov', 'CT hlavy / CBCT nosa', 'Iné'].map(exam => (
-                        <label key={exam} className="flex items-center space-x-2 text-xs">
-                          <input type="checkbox" checked={vvExams.includes(exam)} onChange={() => handleExamToggle(exam)} className="accent-[#C5A059]" />
-                          <span>{exam}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {vvExams.includes('Iné') && (
-                      <input 
-                        type="text" 
-                        placeholder="Zadajte aké iné vyšetrenie..." 
-                        value={vvExamsOther} 
-                        onChange={e => setVvExamsOther(e.target.value)} 
-                        className="w-full mt-3 border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" 
-                      />
-                    )}
-                  </div>
-                  
-                  <div className="border-t border-[#E8E2D9] pt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {showVV && (
                     <div>
-                      <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Implantáty</p>
+                      <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Predoperačné vyšetrenia</p>
+                      <div className="flex flex-wrap gap-3">
+                        {['Štandardné (KO, Bio, OHV)', 'Ultrazvuk prsníkov', 'CT hlavy / CBCT nosa', 'Iné'].map(exam => (
+                          <label key={exam} className="flex items-center space-x-2 text-xs">
+                            <input type="checkbox" checked={vvExams.includes(exam)} onChange={() => handleExamToggle(exam)} className="accent-[#C5A059]" />
+                            <span>{exam}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {vvExams.includes('Iné') && (
+                        <input 
+                          type="text" 
+                          placeholder="Zadajte aké iné vyšetrenie..." 
+                          value={vvExamsOther} 
+                          onChange={e => setVvExamsOther(e.target.value)} 
+                          className="w-full mt-3 border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" 
+                        />
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className={`${showVV ? 'border-t border-[#E8E2D9] pt-3' : ''} grid grid-cols-1 md:grid-cols-2 gap-4`}>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Použité Implantáty</p>
                       {vvImplants.map((impl, idx) => (
                         <div key={idx} className="space-y-2 bg-white p-2 rounded-lg border border-[#E8E2D9] mb-2">
                           <div className="flex justify-between items-center">
@@ -576,14 +627,16 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                       <button type="button" onClick={addImplant} className="text-[10px] uppercase font-bold text-[#C5A059] hover:text-[#2C2A29]">+ Pridať ďalší implantát</button>
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Materiál (poop. prádlo, BTX...)</p>
+                      <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Použitý materiál (poop. prádlo, BTX...)</p>
                       <textarea rows={4} value={vvMaterial} onChange={e => setVvMaterial(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
                     </div>
                   </div>
                 </div>
+            )}
 
-                {/* 5. Kontraindikácie */}
-                <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6]">
+            {/* Kontraindikácie iba pre VV */}
+            {showVV && (
+              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6]">
                   <label className="flex items-center space-x-2 text-xs font-bold text-[#2C2A29] mb-2">
                     <input type="checkbox" checked={vvNoContra} onChange={e => setVvNoContra(e.target.checked)} className="accent-[#C5A059]" />
                     <span>Bez zjavnej kontraindikácie k výkonu (t.č.)</span>
@@ -594,7 +647,6 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                       <input type="text" value={vvContraReason} onChange={e => setVvContraReason(e.target.value)} className="w-full border border-rose-200 p-2 rounded-lg text-xs bg-white" />
                     </div>
                   )}
-                </div>
               </div>
             )}
 
@@ -695,10 +747,22 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-[#2C2A29]">Personál & Časy zákroku</p>
                 <div className="grid grid-cols-2 gap-3 text-xs">
+                  {docType === 'operacny_protokol' && (
+                    <div className="col-span-2">
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Termín zákroku</label>
+                      <input type="date" value={surgeryDetails.opDate} onChange={e => setSurgeryDetails({...surgeryDetails, opDate: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" />
+                    </div>
+                  )}
                   <div><label className="block text-[9px] text-[#8C857B] mb-1">Čas operácie (Od - Do)</label><div className="flex gap-1"><input type="time" value={surgeryDetails.opStart} onChange={e => setSurgeryDetails({...surgeryDetails, opStart: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /><input type="time" value={surgeryDetails.opEnd} onChange={e => setSurgeryDetails({...surgeryDetails, opEnd: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div></div>
                   <div><label className="block text-[9px] text-[#8C857B] mb-1">Čas anestézie (Od - Do)</label><div className="flex gap-1"><input type="time" value={surgeryDetails.anesStart} onChange={e => setSurgeryDetails({...surgeryDetails, anesStart: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /><input type="time" value={surgeryDetails.anesEnd} onChange={e => setSurgeryDetails({...surgeryDetails, anesEnd: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div></div>
-                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Asistent / Sestra</label><input type="text" value={surgeryDetails.assistant} onChange={e => setSurgeryDetails({...surgeryDetails, assistant: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div>
+                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Asistent</label><input type="text" value={surgeryDetails.assistant} onChange={e => setSurgeryDetails({...surgeryDetails, assistant: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div>
                   <div><label className="block text-[9px] text-[#8C857B] mb-1">Anesteziológ</label><input type="text" value={surgeryDetails.anesthesiologist} onChange={e => setSurgeryDetails({...surgeryDetails, anesthesiologist: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div>
+                  {docType === 'operacny_protokol' && (
+                    <>
+                      <div><label className="block text-[9px] text-[#8C857B] mb-1">Anest. sestra</label><input type="text" value={surgeryDetails.anestNurse} onChange={e => setSurgeryDetails({...surgeryDetails, anestNurse: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div>
+                      <div><label className="block text-[9px] text-[#8C857B] mb-1">Inštrumentárka</label><input type="text" value={surgeryDetails.instrumentalist} onChange={e => setSurgeryDetails({...surgeryDetails, instrumentalist: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div>
+                    </>
+                  )}
                 </div>
                 {docType === 'prepustacia_sprava' && (
                   <div>
@@ -708,6 +772,19 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     </select>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* SEKCIA: PREDPOKLADANÉ LIEKY (Pre Prepúšťaciu správu) */}
+            {docType === 'prepustacia_sprava' && (
+              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Predpísané lieky a dávkovanie</p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Antibiotiká</label><input type="text" value={rxAntibiotics} onChange={e => setRxAntibiotics(e.target.value)} placeholder="napr. Augmentin 1g každých 12h..." className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white" /></div>
+                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Analgetiká</label><input type="text" value={rxAnalgesics} onChange={e => setRxAnalgesics(e.target.value)} placeholder="napr. Flector 50mg pri bolesti..." className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white" /></div>
+                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Kortikoidy</label><input type="text" value={rxCorticoids} onChange={e => setRxCorticoids(e.target.value)} placeholder="napr. Medrol..." className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white" /></div>
+                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Antikoagulanciá</label><input type="text" value={rxAnticoagulants} onChange={e => setRxAnticoagulants(e.target.value)} placeholder="napr. Clexane 0.4ml s.c...." className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white" /></div>
+                </div>
               </div>
             )}
 
@@ -747,17 +824,70 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     className="border border-[#E8E2D9] p-1.5 rounded-lg text-[10px] bg-[#FBF9F6] text-[#8C857B] font-bold shadow-sm"
                   >
                     <option value="" disabled>+ Vložiť makro predlohu...</option>
-                    <option value="viecka">Viečka</option>
-                    <option value="nos">Nos</option>
-                    <option value="tvar">Tvár</option>
-                    <option value="prsniky">Prsníky</option>
-                    <option value="brucho">Brucho</option>
-                    <option value="lipo">Lipo</option>
-                    <option value="labio">Labio</option>
-                    <option value="ruka">Ruka (Karpál / Dupuytren)</option>
+                    {docType === 'operacny_protokol' ? (
+                      <>
+                        <optgroup label="Tvár">
+                          <option value="op_facelift_macs">Facelift MACS</option>
+                          <option value="op_deep_plane">Deep plane Facelift</option>
+                          <option value="op_necklift">Necklift</option>
+                          <option value="op_lipotransfer">Lipotransfer tváre</option>
+                          <option value="op_liposukcia_podbradku">Liposukcia podbradku</option>
+                          <option value="op_tvarove_implantaty">Tvárové implantáty (Su-por)</option>
+                        </optgroup>
+                        <optgroup label="Periorbitálna oblasť">
+                          <option value="op_horna_blepharo">Horná blepharoplastika</option>
+                          <option value="op_dolna_blepharo">Dolná blefaroplastika</option>
+                          <option value="op_transpalpebral">Transpalpebrálny browlift</option>
+                          <option value="op_gliding_brow">Gliding browlift</option>
+                          <option value="op_endo_brow">Endoskopický browlift + midfacelift</option>
+                        </optgroup>
+                        <optgroup label="Nos a Uši">
+                          <option value="op_rhino_komplet">Rhinoplastika kompletná - prezervačná</option>
+                          <option value="op_rhino_spicka">Rhinoplatika - špička</option>
+                          <option value="op_usi">Uši</option>
+                        </optgroup>
+                        <optgroup label="Pery">
+                          <option value="op_lip_lift">Lip lift</option>
+                        </optgroup>
+                        <optgroup label="Prsníky">
+                          <option value="op_aug_dual">Augmentácia - Dual plane</option>
+                          <option value="op_aug_sub">Augmentácia - Subfascial</option>
+                          <option value="op_aug_mastopexia">Augmentačná mastopexia</option>
+                          <option value="op_mastopexia">Mastopexia</option>
+                          <option value="op_redukcia">Redukcia</option>
+                          <option value="op_vymena">Výmena implantátov</option>
+                          <option value="op_gynekomastia">Gynekomastia</option>
+                          <option value="op_lipografting">Lipografting prsníkov</option>
+                        </optgroup>
+                        <optgroup label="Brucho a Telo">
+                          <option value="op_abdominoplastika">Abdominoplastika</option>
+                          <option value="op_abdo_kratky_rez">Abdominoplastika - krátky rez</option>
+                          <option value="op_mini_abdo">Miniabdominoplastika</option>
+                          <option value="op_lipo_360">Lipo 360</option>
+                          <option value="op_armlift">Arm lift</option>
+                        </optgroup>
+                        <optgroup label="Genitál, Ruka, Excízie">
+                          <option value="op_labioplastika">Labioplastika</option>
+                          <option value="op_karpal">Karpálny tunel</option>
+                          <option value="op_dupuytren">Dupuytrenova kontraktúra</option>
+                          <option value="op_excizie">Excízie</option>
+                        </optgroup>
+                      </>
+                    ) : (
+                      <>
+                        <option value="viecka">Viečka</option>
+                        <option value="nos">Nos</option>
+                        <option value="tvar">Tvár</option>
+                        <option value="prsniky">Prsníky</option>
+                        <option value="brucho">Brucho</option>
+                        <option value="lipo">Lipo</option>
+                        <option value="labio">Labio</option>
+                        <option value="ruka">Ruka (Karpál / Dupuytren)</option>
+                      </>
+                    )}
                   </select>
                 </div>
-                <textarea rows={6} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tu vpíšte text podľa typu dokumentu..." className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29]" />
+                <textarea rows={12} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tu vpíšte text podľa typu dokumentu..." className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29]" />
               </div>
             )}
 
@@ -1066,8 +1196,29 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 2. Operačný protokol / Prepúšťacia správa --- */}
-            {showSurgeryDetails && (
+            {/* --- 2A. Operačný protokol --- */}
+            {docType === 'operacny_protokol' && (
+              <div className="space-y-4 mb-6">
+                <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] text-xs">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Termín zákroku:</strong> {surgeryDetails.opDate ? new Date(surgeryDetails.opDate).toLocaleDateString('sk-SK') : '---'}</div>
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Operatér:</strong> {doctor}</div>
+                    
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Čas anestézie:</strong> začiatok: {surgeryDetails.anesStart} koniec: {surgeryDetails.anesEnd}</div>
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Anesteziológ:</strong> {surgeryDetails.anesthesiologist || '---'}</div>
+                    
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Čas zákroku:</strong> začiatok: {surgeryDetails.opStart} koniec: {surgeryDetails.opEnd}</div>
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Anest. sestra:</strong> {surgeryDetails.anestNurse || '---'}</div>
+                    
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Asistent:</strong> {surgeryDetails.assistant || '---'}</div>
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Inštrumentárka:</strong> {surgeryDetails.instrumentalist || '---'}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- 2B. Prepúšťacia správa s detailmi --- */}
+            {docType === 'prepustacia_sprava' && (
               <div className="space-y-4 mb-6">
                 <div className="grid grid-cols-2 gap-4 bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] text-[10px]">
                   <div><span className="text-[#8C857B] uppercase font-bold block mb-1">Čas operácie:</span> <span className="font-mono text-sm">{surgeryDetails.opStart} - {surgeryDetails.opEnd}</span></div>
@@ -1078,11 +1229,26 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     {surgeryDetails.anesthesiologist && <p className="mb-1"><strong>Anesteziológ:</strong> {surgeryDetails.anesthesiologist}</p>}
                   </div>
                 </div>
-                
-                {docType === 'prepustacia_sprava' && (
-                  <div className="bg-rose-50 border border-rose-100 p-3 rounded-lg text-rose-800 text-xs font-bold flex justify-between">
+
+                {/* Termín kontroly */}
+                <div className="bg-rose-50 border border-rose-100 p-4 rounded-lg text-rose-800 text-xs">
+                  <p className="font-bold flex justify-between mb-2 pb-1 border-b border-rose-200">
                     <span>⚠️ Najbližšia pooperačná kontrola:</span>
                     <span className="uppercase">{surgeryDetails.checkup}</span>
+                  </p>
+                  <p className="text-justify leading-relaxed">Presný termín si rezervujte cez rezervačný systém na <strong>www.sayclinic.sk</strong>. V prípade, že uvedené termíny nevyhovujú kontaktujte priamo doleuvedené číslo.</p>
+                </div>
+
+                {/* Lieky (ak sú vyplnené) */}
+                {(rxAntibiotics || rxAnalgesics || rxCorticoids || rxAnticoagulants) && (
+                  <div className="mt-4 border border-[#E8E2D9] rounded-xl p-4">
+                    <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">Predpísané lieky a dávkovanie:</p>
+                    <ul className="list-none text-xs space-y-1.5">
+                      {rxAntibiotics && <li><strong className="w-24 inline-block text-[#8C857B]">Antibiotiká:</strong> <span className="font-bold">{rxAntibiotics}</span></li>}
+                      {rxAnalgesics && <li><strong className="w-24 inline-block text-[#8C857B]">Analgetiká:</strong> <span className="font-bold">{rxAnalgesics}</span></li>}
+                      {rxCorticoids && <li><strong className="w-24 inline-block text-[#8C857B]">Kortikoidy:</strong> <span className="font-bold">{rxCorticoids}</span></li>}
+                      {rxAnticoagulants && <li><strong className="w-24 inline-block text-[#8C857B]">Antikoagulanciá:</strong> <span className="font-bold">{rxAnticoagulants}</span></li>}
+                    </ul>
                   </div>
                 )}
               </div>
@@ -1104,7 +1270,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- Spoločný textový blok (Nález) --- */}
+            {/* --- Spoločný textový blok (Nález / Protokol) --- */}
             {showNotes && (
               <div className="space-y-2 mb-8 flex-1">
                 <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">
@@ -1116,8 +1282,46 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* Právna doložka a poučenia (Skryté pre Dohodu, tá má vlastné) */}
-            {docType !== 'dohoda_o_cene' && (showVV || docType === 'kontrolne_vysetrenie' || docType === 'anesteziologicky_dotaznik') && (
+            {/* --- Použitý materiál a implantáty tlačené v Operačnom protokole --- */}
+            {docType === 'operacny_protokol' && (vvImplants.some(impl => impl.vyrobca || impl.kat || impl.objem) || vvMaterial) && (
+              <div className="space-y-4 mb-8">
+                <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">Použitý materiál a implantáty:</p>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    {vvImplants.some(impl => impl.vyrobca || impl.kat || impl.objem) ? (
+                       vvImplants.map((impl, idx) => (
+                        <div key={idx} className="mb-2">
+                          <p className="text-xs"><strong>Implantát {idx + 1}:</strong> {impl.vyrobca || '---'}</p>
+                          <p className="text-xs">Kat. č.: {impl.kat || '---'} | Objem: {impl.objem || '---'}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-[#8C857B]">Žiadne implantáty</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs whitespace-pre-line">{vvMaterial || 'Žiadny iný materiál'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Odporúčania špecifické pre Prepúšťaciu správu */}
+            {docType === 'prepustacia_sprava' && (
+               <div className="text-[10px] text-[#2C2A29] space-y-2 mt-4 text-justify leading-relaxed">
+                 <p className="font-bold uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">Odporúčania:</p>
+                 <ol className="list-decimal pl-4 space-y-1 font-semibold">
+                   <li>Odovzdaná preskripcia - pacient/ka poučená/ý o dávkovaní</li>
+                   <li>Užívať svoju chronickú medikáciu</li>
+                   <li>Dodržiavať pooperačný režim (viď poučenie k výkonu)</li>
+                 </ol>
+                 <p className="pt-2">V prípade potreby či komplikácie je nutné kontaktovať kliniku na doleuvedenom tel. čísle alebo vo vážnych situáciách ošetrujúceho lekára. V prípade život ohrozujúcich situácii nutné kontaktovať linku záchrannej služby 155 (112). V prípade celkových zdravotných komplikácií (zhoršenia chronického ochorenia, akútne chrípka a pod.) alebo nežiaducich účinkov liekov je vhodná kontrola u praktického lekára. Kontrola na našej ambulancii v prípade komplikácie ihneď, inak podľa individuálnej dohody s operatérom. V našej ambulantnej starostlivosti je klient/ka až do definitívneho vyradenia - teda po ukončení starostlivosti lekárom.</p>
+                 <p className="font-bold mt-4">Klient/ka svojím podpisom prehlasuje, že prepúšťacej správe porozumela v plnom rozsahu a nemá žiadne nejasnosti a nezodpovedané otázky.</p>
+               </div>
+            )}
+
+            {/* Právna doložka a poučenia (Pre VV, Kontrolu, Anest. dotazník) */}
+            {docType !== 'dohoda_o_cene' && docType !== 'prepustacia_sprava' && (showVV || docType === 'kontrolne_vysetrenie' || docType === 'anesteziologicky_dotaznik') && (
               <div className="text-[8px] text-[#8C857B] space-y-2 border-t border-[#E8E2D9] pt-4 mt-6 leading-tight text-justify">
                 {showVV && (
                   <>
