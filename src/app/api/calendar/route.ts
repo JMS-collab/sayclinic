@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
 
+// GET: Načítanie udalostí zo všetkých kalendárov
 export async function GET() {
   const session: any = await getServerSession(authOptions);
 
@@ -13,7 +14,6 @@ export async function GET() {
   }
 
   try {
-    // 1. Zistíme zoznam všetkých kalendárov
     const listRes = await fetch(
       'https://www.googleapis.com/calendar/v3/users/me/calendarList',
       {
@@ -36,7 +36,6 @@ export async function GET() {
       primary: cal.primary || false,
     }));
 
-    // NASTAVENIE ROZSAHU: 1 ROK DOZADU A 1 ROK DOPREDU
     const now = new Date();
     const pastYear = new Date(now);
     pastYear.setFullYear(pastYear.getFullYear() - 1);
@@ -49,7 +48,6 @@ export async function GET() {
 
     let allEvents: any[] = [];
 
-    // 2. Načítanie zo všetkých kalendárov
     for (const cal of calendars) {
       const eventsUrl = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`);
       eventsUrl.searchParams.append('singleEvents', 'true');
@@ -97,6 +95,61 @@ export async function GET() {
       calendars,
       events: allEvents
     });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// POST: Vytvorenie novej udalosti priamo v Google Kalendári
+export async function POST(req: Request) {
+  const session: any = await getServerSession(authOptions);
+
+  if (!session || !session.accessToken) {
+    return NextResponse.json(
+      { error: 'Nie ste prihlásený alebo chýba prístupový token.' }, 
+      { status: 401 }
+    );
+  }
+
+  try {
+    const body = await req.json();
+    const { title, patientName, date, startTime, endTime, notes, calendarId } = body;
+
+    const targetCalendarId = calendarId || 'primary';
+
+    // Skladanie ISO dátumov pre Google API
+    const startDateTime = new Date(`${date}T${startTime}:00`).toISOString();
+    const endDateTime = new Date(`${date}T${endTime}:00`).toISOString();
+
+    const googleEvent = {
+      summary: `${title} - ${patientName}`,
+      description: notes || '',
+      start: { dateTime: startDateTime },
+      end: { dateTime: endDateTime },
+    };
+
+    const res = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendarId)}/events`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(googleEvent),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: data.error?.message || 'Chyba pri vytváraní udalosti v Google Kalendári' }, 
+        { status: res.status }
+      );
+    }
+
+    return NextResponse.json({ success: true, event: data });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

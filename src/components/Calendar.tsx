@@ -26,32 +26,21 @@ export interface GoogleCalendarItem {
   primary?: boolean;
 }
 
-const INITIAL_EVENTS: CalendarEvent[] = [
-  {
-    id: 'evt-1',
-    patientId: 'P1',
-    patientName: 'Mária Kováčová',
-    patientPhone: '+421 905 123 456',
-    doctorName: 'MUDr. Ján Mráz',
-    title: 'Augmentácia prsníkov',
-    date: new Date().toISOString().split('T')[0],
-    startTime: '09:00',
-    endTime: '11:00',
-    type: 'operacia',
-    anesthesiaType: 'Celková',
-    notes: 'Implantáty Motiva 320ml, hospitalizácia 1 deň'
-  }
-];
-
 interface CalendarProps {
   events?: CalendarEvent[];
+  patients?: Array<{ id: string; name: string }>; // Zoznam pacientov pre inteligentné párovanie
   onOpenPatientFolder?: (patientId: string) => void;
   onAddEvent?: (event: CalendarEvent) => void;
 }
 
 type ViewMode = 'day' | 'week' | 'month';
 
-export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, onOpenPatientFolder, onAddEvent }: CalendarProps) {
+export default function Calendar({ 
+  events: initialPropEvents = [], 
+  patients = [], 
+  onOpenPatientFolder, 
+  onAddEvent 
+}: CalendarProps) {
   const { data: session, status } = useSession();
   
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialPropEvents);
@@ -62,15 +51,22 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
   const [view, setView] = useState<ViewMode>('day');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [newEvent, setNewEvent] = useState<Partial<CalendarEvent>>({
-    patientName: '', doctorName: 'MUDr. Ján Mráz', title: '', 
-    date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '10:00', type: 'operacia'
+    patientName: '', 
+    doctorName: 'MUDr. Ján Mráz', 
+    title: '', 
+    date: new Date().toISOString().split('T')[0], 
+    startTime: '09:00', 
+    endTime: '10:00', 
+    type: 'operacia',
+    calendarId: 'primary'
   });
 
   // Načítanie kalendárov a udalostí
-  useEffect(() => {
+  const fetchCalendarData = () => {
     if (session) {
       setIsLoadingGoogle(true);
       fetch('/api/calendar')
@@ -89,9 +85,13 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
       setCalendarEvents(initialPropEvents);
       setAvailableCalendars([]);
     }
+  };
+
+  useEffect(() => {
+    fetchCalendarData();
   }, [session]);
 
-  // Filtrovanie udalostí podľa vybraného kalendára
+  // Filtrovanie udalostí
   const filteredEvents = selectedCalendarId === 'all' 
     ? calendarEvents 
     : calendarEvents.filter(e => e.calendarId === selectedCalendarId);
@@ -138,27 +138,74 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
     }
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  // Vytvorenie udalosti a jej zápis do Google API
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvent.patientName || !newEvent.title) return;
 
-    const created: CalendarEvent = {
-      id: `evt-${Date.now()}`,
-      patientName: newEvent.patientName || '',
-      patientPhone: newEvent.patientPhone || '',
-      doctorName: newEvent.doctorName || 'MUDr. Ján Mráz',
-      title: newEvent.title || '',
-      date: newEvent.date || currentDate.toISOString().split('T')[0],
-      startTime: newEvent.startTime || '09:00',
-      endTime: newEvent.endTime || '10:00',
-      type: newEvent.type as any || 'operacia',
-      anesthesiaType: newEvent.anesthesiaType,
-      notes: newEvent.notes
-    };
+    setIsSaving(true);
 
-    if (onAddEvent) onAddEvent(created);
-    setCalendarEvents(prev => [...prev, created]);
-    setIsAddingEvent(false);
+    if (session) {
+      try {
+        const res = await fetch('/api/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newEvent)
+        });
+
+        if (res.ok) {
+          fetchCalendarData(); // Obnovíme dáta z Googlu
+        } else {
+          alert('Nepodarilo sa uložiť udalosť do Google Kalendára.');
+        }
+      } catch (err) {
+        console.error('Chyba zápisu:', err);
+      } finally {
+        setIsSaving(false);
+        setIsAddingEvent(false);
+      }
+    } else {
+      // Lokálny režim ak nie je prihlásený
+      const created: CalendarEvent = {
+        id: `evt-${Date.now()}`,
+        patientName: newEvent.patientName || '',
+        doctorName: newEvent.doctorName || 'MUDr. Ján Mráz',
+        title: newEvent.title || '',
+        date: newEvent.date || currentDate.toISOString().split('T')[0],
+        startTime: newEvent.startTime || '09:00',
+        endTime: newEvent.endTime || '10:00',
+        type: newEvent.type as any || 'operacia',
+        notes: newEvent.notes
+      };
+
+      if (onAddEvent) onAddEvent(created);
+      setCalendarEvents(prev => [...prev, created]);
+      setIsSaving(false);
+      setIsAddingEvent(false);
+    }
+  };
+
+  // Párovanie pacienta podľa mena z textu udalosti
+  const handleOpenFolderForEvent = (event: CalendarEvent) => {
+    if (!onOpenPatientFolder) return;
+
+    // Ak má zadané ID priamo
+    if (event.patientId) {
+      onOpenPatientFolder(event.patientId);
+      return;
+    }
+
+    // Hľadanie v zozname pacientov podľa mena
+    const matchedPatient = patients.find(p => 
+      event.patientName.toLowerCase().includes(p.name.toLowerCase()) || 
+      event.title.toLowerCase().includes(p.name.toLowerCase())
+    );
+
+    if (matchedPatient) {
+      onOpenPatientFolder(matchedPatient.id);
+    } else {
+      alert(`Pacient podľa názvu "${event.patientName}" nebol nájdený v kartotéke.`);
+    }
   };
 
   const renderDayView = () => {
@@ -282,7 +329,6 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Výber kalendára */}
           {session && availableCalendars.length > 0 && (
             <select
               value={selectedCalendarId}
@@ -365,7 +411,6 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
             <div className="space-y-2 text-xs bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
               {selectedEvent.calendarName && <p><strong>Kalendár:</strong> <span className="ml-1 font-bold text-[#C5A059]">{selectedEvent.calendarName}</span></p>}
               <p><strong>Pacient:</strong> <span className="font-bold text-sm ml-1">{selectedEvent.patientName}</span></p>
-              {selectedEvent.patientPhone && <p><strong>Telefón:</strong> <span className="ml-1">{selectedEvent.patientPhone}</span></p>}
               <p><strong>Čas:</strong> <span className="ml-1 font-mono">{selectedEvent.startTime} - {selectedEvent.endTime}</span> ({selectedEvent.date})</p>
               {selectedEvent.notes && <p className="pt-2 border-t border-[#E8E2D9] text-[#8C857B]"><strong>Poznámky:</strong> {selectedEvent.notes}</p>}
             </div>
@@ -373,7 +418,7 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
             <div className="flex justify-between items-center pt-2">
               <button 
                 onClick={() => {
-                  if (selectedEvent.patientId && onOpenPatientFolder) onOpenPatientFolder(selectedEvent.patientId);
+                  handleOpenFolderForEvent(selectedEvent);
                   setSelectedEvent(null);
                 }}
                 className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
@@ -388,9 +433,24 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
       {isAddingEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-xl border border-[#E8E2D9]">
-            <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-3 mb-4">Pridať do kalendára</h3>
+            <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-3 mb-4">Pridať do Google Kalendára</h3>
 
             <form onSubmit={handleCreateSubmit} className="space-y-3 text-xs">
+              {availableCalendars.length > 0 && (
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Cieľový kalendár</label>
+                  <select 
+                    value={newEvent.calendarId} 
+                    onChange={e => setNewEvent({...newEvent, calendarId: e.target.value})} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
+                  >
+                    {availableCalendars.map(cal => (
+                      <option key={cal.id} value={cal.id}>{cal.summary}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Meno pacienta *</label><input type="text" required value={newEvent.patientName} onChange={e => setNewEvent({...newEvent, patientName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
               <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Názov zákroku *</label><input type="text" required value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
               <div className="grid grid-cols-3 gap-3">
@@ -398,23 +458,17 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
                 <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Začiatok</label><input type="time" value={newEvent.startTime} onChange={e => setNewEvent({...newEvent, startTime: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
                 <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Koniec</label><input type="time" value={newEvent.endTime} onChange={e => setNewEvent({...newEvent, endTime: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Lekár</label>
-                  <select value={newEvent.doctorName} onChange={e => setNewEvent({...newEvent, doctorName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]">
-                    <option value="MUDr. Ján Mráz">MUDr. Ján Mráz</option><option value="MUDr. Zuzana Sroková, MPH">MUDr. Zuzana Sroková, MPH</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Typ</label>
-                  <select value={newEvent.type} onChange={e => setNewEvent({...newEvent, type: e.target.value as any})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]">
-                    <option value="operacia">Operácia</option><option value="vstupne_vysetrenie">Vstupné vyšetrenie</option><option value="kontrolne_vysetrenie">Kontrola</option>
-                  </select>
-                </div>
+              
+              <div>
+                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Poznámky</label>
+                <textarea value={newEvent.notes} onChange={e => setNewEvent({...newEvent, notes: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" rows={2}></textarea>
               </div>
+
               <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9]">
                 <button type="button" onClick={() => setIsAddingEvent(false)} className="px-4 py-2 font-bold text-[#8C857B]">ZRUŠIŤ</button>
-                <button type="submit" className="px-5 py-2 bg-[#2C2A29] text-white font-bold rounded-xl uppercase">ULOŽIŤ</button>
+                <button type="submit" disabled={isSaving} className="px-5 py-2 bg-[#2C2A29] text-white font-bold rounded-xl uppercase">
+                  {isSaving ? 'Ukladám...' : 'ULOŽIŤ DO GOOGLE'}
+                </button>
               </div>
             </form>
           </div>
