@@ -5,6 +5,8 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 
 export interface CalendarEvent {
   id: string;
+  calendarId?: string;
+  calendarName?: string;
   patientId?: string;
   patientName: string;
   patientPhone?: string;
@@ -16,6 +18,12 @@ export interface CalendarEvent {
   type: 'operacia' | 'konzultacia' | 'kontrolne_vysetrenie' | 'vstupne_vysetrenie';
   anesthesiaType?: string;
   notes?: string;
+}
+
+export interface GoogleCalendarItem {
+  id: string;
+  summary: string;
+  primary?: boolean;
 }
 
 const INITIAL_EVENTS: CalendarEvent[] = [
@@ -47,6 +55,9 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
   const { data: session, status } = useSession();
   
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialPropEvents);
+  const [availableCalendars, setAvailableCalendars] = useState<GoogleCalendarItem[]>([]);
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string>('all');
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<ViewMode>('day');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -58,14 +69,17 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
     date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '10:00', type: 'operacia'
   });
 
-  // Načítanie udalostí z Google Kalendára po prihlásení
+  // Načítanie kalendárov a udalostí
   useEffect(() => {
     if (session) {
       setIsLoadingGoogle(true);
       fetch('/api/calendar')
         .then(res => res.json())
         .then(data => {
-          if (Array.isArray(data) && data.length > 0) {
+          if (data.events && Array.isArray(data.events)) {
+            setCalendarEvents(data.events);
+            setAvailableCalendars(data.calendars || []);
+          } else if (Array.isArray(data)) {
             setCalendarEvents(data);
           }
         })
@@ -73,8 +87,14 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
         .finally(() => setIsLoadingGoogle(false));
     } else {
       setCalendarEvents(initialPropEvents);
+      setAvailableCalendars([]);
     }
   }, [session]);
+
+  // Filtrovanie udalostí podľa vybraného kalendára
+  const filteredEvents = selectedCalendarId === 'all' 
+    ? calendarEvents 
+    : calendarEvents.filter(e => e.calendarId === selectedCalendarId);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -143,7 +163,7 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
 
   const renderDayView = () => {
     const formattedDate = currentDate.toISOString().split('T')[0];
-    const dayEvents = calendarEvents.filter(e => e.date === formattedDate).sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const dayEvents = filteredEvents.filter(e => e.date === formattedDate).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
     return (
       <div className="space-y-3">
@@ -164,6 +184,11 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
                     <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded text-white ${evt.type === 'operacia' ? 'bg-[#2C2A29]' : evt.type === 'vstupne_vysetrenie' ? 'bg-[#C5A059]' : 'bg-emerald-700'}`}>
                       {evt.type.replace('_', ' ')}
                     </span>
+                    {evt.calendarName && (
+                      <span className="text-[8px] bg-amber-50 text-[#C5A059] border border-[#C5A059]/30 px-2 py-0.5 rounded font-bold">
+                        {evt.calendarName}
+                      </span>
+                    )}
                   </div>
                   <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059]">{evt.title}</h4>
                   <p className="text-xs text-[#8C857B]">{evt.patientName} | {evt.doctorName}</p>
@@ -184,7 +209,7 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
       <div className="grid grid-cols-7 gap-2">
         {weekDays.map((date, idx) => {
           const formattedDate = date.toISOString().split('T')[0];
-          const dayEvents = calendarEvents.filter(e => e.date === formattedDate);
+          const dayEvents = filteredEvents.filter(e => e.date === formattedDate);
           const isToday = formattedDate === new Date().toISOString().split('T')[0];
 
           return (
@@ -224,7 +249,7 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
             if (!date) return <div key={`empty-${idx}`} className="border-b border-r border-[#E8E2D9]/50 bg-gray-50" />;
             
             const formattedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-            const dayEvents = calendarEvents.filter(e => e.date === formattedDate);
+            const dayEvents = filteredEvents.filter(e => e.date === formattedDate);
             const isToday = formattedDate === new Date().toISOString().split('T')[0];
 
             return (
@@ -256,7 +281,23 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
           <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Centrálny harmonogram SAY CLINIC</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Výber kalendára */}
+          {session && availableCalendars.length > 0 && (
+            <select
+              value={selectedCalendarId}
+              onChange={(e) => setSelectedCalendarId(e.target.value)}
+              className="bg-[#FBF9F6] border border-[#E8E2D9] text-[#2C2A29] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider focus:outline-none focus:border-[#C5A059]"
+            >
+              <option value="all">🗓️ Všetky kalendáre ({availableCalendars.length})</option>
+              {availableCalendars.map(cal => (
+                <option key={cal.id} value={cal.id}>
+                  {cal.summary}
+                </option>
+              ))}
+            </select>
+          )}
+
           <button
             onClick={handleGoogleConnect}
             disabled={status === 'loading'}
@@ -322,11 +363,10 @@ export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, o
             </div>
 
             <div className="space-y-2 text-xs bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
+              {selectedEvent.calendarName && <p><strong>Kalendár:</strong> <span className="ml-1 font-bold text-[#C5A059]">{selectedEvent.calendarName}</span></p>}
               <p><strong>Pacient:</strong> <span className="font-bold text-sm ml-1">{selectedEvent.patientName}</span></p>
               {selectedEvent.patientPhone && <p><strong>Telefón:</strong> <span className="ml-1">{selectedEvent.patientPhone}</span></p>}
-              <p><strong>Lekár:</strong> <span className="ml-1">{selectedEvent.doctorName}</span></p>
               <p><strong>Čas:</strong> <span className="ml-1 font-mono">{selectedEvent.startTime} - {selectedEvent.endTime}</span> ({selectedEvent.date})</p>
-              {selectedEvent.anesthesiaType && <p><strong>Anestézia:</strong> <span className="ml-1">{selectedEvent.anesthesiaType}</span></p>}
               {selectedEvent.notes && <p className="pt-2 border-t border-[#E8E2D9] text-[#8C857B]"><strong>Poznámky:</strong> {selectedEvent.notes}</p>}
             </div>
 

@@ -13,7 +13,7 @@ export async function GET() {
   }
 
   try {
-    // 1. Zistíme zoznam všetkých kalendárov (primárny + všetky zdieľané)
+    // 1. Zistíme zoznam všetkých kalendárov
     const listRes = await fetch(
       'https://www.googleapis.com/calendar/v3/users/me/calendarList',
       {
@@ -30,13 +30,18 @@ export async function GET() {
       );
     }
 
-    const calendarIds = (listData.items || []).map((cal: any) => cal.id);
+    const calendars = (listData.items || []).map((cal: any) => ({
+      id: cal.id,
+      summary: cal.summary || 'Bez názvu',
+      primary: cal.primary || false,
+    }));
+
     let allEvents: any[] = [];
 
     // 2. Prejdeme každý kalendár a stiahneme z neho udalosti
-    for (const calId of calendarIds) {
+    for (const cal of calendars) {
       const eventsRes = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?singleEvents=true&orderBy=startTime`,
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?singleEvents=true&orderBy=startTime`,
         {
           headers: { Authorization: `Bearer ${session.accessToken}` },
         }
@@ -56,8 +61,10 @@ export async function GET() {
 
           return {
             id: item.id,
+            calendarId: cal.id,
+            calendarName: cal.summary,
             patientName: item.summary || 'Udalosť z Google Kalendára',
-            doctorName: 'Google Calendar',
+            doctorName: cal.summary,
             title: item.summary || 'Bez názvu',
             date: startDate,
             startTime: startTime,
@@ -71,7 +78,10 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json(allEvents);
+    return NextResponse.json({
+      calendars,
+      events: allEvents
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
