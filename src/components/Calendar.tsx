@@ -228,6 +228,8 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-6">
+      
+      {/* HLAVIČKA KALENDÁRA & GOOGLE SYNCHRONIZÁCIA */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#E8E2D9] pb-4">
         <div>
           <h2 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Plánovanie & Kalendár</h2>
