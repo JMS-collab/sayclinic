@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
 export interface CalendarEvent {
@@ -26,7 +26,7 @@ const INITIAL_EVENTS: CalendarEvent[] = [
     patientPhone: '+421 905 123 456',
     doctorName: 'MUDr. Ján Mráz',
     title: 'Augmentácia prsníkov',
-    date: '2026-08-14',
+    date: new Date().toISOString().split('T')[0],
     startTime: '09:00',
     endTime: '11:00',
     type: 'operacia',
@@ -43,18 +43,38 @@ interface CalendarProps {
 
 type ViewMode = 'day' | 'week' | 'month';
 
-export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder, onAddEvent }: CalendarProps) {
+export default function Calendar({ events: initialPropEvents = INITIAL_EVENTS, onOpenPatientFolder, onAddEvent }: CalendarProps) {
   const { data: session, status } = useSession();
   
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialPropEvents);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<ViewMode>('day');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   
   const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [newEvent, setNewEvent] = useState<Partial<CalendarEvent>>({
     patientName: '', doctorName: 'MUDr. Ján Mráz', title: '', 
     date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '10:00', type: 'operacia'
   });
+
+  // Načítanie udalostí z Google Kalendára po prihlásení
+  useEffect(() => {
+    if (session) {
+      setIsLoadingGoogle(true);
+      fetch('/api/calendar')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            setCalendarEvents(data);
+          }
+        })
+        .catch(err => console.error("Chyba pri načítaní Google Kalendára:", err))
+        .finally(() => setIsLoadingGoogle(false));
+    } else {
+      setCalendarEvents(initialPropEvents);
+    }
+  }, [session]);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -117,18 +137,20 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
     };
 
     if (onAddEvent) onAddEvent(created);
-    events.push(created);
+    setCalendarEvents(prev => [...prev, created]);
     setIsAddingEvent(false);
   };
 
   const renderDayView = () => {
     const formattedDate = currentDate.toISOString().split('T')[0];
-    const dayEvents = events.filter(e => e.date === formattedDate).sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const dayEvents = calendarEvents.filter(e => e.date === formattedDate).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
     return (
       <div className="space-y-3">
         {dayEvents.length === 0 ? (
-          <div className="text-center py-16 text-[#8C857B] text-xs italic">Žiadne zákroky na tento deň.</div>
+          <div className="text-center py-16 text-[#8C857B] text-xs italic">
+            {isLoadingGoogle ? 'Nahrávam udobrenia z Google Kalendára...' : 'Žiadne zákroky na tento deň.'}
+          </div>
         ) : (
           dayEvents.map(evt => (
             <div key={evt.id} onClick={() => setSelectedEvent(evt)} className="bg-white border border-[#E8E2D9] hover:border-[#C5A059] p-4 rounded-xl shadow-sm cursor-pointer transition-all flex justify-between items-center group">
@@ -162,7 +184,7 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
       <div className="grid grid-cols-7 gap-2">
         {weekDays.map((date, idx) => {
           const formattedDate = date.toISOString().split('T')[0];
-          const dayEvents = events.filter(e => e.date === formattedDate);
+          const dayEvents = calendarEvents.filter(e => e.date === formattedDate);
           const isToday = formattedDate === new Date().toISOString().split('T')[0];
 
           return (
@@ -202,7 +224,7 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
             if (!date) return <div key={`empty-${idx}`} className="border-b border-r border-[#E8E2D9]/50 bg-gray-50" />;
             
             const formattedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-            const dayEvents = events.filter(e => e.date === formattedDate);
+            const dayEvents = calendarEvents.filter(e => e.date === formattedDate);
             const isToday = formattedDate === new Date().toISOString().split('T')[0];
 
             return (
@@ -228,8 +250,6 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-6">
-      
-      {/* HLAVIČKA KALENDÁRA & GOOGLE SYNCHRONIZÁCIA */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#E8E2D9] pb-4">
         <div>
           <h2 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Plánovanie & Kalendár</h2>
