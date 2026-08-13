@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 
 export interface CalendarEvent {
   id: string;
@@ -17,7 +18,6 @@ export interface CalendarEvent {
   notes?: string;
 }
 
-// UKÁŽKOVÉ UDALOSTI
 const INITIAL_EVENTS: CalendarEvent[] = [
   {
     id: 'evt-1',
@@ -32,28 +32,6 @@ const INITIAL_EVENTS: CalendarEvent[] = [
     type: 'operacia',
     anesthesiaType: 'Celková',
     notes: 'Implantáty Motiva 320ml, hospitalizácia 1 deň'
-  },
-  {
-    id: 'evt-2',
-    patientId: 'P2',
-    patientName: 'Ján Novák',
-    doctorName: 'MUDr. Zuzana Sroková, MPH',
-    title: 'Vstupné vyšetrenie - Rhinoplastika',
-    date: '2026-08-14',
-    startTime: '13:00',
-    endTime: '13:30',
-    type: 'vstupne_vysetrenie',
-    anesthesiaType: 'Lokálna',
-  },
-  {
-    id: 'evt-3',
-    patientName: 'Lucia Pekná',
-    doctorName: 'MUDr. Ján Mráz',
-    title: 'Pooperačná kontrola',
-    date: '2026-08-15',
-    startTime: '10:00',
-    endTime: '10:15',
-    type: 'kontrolne_vysetrenie',
   }
 ];
 
@@ -66,33 +44,27 @@ interface CalendarProps {
 type ViewMode = 'day' | 'week' | 'month';
 
 export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder, onAddEvent }: CalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date('2026-08-14'));
+  const { data: session, status } = useSession();
+  
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<ViewMode>('day');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   
-  // States pre Google Sync (Príprava na OAuth2)
-  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  // Vytváranie udalosti
   const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [newEvent, setNewEvent] = useState<Partial<CalendarEvent>>({
     patientName: '', doctorName: 'MUDr. Ján Mráz', title: '', 
     date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '10:00', type: 'operacia'
   });
 
-  // Pomocné funkcie pre dátumy
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
-    const offset = firstDay === 0 ? 6 : firstDay - 1; // Upravíme aby pondelok bol prvý
+    const offset = firstDay === 0 ? 6 : firstDay - 1;
     const days: (Date | null)[] = Array(offset).fill(null);
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(new Date(year, month, i));
-    }
+    for (let i = 1; i <= daysInMonth; i++) days.push(new Date(year, month, i));
     return days;
   };
 
@@ -109,12 +81,8 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
     });
   };
 
-  // Navigácia
   const navigate = (direction: -1 | 1 | 0) => {
-    if (direction === 0) {
-      setCurrentDate(new Date()); // Dnes
-      return;
-    }
+    if (direction === 0) return setCurrentDate(new Date());
     const newDate = new Date(currentDate);
     if (view === 'day') newDate.setDate(newDate.getDate() + direction);
     if (view === 'week') newDate.setDate(newDate.getDate() + (direction * 7));
@@ -122,14 +90,12 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
     setCurrentDate(newDate);
   };
 
-  // Reálna Google Sync (Príprava)
   const handleGoogleConnect = () => {
-    alert("Pre skutočnú synchronizáciu je potrebné vložiť Google API Client ID do prostredia Vercelu. Systém je na to pripravený.");
-    setIsSyncing(true);
-    setTimeout(() => {
-      setIsSyncing(false);
-      setIsGoogleConnected(!isGoogleConnected);
-    }, 1500);
+    if (session) {
+      signOut();
+    } else {
+      signIn('google');
+    }
   };
 
   const handleCreateSubmit = (e: React.FormEvent) => {
@@ -151,11 +117,10 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
     };
 
     if (onAddEvent) onAddEvent(created);
-    events.push(created); // Lokálny update pre okamžité zobrazenie
+    events.push(created);
     setIsAddingEvent(false);
   };
 
-  // RENDEROVANIE POHĽADOV
   const renderDayView = () => {
     const formattedDate = currentDate.toISOString().split('T')[0];
     const dayEvents = events.filter(e => e.date === formattedDate).sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -202,7 +167,7 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
 
           return (
             <div key={formattedDate} className={`border rounded-xl flex flex-col h-[400px] overflow-y-auto ${isToday ? 'border-[#C5A059] bg-[#FBF9F6]' : 'border-[#E8E2D9] bg-white'}`}>
-              <div className={`text-center p-2 border-b text-[10px] uppercase font-bold sticky top-0 ${isToday ? 'bg-[#C5A059] text-white border-[#C5A059]' : 'bg-[#FBF9F6] text-[#8C857B] border-[#E8E2D9]'}`}>
+              <div className={`text-center p-2 border-b text-[10px] uppercase font-bold sticky top-0 z-10 ${isToday ? 'bg-[#C5A059] text-white border-[#C5A059]' : 'bg-[#FBF9F6] text-[#8C857B] border-[#E8E2D9]'}`}>
                 <span className="block">{dayNames[idx]}</span>
                 <span className="text-sm">{date.getDate()}.{date.getMonth() + 1}.</span>
               </div>
@@ -263,8 +228,6 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-6">
-      
-      {/* HLAVIČKA KALENDÁRA & GOOGLE SYNCHRONIZÁCIA */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#E8E2D9] pb-4">
         <div>
           <h2 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Plánovanie & Kalendár</h2>
@@ -272,18 +235,17 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Tlačidlo Google Synchronizácie */}
           <button
             onClick={handleGoogleConnect}
-            disabled={isSyncing}
+            disabled={status === 'loading'}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 border shadow-sm ${
-              isGoogleConnected 
+              session 
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
                 : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
             }`}
           >
-            <span className="text-sm">{isGoogleConnected ? '🟢' : '📅'}</span>
-            <span>{isSyncing ? 'Pripájam...' : isGoogleConnected ? 'Google Kalendár Aktívny' : 'Prepojiť Google účet'}</span>
+            <span className="text-sm">{session ? '🟢' : '📅'}</span>
+            <span>{status === 'loading' ? 'Pripájam...' : session ? `Prihlásený: ${session.user?.email}` : 'Prepojiť Google účet'}</span>
           </button>
 
           <button onClick={() => setIsAddingEvent(true)} className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold shadow-sm transition-colors">
@@ -292,7 +254,6 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
         </div>
       </div>
 
-      {/* NAVIGÁCIA A PREPÍNANIE POHĽADOV */}
       <div className="flex justify-between items-center bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
         <div className="flex items-center gap-2">
           <button onClick={() => navigate(-1)} className="px-2 py-1 bg-white border border-[#E8E2D9] rounded text-xs font-bold text-[#2C2A29] hover:border-[#C5A059]">←</button>
@@ -321,14 +282,12 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
         </div>
       </div>
 
-      {/* OBSAH KALENDÁRA PODĽA POHĽADU */}
       <div className="min-h-[400px]">
         {view === 'day' && renderDayView()}
         {view === 'week' && renderWeekView()}
         {view === 'month' && renderMonthView()}
       </div>
 
-      {/* MODAL: DETAIL UDALOSTI */}
       {selectedEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-[#E8E2D9] space-y-4">
@@ -364,7 +323,6 @@ export default function Calendar({ events = INITIAL_EVENTS, onOpenPatientFolder,
         </div>
       )}
 
-      {/* MODAL: PRIDANIE UDALOSTI */}
       {isAddingEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-xl border border-[#E8E2D9]">
