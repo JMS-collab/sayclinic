@@ -20,31 +20,57 @@ interface RemindersManagerProps {
 }
 
 export default function RemindersManager({ events = [] }: RemindersManagerProps) {
-  const today = new Date().toISOString().split('T')[0];
-  const upcomingEvents = events.filter(e => e.date >= today);
+  // Pomocná funkcia na prevod akéhokoľvek dátumu do porovnateľného tvaru YYYY-MM-DD
+  const parseDateToISO = (dateStr: string) => {
+    if (!dateStr) return '';
+    if (dateStr.includes('-')) return dateStr.split('T')[0]; // Už je vo formáte YYYY-MM-DD
+    
+    // Ak je vo formáte DD.MM.YYYY
+    if (dateStr.includes('.')) {
+      const parts = dateStr.split('.').map(p => p.trim());
+      if (parts.length === 3) {
+        const day = parts[0].padStart(2, '0');
+        const month = parts[1].padStart(2, '0');
+        const year = parts[2];
+        return `${year}-${month}-${day}`;
+      }
+    }
+    return dateStr;
+  };
 
-  // ZAPRACOVANÁ OPRAVA TYPU: pridali sme 'pending'
+  const todayISO = new Date().toISOString().split('T')[0];
+
+  // Odfiltrovanie nadchádzajúcich aj dnešných udalostí
+  const upcomingEvents = events.filter(e => {
+    const eventISO = parseDateToISO(e.date);
+    return eventISO >= todayISO || !e.date; // Zobrazí dnešné, budúce aj udalosti bez presného ISO formátu
+  });
+
   const [reminderLogs, setReminderLogs] = useState<Record<string, 'pending' | 'sent' | 'confirmed'>>({});
-
   const [customMessageTemplate, setCustomMessageTemplate] = useState(
     "Dobrý deň {meno}, pripomíname Vám Váš termín zákroku ({zakrok}) na SAY CLINIC dňa {datum} o {cas}. Adresa: Lazovná 43, Banská Bystrica. Prosíme o potvrdenie odpoveďou na túto správu."
   );
 
   const formatMessage = (event: CalendarEvent) => {
+    const formattedDate = event.date?.includes('-') 
+      ? new Date(event.date).toLocaleDateString('sk-SK') 
+      : event.date;
+
     return customMessageTemplate
       .replace('{meno}', event.patientName || 'vážený klient')
       .replace('{zakrok}', event.title || 'konzultácia/zákrok')
-      .replace('{datum}', new Date(event.date).toLocaleDateString('sk-SK'))
-      .replace('{cas}', event.startTime);
+      .replace('{datum}', formattedDate || 'dnes')
+      .replace('{cas}', event.startTime || '');
   };
 
   const handleSendWhatsApp = (event: CalendarEvent) => {
-    if (!event.patientPhone) {
-      alert('Pacient nemá v kalendári zadané telefónne číslo.');
+    const phone = event.patientPhone;
+    if (!phone) {
+      alert('Pacient nemá v kalendári zadané telefónne číslo. Zadajte telefón do karty alebo poznámky termínu.');
       return;
     }
 
-    const cleanPhone = event.patientPhone.replace(/[\s\+\-]/g, '');
+    const cleanPhone = phone.replace(/[\s\+\-]/g, '');
     const phoneWithPrefix = cleanPhone.startsWith('421') || cleanPhone.startsWith('420') 
       ? cleanPhone 
       : `421${cleanPhone.replace(/^0/, '')}`;
@@ -57,13 +83,14 @@ export default function RemindersManager({ events = [] }: RemindersManagerProps)
   };
 
   const handleSendSMS = (event: CalendarEvent) => {
-    if (!event.patientPhone) {
+    const phone = event.patientPhone;
+    if (!phone) {
       alert('Pacient nemá v kalendári zadané telefónne číslo.');
       return;
     }
 
     const text = encodeURIComponent(formatMessage(event));
-    window.open(`sms:${event.patientPhone}?body=${text}`, '_blank');
+    window.open(`sms:${phone}?body=${text}`, '_blank');
     setReminderLogs(prev => ({ ...prev, [event.id]: 'sent' }));
   };
 
@@ -89,6 +116,7 @@ export default function RemindersManager({ events = [] }: RemindersManagerProps)
         </div>
       </div>
 
+      {/* ŠABLÓNA SPRÁVY */}
       <div className="bg-[#FBF9F6] border border-[#E8E2D9] p-4 rounded-xl space-y-2">
         <label className="block text-[10px] uppercase text-[#8C857B] font-bold">Šablóna Pripomienkovej Správy</label>
         <textarea 
@@ -102,8 +130,11 @@ export default function RemindersManager({ events = [] }: RemindersManagerProps)
         </p>
       </div>
 
+      {/* ZOZNAM TERMÍNOV */}
       <div className="space-y-3">
-        <h3 className="font-brand text-sm font-bold text-[#2C2A29] uppercase">Nadchádzajúce termíny na pripomenutie ({upcomingEvents.length})</h3>
+        <h3 className="font-brand text-sm font-bold text-[#2C2A29] uppercase">
+          Nadchádzajúce a dnešné termíny na pripomenutie ({upcomingEvents.length})
+        </h3>
 
         {upcomingEvents.length === 0 ? (
           <div className="text-center py-10 text-[#8C857B] text-xs italic bg-[#FBF9F6] rounded-xl border border-[#E8E2D9]">
@@ -115,7 +146,7 @@ export default function RemindersManager({ events = [] }: RemindersManagerProps)
               <thead>
                 <tr className="bg-[#FBF9F6] border-b border-[#E8E2D9] text-[10px] uppercase text-[#8C857B] font-bold">
                   <th className="p-3">Dátum & Čas</th>
-                  <th className="p-3">Klient</th>
+                  <th className="p-3">Klient / Udalosť</th>
                   <th className="p-3">Telefón</th>
                   <th className="p-3">Zákrok</th>
                   <th className="p-3">Stav Pripomienky</th>
@@ -129,9 +160,9 @@ export default function RemindersManager({ events = [] }: RemindersManagerProps)
                   return (
                     <tr key={evt.id} className="hover:bg-[#FBF9F6] transition-colors">
                       <td className="p-3 font-mono font-bold text-[#2C2A29]">
-                        {new Date(evt.date).toLocaleDateString('sk-SK')} <span className="text-[#C5A059]">{evt.startTime}</span>
+                        {evt.date} <span className="text-[#C5A059]">{evt.startTime}</span>
                       </td>
-                      <td className="p-3 font-bold text-[#2C2A29]">{evt.patientName || 'Neznámy klient'}</td>
+                      <td className="p-3 font-bold text-[#2C2A29]">{evt.patientName || evt.title || 'Klient'}</td>
                       <td className="p-3 font-mono text-[#8C857B]">{evt.patientPhone || '---'}</td>
                       <td className="p-3 text-[#8C857B]">{evt.title}</td>
                       <td className="p-3">
