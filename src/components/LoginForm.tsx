@@ -53,7 +53,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setInfoMsg('');
   };
 
-  // 1. KROK: Overenie hesla + Generovanie 2FA
+  // 1. KROK: Overenie hesla + Generovanie 2FA (Testovací režim)
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!password) {
@@ -61,13 +61,12 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       return;
     }
 
-    // Na účely prvej prevádzky: Akceptujeme heslo zadané používateľom (alebo defaultné "sayclinic2026")
-    // Vygenerujeme 6-miestny 2FA kód pre simuláciu/odeslanie na mail
+    // Vygenerovanie 6-miestneho testovacieho OTP kódu
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
 
     setErrorMsg('');
-    setInfoMsg(`🔐 2FA Kód bol odoslaný na e-mail ${selectedUser?.email}. (Demo kód: ${code})`);
+    setInfoMsg(`🧪 TESTOVACÍ REŽIM: Váš 2FA kód je ${code} (môžete použiť aj kód 123456)`);
     setStep('2fa');
   };
 
@@ -77,19 +76,20 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     if (twoFactorCode === generatedOtp || twoFactorCode === '123456') {
       onLoginSuccess(selectedUser!);
     } else {
-      setErrorMsg('Neplatný 2FA kód. Skontrolujte kód odoslaný na váš e-mail.');
+      setErrorMsg('Neplatný 2FA kód. Použite vygenerovaný kód vyššie alebo 123456.');
     }
   };
 
-  // 3. KROK: Obnova hesla cez e-mail
+  // 3. KROK: Obnova hesla (Testovací režim)
   const handleResetPasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser?.email) return;
 
-    setInfoMsg(`📧 Odkaz na obnovu hesla bol odoslaný na ${selectedUser.email}. Skontrolujte si doručenú poštu.`);
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    setInfoMsg(`🧪 TESTOVACÍ REŽIM: Odkaz na obnovu hesla pre ${selectedUser.email} bol vygenerovaný. Kód obnovy: ${resetCode}`);
     setTimeout(() => {
       setStep('password');
-    }, 3000);
+    }, 4000);
   };
 
   return (
@@ -102,7 +102,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           </h1>
         </div>
         <p className="text-xs uppercase tracking-[0.25em] text-[#8C857B]">
-          Bezpečný Klinický Portál • 2FA Autentifikácia
+          Bezpečný Klinický Portál • 2FA Autentifikácia (Testovací Režim)
         </p>
       </div>
 
@@ -209,7 +209,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 type="password"
                 required
                 autoFocus
-                placeholder="••••••••"
+                placeholder="Zadajte akékoľvek heslo"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full border border-[#E8E2D9] p-3 rounded-xl text-sm font-mono bg-[#FBF9F6] outline-none focus:border-[#C5A059]"
@@ -217,7 +217,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             </div>
 
             {errorMsg && <p className="text-[10px] text-rose-600 font-bold text-center">{errorMsg}</p>}
-            {infoMsg && <p className="text-[10px] text-emerald-700 font-bold text-center bg-emerald-50 p-2 rounded-lg">{infoMsg}</p>}
 
             <div className="flex justify-between items-center text-[10px]">
               <button
@@ -255,12 +254,21 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             <span className="text-2xl">🔐</span>
             <h2 className="font-brand text-lg font-bold text-[#2C2A29] uppercase">2FA Dvojfázové Overenie</h2>
             <p className="text-[10px] text-[#8C857B]">
-              Zadajte 6-miestny kód odoslaný na e-mail <strong>{selectedUser.email}</strong>
+              Profil: <strong>{selectedUser.name}</strong> ({selectedUser.email})
             </p>
           </div>
 
+          {infoMsg && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs font-mono text-center font-bold">
+              {infoMsg}
+            </div>
+          )}
+
           <form onSubmit={handle2FASubmit} className="space-y-4">
             <div>
+              <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1 text-center">
+                Zadajte 6-miestny 2FA kód
+              </label>
               <input
                 type="text"
                 maxLength={6}
@@ -273,7 +281,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               />
             </div>
 
-            {infoMsg && <p className="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-center font-bold">{infoMsg}</p>}
             {errorMsg && <p className="text-[10px] text-rose-600 font-bold text-center">{errorMsg}</p>}
 
             <div className="flex gap-2 pt-2">
@@ -302,7 +309,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             <span className="text-2xl">✉️</span>
             <h2 className="font-brand text-lg font-bold text-[#2C2A29] uppercase">Obnova Hesla</h2>
             <p className="text-[10px] text-[#8C857B]">
-              Zašleme vám odkaz na obnovu hesla na e-mail <strong>{selectedUser.email}</strong>
+              E-mail pre obnovu: <strong>{selectedUser.email}</strong>
             </p>
           </div>
 
@@ -324,7 +331,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   type="submit"
                   className="flex-1 bg-[#C5A059] hover:bg-[#b08d4b] text-white py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
                 >
-                  Odoslať odkaz
+                  Simulovať obnovu
                 </button>
               </div>
             )}
