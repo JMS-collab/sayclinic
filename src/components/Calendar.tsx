@@ -50,7 +50,7 @@ export default function Calendar({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<ViewMode>('day');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
   const [isAddingEvent, setIsAddingEvent] = useState(false);
@@ -65,30 +65,63 @@ export default function Calendar({
     calendarId: 'primary'
   });
 
-  // Načítanie kalendárov a udalostí z API
-  const fetchCalendarData = () => {
+  // 1. KROK: Okamžité načítanie z keše (0 ms) + Následná synchronizácia na pozadí
+  useEffect(() => {
+    // A) Okamžite vytiahneme to, čo máme uložené lokálne
+    const cachedEvents = localStorage.getItem('say_clinic_calendar_events');
+    const cachedCalendars = localStorage.getItem('say_clinic_calendars');
+
+    if (cachedEvents) {
+      try {
+        const parsed = JSON.parse(cachedEvents);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCalendarEvents(parsed);
+        }
+      } catch (e) {
+        console.error('Chyba pri čítaní kešovaných udalostí:', e);
+      }
+    }
+
+    if (cachedCalendars) {
+      try {
+        const parsedCal = JSON.parse(cachedCalendars);
+        if (Array.isArray(parsedCal) && parsedCal.length > 0) {
+          setAvailableCalendars(parsedCal);
+        }
+      } catch (e) {
+        console.error('Chyba pri čítaní kešovaných kalendárov:', e);
+      }
+    }
+
+    // B) Na pozadí (neblokujúco) stiahneme najnovšie dáta z Google API
     if (session) {
-      setIsLoadingGoogle(true);
+      setIsSyncing(true);
       fetch('/api/calendar')
         .then(res => res.json())
         .then(data => {
+          let fetchedEvents: CalendarEvent[] = [];
+          let fetchedCalendars: GoogleCalendarItem[] = [];
+
           if (data.events && Array.isArray(data.events)) {
-            setCalendarEvents(data.events);
-            setAvailableCalendars(data.calendars || []);
+            fetchedEvents = data.events;
+            fetchedCalendars = data.calendars || [];
           } else if (Array.isArray(data)) {
-            setCalendarEvents(data);
+            fetchedEvents = data;
+          }
+
+          if (fetchedEvents.length > 0) {
+            setCalendarEvents(fetchedEvents);
+            localStorage.setItem('say_clinic_calendar_events', JSON.stringify(fetchedEvents));
+          }
+
+          if (fetchedCalendars.length > 0) {
+            setAvailableCalendars(fetchedCalendars);
+            localStorage.setItem('say_clinic_calendars', JSON.stringify(fetchedCalendars));
           }
         })
-        .catch(err => console.error("Chyba pri načítaní Google Kalendára:", err))
-        .finally(() => setIsLoadingGoogle(false));
-    } else {
-      setCalendarEvents(initialPropEvents);
-      setAvailableCalendars([]);
+        .catch(err => console.error("Chyba pri tichej synchronizácii Google Kalendára:", err))
+        .finally(() => setIsSyncing(false));
     }
-  };
-
-  useEffect(() => {
-    fetchCalendarData();
   }, [session]);
 
   // Filtrovanie udalostí podľa vybraného kalendára
@@ -138,49 +171,47 @@ export default function Calendar({
     }
   };
 
-  // Vytvorenie udalosti a zápis do Google Calendar API
+  // 2. KROK: Vytvorenie udalosti s okamžitou odozvou (Optimistic UI) + Zzápis na pozadí
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvent.patientName || !newEvent.title) return;
 
     setIsSaving(true);
 
+    const created: CalendarEvent = {
+      id: `evt-${Date.now()}`,
+      patientName: newEvent.patientName || '',
+      patientPhone: newEvent.patientPhone || '',
+      doctorName: newEvent.doctorName || 'MUDr. Ján Mráz',
+      title: newEvent.title || '',
+      date: newEvent.date || currentDate.toISOString().split('T')[0],
+      startTime: newEvent.startTime || '09:00',
+      endTime: newEvent.endTime || '10:00',
+      type: (newEvent.type as any) || 'operacia',
+      calendarId: newEvent.calendarId || 'primary',
+      notes: newEvent.notes
+    };
+
+    // A) Okamžite pridáme do UI a LocalStorage (používateľ nečaká na sieť)
+    const updatedEvents = [created, ...calendarEvents];
+    setCalendarEvents(updatedEvents);
+    localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updatedEvents));
+
+    if (onAddEvent) onAddEvent(created);
+    setIsSaving(false);
+    setIsAddingEvent(false);
+
+    // B) Na pozadí zapíšeme do API / Google Calendar
     if (session) {
       try {
-        const res = await fetch('/api/calendar', {
+        await fetch('/api/calendar/events', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newEvent)
         });
-
-        if (res.ok) {
-          fetchCalendarData();
-        } else {
-          alert('Nepodarilo sa uložiť udalosť do Google Kalendára.');
-        }
       } catch (err) {
-        console.error('Chyba zápisu:', err);
-      } finally {
-        setIsSaving(false);
-        setIsAddingEvent(false);
+        console.error('Chyba pozadového zápisu do Google API:', err);
       }
-    } else {
-      const created: CalendarEvent = {
-        id: `evt-${Date.now()}`,
-        patientName: newEvent.patientName || '',
-        doctorName: newEvent.doctorName || 'MUDr. Ján Mráz',
-        title: newEvent.title || '',
-        date: newEvent.date || currentDate.toISOString().split('T')[0],
-        startTime: newEvent.startTime || '09:00',
-        endTime: newEvent.endTime || '10:00',
-        type: newEvent.type as any || 'operacia',
-        notes: newEvent.notes
-      };
-
-      if (onAddEvent) onAddEvent(created);
-      setCalendarEvents(prev => [...prev, created]);
-      setIsSaving(false);
-      setIsAddingEvent(false);
     }
   };
 
@@ -238,7 +269,7 @@ export default function Calendar({
       <div className="space-y-3">
         {dayEvents.length === 0 ? (
           <div className="text-center py-16 text-[#8C857B] text-xs italic">
-            {isLoadingGoogle ? 'Nahrávam udalosti z Google Kalendára...' : 'Žiadne udalosti na tento deň.'}
+            Žiadne udalosti na tento deň.
           </div>
         ) : (
           dayEvents.map(evt => (
@@ -346,7 +377,14 @@ export default function Calendar({
     <div className="bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#E8E2D9] pb-4">
         <div>
-          <h2 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Plánovanie & Kalendár</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Plánovanie & Kalendár</h2>
+            {isSyncing && (
+              <span className="text-[9px] bg-[#FBF9F6] border border-[#C5A059] text-[#C5A059] px-2 py-0.5 rounded-full font-bold animate-pulse">
+                🔄 Synch na pozadí...
+              </span>
+            )}
+          </div>
           <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Centrálny harmonogram SAY CLINIC</p>
         </div>
 
@@ -474,6 +512,7 @@ export default function Calendar({
               )}
 
               <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Meno pacienta *</label><input type="text" required value={newEvent.patientName} onChange={e => setNewEvent({...newEvent, patientName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
+              <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Telefón (pre WhatsApp/SMS)</label><input type="text" placeholder="+421 905 123 456" value={newEvent.patientPhone} onChange={e => setNewEvent({...newEvent, patientPhone: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
               <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Názov zákroku *</label><input type="text" required value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
               <div className="grid grid-cols-3 gap-3">
                 <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Dátum</label><input type="date" value={newEvent.date} onChange={e => setNewEvent({...newEvent, date: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
