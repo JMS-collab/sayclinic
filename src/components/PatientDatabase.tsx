@@ -55,6 +55,7 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
 
   // Stav pre pridať pacienta
   const [isAddingPatient, setIsAddingPatient] = useState(false);
+  const [isCreatingDriveFolder, setIsCreatingDriveFolder] = useState(false);
   const [newPatientData, setNewPatientData] = useState<Omit<Patient, 'id'>>({
     name: '',
     birthNumber: '',
@@ -158,13 +159,37 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
     setActivePhotoCategory(null);
   };
 
-  const handleAddPatientSubmit = (e: React.FormEvent) => {
+  // VYTVORENIE PACIENTA S AUTOMATICKÝM VYTVORENÍM ZLOŽKY NA GOOGLE DRIVE
+  const handleAddPatientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPatientData.name || !newPatientData.birthNumber) return;
+
+    let driveLink = '';
+    const userSession = session as any;
+
+    if (userSession && userSession.accessToken) {
+      setIsCreatingDriveFolder(true);
+      try {
+        const res = await fetch('/api/drive/create-patient', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patientName: newPatientData.name }),
+        });
+        const data = await res.json();
+        if (data.success && data.webViewLink) {
+          driveLink = data.webViewLink;
+        }
+      } catch (err) {
+        console.error('Nepodarilo sa automaticky vytvoriť zložku na Google Drive:', err);
+      } finally {
+        setIsCreatingDriveFolder(false);
+      }
+    }
 
     const createdPatient: Patient = {
       ...newPatientData,
       id: `P-${Date.now()}`,
+      driveFolderLink: driveLink
     };
 
     const updatedPatients = [createdPatient, ...patients];
@@ -196,7 +221,6 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
     localStorage.setItem('say_clinic_patients', JSON.stringify(updatedPatients));
     if (onPatientsUpdated) onPatientsUpdated(updatedPatients);
 
-    // Ak upravujeme momentálne vybraného pacienta, aktualizujeme aj stav selectedPatient
     if (selectedPatient && selectedPatient.id === editingPatient.id) {
       setSelectedPatient(editingPatient);
     }
@@ -318,7 +342,9 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
               <div className="border-b border-[#E8E2D9] pb-3 mb-4 flex justify-between items-center">
                 <div>
                   <h3 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Zaevidovať nového pacienta</h3>
-                  <p className="text-[10px] text-[#8C857B] uppercase tracking-wider">Vytvorenie novej zdravotnej karty</p>
+                  <p className="text-[10px] text-[#8C857B] uppercase tracking-wider">
+                    Vytvorenie karty & zložky v Klienti SAY na Google Disku
+                  </p>
                 </div>
                 <button onClick={() => setIsAddingPatient(false)} className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-bold">✕</button>
               </div>
@@ -369,7 +395,9 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
 
                 <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9] mt-4">
                   <button type="button" onClick={() => setIsAddingPatient(false)} className="px-4 py-2 text-xs font-bold text-[#8C857B] hover:text-[#2C2A29]">ZRUŠIŤ</button>
-                  <button type="submit" className="px-5 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm">+ Uložiť & Otvoriť kartu</button>
+                  <button type="submit" disabled={isCreatingDriveFolder} className="px-5 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm flex items-center gap-2">
+                    {isCreatingDriveFolder ? '⏳ Vytváram zložky v Google Drive...' : '+ Uložiť & Vytvoriť zložky v Drive'}
+                  </button>
                 </div>
               </form>
             </div>
@@ -746,8 +774,8 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
                   <div className="border border-[#E8E2D9] rounded-lg p-3 flex justify-between items-center hover:bg-[#FBF9F6] transition-colors cursor-pointer">
                     <div className="flex items-center gap-3">
                       <div className="bg-rose-100 text-rose-600 p-2 rounded text-xs font-bold">PDF</div>
-                      <div><p className="text-xs font-bold text-[#2C2A29]">Predoperačné interné vyšetrenie</p>
-                    </div></div>
+                      <div><p className="text-xs font-bold text-[#2C2A29]">Predoperačné interné vyšetrenie</p></div>
+                    </div>
                     <button className="text-[10px] text-[#C5A059] uppercase font-bold">Stiahnuť</button>
                   </div>
                 </div>
