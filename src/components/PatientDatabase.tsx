@@ -53,6 +53,7 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
 
+  // Stav pre pridať pacienta
   const [isAddingPatient, setIsAddingPatient] = useState(false);
   const [newPatientData, setNewPatientData] = useState<Omit<Patient, 'id'>>({
     name: '',
@@ -63,6 +64,9 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
     dob: '',
     insurance: '24 (Dôvera)',
   });
+
+  // STAV PRE ÚPRAVU PACIENTA
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
 
   const [patientRecords, setPatientRecords] = useState<Record<string, MedicalRecord[]>>({
     'P1': [
@@ -84,14 +88,13 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Reakcia na prípadnú zmenu initialPatient z nadradeného komponentu
   useEffect(() => {
     if (initialPatient) {
       setSelectedPatient(initialPatient);
     }
   }, [initialPatient]);
 
-  // 1. Načítanie kešovaných pacientov z localStorage pri štarte (okamžité zobrazenie)
+  // 1. Načítanie kešovaných pacientov z localStorage pri štarte
   useEffect(() => {
     const saved = localStorage.getItem('say_clinic_patients');
     if (saved) {
@@ -145,7 +148,8 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
 
   const filteredPatients = patients.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.birthNumber.includes(searchTerm)
+    p.birthNumber.includes(searchTerm) ||
+    p.phone.includes(searchTerm)
   );
 
   const handlePatientSelect = (patient: Patient) => {
@@ -169,7 +173,6 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
     if (onPatientsUpdated) onPatientsUpdated(updatedPatients);
     
     setIsAddingPatient(false);
-    
     setNewPatientData({
       name: '',
       birthNumber: '',
@@ -183,7 +186,24 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
     handlePatientSelect(createdPatient);
   };
 
-  // Manuálne tlačidlo na obnovenie importu
+  // ULOŽENIE ÚPRAVY PACIENTA
+  const handleSavePatientEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPatient) return;
+
+    const updatedPatients = patients.map(p => p.id === editingPatient.id ? editingPatient : p);
+    setPatients(updatedPatients);
+    localStorage.setItem('say_clinic_patients', JSON.stringify(updatedPatients));
+    if (onPatientsUpdated) onPatientsUpdated(updatedPatients);
+
+    // Ak upravujeme momentálne vybraného pacienta, aktualizujeme aj stav selectedPatient
+    if (selectedPatient && selectedPatient.id === editingPatient.id) {
+      setSelectedPatient(editingPatient);
+    }
+
+    setEditingPatient(null);
+  };
+
   const handleRunDriveImport = async () => {
     if (!session) {
       alert('Pre import z Google Disku musíte byť prihlásený cez Google účet.');
@@ -272,12 +292,8 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
       <style type="text/css" media="print">
         {`
           @page { size: A4; margin: 0; }
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-a4, #printable-a4 * {
-            visibility: visible !important;
-          }
+          body * { visibility: hidden !important; }
+          #printable-a4, #printable-a4 * { visibility: visible !important; }
           #printable-a4 {
             position: absolute !important;
             left: 0 !important;
@@ -304,92 +320,45 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
                   <h3 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Zaevidovať nového pacienta</h3>
                   <p className="text-[10px] text-[#8C857B] uppercase tracking-wider">Vytvorenie novej zdravotnej karty</p>
                 </div>
-                <button 
-                  onClick={() => setIsAddingPatient(false)}
-                  className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-bold"
-                >
-                  ✕
-                </button>
+                <button onClick={() => setIsAddingPatient(false)} className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-bold">✕</button>
               </div>
 
               <form onSubmit={handleAddPatientSubmit} className="space-y-3 text-xs">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Meno a priezvisko *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="napr. Mária Kováčová"
-                      value={newPatientData.name} 
-                      onChange={e => setNewPatientData({...newPatientData, name: e.target.value})}
-                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
-                    />
+                    <input type="text" required placeholder="napr. Mária Kováčová" value={newPatientData.name} onChange={e => setNewPatientData({...newPatientData, name: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Rodné číslo *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="885512/6789"
-                      value={newPatientData.birthNumber} 
-                      onChange={e => setNewPatientData({...newPatientData, birthNumber: e.target.value})}
-                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
-                    />
+                    <input type="text" required placeholder="885512/6789" value={newPatientData.birthNumber} onChange={e => setNewPatientData({...newPatientData, birthNumber: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Telefónne číslo</label>
-                    <input 
-                      type="text" 
-                      placeholder="+421 905 123 456"
-                      value={newPatientData.phone} 
-                      onChange={e => setNewPatientData({...newPatientData, phone: e.target.value})}
-                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
-                    />
+                    <input type="text" placeholder="+421 905 123 456" value={newPatientData.phone} onChange={e => setNewPatientData({...newPatientData, phone: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Email</label>
-                    <input 
-                      type="email" 
-                      placeholder="pacient@email.sk"
-                      value={newPatientData.email} 
-                      onChange={e => setNewPatientData({...newPatientData, email: e.target.value})}
-                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
-                    />
+                    <input type="email" placeholder="pacient@email.sk" value={newPatientData.email} onChange={e => setNewPatientData({...newPatientData, email: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Bydlisko</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ulica, Mesto, PSČ"
-                    value={newPatientData.address} 
-                    onChange={e => setNewPatientData({...newPatientData, address: e.target.value})}
-                    className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
-                  />
+                  <input type="text" placeholder="Ulica, Mesto, PSČ" value={newPatientData.address} onChange={e => setNewPatientData({...newPatientData, address: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Dátum narodenia</label>
-                    <input 
-                      type="text" 
-                      placeholder="12.05.1988"
-                      value={newPatientData.dob} 
-                      onChange={e => setNewPatientData({...newPatientData, dob: e.target.value})}
-                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
-                    />
+                    <input type="text" placeholder="12.05.1988" value={newPatientData.dob} onChange={e => setNewPatientData({...newPatientData, dob: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Poisťovňa</label>
-                    <select 
-                      value={newPatientData.insurance} 
-                      onChange={e => setNewPatientData({...newPatientData, insurance: e.target.value})}
-                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
-                    >
+                    <select value={newPatientData.insurance} onChange={e => setNewPatientData({...newPatientData, insurance: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]">
                       <option value="24 (Dôvera)">24 (Dôvera)</option>
                       <option value="25 (VšZP)">25 (VšZP)</option>
                       <option value="27 (Union)">27 (Union)</option>
@@ -399,19 +368,74 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
                 </div>
 
                 <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9] mt-4">
-                  <button 
-                    type="button"
-                    onClick={() => setIsAddingPatient(false)}
-                    className="px-4 py-2 text-xs font-bold text-[#8C857B] hover:text-[#2C2A29]"
-                  >
-                    ZRUŠIŤ
-                  </button>
-                  <button 
-                    type="submit"
-                    className="px-5 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm"
-                  >
-                    + Uložiť & Otvoriť kartu
-                  </button>
+                  <button type="button" onClick={() => setIsAddingPatient(false)} className="px-4 py-2 text-xs font-bold text-[#8C857B] hover:text-[#2C2A29]">ZRUŠIŤ</button>
+                  <button type="submit" className="px-5 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm">+ Uložiť & Otvoriť kartu</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: ÚPRAVA PACIENTA */}
+        {editingPatient && (
+          <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4 print:hidden">
+            <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-xl border border-[#E8E2D9]">
+              <div className="border-b border-[#E8E2D9] pb-3 mb-4 flex justify-between items-center">
+                <div>
+                  <h3 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Upraviť kartu pacienta</h3>
+                  <p className="text-[10px] text-[#8C857B] uppercase tracking-wider">Úprava osobných údajov</p>
+                </div>
+                <button onClick={() => setEditingPatient(null)} className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-bold">✕</button>
+              </div>
+
+              <form onSubmit={handleSavePatientEdit} className="space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Meno a priezvisko *</label>
+                    <input type="text" required value={editingPatient.name} onChange={e => setEditingPatient({...editingPatient, name: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Rodné číslo *</label>
+                    <input type="text" required value={editingPatient.birthNumber} onChange={e => setEditingPatient({...editingPatient, birthNumber: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Telefónne číslo</label>
+                    <input type="text" value={editingPatient.phone} onChange={e => setEditingPatient({...editingPatient, phone: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Email</label>
+                    <input type="email" value={editingPatient.email} onChange={e => setEditingPatient({...editingPatient, email: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Bydlisko</label>
+                  <input type="text" value={editingPatient.address} onChange={e => setEditingPatient({...editingPatient, address: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Dátum narodenia</label>
+                    <input type="text" value={editingPatient.dob} onChange={e => setEditingPatient({...editingPatient, dob: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Poisťovňa</label>
+                    <select value={editingPatient.insurance} onChange={e => setEditingPatient({...editingPatient, insurance: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]">
+                      <option value="24 (Dôvera)">24 (Dôvera)</option>
+                      <option value="25 (VšZP)">25 (VšZP)</option>
+                      <option value="27 (Union)">27 (Union)</option>
+                      <option value="Samoplatca">Samoplatca</option>
+                      <option value="Drive Klient">Drive Klient</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9] mt-4">
+                  <button type="button" onClick={() => setEditingPatient(null)} className="px-4 py-2 text-xs font-bold text-[#8C857B] hover:text-[#2C2A29]">ZRUŠIŤ</button>
+                  <button type="submit" className="px-5 py-2 bg-[#C5A059] hover:bg-[#b08d4b] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm">ULOŽIŤ ZMENY</button>
                 </div>
               </form>
             </div>
@@ -449,7 +473,7 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
           </div>
         )}
 
-        {/* MODAL: NÁHĽAD */}
+        {/* MODAL: NÁHĽAD A TLAČ */}
         {previewRecord && selectedPatient && (
           <div className="fixed inset-0 bg-[#2C2A29]/80 flex items-start justify-center z-50 p-6 backdrop-blur-sm overflow-y-auto print:absolute print:inset-0 print:bg-white print:p-0 print:block print:overflow-visible">
             <div className="bg-[#FBF9F6] p-6 rounded-2xl w-full max-w-3xl shadow-xl flex flex-col relative my-8 print:p-0 print:border-none print:shadow-none print:m-0 print:block print:static">
@@ -547,12 +571,21 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
               </div>
             </div>
 
-            <input type="text" placeholder="Vyhľadať pacienta po mene alebo RČ..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border border-[#E8E2D9] p-3 rounded-xl bg-[#FBF9F6] text-xs focus:ring-2 focus:ring-[#C5A059] outline-none" />
+            <input 
+              type="text" 
+              placeholder="Vyhľadať pacienta po mene, RČ alebo telefóne..." 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+              className="w-full border border-[#E8E2D9] p-3 rounded-xl bg-[#FBF9F6] text-xs focus:ring-2 focus:ring-[#C5A059] outline-none" 
+            />
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredPatients.map(patient => (
-                <div key={patient.id} onClick={() => handlePatientSelect(patient)} className="border border-[#E8E2D9] p-4 rounded-xl hover:border-[#C5A059] hover:shadow-md transition-all cursor-pointer bg-white group flex flex-col justify-between">
-                  <div>
+                <div 
+                  key={patient.id} 
+                  className="border border-[#E8E2D9] p-4 rounded-xl hover:border-[#C5A059] hover:shadow-md transition-all bg-white group flex flex-col justify-between"
+                >
+                  <div onClick={() => handlePatientSelect(patient)} className="cursor-pointer">
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-bold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">{patient.name}</h3>
                       <span className="text-[9px] bg-[#FBF9F6] px-2 py-1 rounded text-[#8C857B] font-bold border border-[#E8E2D9]">{patient.insurance}</span>
@@ -560,11 +593,25 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
                     <p className="text-xs text-[#8C857B]">RČ: {patient.birthNumber}</p>
                     <p className="text-xs text-[#8C857B]">Tel: {patient.phone}</p>
                   </div>
-                  {patient.driveFolderLink && (
-                    <div className="mt-3 pt-2 border-t border-[#E8E2D9] text-[10px] text-[#C5A059] font-bold uppercase tracking-wider">
-                      📁 Prepojené s Google Drive
-                    </div>
-                  )}
+
+                  <div className="mt-3 pt-3 border-t border-[#E8E2D9] flex justify-between items-center text-[10px]">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingPatient(patient);
+                      }}
+                      className="text-[#8C857B] hover:text-[#C5A059] font-bold uppercase tracking-wider transition-colors flex items-center gap-1"
+                    >
+                      ✏️ Upraviť kartu
+                    </button>
+
+                    <button 
+                      onClick={() => handlePatientSelect(patient)}
+                      className="text-[#2C2A29] font-bold uppercase tracking-wider group-hover:text-[#C5A059]"
+                    >
+                      Otvoriť →
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -579,8 +626,16 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
 
             <div className="bg-[#FBF9F6] border border-[#E8E2D9] p-5 rounded-xl flex flex-col md:flex-row justify-between gap-4">
               <div>
-                <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">{selectedPatient.name}</h2>
-                <p className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">Karta pacienta</p>
+                <div className="flex items-center gap-3">
+                  <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">{selectedPatient.name}</h2>
+                  <button 
+                    onClick={() => setEditingPatient(selectedPatient)}
+                    className="text-xs bg-white border border-[#E8E2D9] px-2.5 py-1 rounded-lg text-[#8C857B] hover:text-[#C5A059] font-bold shadow-sm transition-colors"
+                  >
+                    ✏️ Upraviť
+                  </button>
+                </div>
+                <p className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold mt-1">Karta pacienta</p>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-2 text-xs">
                 <div><span className="text-[#8C857B] block text-[9px] uppercase">Rodné číslo:</span><span className="font-semibold">{selectedPatient.birthNumber}</span></div>
@@ -691,8 +746,8 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
                   <div className="border border-[#E8E2D9] rounded-lg p-3 flex justify-between items-center hover:bg-[#FBF9F6] transition-colors cursor-pointer">
                     <div className="flex items-center gap-3">
                       <div className="bg-rose-100 text-rose-600 p-2 rounded text-xs font-bold">PDF</div>
-                      <div><p className="text-xs font-bold text-[#2C2A29]">Predoperačné interné vyšetrenie</p></div>
-                    </div>
+                      <div><p className="text-xs font-bold text-[#2C2A29]">Predoperačné interné vyšetrenie</p>
+                    </div></div>
                     <button className="text-[10px] text-[#C5A059] uppercase font-bold">Stiahnuť</button>
                   </div>
                 </div>
