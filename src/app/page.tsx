@@ -64,6 +64,18 @@ export default function Home() {
     }
   }, []);
 
+  // Načítanie kešovaných kalendárových udalostí
+  useEffect(() => {
+    const cachedEvents = localStorage.getItem('say_clinic_calendar_events');
+    if (cachedEvents) {
+      try {
+        setCalendarEvents(JSON.parse(cachedEvents));
+      } catch (e) {
+        console.error('Chyba načítania kešovaných udalostí kalendára:', e);
+      }
+    }
+  }, []);
+
   const handleAddSale = (newSale: Omit<SaleItem, 'id'>) => {
     const item: SaleItem = {
       ...newSale,
@@ -86,7 +98,11 @@ export default function Home() {
   };
 
   const handleAddCalendarEvent = (newEvent: CalendarEvent) => {
-    setCalendarEvents((prev) => [...prev, newEvent]);
+    setCalendarEvents((prev) => {
+      const updated = [newEvent, ...prev];
+      localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleAddClinicNote = (e: React.FormEvent) => {
@@ -258,7 +274,7 @@ export default function Home() {
                   </div>
 
                   <div className="bg-white border border-[#E8E2D9] p-4 rounded-xl shadow-sm">
-                    <p className="text-[10px] uppercase text-[#8C857B] font-bold">Dnešný predpokladaný obrat</p>
+                    <p className="text-[10px] uppercase text-[#8C857B] font-bold">Dnešný predpokladovaný obrat</p>
                     <p className="text-2xl font-bold text-[#2C2A29] mt-1">
                       {sales.reduce((acc, s) => acc + s.amount, 0).toLocaleString('sk-SK')} €
                     </p>
@@ -405,6 +421,7 @@ export default function Home() {
               <PatientDatabase 
                 onNavigateToGenerator={handleNavigateToGenerator} 
                 initialPatient={selectedPatientForFolder}
+                onPatientsUpdated={(updatedList) => setPatients(updatedList)}
               />
             )}
 
@@ -425,7 +442,10 @@ export default function Home() {
 
             {/* PRIPOMIENKOVAČ TERMÍNOV */}
             {activeTab === 'reminders' && (
-              <RemindersManager events={calendarEvents} />
+              <RemindersManager 
+                events={calendarEvents} 
+                patients={patients}
+              />
             )}
 
             {/* FINANCIE */}
