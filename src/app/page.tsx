@@ -6,6 +6,7 @@ import PatientDatabase, { Patient } from '../components/PatientDatabase';
 import LoginForm from '../components/LoginForm';
 import FinanceCRM from '../components/FinanceCRM';
 import Calendar, { CalendarEvent } from '../components/Calendar';
+import InventoryCRM from '../components/InventoryCRM';
 
 export interface SaleItem {
   id: string;
@@ -22,7 +23,7 @@ const INITIAL_SALES: SaleItem[] = [
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'generator' | 'patients' | 'finance' | 'calendar'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'generator' | 'patients' | 'finance' | 'calendar' | 'inventory'>('home');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
 
   // Živý čas a dátum
@@ -104,7 +105,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FBF9F6]">
-      {/* HLAVIČKA A NÁVŠTEVA HOMESCREENU CEZ LOGO */}
+      {/* HLAVIČKA A PRECHOD NA HOMESCREEN CEZ LOGO */}
       <header className="bg-white border-b border-[#E8E2D9] sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
           
@@ -162,6 +163,14 @@ export default function Home() {
                 📅 Kalendár & Plánovanie
               </button>
               <button
+                onClick={() => setActiveTab('inventory')}
+                className={`px-3 py-2 transition-all ${
+                  activeTab === 'inventory' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+                }`}
+              >
+                📦 Sklad & Materiál
+              </button>
+              <button
                 onClick={() => setActiveTab('finance')}
                 className={`px-3 py-2 transition-all ${
                   activeTab === 'finance' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
@@ -192,7 +201,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* MAIN OBSAH */}
+      {/* OBSAH */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
         {!currentUser ? (
           <LoginForm onLoginSuccess={(user) => setCurrentUser(user)} />
@@ -398,6 +407,11 @@ export default function Home() {
                 onOpenPatientFolder={handleOpenPatientFromCalendar}
                 onAddEvent={handleAddCalendarEvent}
               />
+            )}
+
+            {/* SKLAD & MATERIÁL */}
+            {activeTab === 'inventory' && (
+              <InventoryCRM />
             )}
 
             {/* FINANCIE */}
