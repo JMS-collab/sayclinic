@@ -58,7 +58,11 @@ export default function Calendar({
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<ViewMode>('day');
+  
+  // Detail & Úprava udalosti
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [isEditingEvent, setIsAddingEditModal] = useState(false);
+  const [editingEventData, setEditingEventData] = useState<Partial<CalendarEvent>>({});
 
   // E-mailový panel priamo pod udalosťou
   const [openEmailEventId, setOpenEmailEventId] = useState<string | null>(null);
@@ -92,8 +96,17 @@ export default function Calendar({
     isDepositPaid: false
   });
 
-  // Pomocná funkcia pre nastavenie cien podľa typu
-  const handleTypeChangeInForm = (type: EventType) => {
+  // Pomocná funkcia pre automatické určenie typu udalosti z textu
+  const detectEventType = (title: string = ''): EventType => {
+    const t = title.toLowerCase();
+    if (t.includes('konzultac') || t.includes('vysetren')) return 'konzultacia';
+    if (t.includes('osetren') || t.includes('botox') || t.includes('kyselina') || t.includes('aplikac')) return 'osetrenie';
+    if (t.includes('kontrol') || t.includes('stehy') || t.includes('prevaz')) return 'kontrola';
+    return 'operacia';
+  };
+
+  // Pomocná funkcia pre nastavenie cien podľa typu vo formulári
+  const handleTypeChangeInForm = (type: EventType, isEdit = false) => {
     let price = 0;
     let deposit = 0;
 
@@ -102,12 +115,21 @@ export default function Calendar({
     else if (type === 'osetrenie') { price = 200; deposit = 50; }
     else if (type === 'kontrola') { price = 0; deposit = 0; }
 
-    setNewEvent(prev => ({
-      ...prev,
-      type: type,
-      totalPrice: price,
-      depositAmount: deposit
-    }));
+    if (isEdit) {
+      setEditingEventData(prev => ({
+        ...prev,
+        type: type,
+        totalPrice: price,
+        depositAmount: deposit
+      }));
+    } else {
+      setNewEvent(prev => ({
+        ...prev,
+        type: type,
+        totalPrice: price,
+        depositAmount: deposit
+      }));
+    }
   };
 
   useEffect(() => {
@@ -117,7 +139,13 @@ export default function Calendar({
     if (cachedEvents) {
       try {
         const parsed = JSON.parse(cachedEvents);
-        if (Array.isArray(parsed) && parsed.length > 0) setCalendarEvents(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const formatted = parsed.map((e: CalendarEvent) => ({
+            ...e,
+            type: e.type || detectEventType(e.title)
+          }));
+          setCalendarEvents(formatted);
+        }
       } catch (e) {
         console.error('Chyba načítania:', e);
       }
@@ -148,8 +176,15 @@ export default function Calendar({
           }
 
           if (fetchedEvents.length > 0) {
-            setCalendarEvents(fetchedEvents);
-            localStorage.setItem('say_clinic_calendar_events', JSON.stringify(fetchedEvents));
+            const mappedEvents: CalendarEvent[] = fetchedEvents.map(evt => ({
+              ...evt,
+              type: evt.type || detectEventType(evt.title),
+              totalPrice: evt.totalPrice !== undefined ? evt.totalPrice : (detectEventType(evt.title) === 'operacia' ? 3500 : 50),
+              depositAmount: evt.depositAmount !== undefined ? evt.depositAmount : (detectEventType(evt.title) === 'operacia' ? 500 : 0)
+            }));
+
+            setCalendarEvents(mappedEvents);
+            localStorage.setItem('say_clinic_calendar_events', JSON.stringify(mappedEvents));
           }
           if (fetchedCalendars.length > 0) {
             setAvailableCalendars(fetchedCalendars);
@@ -202,6 +237,25 @@ export default function Calendar({
       localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
       return updated;
     });
+  };
+
+  // Uloženie úpravy existujúcej udalosti (Možnosť 2)
+  const handleSaveEditedEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEventData.id) return;
+
+    setCalendarEvents(prev => {
+      const updated = prev.map(evt => evt.id === editingEventData.id ? ({ ...evt, ...editingEventData } as CalendarEvent) : evt);
+      localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+      return updated;
+    });
+
+    if (selectedEvent && selectedEvent.id === editingEventData.id) {
+      setSelectedEvent(editingEventData as CalendarEvent);
+    }
+
+    setIsAddingEditModal(false);
+    alert('✅ Udalosť bola úspešne upravená!');
   };
 
   const sendWhatsApp = (evt: CalendarEvent) => {
@@ -283,7 +337,7 @@ export default function Calendar({
     }
   };
 
-  // POMOCNÉ FARBY A ŠTÍTKY PRE KATEGÓRIE
+  // Pomocné farby a štítky pre kategórie
   const getEventTypeBadge = (type: EventType) => {
     switch (type) {
       case 'operacia':
@@ -436,7 +490,7 @@ export default function Calendar({
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        {/* ROZLIŠOVACÍ FARBENÝ ŠTÍTOK PRE TYP ZÁKROKU */}
+                        {/* ROZLIŠOVACÍ ŠTÍTOK PRE TYP ZÁKROKU */}
                         {getEventTypeBadge(evt.type)}
                         
                         {/* INDIKÁTOR ZÁLOHY */}
@@ -740,7 +794,7 @@ export default function Calendar({
         {view === 'month' && renderMonthView()}
       </div>
 
-      {/* MODAL DETAIL */}
+      {/* MODAL DETAIL + MOŽNOSŤ UPRAVIŤ (MOŽNOSŤ 2) */}
       {selectedEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-[#E8E2D9] space-y-4">
@@ -757,10 +811,21 @@ export default function Calendar({
               <p><strong>Pacient:</strong> <span className="font-bold text-sm ml-1">{selectedEvent.patientName}</span></p>
               <p><strong>Čas:</strong> <span className="ml-1 font-mono">{selectedEvent.startTime} - {selectedEvent.endTime}</span> ({selectedEvent.date})</p>
               <p><strong>Cena:</strong> <span className="ml-1 font-bold">{selectedEvent.totalPrice || 0} €</span></p>
-              {selectedEvent.depositAmount ? <p><strong>Záloha:</strong> <span className="ml-1 font-bold text-[#C5A059]">{selectedEvent.depositAmount} €</span></p> : null}
+              <p><strong>Záloha:</strong> <span className="ml-1 font-bold text-[#C5A059]">{selectedEvent.depositAmount || 0} €</span></p>
+              <p><strong>Stav zálohy:</strong> <span className="ml-1 font-bold">{selectedEvent.isDepositPaid ? '🟢 Hradená' : '🔴 Nehradená'}</span></p>
             </div>
 
-            <div className="flex justify-between items-center pt-2">
+            <div className="flex justify-between items-center pt-2 gap-2">
+              <button 
+                onClick={() => {
+                  setEditingEventData(selectedEvent);
+                  setIsAddingEditModal(true);
+                }}
+                className="bg-[#C5A059] hover:bg-[#b08d4b] text-white px-3 py-2 rounded-xl text-xs font-bold uppercase shadow-sm"
+              >
+                ✏️ Upraviť udalosť / typ
+              </button>
+
               <button 
                 onClick={() => {
                   handleOpenFolderForEvent(selectedEvent);
@@ -768,9 +833,103 @@ export default function Calendar({
                 }}
                 className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-sm"
               >
-                📁 Otvoriť kartu pacienta
+                📁 Karta pacienta
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL RUČNEJ ÚPRAVY UDALOSTI (MOŽNOSŤ 2) */}
+      {isEditingEvent && (
+        <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-xl border border-[#E8E2D9]">
+            <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-3 mb-4">
+              Upraviť udalosť & Typ návštevy
+            </h3>
+
+            <form onSubmit={handleSaveEditedEvent} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Typ Návštevy / Zákroku</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <button 
+                    type="button" 
+                    onClick={() => handleTypeChangeInForm('konzultacia', true)}
+                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'konzultacia' ? 'bg-amber-100 border-amber-500 text-amber-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
+                  >
+                    🩺 Konzultácia
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleTypeChangeInForm('osetrenie', true)}
+                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'osetrenie' ? 'bg-emerald-100 border-emerald-500 text-emerald-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
+                  >
+                    💉 Ošetrenie
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleTypeChangeInForm('kontrola', true)}
+                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'kontrola' ? 'bg-blue-100 border-blue-500 text-blue-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
+                  >
+                    🔍 Kontrola
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleTypeChangeInForm('operacia', true)}
+                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'operacia' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
+                  >
+                    🔪 Operácia
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Názov Zákroku</label>
+                <input 
+                  type="text" 
+                  value={editingEventData.title || ''} 
+                  onChange={e => setEditingEventData({...editingEventData, title: e.target.value})} 
+                  className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
+                <div>
+                  <label className="block text-[9px] uppercase text-[#8C857B] font-bold">Cena (€)</label>
+                  <input 
+                    type="number" 
+                    value={editingEventData.totalPrice || 0} 
+                    onChange={e => setEditingEventData({...editingEventData, totalPrice: Number(e.target.value)})} 
+                    className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] uppercase text-[#8C857B] font-bold">Záloha (€)</label>
+                  <input 
+                    type="number" 
+                    value={editingEventData.depositAmount || 0} 
+                    onChange={e => setEditingEventData({...editingEventData, depositAmount: Number(e.target.value)})} 
+                    className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold text-[#C5A059]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] uppercase text-[#8C857B] font-bold">Stav Zálohy</label>
+                  <select 
+                    value={editingEventData.isDepositPaid ? 'paid' : 'unpaid'} 
+                    onChange={e => setEditingEventData({...editingEventData, isDepositPaid: e.target.value === 'paid'})} 
+                    className="w-full border p-1.5 rounded-lg bg-white font-bold"
+                  >
+                    <option value="unpaid">🔴 Neúhradené</option>
+                    <option value="paid">🟢 Úhradené</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9]">
+                <button type="button" onClick={() => setIsAddingEditModal(false)} className="px-4 py-2 font-bold text-[#8C857B]">ZRUŠIŤ</button>
+                <button type="submit" className="px-5 py-2 bg-[#2C2A29] text-white font-bold rounded-xl uppercase">ULOŽIŤ ZMENY</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
