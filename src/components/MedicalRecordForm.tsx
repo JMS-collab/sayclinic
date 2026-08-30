@@ -166,6 +166,85 @@ const OP_MACROS: Record<string, string> = {
   op_excizie: "V ……….. bloku /levobupivacain + adrenalin/ - v prídavnej tumescencii LA /mesocain + adrenalin/ po príprave operačného poľa vykonávame exstirpáciu …………… bez porušenia obalu s dôsledným šetrením okolitých tkanív. Mat. ad. histologiam. Sutura kože."
 };
 
+// PREHĽADNÉ ČASOVÉ ŠABLÓNY PRE KONTROLNÉ VYŠETRENIA
+export const CHECKUP_MACROS: Record<string, {
+  label: string;
+  timeframe: string;
+  subjective: string;
+  objective: string;
+  recommendations: string[];
+  nextCheckup: string;
+}> = {
+  checkup_1w: {
+    label: "Kontrola po 1 týždni (7-10 dní)",
+    timeframe: "1 týždeň po operácii",
+    subjective: "Pacient/ka udáva primeraný pooperačný priebeh vzhľadom na dobu od výkonu. Bolesť minimálna až mierna, dobre kontrolovaná bežnou analgetickou liečbou (užíva len sporadicky). Pocit mierneho napätia a tlaku v operovanej oblasti. Bez febrilít, bez triašky, bez dýchavičnosti.",
+    objective: "Lokálny nález: Operačné rany pokojné, okraje rany presne adaptované, zhojené per primam intentionem (p.p.i.). Bez známok dehiscencie, bez prítomnosti hematómu či fluktuácie (serómu). Bez lokálnych zápalových prejavov (bez erytému, bez sekrécie). Mierny pooperačný edém v očakávanom rozsahu. Steri-strippy / stehy odstránené podľa plánu, toaleta rany, dezinfekcia.",
+    recommendations: [
+      "Ranu a operačné pole udržiavať v suchu a čistote, lokálna dezinfekcia (Octenisept / Betadine).",
+      "Sprchovanie čistou vlažnou vodou bez dráždivých mydiel povolené po 48h od vybratia stehov, rany jemne osušiť čistým uterákom (netrieť).",
+      "Striktné nosenie predpísanej kompresívnej pooperačnej bielizne / bandáže 24/7 (zložiť len na hygienu).",
+      "Fyzické šetrenie, vyhnúť sa predkláňaniu, prudkým pohybom a zdvíhaniu bremien nad 3-5 kg.",
+      "Aplikácia silikónového gélu / silikónových náplastí (Strataderm/Dermatix/Lipoelastic) až po úplnom odpadnutí všetkých chrást.",
+      "Možnosť zahájenia doplnkovej regeneračnej terapie: aplikácia polynukleotidov (Rejuran S) a frakčný / cievny laser po 10-14 dňoch od operácie na optimalizáciu a urýchlenie hojenia.",
+      "V prípade akútnej bolesti, asymetrického náhleho opuchu alebo teploty nad 37.8°C kontaktovať kliniku ihneď."
+    ],
+    nextCheckup: "O 3-4 týždne (po 1 mesiaci od operácie)"
+  },
+  checkup_1m: {
+    label: "Kontrola po 1 mesiaci (4 týždne)",
+    timeframe: "1 mesiac po operácii",
+    subjective: "Pacient/ka udáva výrazné zlepšenie celkového stavu, bez spontánnych bolestí, plný návrat k ľahkým bežným denným činnostiam. Pocit postupného uvoľňovania operovaných tkanív, s doterajším vývojom spokojný/á.",
+    objective: "Lokálny nález: Rany kompletne epitelizované, bez chrást a bez sekrécie. Jazvy pokojné, lineárne, v štádiu fyziologickej pooperačnej prestavby (ružovkasté, mäkké). Bez sklonu k hypertrofii. Pooperačný edém výrazne ustúpil, symetria a kontúry primerané štádiu hojenia.",
+    recommendations: [
+      "Začať cielenú starostlivosť o jazvy: aplikácia silikónového gélu (Strataderm / Dermatix / Lipoelastic gel) alebo silikónových náplastí 2x denne na čisté a suché jazvy (keď je rana úplne bez chrást).",
+      "Vykonávať pravidelné tlakové masáže jaziev (krúživý tlak prstami / valčekom 3-5x denne po 5 minút) na zmäkčenie a sploštenie tkaniva.",
+      "Doporučená aplikácia polynukleotidov (Rejuran S) a frakčného / cievneho lasera na vyhladenie a minimalizáciu jaziev.",
+      "Kompresívnu bielizeň nosiť podľa odporúčania operatéra (pri augmentácii/abdominoplastike pokračovať do 6. týždňa).",
+      "Striktná ochrana jaziev pred priamym slnečným a UV žiarením (SPF 50+) minimálne počas 6 mesiacov.",
+      "Vyhnúť sa ťažkému posilňovaniu, saune, bazénom a soláriu ďalšie 4 týždne."
+    ],
+    nextCheckup: "O 2 mesiace (po 3 mesiacoch od operácie)"
+  },
+  checkup_3m: {
+    label: "Kontrola po 3 mesiacoch",
+    timeframe: "3 mesiace po operácii",
+    subjective: "Subjektívne bez akýchkoľvek ťažkostí, plná adaptácia. Pacient/ka vyjadruje vysokú spokojnosť s tvarom, symetriou a priebežným estetickým výsledkom.",
+    objective: "Lokálny nález: Jazvy v pokročilom štádiu maturácie, blednúce, pružné, ploché, bez hypertrofie a bez keloidných formácií. Edém takmer kompletne vymiznutý, tkanivá mäkké a prirodzene pohyblivé. Anatomické pomery stabilné a harmonické.",
+    recommendations: [
+      "Pokračovať v aplikácii silikónových prípravkov a v tlakových masážach jaziev ešte aspoň 1-2 mesiace.",
+      "Možnosť zopakovania ošetrenia Rejuran S / laserovej korekcie pre maximalizáciu estetického efektu jaziev.",
+      "Postupný návrat k plnej športovej a fyzickej záťaži vrátane cvičenia a posilňovania.",
+      "Pokračovať v striktnej fotoprotekcii jaziev (SPF 50+) pri expozícii slnku."
+    ],
+    nextCheckup: "O 3 mesiace (pol roka od operácie)"
+  },
+  checkup_6m: {
+    label: "Kontrola po 6 mesiacoch (pol roka)",
+    timeframe: "6 mesiacov po operácii",
+    subjective: "Subjektívny stav výborný, bez obmedzení v bežnom aj športovom živote. Plná spokojnosť s výsledkom operácie.",
+    objective: "Lokálny nález: Jazvy bledé, jemné, ploché v úrovni okolitej kože, normotrofické. Tkanivá mäkké, prirodzené na pohmat. Implantáty / operované štruktúry v ideálnej anatomickej pozícii. Estetický výsledok stabilný a vysoko harmonický.",
+    recommendations: [
+      "Bežná starostlivosť o pokožku (hydratačné krémy, telové mlieka).",
+      "Ochrana pred UV žiarením pri opaľovaní (SPF 50+) do 1 roka od operácie.",
+      "Bez obmedzení v akejkoľvek fyzickej, športovej alebo pracovnej aktivite."
+    ],
+    nextCheckup: "O 6 mesiacov (ročná definitívna kontrola)"
+  },
+  checkup_1y: {
+    label: "Definitívna kontrola po 1 roku",
+    timeframe: "1 rok po operácii",
+    subjective: "Definitívny pooperačný stav, pacient/ka bez akýchkoľvek ťažkostí, maximálna spokojnosť s estetickým aj funkčným výsledkom.",
+    objective: "Lokálny nález: Jazvy plne maturované, biele, tenké, nenápadné. Tkanivá vo výbornej kondícii, stabilný definitívny tvar a symetria.",
+    recommendations: [
+      "Pooperačná ambulantná starostlivosť k danému výkonu ukončená ako úspešná.",
+      "V prípade prsných implantátov odporučená pravidelná preventívna USG / sonografia prsníkov 1x ročne.",
+      "Ďalšia kontrola podľa potreby alebo na prianie pacientky."
+    ],
+    nextCheckup: "Podľa potreby / na vyžiadanie"
+  }
+};
+
 const calculateAgeFromRC = (rc: string) => {
   if (!rc || rc.length < 9) return '';
   const cleanRc = rc.replace(/\D/g, '');
@@ -256,7 +335,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   // PLATBY
   const [depositPaid, setDepositPaid] = useState<number>(0);
 
-  // OPERAČNÉ ÚDAJE (A údaje o kontrole)
+  // OPERAČNÉ ÚDAJE
   const [surgeryDetails, setSurgeryDetails] = useState({
     opDate: new Date().toISOString().split('T')[0],
     opStart: '09:00', opEnd: '10:30',
@@ -296,7 +375,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const [vvExams, setVvExams] = useState<string[]>([]);
   const [vvExamsOther, setVvExamsOther] = useState('');
   
-  // Implantáty (Dynamické pole) a Materiál
+  // Implantáty a Materiál
   const [vvImplants, setVvImplants] = useState([{ vyrobca: '', kat: '', objem: '' }]);
   const [vvMaterial, setVvMaterial] = useState('');
 
@@ -304,7 +383,31 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const [vvNoContra, setVvNoContra] = useState(true);
   const [vvContraReason, setVvContraReason] = useState('');
 
-  // --- NOVÉ ŠPECIALIZOVANÉ ŠABLÓNY ---
+  // --- KONTROLNÉ VYŠETRENIE (ČASOVÉ ŠABLÓNY A ODPORÚČANIA) ---
+  const [selectedCheckupKey, setSelectedCheckupKey] = useState<string>('checkup_1w');
+  const [checkupData, setCheckupData] = useState({
+    timeframe: CHECKUP_MACROS.checkup_1w.timeframe,
+    subjective: CHECKUP_MACROS.checkup_1w.subjective,
+    objective: CHECKUP_MACROS.checkup_1w.objective,
+    recommendations: CHECKUP_MACROS.checkup_1w.recommendations.join('\n• '),
+    nextCheckup: CHECKUP_MACROS.checkup_1w.nextCheckup
+  });
+
+  const handleSelectCheckupPreset = (key: string) => {
+    setSelectedCheckupKey(key);
+    const macro = CHECKUP_MACROS[key];
+    if (macro) {
+      setCheckupData({
+        timeframe: macro.timeframe,
+        subjective: macro.subjective,
+        objective: macro.objective,
+        recommendations: macro.recommendations.join('\n• '),
+        nextCheckup: macro.nextCheckup
+      });
+    }
+  };
+
+  // --- OSTATNÉ ŠABLÓNY ---
 
   // 1. INFORMOVANÝ SÚHLAS S OPERÁCIOU
   const [surgeryConsent, setSurgeryConsent] = useState({
@@ -484,10 +587,16 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
       ? selectedItems.map((i) => i.name).join(', ') || DOC_TITLES[docType]
       : manualProcedure || DOC_TITLES[docType];
 
+    const recordNote = docType === 'vstupne_vysetrenie' 
+      ? vvPlan 
+      : docType === 'kontrolne_vysetrenie' 
+      ? `Subjektívne: ${checkupData.subjective}\nObjektívne: ${checkupData.objective}\nOdporúčania:\n${checkupData.recommendations}` 
+      : notes;
+
     const response = await HealthProService.sendMedicalRecord({
       patientBirthNumber: birthNumber,
       diagnosisCode: diagnosis,
-      notes: docType === 'vstupne_vysetrenie' ? vvPlan : notes,
+      notes: recordNote,
       doctorLicenseCode: 'LEK-123456',
     });
 
@@ -509,7 +618,8 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const showSurgeryDetails = docType === 'operacny_protokol' || docType === 'prepustacia_sprava';
   const showAnesthesiaQ = docType === 'anesteziologicky_dotaznik';
   const showVV = docType === 'vstupne_vysetrenie';
-  const showNotes = docType === 'kontrolne_vysetrenie' || docType === 'operacny_protokol' || docType === 'prepustacia_sprava';
+  const showCheckup = docType === 'kontrolne_vysetrenie';
+  const showNotes = docType === 'operacny_protokol' || docType === 'prepustacia_sprava';
   const showSurgeryConsent = docType === 'suhlas_operacia';
   const showAestheticConsent = docType === 'suhlas_aplikacia';
   const showPreopRequest = docType === 'ziadanka_predoperacne';
@@ -665,6 +775,82 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     </select>
                   </div>
                   <textarea rows={5} value={vvSPL} onChange={e => setVvSPL(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                </div>
+              </div>
+            )}
+
+            {/* SEKCIA: KONTROLNÉ VYŠETRENIE (NOVÉ ŠTRUKTÚROVANÉ ČASOVÉ ŠABLÓNY) */}
+            {showCheckup && (
+              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059] mb-2">Výber časového intervalu kontroly</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {Object.entries(CHECKUP_MACROS).map(([key, macro]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => handleSelectCheckupPreset(key)}
+                        className={`p-2 rounded-lg text-xs font-semibold border transition-all text-left ${
+                          selectedCheckupKey === key 
+                            ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-sm' 
+                            : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                        }`}
+                      >
+                        {macro.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-[#8C857B] uppercase font-bold mb-1">Doba od operácie</label>
+                  <input 
+                    type="text" 
+                    value={checkupData.timeframe} 
+                    onChange={e => setCheckupData({...checkupData, timeframe: e.target.value})} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-[#8C857B] uppercase font-bold mb-1">Subjektívny stav pacienta</label>
+                  <textarea 
+                    rows={3} 
+                    value={checkupData.subjective} 
+                    onChange={e => setCheckupData({...checkupData, subjective: e.target.value})} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-[#8C857B] uppercase font-bold mb-1">Objektívny nález (Hojenie rán p.p.i., jazvy, stehy)</label>
+                  <textarea 
+                    rows={4} 
+                    value={checkupData.objective} 
+                    onChange={e => setCheckupData({...checkupData, objective: e.target.value})} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-[#C5A059] uppercase font-bold mb-1">Odporúčania a pooperačná starostlivosť (Silikón, Rejuran S, laser, SPF)</label>
+                  <textarea 
+                    rows={6} 
+                    value={checkupData.recommendations} 
+                    onChange={e => setCheckupData({...checkupData, recommendations: e.target.value})} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-medium" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-[#8C857B] uppercase font-bold mb-1">Plánovaný termín ďalšej kontroly</label>
+                  <input 
+                    type="text" 
+                    value={checkupData.nextCheckup} 
+                    onChange={e => setCheckupData({...checkupData, nextCheckup: e.target.value})} 
+                    placeholder="napr. O 3-4 týždne / O 2 mesiace..." 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" 
+                  />
                 </div>
               </div>
             )}
@@ -922,78 +1108,63 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* SEKCIA: POZNÁMKY A NÁLEZ */}
+            {/* SEKCIA: POZNÁMKY A NÁLEZ PRE PROTOKOL */}
             {showNotes && (
               <div className="space-y-2">
                 <div className="flex justify-between items-end mb-1">
-                  <label className="block text-[10px] uppercase text-[#8C857B]">Lekársky nález / Protokol / Text správy</label>
+                  <label className="block text-[10px] uppercase text-[#8C857B]">Lekársky nález / Operačný protokol</label>
                   <select 
                     value="" 
                     onChange={(e) => handleMacroInsert(e.target.value, 'notes')}
                     className="border border-[#E8E2D9] p-1.5 rounded-lg text-[10px] bg-[#FBF9F6] text-[#8C857B] font-bold shadow-sm"
                   >
-                    <option value="" disabled>+ Vložiť makro predlohu...</option>
-                    {docType === 'operacny_protokol' ? (
-                      <>
-                        <optgroup label="Tvár">
-                          <option value="op_facelift_macs">Facelift MACS</option>
-                          <option value="op_deep_plane">Deep plane Facelift</option>
-                          <option value="op_necklift">Necklift</option>
-                          <option value="op_lipotransfer">Lipotransfer tváre</option>
-                          <option value="op_liposukcia_podbradku">Liposukcia podbradku</option>
-                          <option value="op_tvarove_implantaty">Tvárové implantáty (Su-por)</option>
-                        </optgroup>
-                        <optgroup label="Periorbitálna oblasť">
-                          <option value="op_horna_blepharo">Horná blepharoplastika</option>
-                          <option value="op_dolna_blepharo">Dolná blefaroplastika</option>
-                          <option value="op_transpalpebral">Transpalpebrálny browlift</option>
-                          <option value="op_gliding_brow">Gliding browlift</option>
-                          <option value="op_endo_brow">Endoskopický browlift + midfacelift</option>
-                        </optgroup>
-                        <optgroup label="Nos a Uši">
-                          <option value="op_rhino_komplet">Rhinoplastika kompletná - prezervačná</option>
-                          <option value="op_rhino_spicka">Rhinoplatika - špička</option>
-                          <option value="op_usi">Uši</option>
-                        </optgroup>
-                        <optgroup label="Pery">
-                          <option value="op_lip_lift">Lip lift</option>
-                        </optgroup>
-                        <optgroup label="Prsníky">
-                          <option value="op_aug_dual">Augmentácia - Dual plane</option>
-                          <option value="op_aug_sub">Augmentácia - Subfascial</option>
-                          <option value="op_aug_mastopexia">Augmentačná mastopexia</option>
-                          <option value="op_mastopexia">Mastopexia</option>
-                          <option value="op_redukcia">Redukcia</option>
-                          <option value="op_vymena">Výmena implantátov</option>
-                          <option value="op_gynekomastia">Gynekomastia</option>
-                          <option value="op_lipografting">Lipografting prsníkov</option>
-                        </optgroup>
-                        <optgroup label="Brucho a Telo">
-                          <option value="op_abdominoplastika">Abdominoplastika</option>
-                          <option value="op_abdo_kratky_rez">Abdominoplastika - krátky rez</option>
-                          <option value="op_mini_abdo">Miniabdominoplastika</option>
-                          <option value="op_lipo_360">Lipo 360</option>
-                          <option value="op_armlift">Arm lift</option>
-                        </optgroup>
-                        <optgroup label="Genitál, Ruka, Excízie">
-                          <option value="op_labioplastika">Labioplastika</option>
-                          <option value="op_karpal">Karpálny tunel</option>
-                          <option value="op_dupuytren">Dupuytrenova kontraktúra</option>
-                          <option value="op_excizie">Excízie</option>
-                        </optgroup>
-                      </>
-                    ) : (
-                      <>
-                        <option value="viecka">Viečka</option>
-                        <option value="nos">Nos</option>
-                        <option value="tvar">Tvár</option>
-                        <option value="prsniky">Prsníky</option>
-                        <option value="brucho">Brucho</option>
-                        <option value="lipo">Lipo</option>
-                        <option value="labio">Labio</option>
-                        <option value="ruka">Ruka (Karpál / Dupuytren)</option>
-                      </>
-                    )}
+                    <option value="" disabled>+ Vložiť operačné makro...</option>
+                    <optgroup label="Tvár">
+                      <option value="op_facelift_macs">Facelift MACS</option>
+                      <option value="op_deep_plane">Deep plane Facelift</option>
+                      <option value="op_necklift">Necklift</option>
+                      <option value="op_lipotransfer">Lipotransfer tváre</option>
+                      <option value="op_liposukcia_podbradku">Liposukcia podbradku</option>
+                      <option value="op_tvarove_implantaty">Tvárové implantáty (Su-por)</option>
+                    </optgroup>
+                    <optgroup label="Periorbitálna oblasť">
+                      <option value="op_horna_blepharo">Horná blepharoplastika</option>
+                      <option value="op_dolna_blepharo">Dolná blefaroplastika</option>
+                      <option value="op_transpalpebral">Transpalpebrálny browlift</option>
+                      <option value="op_gliding_brow">Gliding browlift</option>
+                      <option value="op_endo_brow">Endoskopický browlift + midfacelift</option>
+                    </optgroup>
+                    <optgroup label="Nos a Uši">
+                      <option value="op_rhino_komplet">Rhinoplastika kompletná - prezervačná</option>
+                      <option value="op_rhino_spicka">Rhinoplatika - špička</option>
+                      <option value="op_usi">Uši</option>
+                    </optgroup>
+                    <optgroup label="Pery">
+                      <option value="op_lip_lift">Lip lift</option>
+                    </optgroup>
+                    <optgroup label="Prsníky">
+                      <option value="op_aug_dual">Augmentácia - Dual plane</option>
+                      <option value="op_aug_sub">Augmentácia - Subfascial</option>
+                      <option value="op_aug_mastopexia">Augmentačná mastopexia</option>
+                      <option value="op_mastopexia">Mastopexia</option>
+                      <option value="op_redukcia">Redukcia</option>
+                      <option value="op_vymena">Výmena implantátov</option>
+                      <option value="op_gynekomastia">Gynekomastia</option>
+                      <option value="op_lipografting">Lipografting prsníkov</option>
+                    </optgroup>
+                    <optgroup label="Brucho a Telo">
+                      <option value="op_abdominoplastika">Abdominoplastika</option>
+                      <option value="op_abdo_kratky_rez">Abdominoplastika - krátky rez</option>
+                      <option value="op_mini_abdo">Miniabdominoplastika</option>
+                      <option value="op_lipo_360">Lipo 360</option>
+                      <option value="op_armlift">Arm lift</option>
+                    </optgroup>
+                    <optgroup label="Genitál, Ruka, Excízie">
+                      <option value="op_labioplastika">Labioplastika</option>
+                      <option value="op_karpal">Karpálny tunel</option>
+                      <option value="op_dupuytren">Dupuytrenova kontraktúra</option>
+                      <option value="op_excizie">Excízie</option>
+                    </optgroup>
                   </select>
                 </div>
                 <textarea rows={10} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tu vpíšte text správy..." className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29]" />
@@ -1078,7 +1249,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Pacient / Klient:</strong> <span className="text-sm font-bold ml-2">{patientName || '---'}</span></p>
                   <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Rodné číslo:</strong> <span className="ml-2 font-mono">{birthNumber || '---'}</span></p>
                   <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Diagnóza:</strong> <span className="ml-2">{diagnosis}</span></p>
-                  {!showPricing && !showAnesthesiaQ && !showVV && manualProcedure && (
+                  {!showPricing && !showAnesthesiaQ && !showVV && !showCheckup && manualProcedure && (
                     <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Zákrok:</strong> <span className="ml-2 font-bold">{manualProcedure}</span></p>
                   )}
                 </div>
@@ -1163,7 +1334,53 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 1A. Cenová ponuka --- */}
+            {/* --- 1. KONTROLNÉ VYŠETRENIE (NOVÝ PROFESIONÁLNY DOKUMENT) --- */}
+            {showCheckup && (
+              <div className="space-y-5 mb-8 text-justify leading-relaxed">
+                <div className="bg-[#FBF9F6] p-3.5 rounded-xl border border-[#E8E2D9] flex justify-between items-center">
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-[#8C857B] block">Časový interval kontroly:</span>
+                    <span className="text-sm font-bold text-[#2C2A29]">{checkupData.timeframe}</span>
+                  </div>
+                  <span className="text-[10px] font-bold bg-[#C5A059] text-white px-2.5 py-1 rounded shadow-xs">
+                    Hojenie p.p.i.
+                  </span>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">I. Subjektívny stav pacienta (Anamnéza)</p>
+                  <p className="text-xs bg-white p-3 rounded-lg border border-[#E8E2D9]/70 leading-relaxed text-[#2C2A29]">
+                    {checkupData.subjective}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">II. Objektívny nález (Status Localis post operationem)</p>
+                  <p className="text-xs bg-white p-3 rounded-lg border border-[#E8E2D9]/70 leading-relaxed text-[#2C2A29]">
+                    {checkupData.objective}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">III. Odporúčania a pooperačná starostlivosť</p>
+                  <div className="bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] space-y-1.5 text-xs text-[#2C2A29]">
+                    <div className="whitespace-pre-line font-medium leading-relaxed">
+                      • {checkupData.recommendations}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50/70 border border-amber-200 p-3.5 rounded-xl text-xs text-amber-950 flex justify-between items-center">
+                  <div>
+                    <span className="font-bold block text-[10px] uppercase tracking-wider text-amber-800">Plánovaná ďalšia kontrola:</span>
+                    <span className="font-bold text-sm text-[#2C2A29]">{checkupData.nextCheckup}</span>
+                  </div>
+                  <span className="text-[10px] text-amber-800 italic">Termín na www.sayclinic.sk</span>
+                </div>
+              </div>
+            )}
+
+            {/* --- 2. Cenová ponuka --- */}
             {docType === 'cenova_ponuka' && (
               <div className="space-y-4 mb-8">
                 <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">Rozpis výkonov a služieb:</p>
@@ -1208,7 +1425,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 1B. Dohoda o cene a podmienkach (Právny formát s Logom a Hlavičkou) --- */}
+            {/* --- 3. Dohoda o cene a podmienkach (Právny formát s Logom a Hlavičkou) --- */}
             {docType === 'dohoda_o_cene' && (
               <div className="text-[11px] leading-tight space-y-6">
                 <div className="flex items-center justify-between border-b-2 border-[#C5A059] pb-4 mb-4">
@@ -1321,7 +1538,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 2A. Operačný protokol --- */}
+            {/* --- 4. Operačný protokol --- */}
             {docType === 'operacny_protokol' && (
               <div className="space-y-4 mb-6">
                 <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] text-xs">
@@ -1342,7 +1559,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 2B. Prepúšťacia správa s detailmi --- */}
+            {/* --- 5. Prepúšťacia správa s detailmi --- */}
             {docType === 'prepustacia_sprava' && (
               <div className="space-y-4 mb-6">
                 <div className="grid grid-cols-2 gap-4 bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] text-[10px]">
@@ -1379,7 +1596,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 3. Anesteziologický dotazník --- */}
+            {/* --- 6. Anesteziologický dotazník --- */}
             {showAnesthesiaQ && (
               <div className="space-y-4 mb-8">
                 <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">Zdravotná anamnéza (Vyplnil pacient):</p>
@@ -1395,7 +1612,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 4. NOVÉ: INFORMOVANÝ SÚHLAS S OPERÁCIOU --- */}
+            {/* --- 7. INFORMOVANÝ SÚHLAS S OPERÁCIOU --- */}
             {showSurgeryConsent && (
               <div className="space-y-5 mb-8 text-justify leading-relaxed">
                 <div className="bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] space-y-2">
@@ -1429,7 +1646,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 5. NOVÉ: INFORMOVANÝ SÚHLAS S APLIKÁCIOU VÝPLNÍ / BOTOXU --- */}
+            {/* --- 8. INFORMOVANÝ SÚHLAS S APLIKÁCIOU VÝPLNÍ / BOTOXU --- */}
             {showAestheticConsent && (
               <div className="space-y-5 mb-8 text-justify leading-relaxed">
                 <div className="bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] space-y-2">
@@ -1467,7 +1684,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 6. NOVÉ: ŽIADANKA NA PREDOPERAČNÉ VYŠETRENIA --- */}
+            {/* --- 9. ŽIADANKA NA PREDOPERAČNÉ VYŠETRENIA --- */}
             {showPreopRequest && (
               <div className="space-y-5 mb-8 leading-relaxed">
                 <div className="bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] space-y-2">
@@ -1498,7 +1715,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 7. NOVÉ: LEKÁRSKE POTVRDENIE / POSUDOK --- */}
+            {/* --- 10. LEKÁRSKE POTVRDENIE / POSUDOK --- */}
             {showCertificate && (
               <div className="space-y-6 mb-8 text-justify leading-relaxed">
                 <div className="bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] space-y-2">
@@ -1520,11 +1737,11 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- Spoločný textový blok (Nález / Protokol / Kontrola) --- */}
+            {/* --- Spoločný textový blok pre Operačný protokol --- */}
             {showNotes && (
               <div className="space-y-2 mb-8 flex-1">
                 <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">
-                  {docType === 'operacny_protokol' ? 'Popis operácie:' : 'Podrobný popis / Nález:'}
+                  Popis operácie:
                 </p>
                 <div className="whitespace-pre-line text-sm text-[#2C2A29] leading-relaxed pt-2">
                   {notes || '...'}
