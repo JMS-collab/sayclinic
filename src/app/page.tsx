@@ -7,7 +7,6 @@ import LoginForm from '../components/LoginForm';
 import FinanceCRM from '../components/FinanceCRM';
 import Calendar, { CalendarEvent } from '../components/Calendar';
 import InventoryCRM from '../components/InventoryCRM';
-import RemindersManager from '../components/RemindersManager';
 
 export interface SaleItem {
   id: string;
@@ -24,7 +23,7 @@ const INITIAL_SALES: SaleItem[] = [
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'generator' | 'patients' | 'finance' | 'calendar' | 'inventory' | 'reminders'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'generator' | 'patients' | 'finance' | 'calendar' | 'inventory'>('home');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
 
   // Živý čas a dátum
@@ -188,14 +187,6 @@ export default function Home() {
                 📦 Sklad & Materiál
               </button>
               <button
-                onClick={() => setActiveTab('reminders')}
-                className={`px-3 py-2 transition-all ${
-                  activeTab === 'reminders' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-                }`}
-              >
-                📲 Pripomienky (SMS/WA)
-              </button>
-              <button
                 onClick={() => setActiveTab('finance')}
                 className={`px-3 py-2 transition-all ${
                   activeTab === 'finance' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
@@ -292,7 +283,7 @@ export default function Home() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   
                   {/* STĹPEC 1: DNEŠNÍ KLIENTI (2 TRETINY) */}
-                  <div className="lg:col-span-2 bg-white border border-[#E8E2D9] rounded-2xl p-6 shadow-sm space-y-4">
+                  <div className="lg:col-span-2 bg-[#ffffff] border border-[#E8E2D9] rounded-2xl p-6 shadow-sm space-y-4">
                     <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
                       <div>
                         <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase">Dnešný harmonogram pacientov</h3>
@@ -438,14 +429,6 @@ export default function Home() {
             {/* SKLAD & MATERIÁL */}
             {activeTab === 'inventory' && (
               <InventoryCRM />
-            )}
-
-            {/* PRIPOMIENKOVAČ TERMÍNOV */}
-            {activeTab === 'reminders' && (
-              <RemindersManager 
-                events={calendarEvents} 
-                patients={patients}
-              />
             )}
 
             {/* FINANCIE */}

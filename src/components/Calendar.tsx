@@ -28,7 +28,7 @@ export interface GoogleCalendarItem {
 
 interface CalendarProps {
   events?: CalendarEvent[];
-  patients?: Array<{ id: string; name: string }>; // Zoznam importovaných pacientov z Google Drive
+  patients?: Array<{ id: string; name: string; phone?: string }>; // Zoznam importovaných pacientov z Google Drive
   onOpenPatientFolder?: (patientId: string) => void;
   onAddEvent?: (event: CalendarEvent) => void;
 }
@@ -53,9 +53,14 @@ export default function Calendar({
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
+  // Stavy pre ručne dopísané telefónne čísla a stavy pripomienok
+  const [customPhones, setCustomPhones] = useState<Record<string, string>>({});
+  const [reminderStatuses, setReminderStatuses] = useState<Record<string, 'pending' | 'sent' | 'confirmed'>>({});
+
   const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [newEvent, setNewEvent] = useState<Partial<CalendarEvent>>({
     patientName: '', 
+    patientPhone: '',
     doctorName: 'MUDr. Ján Mráz', 
     title: '', 
     date: new Date().toISOString().split('T')[0], 
@@ -67,7 +72,6 @@ export default function Calendar({
 
   // 1. KROK: Okamžité načítanie z keše (0 ms) + Následná synchronizácia na pozadí
   useEffect(() => {
-    // A) Okamžite vytiahneme to, čo máme uložené lokálne
     const cachedEvents = localStorage.getItem('say_clinic_calendar_events');
     const cachedCalendars = localStorage.getItem('say_clinic_calendars');
 
@@ -93,7 +97,6 @@ export default function Calendar({
       }
     }
 
-    // B) Na pozadí (neblokujúco) stiahneme najnovšie dáta z Google API
     if (session) {
       setIsSyncing(true);
       fetch('/api/calendar')
@@ -128,6 +131,59 @@ export default function Calendar({
   const filteredEvents = selectedCalendarId === 'all' 
     ? calendarEvents 
     : calendarEvents.filter(e => e.calendarId === selectedCalendarId);
+
+  // Dohľadanie telefónu (z udalosti, z ručného zápisu alebo z kartotéky)
+  const getEventPhone = (evt: CalendarEvent) => {
+    if (customPhones[evt.id] !== undefined) return customPhones[evt.id];
+    if (evt.patientPhone && evt.patientPhone.trim() !== '') return evt.patientPhone;
+    if (evt.patientName && patients.length > 0) {
+      const found = patients.find(p => p.name.toLowerCase().trim() === evt.patientName.toLowerCase().trim());
+      if (found && found.phone) return found.phone;
+    }
+    return '';
+  };
+
+  const handlePhoneChange = (eventId: string, phone: string) => {
+    setCustomPhones(prev => ({ ...prev, [eventId]: phone }));
+  };
+
+  // WhatsApp & SMS Odosielanie priamo z Kalendára
+  const sendWhatsApp = (evt: CalendarEvent) => {
+    const phone = getEventPhone(evt);
+    if (!phone) {
+      alert('Prosím, zadajte najprv telefónne číslo pacienta.');
+      return;
+    }
+    const cleanPhone = phone.replace(/[\s\+\-]/g, '');
+    const phoneWithPrefix = cleanPhone.startsWith('421') || cleanPhone.startsWith('420') 
+      ? cleanPhone : `421${cleanPhone.replace(/^0/, '')}`;
+
+    const formattedDate = new Date(evt.date).toLocaleDateString('sk-SK');
+    const msg = `Dobrý deň ${evt.patientName || ''}, pripomíname Vám Váš termín zákroku (${evt.title}) na SAY CLINIC dňa ${formattedDate} o ${evt.startTime}. Adresa: Lazovná 43, Banská Bystrica. Prosíme o potvrdenie odpoveďou na túto správu.`;
+
+    window.open(`https://wa.me/${phoneWithPrefix}?text=${encodeURIComponent(msg)}`, '_blank');
+    setReminderStatuses(prev => ({ ...prev, [evt.id]: 'sent' }));
+  };
+
+  const sendSMS = (evt: CalendarEvent) => {
+    const phone = getEventPhone(evt);
+    if (!phone) {
+      alert('Prosím, zadajte najprv telefónne číslo pacienta.');
+      return;
+    }
+    const formattedDate = new Date(evt.date).toLocaleDateString('sk-SK');
+    const msg = `Dobrý deň ${evt.patientName || ''}, pripomíname Vám Váš termín zákroku (${evt.title}) na SAY CLINIC dňa ${formattedDate} o ${evt.startTime}. Adresa: Lazovná 43, Banská Bystrica. Prosíme o potvrdenie odpoveďou na túto správu.`;
+
+    window.open(`sms:${phone}?body=${encodeURIComponent(msg)}`, '_blank');
+    setReminderStatuses(prev => ({ ...prev, [evt.id]: 'sent' }));
+  };
+
+  const toggleConfirm = (eventId: string) => {
+    setReminderStatuses(prev => ({
+      ...prev,
+      [eventId]: prev[eventId] === 'confirmed' ? 'sent' : 'confirmed'
+    }));
+  };
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -171,7 +227,6 @@ export default function Calendar({
     }
   };
 
-  // 2. KROK: Vytvorenie udalosti s okamžitou odozvou (Optimistic UI) + Zzápis na pozadí
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvent.patientName || !newEvent.title) return;
@@ -192,7 +247,6 @@ export default function Calendar({
       notes: newEvent.notes
     };
 
-    // A) Okamžite pridáme do UI a LocalStorage (používateľ nečaká na sieť)
     const updatedEvents = [created, ...calendarEvents];
     setCalendarEvents(updatedEvents);
     localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updatedEvents));
@@ -201,7 +255,6 @@ export default function Calendar({
     setIsSaving(false);
     setIsAddingEvent(false);
 
-    // B) Na pozadí zapíšeme do API / Google Calendar
     if (session) {
       try {
         await fetch('/api/calendar/events', {
@@ -215,11 +268,9 @@ export default function Calendar({
     }
   };
 
-  // INTELIGENTNÉ PÁROVANIE PACIENTA Z UDALOSTI S IMPORTUVOANÝMI ZLOŽKAMI
   const handleOpenFolderForEvent = (event: CalendarEvent) => {
     if (!onOpenPatientFolder) return;
 
-    // 1. Ak má udalosť nastavené priame ID
     if (event.patientId) {
       onOpenPatientFolder(event.patientId);
       return;
@@ -228,7 +279,6 @@ export default function Calendar({
     const eventTitleLower = (event.title || '').toLowerCase().trim();
     const eventPatientLower = (event.patientName || '').toLowerCase().trim();
 
-    // 2. Porovnanie celých mien
     let matchedPatient = patients.find(p => {
       const patientNameLower = p.name.toLowerCase().trim();
       if (!patientNameLower) return false;
@@ -241,7 +291,6 @@ export default function Calendar({
       return matchInTitle || matchInPatientName || reverseMatchInTitle || reverseMatchInPatient;
     });
 
-    // 3. Ak sa nenájde celá zhoda, vyhľadávame podľa priezviska / slov dlhších ako 3 znaky
     if (!matchedPatient) {
       const ignoreWords = ['operacia', 'konzultacia', 'kontrolne', 'vysetrenie', 'augmentacia', 'plastika', 'mraz', 'mudr'];
       const words = `${event.title} ${event.patientName}`
@@ -268,34 +317,72 @@ export default function Calendar({
     return (
       <div className="space-y-3">
         {dayEvents.length === 0 ? (
-          <div className="text-center py-16 text-[#8C857B] text-xs italic">
+          <div className="text-center py-16 text-[#8C857B] text-xs italic bg-[#FBF9F6] rounded-xl border border-[#E8E2D9]">
             Žiadne udalosti na tento deň.
           </div>
         ) : (
-          dayEvents.map(evt => (
-            <div key={evt.id} onClick={() => setSelectedEvent(evt)} className="bg-white border border-[#E8E2D9] hover:border-[#C5A059] p-4 rounded-xl shadow-sm cursor-pointer transition-all flex justify-between items-center group">
-              <div className="flex items-center gap-4">
-                <div className="bg-[#2C2A29] text-white p-2.5 rounded-lg text-center font-mono min-w-[70px]">
-                  <span className="text-xs font-bold block">{evt.startTime}</span>
-                  <span className="text-[9px] text-[#C5A059] block">{evt.endTime}</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded text-white ${evt.type === 'operacia' ? 'bg-[#2C2A29]' : evt.type === 'vstupne_vysetrenie' ? 'bg-[#C5A059]' : 'bg-emerald-700'}`}>
-                      {evt.type.replace('_', ' ')}
-                    </span>
-                    {evt.calendarName && (
-                      <span className="text-[8px] bg-amber-50 text-[#C5A059] border border-[#C5A059]/30 px-2 py-0.5 rounded font-bold">
-                        {evt.calendarName}
-                      </span>
-                    )}
+          dayEvents.map(evt => {
+            const currentPhone = getEventPhone(evt);
+            const status = reminderStatuses[evt.id] || 'pending';
+
+            return (
+              <div key={evt.id} className="bg-white border border-[#E8E2D9] hover:border-[#C5A059] p-4 rounded-xl shadow-sm transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group">
+                <div className="flex items-center gap-4 cursor-pointer" onClick={() => setSelectedEvent(evt)}>
+                  <div className="bg-[#2C2A29] text-white p-2.5 rounded-lg text-center font-mono min-w-[70px]">
+                    <span className="text-xs font-bold block">{evt.startTime}</span>
+                    <span className="text-[9px] text-[#C5A059] block">{evt.endTime}</span>
                   </div>
-                  <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059]">{evt.title}</h4>
-                  <p className="text-xs text-[#8C857B]">{evt.patientName} | {evt.doctorName}</p>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded text-white ${evt.type === 'operacia' ? 'bg-[#2C2A29]' : evt.type === 'vstupne_vysetrenie' ? 'bg-[#C5A059]' : 'bg-emerald-700'}`}>
+                        {evt.type.replace('_', ' ')}
+                      </span>
+                      {evt.calendarName && (
+                        <span className="text-[8px] bg-amber-50 text-[#C5A059] border border-[#C5A059]/30 px-2 py-0.5 rounded font-bold">
+                          {evt.calendarName}
+                        </span>
+                      )}
+                      {status === 'pending' && <span className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[8px] uppercase font-bold">🔴 Neodoslané</span>}
+                      {status === 'sent' && <span className="bg-blue-50 text-blue-800 border border-blue-200 px-1.5 py-0.5 rounded text-[8px] uppercase font-bold">🟡 Odoslané</span>}
+                      {status === 'confirmed' && <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded text-[8px] uppercase font-bold">🟢 Potvrdené</span>}
+                    </div>
+                    <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059]">{evt.title}</h4>
+                    <p className="text-xs text-[#8C857B]">Pacient: <strong className="text-[#2C2A29]">{evt.patientName}</strong> | Lekár: {evt.doctorName}</p>
+                  </div>
+                </div>
+
+                {/* WHATSAPP & SMS AKCIE PRIAMO V KALENDÁRI */}
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-[#E8E2D9]">
+                  <input 
+                    type="text"
+                    placeholder="+421 905 123 456"
+                    value={currentPhone}
+                    onChange={(e) => handlePhoneChange(evt.id, e.target.value)}
+                    className="border border-[#E8E2D9] p-1.5 rounded-lg text-xs font-mono w-32 bg-[#FBF9F6] outline-none focus:border-[#C5A059]"
+                  />
+                  <button 
+                    onClick={() => sendWhatsApp(evt)} 
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors shadow-sm"
+                  >
+                    💬 WA
+                  </button>
+                  <button 
+                    onClick={() => sendSMS(evt)} 
+                    className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors shadow-sm"
+                  >
+                    📲 SMS
+                  </button>
+                  <button 
+                    onClick={() => toggleConfirm(evt.id)} 
+                    className="border border-[#E8E2D9] bg-white text-[#2C2A29] hover:bg-gray-100 px-2 py-1.5 rounded-lg text-[10px] font-bold"
+                    title="Označiť ako potvrdené"
+                  >
+                    ✓
+                  </button>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     );
@@ -385,7 +472,7 @@ export default function Calendar({
               </span>
             )}
           </div>
-          <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Centrálny harmonogram SAY CLINIC</p>
+          <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Centrálny harmonogram SAY CLINIC s priamym WhatsApp/SMS pripomienkovačom</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
