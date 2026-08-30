@@ -22,11 +22,13 @@ const INITIAL_SALES: SaleItem[] = [
   { id: 'S1', date: '2026-08-14', patientName: 'Ján Novák', doctorName: 'MUDr. Ján Mráz', serviceType: 'Augmentácia prsníkov', amount: 4100 },
 ];
 
+type TabType = 'home' | 'generator' | 'patients' | 'finance' | 'calendar' | 'inventory';
+
 export default function Home() {
   const { data: session, status } = useSession();
 
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'generator' | 'patients' | 'finance' | 'calendar' | 'inventory'>('home');
+  const [activeTab, setActiveTab] = useState<TabType>('home');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
 
   // Živý čas a dátum
@@ -46,6 +48,52 @@ export default function Home() {
     'Objednať kompresnú bielizeň Lipoelastic veľkosť M',
   ]);
   const [newNote, setNewNote] = useState('');
+
+  // 1. ZACHOVANIE PRIHLÁSENÉHO POUŽÍVATEĽA PRI OBNOVENÍ / NÁVRATE SPÄŤ
+  useEffect(() => {
+    const savedUser = localStorage.getItem('say_clinic_user');
+    if (savedUser) {
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error('Chyba načítania používateľa:', e);
+      }
+    }
+  }, []);
+
+  // 2. NAVIGÁCIA ŠÍPKAMI V PREHLIADAČI (POPSTATE LISTENER)
+  useEffect(() => {
+    const handlePopState = () => {
+      const hash = window.location.hash.replace('#', '') as TabType;
+      if (['home', 'generator', 'patients', 'finance', 'calendar', 'inventory'].includes(hash)) {
+        setActiveTab(hash);
+      } else {
+        setActiveTab('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    handlePopState(); // Načítanie pri prvom otvorení
+
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Funkcia pre prepínanie záložiek s zápisom do histórie prehliadača
+  const changeTab = (tab: TabType) => {
+    setActiveTab(tab);
+    window.history.pushState({ tab }, '', `#${tab}`);
+  };
+
+  const handleLoginSuccess = (user: { name: string; role: string }) => {
+    setCurrentUser(user);
+    localStorage.setItem('say_clinic_user', JSON.stringify(user));
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('say_clinic_user');
+    if (session) signOut();
+  };
 
   // Aktualizácia živého času
   useEffect(() => {
@@ -88,7 +136,7 @@ export default function Home() {
 
   const handleNavigateToGenerator = (patient: { name: string; birthNumber: string }) => {
     setSelectedPatient(patient);
-    setActiveTab('generator');
+    changeTab('generator');
   };
 
   const handleOpenPatientFromCalendar = (patientId: string) => {
@@ -96,7 +144,7 @@ export default function Home() {
     if (found) {
       setSelectedPatientForFolder(found);
     }
-    setActiveTab('patients');
+    changeTab('patients');
   };
 
   const handleAddCalendarEvent = (newEvent: CalendarEvent) => {
@@ -129,7 +177,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
           
           {/* LOGO (KLIKNUTIE PRESMERUJE NA HOMESCREEN) */}
-          <div className="flex items-center space-x-5 cursor-pointer group" onClick={() => setActiveTab('home')}>
+          <div className="flex items-center space-x-5 cursor-pointer group" onClick={() => changeTab('home')}>
             <div className="border-l-2 border-[#C5A059] pl-4 transition-all group-hover:border-[#2C2A29]">
               <h1 className="font-brand text-2xl font-light uppercase tracking-widest text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">
                 SAY CLINIC
@@ -144,7 +192,7 @@ export default function Home() {
           {currentUser && (
             <nav className="flex flex-wrap gap-2 text-[11px] font-light uppercase tracking-wider text-[#8C857B]">
               <button
-                onClick={() => setActiveTab('home')}
+                onClick={() => changeTab('home')}
                 className={`px-3 py-2 transition-all ${
                   activeTab === 'home' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
                 }`}
@@ -154,7 +202,7 @@ export default function Home() {
               <button
                 onClick={() => {
                   setSelectedPatient(null);
-                  setActiveTab('generator');
+                  changeTab('generator');
                 }}
                 className={`px-3 py-2 transition-all ${
                   activeTab === 'generator' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
@@ -165,7 +213,7 @@ export default function Home() {
               <button
                 onClick={() => {
                   setSelectedPatientForFolder(null);
-                  setActiveTab('patients');
+                  changeTab('patients');
                 }}
                 className={`px-3 py-2 transition-all ${
                   activeTab === 'patients' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
@@ -174,7 +222,7 @@ export default function Home() {
                 🗂️ Kartotéka Pacientov
               </button>
               <button
-                onClick={() => setActiveTab('calendar')}
+                onClick={() => changeTab('calendar')}
                 className={`px-3 py-2 transition-all ${
                   activeTab === 'calendar' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
                 }`}
@@ -182,7 +230,7 @@ export default function Home() {
                 📅 Kalendár & Plánovanie
               </button>
               <button
-                onClick={() => setActiveTab('inventory')}
+                onClick={() => changeTab('inventory')}
                 className={`px-3 py-2 transition-all ${
                   activeTab === 'inventory' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
                 }`}
@@ -190,7 +238,7 @@ export default function Home() {
                 📦 Sklad & Materiál
               </button>
               <button
-                onClick={() => setActiveTab('finance')}
+                onClick={() => changeTab('finance')}
                 className={`px-3 py-2 transition-all ${
                   activeTab === 'finance' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
                 }`}
@@ -210,7 +258,7 @@ export default function Home() {
                 </p>
               </div>
               <button
-                onClick={() => setCurrentUser(null)}
+                onClick={handleLogout}
                 className="text-xs text-[#8C857B] hover:text-[#2C2A29] underline underline-offset-4"
               >
                 Odhlásiť
@@ -223,7 +271,7 @@ export default function Home() {
       {/* OBSAH */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
         {!currentUser ? (
-          <LoginForm onLoginSuccess={(user) => setCurrentUser(user)} />
+          <LoginForm onLoginSuccess={handleLoginSuccess} />
         ) : (
           <>
             {/* HOMESCREEN (PREHĽAD KLINIKY) */}
@@ -310,7 +358,7 @@ export default function Home() {
                         <p className="text-[10px] text-[#8C857B] uppercase tracking-wider">Naplánované operácie a vyšetrenia na dnes</p>
                       </div>
                       <button 
-                        onClick={() => setActiveTab('calendar')}
+                        onClick={() => changeTab('calendar')}
                         className="text-xs text-[#C5A059] hover:underline font-bold uppercase tracking-wider"
                       >
                         Otvoriť celý kalendár →
@@ -363,21 +411,21 @@ export default function Home() {
                       </h3>
                       <div className="grid grid-cols-1 gap-2 text-xs">
                         <button 
-                          onClick={() => { setSelectedPatient(null); setActiveTab('generator'); }}
+                          onClick={() => { setSelectedPatient(null); changeTab('generator'); }}
                           className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
                         >
                           <span>📄 Nový lekársky nález</span>
                           <span className="text-[#C5A059]">+</span>
                         </button>
                         <button 
-                          onClick={() => { setSelectedPatientForFolder(null); setActiveTab('patients'); }}
+                          onClick={() => { setSelectedPatientForFolder(null); changeTab('patients'); }}
                           className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
                         >
                           <span>🗂️ Zaevidovať nového pacienta</span>
                           <span className="text-[#C5A059]">+</span>
                         </button>
                         <button 
-                          onClick={() => setActiveTab('calendar')}
+                          onClick={() => changeTab('calendar')}
                           className="w-full bg-[#2C2A29] text-white hover:bg-[#C5A059] p-3 rounded-xl text-left font-bold transition-all flex items-center justify-between"
                         >
                           <span>📅 Naplánovať operáciu v kalendári</span>
