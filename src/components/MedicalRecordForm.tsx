@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HealthProService, HealthProResponse } from '../services/healthpro';
 import { MKCHItem } from '../data/mkch';
+import { generatePdfFilename, exportElementToPdf } from '../lib/pdfGenerator';
 
 export interface ServiceCategory {
   id: string;
@@ -146,7 +147,7 @@ const OP_MACROS: Record<string, string> = {
   op_rhino_spicka: "V LA aplikujeme vazokonstrikčný roztok /adrenalin, marcain, exacyl, FR/. Zatvoreným prístupom si sprístupňujeme alárne chrupavky. Rim flap /2x6mm/ a zúženie chrupaviek na 6mm. Osman flap. Rasping nazálnych kostí. Modelácia špičky - lateral crural steal 1mm, modelácia nových domov - Gruber, TD a ID sutury - skrátenie med. crura o 1mm. Sutura sliznice a kože. Krytie. Taping.",
   op_usi: "V CA aplikujeme vazokonstrikčný roztok /adrenalin, levobupivacain, TXA, FR/. z dorzálneho prístupu preparujeme chrupavku od perichondria v celom plánovanom rozsahu. Perkutánne uvoľˇujeme kožu ponad plánovanú oblasť. Aplikujeme modelačné stehy PDS 3.0 a tvarujeme antihelix . Kontrola symtrie. Hemostáza. Sutura kože. Krytie. Taping. Poop. prádlo.",
   op_lip_lift: "V LA po vyplánovaní a kontrole meraní vykonávame bullhorn lip lift s excíziou cca. 5mm kože. Podmínovanie kože a uvoľnenie SMAS. Fixácia SMAS /PDS 5.0/ a sutura kože/Prolene 6.0/. Steristripy.",
-  op_aug_dual: "V CA po príprave oper. podľa Adamsovo plánu, vyplánovaní aplikujeme lok. anestetikum do jaziev. V inframamárnej ryhe vykonávame incíziu a preparujeme dual plane I. Výplach, hemostáza, výmena inštrumentária.Po oplachu implantátov ATB roztokom inzerujeme implantáty Kellerovym tunelom /Polytech, B-lite, ROund-Meme, Mesmo/. SFS fixujeme v celom dolnom a laterálnom póle kavity bilat. Sutura vo vrstvách. Steristrip. Krytie. Poop. podprsenka.",
+  op_aug_dual: "V CA po príprave oper. podľa Adamsovo plánu, vyplánovaní aplikujeme lok. anestetikum do jaziev. V inframamárnej ryhe vykonávame incíziu a preparujeme dual plane I. Výplach, hemostáza, výmena inštrumentária.Po oplachu implantátov ATB roztokom inzerujeme implantáty /Polytech, B-lite, ROund-Meme, Mesmo/. SFS fixujeme v celom dolnom a laterálnom póle kavity bilat. Sutura vo vrstvách. Steristrip. Krytie. Poop. podprsenka.",
   op_aug_sub: "V CA po príprave oper. podľa Adamsovo plánu, vyplánovaní aplikujeme lok. anestetikum do jaziev. V inframamárnej ryhe vykonávame incíziu a preparujeme subfascialnu kapsu. Výplach, hemostáza, výmena inštrumentária.Po oplachu implantátov ATB roztokom inzerujeme implantáty /Motiva E2SM 220cc/. SFS fixujeme v celom dolnom póle kavity bilat. Sutura vo vrstvách. Steristrip. Krytie. Preventívna NPWT na jazvy. Poop. podprsenka.",
   op_aug_mastopexia: "V CA po príprave oper. podľa Adamsovo plánu, vyplánovaní aplikujeme lok. anestetikum do jaziev. V inframamárnej ryhe vykonávame incíziu a preparujeme dual plane I. Výplach, hemostáza, výmena inštrumentária.Po oplachu implantátov ATB roztokom inzerujeme implantáty /Mentor, anatom., CPG , 395cc/. SFS fixujeme v celom dolnom a laterálnom póle kavity bilat. Sutura vo vrstvách. Následne vykonávame excíziu prebytočného tkaniva kože a dolnej časti žľazy. Žľazu modelujeme a NAC presúvame na hornej stopke do neopozície. Sutura pilonov vicryl 2.0. Kontrola symetrie. Sutura vo vrstvách. Sutura kože glykolon ID. Krytie rany. Poop. prádlo",
   op_mastopexia: "V CA po príprave oper. poľa, vyplánovaní vykonávame excíziu prebytočného tkaniva kože. Lalok kože na dolnej stopke podľa Ribeira fixujeme o m. pectoralis 2.0. Žľazu modelujeme a NAC presúvame na hornej stopke do neopozície. Sutura pilonov vicryl 2.0. Kontrola symetrie. Sutura vo vrstvách. Sutura kože glykolon ID. Aplikujeme lok. anestetikum do jaziev Krytie rany. Poop. prádlo.",
@@ -189,23 +190,31 @@ const calculateAgeFromRC = (rc: string) => {
   return age.toString();
 };
 
-type DocumentType = 
+export type DocumentType = 
   | 'vstupne_vysetrenie'
   | 'kontrolne_vysetrenie'
   | 'cenova_ponuka'
   | 'dohoda_o_cene'
   | 'operacny_protokol'
   | 'prepustacia_sprava'
-  | 'anesteziologicky_dotaznik';
+  | 'anesteziologicky_dotaznik'
+  | 'suhlas_operacia'
+  | 'suhlas_aplikacia'
+  | 'ziadanka_predoperacne'
+  | 'lekarske_potvrdenie';
 
-const DOC_TITLES: Record<DocumentType, string> = {
+export const DOC_TITLES: Record<DocumentType, string> = {
   vstupne_vysetrenie: 'Vstupné vyšetrenie',
   kontrolne_vysetrenie: 'Kontrolné vyšetrenie',
   cenova_ponuka: 'Cenová ponuka',
   dohoda_o_cene: 'Dohoda o cene a podmienkach',
   operacny_protokol: 'Operačný protokol',
   prepustacia_sprava: 'Prepúšťacia správa',
-  anesteziologicky_dotaznik: 'Anesteziologický dotazník a súhlas'
+  anesteziologicky_dotaznik: 'Anesteziologický dotazník a súhlas',
+  suhlas_operacia: 'Informovaný súhlas s operáciou',
+  suhlas_aplikacia: 'Informovaný súhlas s aplikáciou výplní & botoxu',
+  ziadanka_predoperacne: 'Žiadanka na predoperačné vyšetrenia',
+  lekarske_potvrdenie: 'Lekárske potvrdenie / Posudok o spôsobilosti'
 };
 
 interface FormProps {
@@ -234,6 +243,9 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const [selectedItems, setSelectedItems] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<HealthProResponse | null>(null);
+
+  // PDF Export stav
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   // ZDIEĽANÝ STAV PRE ANESTÉZIU A HOSPITALIZÁCIU
   const [hasOperation, setHasOperation] = useState(false);
@@ -292,6 +304,58 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const [vvNoContra, setVvNoContra] = useState(true);
   const [vvContraReason, setVvContraReason] = useState('');
 
+  // --- NOVÉ ŠPECIALIZOVANÉ ŠABLÓNY ---
+
+  // 1. INFORMOVANÝ SÚHLAS S OPERÁCIOU
+  const [surgeryConsent, setSurgeryConsent] = useState({
+    procedureName: 'Augmentácia prsníkov silikónovými implantátmi',
+    anesthesiaType: 'Celková anestézia',
+    alternativeTreatments: 'Konzervatívny postup, bez operačného zákroku',
+    risksExplained: true,
+    photoConsent: true,
+    bloodConsent: true,
+    customRisks: 'Krvácanie, hematóm, seróm, infekcia, asymetria, kapsulárna kontraktúra, zmena citlivosti, keloidné jazvy, nutnosť reoperácie.'
+  });
+
+  // 2. INFORMOVANÝ SÚHLAS S APLIKÁCIOU VÝPLNÍ / BOTOXU
+  const [aestheticConsent, setAestheticConsent] = useState({
+    treatmentType: 'Aplikácia kyseliny hyalurónovej',
+    productName: 'Juvéderm Voluma / Ultra',
+    applicationSites: 'Pery, nazolabiálne ryhy, lícne kosti',
+    volumeOrUnits: '1.0 ml',
+    batchNumber: 'LOT-2026-9812',
+    contraindicationsNegated: true,
+    aftercareInstructed: true,
+    customSideEffects: 'Erytém, prechodný edém, modriny (hematómy), asymetria, hrčky/granulómy, ojedinele vaskulárna oklúzia.'
+  });
+
+  // 3. ŽIADANKA NA PREDOPERAČNÉ VYŠETRENIA
+  const [preopRequest, setPreopRequest] = useState({
+    targetSurgery: 'Plánovaný plasticko-chirurgický výkon v celkovej anestézii',
+    surgeryDate: new Date().toISOString().split('T')[0],
+    gpDoctorName: 'Všeobecný lekár pre dospelých / Internista',
+    requiredTests: [
+      'Krvný obraz + diferenciálny rozpočet + trombocyty',
+      'Koagulačné vyšetrenie (Quick / INR, APTT, Fibrinogén)',
+      'Biochémia (Glykémia, Urea, Kreatinín, Kyselina močová, AST, ALT, GMT, Bilirubín celkový)',
+      'Ióny (Na, K, Cl)',
+      'Sedimentácia erytrocytov (FW) / CRP',
+      'Moč chemicky + močový sediment',
+      'Krvná skupina a Rh faktor',
+      '12-zvodové EKG s písomným popisom a interpretáciou internistu',
+      'Interné predoperačné vyšetrenie so záverom: Schopný/á výkonu v celkovej anestézii'
+    ],
+    specialNote: 'Kompletné výsledky nesmú byť staršie ako 14 dní pred termínom zákroku.'
+  });
+
+  // 4. LEKÁRSKE POTVRDENIE / POSUDOK
+  const [medicalCertificate, setMedicalCertificate] = useState({
+    purpose: 'Potvrdenie o zdravotnom stave a odporúčanom kľudovom režime',
+    statement: 'Pacient/ka bola vyšetrená na našej klinike. Je po zdravotnej stránke schopná podstúpiť plánovaný zákrok. Odporúčame pooperačný kľudový režim a dočasné vyradenie z fyzickej záťaže po dobu 14 dní.',
+    validUntil: '14 dní od vystavenia',
+    issuedFor: 'Pre potreby zamestnávateľa / inštitúcie'
+  });
+
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -340,6 +404,15 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     setVvExams(prev => prev.includes(exam) ? prev.filter(e => e !== exam) : [...prev, exam]);
   };
 
+  const handlePreopTestToggle = (test: string) => {
+    setPreopRequest(prev => ({
+      ...prev,
+      requiredTests: prev.requiredTests.includes(test)
+        ? prev.requiredTests.filter(t => t !== test)
+        : [...prev.requiredTests, test]
+    }));
+  };
+
   const addImplant = () => setVvImplants([...vvImplants, { vyrobca: '', kat: '', objem: '' }]);
   const removeImplant = (index: number) => setVvImplants(vvImplants.filter((_, i) => i !== index));
   const updateImplant = (index: number, field: 'vyrobca' | 'kat' | 'objem', value: string) => {
@@ -373,6 +446,22 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const remainingPrice = totalPrice - depositPaid;
 
   const handlePrint = () => window.print();
+
+  // EXPORT DO PDF S AUTOMATICKÝM NÁZVOM A DÁTUMOM
+  const handleDownloadPdf = async () => {
+    if (!printRef.current) return;
+    setGeneratingPdf(true);
+    try {
+      const todayIso = new Date().toISOString().split('T')[0];
+      const filename = generatePdfFilename(DOC_TITLES[docType], patientName, todayIso);
+      await exportElementToPdf(printRef.current, filename);
+    } catch (err) {
+      console.error('Chyba pri generovaní PDF:', err);
+      alert('Nastala chyba pri generovaní PDF dokumentu.');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   const handleMacroInsert = (val: string, target: 'vv' | 'notes') => {
     if (!val) return;
@@ -421,7 +510,10 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const showAnesthesiaQ = docType === 'anesteziologicky_dotaznik';
   const showVV = docType === 'vstupne_vysetrenie';
   const showNotes = docType === 'kontrolne_vysetrenie' || docType === 'operacny_protokol' || docType === 'prepustacia_sprava';
-  const showMaterials = showVV || docType === 'operacny_protokol';
+  const showSurgeryConsent = docType === 'suhlas_operacia';
+  const showAestheticConsent = docType === 'suhlas_aplikacia';
+  const showPreopRequest = docType === 'ziadanka_predoperacne';
+  const showCertificate = docType === 'lekarske_potvrdenie';
 
   return (
     <>
@@ -486,24 +578,25 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             </div>
 
-            {/* ROZŠÍRENÉ KONTAKTY PRE DOHODU O CENE */}
-            {docType === 'dohoda_o_cene' && (
+            {/* ROZŠÍRENÉ KONTAKTY PRE DOHODU O CENE A SÚHLASY */}
+            {(docType === 'dohoda_o_cene' || docType === 'suhlas_operacia' || docType === 'suhlas_aplikacia') && (
               <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Kontaktné údaje do Zmluvy</p>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Kontaktné údaje pacienta</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="block text-[10px] text-[#8C857B] mb-1">Telefón</label><input type="text" value={patientPhone} onChange={e => setPatientPhone(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" /></div>
                   <div><label className="block text-[10px] text-[#8C857B] mb-1">Email</label><input type="text" value={patientEmail} onChange={e => setPatientEmail(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" /></div>
                 </div>
                 <div><label className="block text-[10px] text-[#8C857B] mb-1">Bydlisko</label><input type="text" value={patientAddress} onChange={e => setPatientAddress(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" /></div>
-                <div><label className="block text-[10px] text-[#8C857B] mb-1">Príbuzná osoba (Meno a Telefón)</label><input type="text" value={patientRelative} onChange={e => setPatientRelative(e.target.value)} placeholder="Ján Kováč, 0900 123 456" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" /></div>
+                {docType === 'dohoda_o_cene' && (
+                  <div><label className="block text-[10px] text-[#8C857B] mb-1">Príbuzná osoba (Meno a Telefón)</label><input type="text" value={patientRelative} onChange={e => setPatientRelative(e.target.value)} placeholder="Ján Kováč, 0900 123 456" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" /></div>
+                )}
               </div>
             )}
 
             {/* SEKCIA: VSTUPNÉ VYŠETRENIE */}
             {showVV && (
               <div className="space-y-4">
-                
-                {/* 1. Plán a termín */}
+                {/* Plán a termín */}
                 <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
                   <div>
                     <label className="block text-[10px] uppercase font-bold text-[#C5A059] mb-1">Podrobný popis plánovaného výkonu</label>
@@ -537,7 +630,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   </div>
                 </div>
 
-                {/* 2. Anamnéza */}
+                {/* Anamnéza */}
                 <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
                   <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Anamnéza</p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -555,16 +648,12 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   <div><label className="block text-[10px] font-bold text-rose-600 mb-1">CAVE (Riziká / Upozornenia)</label><textarea rows={2} value={vvCave} onChange={e => setVvCave(e.target.value)} className="w-full border border-rose-200 p-2 rounded-lg text-xs bg-rose-50 text-rose-800" /></div>
                 </div>
 
-                {/* 3. Status Localis / SPL */}
-                <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
-                  <div className="flex justify-between items-end mb-1">
-                    <label className="block text-[10px] uppercase font-bold text-[#C5A059]">Status Localis (SPL)</label>
-                    <select 
-                      value="" 
-                      onChange={(e) => handleMacroInsert(e.target.value, 'vv')}
-                      className="border border-[#E8E2D9] p-1.5 rounded-lg text-[10px] bg-white text-[#2C2A29] uppercase font-bold shadow-sm"
-                    >
-                      <option value="" disabled>+ Vložiť makro...</option>
+                {/* Status Localis */}
+                <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-2">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Status Localis (SPL)</p>
+                    <select value="" onChange={e => handleMacroInsert(e.target.value, 'vv')} className="border border-[#E8E2D9] p-1.5 rounded-lg text-[10px] bg-white font-bold">
+                      <option value="" disabled>+ Makrá nálezu...</option>
                       <option value="viecka">Viečka</option>
                       <option value="nos">Nos</option>
                       <option value="tvar">Tvár</option>
@@ -572,202 +661,222 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                       <option value="brucho">Brucho</option>
                       <option value="lipo">Lipo</option>
                       <option value="labio">Labio</option>
-                      <option value="ruka">Ruka (Karpál / Dupuytren)</option>
+                      <option value="ruka">Ruka</option>
                     </select>
                   </div>
-                  <textarea rows={6} value={vvSPL} onChange={e => setVvSPL(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" placeholder="Nález..." />
+                  <textarea rows={5} value={vvSPL} onChange={e => setVvSPL(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
                 </div>
               </div>
             )}
 
-            {/* MATERIÁLY A IMPLANTÁTY (Spoločné pre VV a Operačný protokol) */}
-            {showMaterials && (
-                <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-4">
-                  {showVV && (
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Predoperačné vyšetrenia</p>
-                      <div className="flex flex-wrap gap-3">
-                        {['Štandardné (KO, Bio, OHV)', 'Ultrazvuk prsníkov', 'CT hlavy / CBCT nosa', 'Iné'].map(exam => (
-                          <label key={exam} className="flex items-center space-x-2 text-xs">
-                            <input type="checkbox" checked={vvExams.includes(exam)} onChange={() => handleExamToggle(exam)} className="accent-[#C5A059]" />
-                            <span>{exam}</span>
-                          </label>
-                        ))}
-                      </div>
-                      {vvExams.includes('Iné') && (
-                        <input 
-                          type="text" 
-                          placeholder="Zadajte aké iné vyšetrenie..." 
-                          value={vvExamsOther} 
-                          onChange={e => setVvExamsOther(e.target.value)} 
-                          className="w-full mt-3 border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" 
-                        />
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className={`${showVV ? 'border-t border-[#E8E2D9] pt-3' : ''} grid grid-cols-1 md:grid-cols-2 gap-4`}>
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Použité Implantáty</p>
-                      {vvImplants.map((impl, idx) => (
-                        <div key={idx} className="space-y-2 bg-white p-2 rounded-lg border border-[#E8E2D9] mb-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[9px] font-bold text-[#8C857B] uppercase">Implantát {idx + 1}</span>
-                            {vvImplants.length > 1 && (
-                              <button type="button" onClick={() => removeImplant(idx)} className="text-[9px] font-bold text-rose-500 uppercase">Odstrániť</button>
-                            )}
-                          </div>
-                          <input type="text" placeholder="Výrobca..." value={impl.vyrobca} onChange={e => updateImplant(idx, 'vyrobca', e.target.value)} className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FBF9F6]" />
-                          <div className="flex gap-2">
-                            <input type="text" placeholder="Kat. č." value={impl.kat} onChange={e => updateImplant(idx, 'kat', e.target.value)} className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FBF9F6]" />
-                            <input type="text" placeholder="Objem" value={impl.objem} onChange={e => updateImplant(idx, 'objem', e.target.value)} className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FBF9F6]" />
-                          </div>
-                        </div>
-                      ))}
-                      <button type="button" onClick={addImplant} className="text-[10px] uppercase font-bold text-[#C5A059] hover:text-[#2C2A29]">+ Pridať ďalší implantát</button>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-[#C5A059] mb-2">Použitý materiál (poop. prádlo, BTX...)</p>
-                      <textarea rows={4} value={vvMaterial} onChange={e => setVvMaterial(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
-                    </div>
-                  </div>
-                </div>
-            )}
-
-            {/* Kontraindikácie iba pre VV */}
-            {showVV && (
-              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6]">
-                  <label className="flex items-center space-x-2 text-xs font-bold text-[#2C2A29] mb-2">
-                    <input type="checkbox" checked={vvNoContra} onChange={e => setVvNoContra(e.target.checked)} className="accent-[#C5A059]" />
-                    <span>Bez zjavnej kontraindikácie k výkonu (t.č.)</span>
-                  </label>
-                  {!vvNoContra && (
-                    <div>
-                      <label className="block text-[10px] text-rose-600 font-bold mb-1">Dôvod kontraindikácie zákroku:</label>
-                      <input type="text" value={vvContraReason} onChange={e => setVvContraReason(e.target.value)} className="w-full border border-rose-200 p-2 rounded-lg text-xs bg-white" />
-                    </div>
-                  )}
-              </div>
-            )}
-
-            {!showPricing && !showAnesthesiaQ && !showVV && (
-              <div className="border border-[#E8E2D9] rounded-xl p-3 bg-[#FBF9F6]">
-                <label className="block text-[10px] uppercase font-bold text-[#2C2A29] mb-1">Vykonaný úkon / Zákrok</label>
-                <input type="text" value={manualProcedure} onChange={(e) => setManualProcedure(e.target.value)} placeholder="napr. Blefaroplastika horných viečok..." className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" />
-              </div>
-            )}
-
-            {/* SEKCIA: CENOTVORBA (Pre Cenovú ponuku a Dohodu o cene) */}
+            {/* SEKCIA: CENOVÁ PONUKA / DOHODA O CENE */}
             {showPricing && (
-              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-[#2C2A29]">Výber výkonov ({selectedItems.length})</p>
-                
-                {docType === 'dohoda_o_cene' && vvPlan && selectedItems.length === 0 && (
-                   <p className="text-xs text-[#8C857B] italic border-l-2 border-[#C5A059] pl-2 mb-2">Do zmluvy sa načíta zákrok z Vstupného vyšetrenia: <strong>{vvPlan}</strong></p>
-                )}
+              <div className="space-y-4">
+                <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Výber položiek z cenníka</p>
+                  <select onChange={e => handleAddItemFromDropdown(e.target.value, true)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                    <option value="" disabled>+ Pridať operáciu...</option>
+                    {SERVICES_DATABASE.operations.map(op => <option key={op.id} value={op.id}>{op.name} ({op.price} €)</option>)}
+                  </select>
+                  <select onChange={e => handleAddItemFromDropdown(e.target.value)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                    <option value="" disabled>+ Pridať doplnkový zákrok / materiál...</option>
+                    {SERVICES_DATABASE.operationExtras.map(ex => <option key={ex.id} value={ex.id}>{ex.name} ({ex.price} €)</option>)}
+                  </select>
+                  <select onChange={e => handleAddItemFromDropdown(e.target.value)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                    <option value="" disabled>+ Pridať aplikácie / kozmetiku...</option>
+                    {SERVICES_DATABASE.applications.map(app => <option key={app.id} value={app.id}>{app.name} ({app.price} €)</option>)}
+                    {SERVICES_DATABASE.cosmetics.map(koz => <option key={koz.id} value={koz.id}>{koz.name} ({koz.price} €)</option>)}
+                  </select>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <select onChange={(e) => { handleAddItemFromDropdown(e.target.value, true); e.target.value = ''; }} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs text-[#2C2A29]">
-                    <option value="">-- Pridať Operáciu --</option>
-                    {SERVICES_DATABASE.operations.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                  </select>
-                  <select onChange={(e) => { handleAddItemFromDropdown(e.target.value); e.target.value = ''; }} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs text-[#2C2A29]">
-                    <option value="">-- Pridať Príplatok --</option>
-                    {SERVICES_DATABASE.operationExtras.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                  </select>
-                  <select onChange={(e) => { handleAddItemFromDropdown(e.target.value); e.target.value = ''; }} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs text-[#2C2A29]">
-                    <option value="">-- Pridať Aplikáciu --</option>
-                    {SERVICES_DATABASE.applications.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                  </select>
-                  <select onChange={(e) => { handleAddItemFromDropdown(e.target.value); e.target.value = ''; }} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs text-[#2C2A29]">
-                    <option value="">-- Pridať Kozmetiku / Službu --</option>
-                    {[...SERVICES_DATABASE.cosmetics, ...SERVICES_DATABASE.services].map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                  </select>
-                </div>
-
-                {selectedItems.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-2">
-                    {selectedItems.map((item) => (
-                      <span key={item.id} className="bg-[#2C2A29] text-white text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm">
-                        <span>{item.name} ({item.price} €)</span>
-                        <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-[#C5A059] font-bold text-xs hover:text-white">✕</button>
-                      </span>
+                  {/* Zvolené položky */}
+                  <div className="space-y-1 mt-3">
+                    {selectedItems.map(item => (
+                      <div key={item.id} className="flex justify-between items-center bg-white p-2 rounded-lg border border-[#E8E2D9] text-xs">
+                        <span>{item.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">{item.price} €</span>
+                          <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-rose-600 font-bold px-1">✕</button>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                )}
 
-                <div className="border-t border-[#E8E2D9] pt-2 mt-2 space-y-2">
-                  <label className="flex items-center space-x-2 text-xs font-bold text-[#2C2A29] cursor-pointer">
-                    <input type="checkbox" checked={hasOperation} onChange={(e) => setHasOperation(e.target.checked)} className="accent-[#C5A059]" />
-                    <span>Započítať Celkovú Anestéziu a Pobyt</span>
-                  </label>
-                  {hasOperation && (
-                    <div className="flex gap-2 text-xs">
-                      <select value={anesthesiaHours} onChange={(e) => setAnesthesiaHours(parseFloat(e.target.value))} className="border border-[#E8E2D9] p-1.5 rounded flex-1">
-                        {[1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8].map(h => <option key={h} value={h}>Anestézia {h} hod. ({h * 130} €)</option>)}
-                      </select>
-                      <select value={hospitalizationType} onChange={(e) => setHospitalizationType(e.target.value as any)} className="border border-[#E8E2D9] p-1.5 rounded flex-1">
-                        <option value="none">Bez pobytu (0 €)</option>
-                        <option value="half">Pobyt 1/2 dňa (100 €)</option>
-                        <option value="full">Pobyt 1 deň (200 €)</option>
-                        <option value="full_2">Pobyt 2 dni (400 €)</option>
-                      </select>
+                  {/* Doplatok a záloha */}
+                  {docType === 'dohoda_o_cene' && (
+                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#E8E2D9]">
+                      <div>
+                        <label className="block text-[10px] text-[#8C857B] mb-1">Uhradená záloha (€)</label>
+                        <input type="number" value={depositPaid} onChange={e => setDepositPaid(parseFloat(e.target.value) || 0)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                      </div>
+                      <div className="flex flex-col justify-end">
+                        <p className="text-[10px] text-[#8C857B]">Doplatok po zákroku:</p>
+                        <p className="text-base font-bold text-[#C5A059]">{remainingPrice.toFixed(2)} €</p>
+                      </div>
                     </div>
                   )}
-                </div>
-
-                {docType === 'cenova_ponuka' && (
-                  <div className="pt-2 border-t border-[#E8E2D9] text-xs">
-                     <div className="flex justify-between mb-1">
-                       <span className="text-[#8C857B]">Zálohová faktúra (30%):</span>
-                       <span className="font-bold">{(totalPrice * 0.3).toFixed(2)} €</span>
-                     </div>
-                     <div className="flex justify-between">
-                       <span className="text-[#8C857B]">Doplatok po operácii (70%):</span>
-                       <span className="font-bold text-[#C5A059]">{(totalPrice * 0.7).toFixed(2)} €</span>
-                     </div>
-                  </div>
-                )}
-
-                {docType === 'dohoda_o_cene' && (
-                  <div className="pt-2 border-t border-[#E8E2D9]">
-                     <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Zaplatená záloha (€)</label>
-                     <input type="number" value={depositPaid} onChange={(e) => setDepositPaid(parseFloat(e.target.value) || 0)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" placeholder="napr. 500" />
-                  </div>
-                )}
-
-                <div className="bg-[#2C2A29] text-white p-3 rounded-xl flex justify-between items-center text-xs shadow-md">
-                  <span>Celková cena:</span><span className="text-base font-bold text-[#C5A059]">{totalPrice.toFixed(2)} €</span>
                 </div>
               </div>
             )}
 
-            {/* SEKCIA: OPERAČNÉ ÚDAJE (Pre Protokol a Prepúšťaciu správu) */}
+            {/* SEKCIA: INFORMOVANÝ SÚHLAS S OPERÁCIOU */}
+            {showSurgeryConsent && (
+              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Údaje k operačnému súhlasu</p>
+                <div>
+                  <label className="block text-[10px] text-[#8C857B] mb-1">Názov plánovanej operácie</label>
+                  <input type="text" value={surgeryConsent.procedureName} onChange={e => setSurgeryConsent({...surgeryConsent, procedureName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-[#8C857B] mb-1">Druh anestézie</label>
+                    <select value={surgeryConsent.anesthesiaType} onChange={e => setSurgeryConsent({...surgeryConsent, anesthesiaType: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                      <option value="Celková anestézia">Celková anestézia</option>
+                      <option value="Analgosedácia">Analgosedácia</option>
+                      <option value="Lokálna anestézia">Lokálna anestézia</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#8C857B] mb-1">Alternatívny postup</label>
+                    <input type="text" value={surgeryConsent.alternativeTreatments} onChange={e => setSurgeryConsent({...surgeryConsent, alternativeTreatments: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-[#8C857B] mb-1">Špecifické riziká operácie</label>
+                  <textarea rows={3} value={surgeryConsent.customRisks} onChange={e => setSurgeryConsent({...surgeryConsent, customRisks: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                </div>
+              </div>
+            )}
+
+            {/* SEKCIA: INFORMOVANÝ SÚHLAS S APLIKÁCIOU VÝPLNÍ / BOTOXU */}
+            {showAestheticConsent && (
+              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Údaje k estetickému zákroku</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-[#8C857B] mb-1">Typ ošetrenia</label>
+                    <select value={aestheticConsent.treatmentType} onChange={e => setAestheticConsent({...aestheticConsent, treatmentType: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                      <option value="Aplikácia kyseliny hyalurónovej">Aplikácia kyseliny hyalurónovej</option>
+                      <option value="Aplikácia botulotoxínu">Aplikácia botulotoxínu</option>
+                      <option value="Skinbooster / Biorevitalizácia">Skinbooster / Biorevitalizácia</option>
+                      <option value="Aplikácia hyaluronidázy">Aplikácia hyaluronidázy (rozpustenie)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#8C857B] mb-1">Názov produktu</label>
+                    <input type="text" value={aestheticConsent.productName} onChange={e => setAestheticConsent({...aestheticConsent, productName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-[10px] text-[#8C857B] mb-1">Miesto aplikácie</label>
+                    <input type="text" value={aestheticConsent.applicationSites} onChange={e => setAestheticConsent({...aestheticConsent, applicationSites: e.target.value})} placeholder="Pery, nosoústne ryhy..." className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#8C857B] mb-1">Množstvo / Dávka</label>
+                    <input type="text" value={aestheticConsent.volumeOrUnits} onChange={e => setAestheticConsent({...aestheticConsent, volumeOrUnits: e.target.value})} placeholder="1.0 ml / 50 IU" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-[#8C857B] mb-1">Číslo šarže (LOT)</label>
+                  <input type="text" value={aestheticConsent.batchNumber} onChange={e => setAestheticConsent({...aestheticConsent, batchNumber: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                </div>
+              </div>
+            )}
+
+            {/* SEKCIA: ŽIADANKA NA PREDOPERAČNÉ VYŠETRENIA */}
+            {showPreopRequest && (
+              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Konfigurácia žiadanky</p>
+                <div>
+                  <label className="block text-[10px] text-[#8C857B] mb-1">Plánovaný operačný výkon</label>
+                  <input type="text" value={preopRequest.targetSurgery} onChange={e => setPreopRequest({...preopRequest, targetSurgery: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-[#8C857B] mb-1">Termín operácie</label>
+                    <input type="date" value={preopRequest.surgeryDate} onChange={e => setPreopRequest({...preopRequest, surgeryDate: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#8C857B] mb-1">Adresát (Lekár)</label>
+                    <input type="text" value={preopRequest.gpDoctorName} onChange={e => setPreopRequest({...preopRequest, gpDoctorName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-[#8C857B] mb-1">Požadované laboratórne a interné testy:</p>
+                  <div className="space-y-1.5 text-xs">
+                    {[
+                      'Krvný obraz + diferenciálny rozpočet + trombocyty',
+                      'Koagulačné vyšetrenie (Quick / INR, APTT, Fibrinogén)',
+                      'Biochémia (Glykémia, Urea, Kreatinín, Kyselina močová, AST, ALT, GMT, Bilirubín celkový)',
+                      'Ióny (Na, K, Cl)',
+                      'Sedimentácia erytrocytov (FW) / CRP',
+                      'Moč chemicky + močový sediment',
+                      'Krvná skupina a Rh faktor',
+                      '12-zvodové EKG s písomným popisom a interpretáciou internistu',
+                      'RTG hrudníka (u fajčiarov/nad 45 rokov)',
+                      'Interné predoperačné vyšetrenie so záverom: Schopný/á výkonu v celkovej anestézii'
+                    ].map(test => (
+                      <label key={test} className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={preopRequest.requiredTests.includes(test)} onChange={() => handlePreopTestToggle(test)} className="rounded text-[#C5A059]" />
+                        <span>{test}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SEKCIA: LEKÁRSKE POTVRDENIE */}
+            {showCertificate && (
+              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Údaje potvrdenia</p>
+                <div>
+                  <label className="block text-[10px] text-[#8C857B] mb-1">Účel posudku / potvrdenia</label>
+                  <input type="text" value={medicalCertificate.purpose} onChange={e => setMedicalCertificate({...medicalCertificate, purpose: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-[#8C857B] mb-1">Text lekárskeho posudku</label>
+                  <textarea rows={4} value={medicalCertificate.statement} onChange={e => setMedicalCertificate({...medicalCertificate, statement: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-[#8C857B] mb-1">Doba platnosti / Kľudový režim</label>
+                    <input type="text" value={medicalCertificate.validUntil} onChange={e => setMedicalCertificate({...medicalCertificate, validUntil: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#8C857B] mb-1">Vydané pre</label>
+                    <input type="text" value={medicalCertificate.issuedFor} onChange={e => setMedicalCertificate({...medicalCertificate, issuedFor: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* OPERAČNÉ ÚDAJE (PRE PROTOKOL A PREPÚŠŤACIU SPRÁVU) */}
             {showSurgeryDetails && (
               <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-[#2C2A29]">Personál & Časy zákroku</p>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Operačné časy a personál</p>
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   {docType === 'operacny_protokol' && (
                     <div className="col-span-2">
                       <label className="block text-[9px] text-[#8C857B] mb-1">Termín zákroku</label>
-                      <input type="date" value={surgeryDetails.opDate} onChange={e => setSurgeryDetails({...surgeryDetails, opDate: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" />
+                      <input type="date" value={surgeryDetails.opDate} onChange={e => setSurgeryDetails({...surgeryDetails, opDate: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" />
                     </div>
                   )}
-                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Čas operácie (Od - Do)</label><div className="flex gap-1"><input type="time" value={surgeryDetails.opStart} onChange={e => setSurgeryDetails({...surgeryDetails, opStart: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /><input type="time" value={surgeryDetails.opEnd} onChange={e => setSurgeryDetails({...surgeryDetails, opEnd: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div></div>
-                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Čas anestézie (Od - Do)</label><div className="flex gap-1"><input type="time" value={surgeryDetails.anesStart} onChange={e => setSurgeryDetails({...surgeryDetails, anesStart: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /><input type="time" value={surgeryDetails.anesEnd} onChange={e => setSurgeryDetails({...surgeryDetails, anesEnd: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div></div>
-                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Asistent</label><input type="text" value={surgeryDetails.assistant} onChange={e => setSurgeryDetails({...surgeryDetails, assistant: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div>
-                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Anesteziológ</label><input type="text" value={surgeryDetails.anesthesiologist} onChange={e => setSurgeryDetails({...surgeryDetails, anesthesiologist: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div>
+                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Čas operácie (Od - Do)</label><div className="flex gap-1"><input type="time" value={surgeryDetails.opStart} onChange={e => setSurgeryDetails({...surgeryDetails, opStart: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /><input type="time" value={surgeryDetails.opEnd} onChange={e => setSurgeryDetails({...surgeryDetails, opEnd: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div></div>
+                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Čas anestézie (Od - Do)</label><div className="flex gap-1"><input type="time" value={surgeryDetails.anesStart} onChange={e => setSurgeryDetails({...surgeryDetails, anesStart: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /><input type="time" value={surgeryDetails.anesEnd} onChange={e => setSurgeryDetails({...surgeryDetails, anesEnd: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div></div>
+                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Asistent</label><input type="text" value={surgeryDetails.assistant} onChange={e => setSurgeryDetails({...surgeryDetails, assistant: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div>
+                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Anesteziológ</label><input type="text" value={surgeryDetails.anesthesiologist} onChange={e => setSurgeryDetails({...surgeryDetails, anesthesiologist: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div>
                   {docType === 'operacny_protokol' && (
                     <>
-                      <div><label className="block text-[9px] text-[#8C857B] mb-1">Anest. sestra</label><input type="text" value={surgeryDetails.anestNurse} onChange={e => setSurgeryDetails({...surgeryDetails, anestNurse: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div>
-                      <div><label className="block text-[9px] text-[#8C857B] mb-1">Inštrumentárka</label><input type="text" value={surgeryDetails.instrumentalist} onChange={e => setSurgeryDetails({...surgeryDetails, instrumentalist: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full" /></div>
+                      <div><label className="block text-[9px] text-[#8C857B] mb-1">Anest. sestra</label><input type="text" value={surgeryDetails.anestNurse} onChange={e => setSurgeryDetails({...surgeryDetails, anestNurse: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div>
+                      <div><label className="block text-[9px] text-[#8C857B] mb-1">Inštrumentárka</label><input type="text" value={surgeryDetails.instrumentalist} onChange={e => setSurgeryDetails({...surgeryDetails, instrumentalist: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div>
                     </>
                   )}
                 </div>
                 {docType === 'prepustacia_sprava' && (
                   <div>
                     <label className="block text-[9px] text-[#8C857B] mb-1">Najbližšia kontrola</label>
-                    <select value={surgeryDetails.checkup} onChange={e => setSurgeryDetails({...surgeryDetails, checkup: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full text-xs">
+                    <select value={surgeryDetails.checkup} onChange={e => setSurgeryDetails({...surgeryDetails, checkup: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full text-xs bg-white">
                       <option value="1 deň">O 1 deň</option><option value="2 dni">O 2 dni</option><option value="1 týždeň">O 1 týždeň</option><option value="2 týždne">O 2 týždne</option>
                     </select>
                   </div>
@@ -775,7 +884,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* SEKCIA: PREDPOKLADANÉ LIEKY (Pre Prepúšťaciu správu) */}
+            {/* SEKCIA: PREDPOKLADANÉ LIEKY PRE PREPÚŠŤACIU SPRÁVU */}
             {docType === 'prepustacia_sprava' && (
               <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Predpísané lieky a dávkovanie</p>
@@ -813,7 +922,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* SEKCIA: POZNÁMKY A TEXT (Pre bežné správy - okrem VV) */}
+            {/* SEKCIA: POZNÁMKY A NÁLEZ */}
             {showNotes && (
               <div className="space-y-2">
                 <div className="flex justify-between items-end mb-1">
@@ -887,11 +996,11 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     )}
                   </select>
                 </div>
-                <textarea rows={12} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tu vpíšte text podľa typu dokumentu..." className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29]" />
+                <textarea rows={10} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tu vpíšte text správy..." className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29]" />
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="w-full bg-[#C5A059] hover:bg-[#b08d48] text-white font-medium py-3 px-6 rounded-xl transition-colors text-xs uppercase tracking-wider disabled:opacity-50 print:hidden">
+            <button type="submit" disabled={loading} className="w-full bg-[#C5A059] hover:bg-[#b08d48] text-white font-medium py-3 px-6 rounded-xl transition-colors text-xs uppercase tracking-wider disabled:opacity-50 print:hidden cursor-pointer shadow-sm">
               {loading ? 'Spracovávam...' : '💾 Uložiť záznam do systému'}
             </button>
           </form>
@@ -908,31 +1017,60 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
         {/* ======================================================= */}
         <div className="lg:col-span-6 bg-[#FBF9F6] p-8 rounded-2xl border border-[#E8E2D9] shadow-sm flex flex-col print:p-0 print:border-none print:shadow-none print:bg-white print:block">
           
-          <div className="flex justify-between items-center mb-4 print:hidden">
+          <div className="flex justify-between items-center mb-4 print:hidden gap-3">
              <h3 className="text-[10px] font-bold text-[#8C857B] uppercase tracking-widest">Náhľad dokumentu</h3>
-             <button onClick={handlePrint} className="bg-[#2C2A29] hover:bg-black text-white text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-xl transition-colors shadow-sm">
-               🖨️ Tlačiť {DOC_TITLES[docType]}
-             </button>
+             <div className="flex items-center gap-2">
+               <button 
+                 type="button"
+                 onClick={handleDownloadPdf} 
+                 disabled={generatingPdf}
+                 className="bg-[#C5A059] hover:bg-[#b08d48] text-white text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+               >
+                 {generatingPdf ? (
+                   <>
+                     <span className="inline-block animate-spin">⏳</span> Generujem...
+                   </>
+                 ) : (
+                   <>
+                     <span>📄</span> Stiahnuť PDF
+                   </>
+                 )}
+               </button>
+               <button 
+                 type="button"
+                 onClick={handlePrint} 
+                 className="bg-[#2C2A29] hover:bg-black text-white text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-xl transition-colors shadow-sm cursor-pointer"
+               >
+                 🖨️ Tlačiť
+               </button>
+             </div>
           </div>
 
           {/* TLAČOVÝ A4 DOKUMENT */}
           <div id="printable-a4" ref={printRef} className="bg-white border border-[#E8E2D9] p-10 shadow-sm text-xs leading-relaxed w-full max-w-[595px] mx-auto print:border-none print:shadow-none print:p-0 print:max-w-none print:w-full" style={{ minHeight: '842px' }}>
             
-            {/* --- Hlavička všeobecná (Skrytá pri Dohode o cene) --- */}
+            {/* --- Hlavička všeobecná s logom SAY BY MRAZ (Skrytá pri Dohode o cene) --- */}
             {docType !== 'dohoda_o_cene' && (
               <>
-                <div className="border-b border-[#E8E2D9] pb-6 mb-6 flex justify-between items-start">
-                  <div>
-                    <h2 className="font-brand text-2xl font-light tracking-widest uppercase text-[#2C2A29]">SAY CLINIC</h2>
-                    <p className="text-[9px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mt-1">PLASTICKÁ CHIRURGIA & DERMATOLÓGIA</p>
-                    <p className="text-[10px] text-[#8C857B] mt-1">Lazovná 43, 974 01 Banská Bystrica</p>
+                <div className="border-b-2 border-[#C5A059] pb-5 mb-6 flex justify-between items-start">
+                  <div className="flex items-center gap-4">
+                    <img 
+                      src="/logo.png" 
+                      alt="SAY BY MRAZ" 
+                      className="h-12 w-auto object-contain" 
+                    />
+                    <div className="border-l border-[#E8E2D9] pl-3.5">
+                      <h2 className="font-brand text-2xl font-light tracking-widest uppercase text-[#2C2A29]">SAY CLINIC</h2>
+                      <p className="text-[9px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mt-0.5">PLASTICKÁ CHIRURGIA & DERMATOLÓGIA</p>
+                      <p className="text-[9px] text-[#8C857B] mt-0.5">Lazovná 43, 974 01 Banská Bystrica | www.sayclinic.sk</p>
+                    </div>
                   </div>
                   <div className="text-right text-[10px] text-[#8C857B]">
-                    <span className="bg-[#2C2A29] text-white px-2 py-1 rounded text-[8px] uppercase tracking-wider font-bold">
+                    <span className="bg-[#2C2A29] text-white px-2.5 py-1 rounded text-[8px] uppercase tracking-wider font-bold shadow-sm inline-block">
                       {DOC_TITLES[docType]}
                     </span>
-                    <p className="font-bold text-[#2C2A29] mt-2 text-sm">{doctor}</p>
-                    <p className="mt-1">Dátum: {new Date().toLocaleDateString('sk-SK')}</p>
+                    <p className="font-bold text-[#2C2A29] mt-2 text-xs">{doctor}</p>
+                    <p className="mt-0.5">Dátum: {new Date().toLocaleDateString('sk-SK')}</p>
                   </div>
                 </div>
 
@@ -1025,7 +1163,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 1A. Cenová ponuka (Klasická + Dodatok 30%) --- */}
+            {/* --- 1A. Cenová ponuka --- */}
             {docType === 'cenova_ponuka' && (
               <div className="space-y-4 mb-8">
                 <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">Rozpis výkonov a služieb:</p>
@@ -1070,10 +1208,21 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 1B. Dohoda o cene a podmienkach (Právny formát s Hlavičkou) --- */}
+            {/* --- 1B. Dohoda o cene a podmienkach (Právny formát s Logom a Hlavičkou) --- */}
             {docType === 'dohoda_o_cene' && (
               <div className="text-[11px] leading-tight space-y-6">
-                <h1 className="text-xl font-bold text-center uppercase tracking-widest text-[#2C2A29] mb-8">Dohoda o cene a podmienkach</h1>
+                <div className="flex items-center justify-between border-b-2 border-[#C5A059] pb-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <img src="/logo.png" alt="SAY BY MRAZ" className="h-10 w-auto object-contain" />
+                    <div>
+                      <h2 className="font-brand text-lg font-light tracking-widest text-[#2C2A29]">SAY CLINIC</h2>
+                      <p className="text-[8px] text-[#C5A059] font-bold tracking-widest uppercase">PLASTICKÁ CHIRURGIA & DERMATOLÓGIA</p>
+                    </div>
+                  </div>
+                  <span className="text-[9px] bg-[#2C2A29] text-white px-2.5 py-1 rounded font-bold uppercase tracking-wider">Zmluva o poskytnutí starostlivosti</span>
+                </div>
+
+                <h1 className="text-xl font-bold text-center uppercase tracking-widest text-[#2C2A29] mb-4">Dohoda o cene a podmienkach</h1>
                 
                 <div className="grid grid-cols-2 gap-8 mb-6">
                   <div>
@@ -1105,7 +1254,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   </div>
                 </div>
 
-                <p className="text-center italic mb-6">sa dohodli na uzatvorení tejto dohody, ktorej obsah a podmienky sú upravené nižšie:</p>
+                <p className="text-center italic mb-4">sa dohodli na uzatvorení tejto dohody, ktorej obsah a podmienky sú upravené nižšie:</p>
 
                 <div>
                   <h3 className="font-bold text-sm uppercase text-[#C5A059] mb-2">I. Predmet dohody</h3>
@@ -1132,7 +1281,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-sm uppercase text-[#C5A059] mb-2 mt-6">II. Cena</h3>
+                  <h3 className="font-bold text-sm uppercase text-[#C5A059] mb-2 mt-4">II. Cena</h3>
                   <p>Klient sa zaväzuje zaplatiť za prevedený zákrok a cenu stanovenú podľa cenového plánu, ktorý tvorí prílohu tejto dohody a to v celkovej sume: <strong className="text-sm">{totalPrice.toFixed(2)} €</strong></p>
                   <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] my-3 w-1/2">
                     <table className="w-full">
@@ -1143,45 +1292,21 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     </table>
                   </div>
                   <p className="text-justify mb-2">Zostávajúca časť ceny za zákrok je splatná po zákroku na recepcii zhotoviteľa najneskôr v deň prepustenia alebo faktúrou, ktorá bude odoslaná na email klienta po zákroku. Celková cena zákroku môže byť navýšená o 130€ za každú hodinu anestézie navyše, prípadne o 200€ za noc na klinike navyše. Ak by z technických alebo bezpečnostných príčin nebolo možné niektorú z položiek vykonať, bude cena o danú položku ponížená a rozdiel vrátený.</p>
-                  <p className="text-justify">Pre prípad zrušenia zákroku zo strany klienta/tky (napr. ak sa klient riadne a včas a v dohodnutom termíne nedostaví na objednaný zákrok), sa klient/tka zaväzuje uhradiť storno poplatok vo výške 100% z už uhradenej zálohy. V prípade závažných medicínskych dôvodov (tzv. kontraindikácií), je storno poplatok 0% z celkovej ceny dohodnutého zákroku. Klient sa zaväzuje v prípade, že si zvolí vlastné predoperačné vyšetrenie, doručiť najneskôr 1 týždeň pred plánovaným termínom zákroku odsúhlasené vyšetrenie od svojho obvodného lekára podľa žiadanky zhotoviteľa na email: info@doktormraz.sk. Ak klient poruší túto povinnosť a zhotoviteľ z tohto dôvodu zruší termín, zhotoviteľ je oprávnený odstúpiť od dohody, pričom storno poplatok je 100% uhradenej zálohy. Zhotoviteľ je oprávnený jednostranne si započítať svoj nárok na storno poplatok voči klientom uhradenej zálohe.</p>
+                  <p className="text-justify">Pre prípad zrušenia zákroku zo strany klienta/tky (napr. ak sa klient riadne a včas a v dohodnutom termíne nedostaví na objednaný zákrok), sa klient/tka zaväzuje uhradiť storno poplatok vo výške 100% z už uhradenej zálohy. V prípade závažných medicínskych dôvodov (tzv. kontraindikácií), je storno poplatok 0% z celkovej ceny dohodnutého zákroku.</p>
                 </div>
 
-                {/* Pokračovanie právnych textov */}
                 <div>
-                  <h3 className="font-bold text-sm uppercase text-[#C5A059] mb-2 mt-6">III. Prehlásenie klienta</h3>
-                  <p className="text-justify mb-2">Mal/a som možnosť sa oboznámiť s vyššie uvedenými informáciami a poučením o plánovanom zákroku. Bol/a som zhotoviteľom zrozumiteľne informovaný/á o účele, povahe, výhodách a rizikách, ako i o možných alternatívach vyššie uvedeného lekárskeho zákroku. Obdržal/a som prílohy uvedené v čl. I. a s ich obsahom som sa oboznámil/a. Na základe poskytnutých informácií a po vlastnom uvážení súhlasím s podstúpením zákroku a beriem na vedomie:</p>
+                  <h3 className="font-bold text-sm uppercase text-[#C5A059] mb-2 mt-4">III. Prehlásenie klienta</h3>
+                  <p className="text-justify mb-2">Mal/a som možnosť sa oboznámiť s vyššie uvedenými informáciami a poučením o plánovanom zákroku. Bol/a som zhotoviteľom zrozumiteľne informovaný/á o účele, povahe, výhodách a rizikách, ako i o možných alternatívach vyššie uvedeného lekárskeho zákroku.</p>
                   <ol className="list-decimal pl-4 space-y-1 text-justify mb-2">
                     <li>Zákrok je vykonávaný z estetických dôvodov. Výsledok zákroku nemôže byť považovaný za 100% garanciu ani pri dodržaní všetkých pravidiel postupu lege artis.</li>
                     <li>Aj napriek tomu, že komplikácie sú ojedinelé, môžu sa vyskytovať. So všetkými komplikáciami som bol/a oboznámený/a a akceptujem ich.</li>
-                    <li>V prípade, že zhotoviteľ prevedie akútnu re-operáciu z dôvodu neuspokojivého estetického výsledku predchádzajúceho zákroku (objektívne zhodnotiteľného), preberá náklady zhotoviteľa.</li>
                     <li>Nič zo svojho predchorobia ani zo svojho súčasného stavu som nezatajil/a.</li>
-                    <li>Po zákroku v lokálnej anestézii je nutné zostať v SR minimálne jeden deň, pri celkovej anestézii/analgosedácii minimálne tri dni po zákroku.</li>
                   </ol>
-                  <p className="text-justify mb-2">Bol/a som poučený/á o význame histologického vyšetrenia. S odberom biologického materiálu na histologickom vyšetrení: <strong>SÚHLASÍM</strong>.</p>
-                  <p className="text-justify mb-2">Dokumentácia - som si vedomý/á, že v súvislosti so zákrokom budú spracovávané moje osobné údaje vrátane údajov o zdravotnom stave. Porozumel/a som a súhlasím s tým, že pred a po zákroku môžu byť zhotovené klinické fotografie, ktoré nebudú bez môjho písomného súhlasu použité na iný účel ako zdravotná dokumentácia alebo anonymne pre vedecké účely.</p>
-                  <p className="text-justify mb-2">Pokiaľ by došlo ku kontaminácii personálu mojimi telesnými tekutinami, súhlasím s okamžitým odberom a vyšetrením na krvou prenosné ochorenia. Porozumel/a som, že je nevyhnutné dochádzať na pravidelné kontroly (1 týždeň, 2 týždne, 1 mesiac, 3 mesiace, 6 mesiacov a 1 rok).</p>
-                  
-                  <p className="font-bold mt-3 mb-1">Cenové podmienky re-operácie:</p>
-                  <ul className="list-disc pl-4 space-y-1 text-justify">
-                    <li>Náklady znáša klinika, ak dôjde k pochybeniu lekára.</li>
-                    <li>Klient uhradí prevádzkové náklady, ak dôjde k suboptimálnemu hojeniu bez zavinenia lekára, alebo k pravdepodobným stavom, o ktorých bol poučený.</li>
-                    <li>Klient hradí reoperáciu v plnom rozsahu, ak nedodržiaval liečebný režim, nedodržal termíny kontrol, alebo nie je objektívny dôvod na reoperáciu.</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-sm uppercase text-[#C5A059] mb-2 mt-6">IV. Ďalšie ustanovenia a prehlásenia</h3>
-                  <p className="text-justify mb-2">Podpisom tejto dohody udeľuje klient zhotoviteľovi v zmysle platného znenia zákona č. 18/2018 Z. z. súhlas so spracovaním osobných údajov pre účely plnenia tejto dohody. Klient sa zaväzuje, že sa nebude v tlači, na internete alebo v akomkoľvek inom médiu negatívne vyjadrovať o zhotoviteľovi ani o jeho personále. Zhotoviteľ sa zaväzuje k rovnakému prístupu ku klientovi. Zmluvné strany sa v zmysle článku 25 nariadenia (EÚ) č. 1215/2012 (Brusel I bis) výslovne dohodli, že všetky spory budú prejednávané a rozhodované výlučne príslušným súdom SR.</p>
-                  
-                  <div className="bg-[#FBF9F6] p-4 border border-[#E8E2D9] mt-6 mb-8 text-center font-bold">
-                    Potvrdenie udelenia súhlasu:<br/>
-                    Za operačný tím potvrdzujem, že klient/ka nemá žiadne ďalšie otázky a priania, zákrok môže byť uskutočnený.<br/><br/>
-                    Meno a podpis lekára: ..............................................................
-                  </div>
                 </div>
 
                 {/* Podpisy k Zmluve */}
-                <div className="flex justify-between items-end mt-12 pt-6">
+                <div className="flex justify-between items-end mt-10 pt-6">
                   <div className="text-center">
                     <div className="w-48 border-b border-[#2C2A29] mb-2"></div>
                     Meno a podpis klienta/ky
@@ -1270,7 +1395,132 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- Spoločný textový blok (Nález / Protokol) --- */}
+            {/* --- 4. NOVÉ: INFORMOVANÝ SÚHLAS S OPERÁCIOU --- */}
+            {showSurgeryConsent && (
+              <div className="space-y-5 mb-8 text-justify leading-relaxed">
+                <div className="bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] space-y-2">
+                  <p><strong className="text-[#8C857B] uppercase text-[9px]">Plánovaný výkon:</strong> <span className="font-bold text-sm text-[#2C2A29] ml-2">{surgeryConsent.procedureName}</span></p>
+                  <p><strong className="text-[#8C857B] uppercase text-[9px]">Spôsob anestézie:</strong> <span className="font-semibold text-xs text-[#C5A059] ml-2">{surgeryConsent.anesthesiaType}</span></p>
+                  <p><strong className="text-[#8C857B] uppercase text-[9px]">Alternatívne možnosti liečby:</strong> <span className="text-xs ml-2">{surgeryConsent.alternativeTreatments}</span></p>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">I. Poučenie o povahe a cieli operačného výkonu</p>
+                  <p className="text-xs mb-2">Klient/ka potvrdzuje, že bol/a ošetrujúcim lekárom (operatérom) podrobne a zrozumiteľne poučený/á o plánovanom zákroku, jeho technike, predpokladanom trvaní, pooperačnom priebehu a o umiestnení výsledných jaziev. Bol/a oboznámený/á s tým, že konečný estetický výsledok je ovplyvnený individuálnou reakciou organizmu, schopnosťou hojenia tkanív a dodržiavaním pooperačného kľudového režimu.</p>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">II. Možné riziká a pooperačné komplikácie</p>
+                  <p className="text-xs mb-2">Pacient/ka bol/a oboznámený/á s typickými aj menej častými rizikami spojenými s operačným výkonom v plastickej chirurgii:</p>
+                  <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-xs font-semibold text-[#2C2A29]">
+                    {surgeryConsent.customRisks}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">III. Vyhlásenie a súhlas pacienta</p>
+                  <ol className="list-decimal pl-4 space-y-1.5 text-xs">
+                    <li>Prehlasujem, že som mal/a možnosť klásť doplňujúce otázky, ktoré mi operatér zrozumiteľne a vyčerpávajúco zodpovedal.</li>
+                    <li>Nezatajil/a som žiadne informácie o svojom zdravotnom stave, užívaných liekoch, alergiách ani o prekonaných ochoreniach.</li>
+                    <li>Súhlasím s vykonaním operačného zákroku a so všetkými nevyhnutnými liečebnými a diagnostickými úkonmi vrátane anestézie.</li>
+                    <li>Súhlasím s vyhotovením anonymnej medicínskej fotodokumentácie pre účely zdravotného záznamu.</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            {/* --- 5. NOVÉ: INFORMOVANÝ SÚHLAS S APLIKÁCIOU VÝPLNÍ / BOTOXU --- */}
+            {showAestheticConsent && (
+              <div className="space-y-5 mb-8 text-justify leading-relaxed">
+                <div className="bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <p><strong className="text-[#8C857B] uppercase text-[9px]">Druh ošetrenia:</strong> <span className="font-bold block text-sm text-[#2C2A29]">{aestheticConsent.treatmentType}</span></p>
+                    <p><strong className="text-[#8C857B] uppercase text-[9px]">Aplikovaný produkt:</strong> <span className="font-bold block text-sm text-[#C5A059]">{aestheticConsent.productName}</span></p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#E8E2D9]">
+                    <p><strong className="text-[#8C857B] uppercase text-[9px]">Lokalita aplikácie:</strong> <span className="block font-semibold text-xs">{aestheticConsent.applicationSites}</span></p>
+                    <p><strong className="text-[#8C857B] uppercase text-[9px]">Dávka / Šarža:</strong> <span className="block font-semibold text-xs">{aestheticConsent.volumeOrUnits} | {aestheticConsent.batchNumber}</span></p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">I. Poučenie o účinku a trvaní ošetrenia</p>
+                  <p className="text-xs mb-2">Aplikácia dermálnych výplní alebo botulotoxínu je miniinvazívny zákrok určený na redukciu vrások, obnovu objemu a kontúrovanie tváre. Účinok kyseliny hyalurónovej je viditeľný ihneď, účinok botulotoxínu nastupuje po 3 - 7 dňoch. Trvanie efektu je individuálne (obvykle 4 - 12 mesiacov v závislosti od metabolizmu a životného štýlu).</p>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">II. Možné vedľajšie účinky a riziká</p>
+                  <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-xs font-semibold text-[#2C2A29]">
+                    {aestheticConsent.customSideEffects}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">III. Poaplikačné odporúčania a prehlásenie</p>
+                  <ul className="list-disc pl-4 space-y-1 text-xs">
+                    <li>24 hodín po aplikácii nenanášať make-up, vyhnúť sa zvýšenej fyzickej námahe a dotyku ošetrených miest.</li>
+                    <li>48 hodín nevystavovať ošetrenú oblasť intenzívnemu teplu (sauna, parný kúpeľ, solárium) ani priamemu slnku.</li>
+                    <li>Pri aplikácii botulotoxínu: minimálne 4 hodiny po aplikácii sa nepredkláňať a neľahať si do vodorovnej polohy.</li>
+                  </ul>
+                  <p className="text-xs mt-3">Klient/ka potvrdzuje, že netrpí žiadnymi kontraindikáciami (akútny infekt, tehotenstvo, dojčenie, myasténia gravis, poruchy koagulácie) a s aplikáciou plne súhlasí.</p>
+                </div>
+              </div>
+            )}
+
+            {/* --- 6. NOVÉ: ŽIADANKA NA PREDOPERAČNÉ VYŠETRENIA --- */}
+            {showPreopRequest && (
+              <div className="space-y-5 mb-8 leading-relaxed">
+                <div className="bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] space-y-2">
+                  <p className="text-xs"><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Vážený pán / Vážená pani doktorka:</strong> <span className="font-bold text-[#2C2A29]">{preopRequest.gpDoctorName}</span></p>
+                  <p className="text-xs"><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Plánovaný operačný výkon:</strong> <span className="font-bold text-[#C5A059]">{preopRequest.targetSurgery}</span></p>
+                  <p className="text-xs"><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Predpokladaný termín zákroku:</strong> <span className="font-semibold">{preopRequest.surgeryDate ? new Date(preopRequest.surgeryDate).toLocaleDateString('sk-SK') : '---'}</span></p>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">Požadované predoperačné vyšetrenia a odbery:</p>
+                  <p className="text-xs mb-3 text-[#8C857B]">Prosíme o realizáciu nasledujúcich laboratórnych vyšetrení a interného zhodnotenia spôsobilosti:</p>
+                  
+                  <div className="space-y-1.5 border border-[#E8E2D9] rounded-xl p-4 bg-white">
+                    {preopRequest.requiredTests.map((test, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-xs py-1 border-b border-[#E8E2D9]/50 last:border-none">
+                        <span className="font-bold text-[#C5A059] min-w-[20px]">{idx + 1}.</span>
+                        <span className="text-[#2C2A29] font-medium">{test}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl text-amber-900 text-xs">
+                  <p className="font-bold mb-1">⚠️ Dôležité inštrukcie pre pacienta:</p>
+                  <p>{preopRequest.specialNote}</p>
+                  <p className="mt-1">Výsledky vyšetrení je potrebné zaslať najneskôr 7 dní pred plánovaným výkonom na <strong>info@sayclinic.sk</strong> alebo priniesť v origináli na príjem.</p>
+                </div>
+              </div>
+            )}
+
+            {/* --- 7. NOVÉ: LEKÁRSKE POTVRDENIE / POSUDOK --- */}
+            {showCertificate && (
+              <div className="space-y-6 mb-8 text-justify leading-relaxed">
+                <div className="bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] space-y-2">
+                  <p><strong className="text-[#8C857B] uppercase text-[9px]">Druh potvrdenia:</strong> <span className="font-bold text-sm text-[#2C2A29] ml-2">{medicalCertificate.purpose}</span></p>
+                  <p><strong className="text-[#8C857B] uppercase text-[9px]">Vydané pre inštitúciu:</strong> <span className="font-semibold text-xs ml-2">{medicalCertificate.issuedFor}</span></p>
+                  <p><strong className="text-[#8C857B] uppercase text-[9px]">Platnosť / Doba kľudu:</strong> <span className="font-semibold text-xs text-[#C5A059] ml-2">{medicalCertificate.validUntil}</span></p>
+                </div>
+
+                <div>
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-3">Lekársky posudok a potvrdenie o zdravotnom stave:</p>
+                  <div className="border border-[#E8E2D9] rounded-xl p-5 bg-white text-sm text-[#2C2A29] leading-relaxed shadow-sm">
+                    {medicalCertificate.statement}
+                  </div>
+                </div>
+
+                <div className="text-xs text-[#8C857B] italic">
+                  Toto potvrdenie sa vydáva na žiadosť menovaného/menovanej pre vyššie uvedené účely a slúži ako doklad o zdravotnom stave a odporúčanom liečebnom režime.
+                </div>
+              </div>
+            )}
+
+            {/* --- Spoločný textový blok (Nález / Protokol / Kontrola) --- */}
             {showNotes && (
               <div className="space-y-2 mb-8 flex-1">
                 <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">
@@ -1315,13 +1565,13 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                    <li>Užívať svoju chronickú medikáciu</li>
                    <li>Dodržiavať pooperačný režim (viď poučenie k výkonu)</li>
                  </ol>
-                 <p className="pt-2">V prípade potreby či komplikácie je nutné kontaktovať kliniku na doleuvedenom tel. čísle alebo vo vážnych situáciách ošetrujúceho lekára. V prípade život ohrozujúcich situácii nutné kontaktovať linku záchrannej služby 155 (112). V prípade celkových zdravotných komplikácií (zhoršenia chronického ochorenia, akútne chrípka a pod.) alebo nežiaducich účinkov liekov je vhodná kontrola u praktického lekára. Kontrola na našej ambulancii v prípade komplikácie ihneď, inak podľa individuálnej dohody s operatérom. V našej ambulantnej starostlivosti je klient/ka až do definitívneho vyradenia - teda po ukončení starostlivosti lekárom.</p>
-                 <p className="font-bold mt-4">Klient/ka svojím podpisom prehlasuje, že prepúšťacej správe porozumela v plnom rozsahu a nemá žiadne nejasnosti a nezodpovedané otázky.</p>
+                 <p className="pt-2">V prípade potreby či komplikácie je nutné kontaktovať kliniku na doleuvedenom tel. čísle alebo vo vážnych situáciách ošetrujúceho lekára. V prípade život ohrozujúcich situácii nutné kontaktovať linku záchrannej služby 155 (112).</p>
+                 <p className="font-bold mt-4">Klient/ka svojím podpisom prehlasuje, že prepúšťacej správe porozumela v plnom rozsahu a nemá žiadne nejasnosti.</p>
                </div>
             )}
 
             {/* Právna doložka a poučenia (Pre VV, Kontrolu, Anest. dotazník) */}
-            {docType !== 'dohoda_o_cene' && docType !== 'prepustacia_sprava' && (showVV || docType === 'kontrolne_vysetrenie' || docType === 'anesteziologicky_dotaznik') && (
+            {docType !== 'dohoda_o_cene' && docType !== 'prepustacia_sprava' && docType !== 'ziadanka_predoperacne' && docType !== 'lekarske_potvrdenie' && (showVV || docType === 'kontrolne_vysetrenie' || docType === 'anesteziologicky_dotaznik') && (
               <div className="text-[8px] text-[#8C857B] space-y-2 border-t border-[#E8E2D9] pt-4 mt-6 leading-tight text-justify">
                 {showVV && (
                   <>
@@ -1331,8 +1581,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     </p>
                   </>
                 )}
-                <p>Klient/ka súhlasí s vykonaním vyšetrení v stanovenom rozsahu. Klient/ka prehlasuje, že bol/a poučený/á o výkone, jeho priebehu a podstate, výsledných jazvách, rizikách a komplikáciách, pooperačnom režime a starostlivosti. Bol podrobne prerokovaný miestny nález vrátane asymetrie, kvality tkanív a bolo vysvetlené, čo operáciou možno dosiahnuť. Boli diskutované rizikové faktory a bolo upozornené na ich vplyv na hojenie alebo výskyt komplikácií. Klient/ka rozumie, nemá ďalšie otázky, preberá podrobné poučenie v písomnej forme.</p>
-                <p>Prevádzkovateľ spracúva osobné údaje pacienta, vrátane údajov o zdraví a medicínskej fotodokumentácie, za účelom poskytovania zdravotnej starostlivosti podľa zákona č. 576/2004 Z. z. Medicínske fotografie sú súčasťou zdravotnej dokumentácie. Priestory kliniky sú z dôvodu bezpečnosti a ochrany majetku monitorované kamerovým systémom na základe oprávneného záujmu prevádzkovateľa. Záznamy sú uchovávané po dobu 14 dní. Podrobné informácie o ochrane údajov sú zverejnené v priestoroch recepcie.</p>
+                <p>Klient/ka súhlasí s vykonaním vyšetrení v stanovenom rozsahu. Klient/ka prehlasuje, že bol/a poučený/á o výkone, jeho priebehu a podstate, výsledných jazvách, rizikách a komplikáciách, pooperačnom režime a starostlivosti. Prevádzkovateľ spracúva osobné údaje pacienta podľa zákona č. 576/2004 Z. z.</p>
               </div>
             )}
 
@@ -1341,7 +1590,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               <div className="mt-10 pt-6 flex justify-between items-end text-[10px] text-[#8C857B]">
                 <div className="text-center">
                   <div className="w-40 border-b border-[#2C2A29] mb-2"></div>
-                  Podpis pacienta / klienta
+                  {docType === 'ziadanka_predoperacne' ? 'Podpis pacienta' : docType === 'lekarske_potvrdenie' ? 'Prevzal pacient / zástupca' : 'Podpis pacienta / klienta'}
                 </div>
                 <div className="text-center">
                   <div className="w-40 border-b border-[#2C2A29] mb-2"></div>

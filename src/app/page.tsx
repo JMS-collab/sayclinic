@@ -177,7 +177,12 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
           
           {/* LOGO (KLIKNUTIE PRESMERUJE NA HOMESCREEN) */}
-          <div className="flex items-center space-x-5 cursor-pointer group" onClick={() => changeTab('home')}>
+          <div className="flex items-center space-x-4 cursor-pointer group" onClick={() => changeTab('home')}>
+            <img 
+              src="/logo.png" 
+              alt="SAY BY MRAZ" 
+              className="h-11 w-auto object-contain transition-transform group-hover:scale-105" 
+            />
             <div className="border-l-2 border-[#C5A059] pl-4 transition-all group-hover:border-[#2C2A29]">
               <h1 className="font-brand text-2xl font-light uppercase tracking-widest text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">
                 SAY CLINIC
