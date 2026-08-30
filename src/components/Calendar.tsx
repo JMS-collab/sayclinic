@@ -26,6 +26,10 @@ export interface CalendarEvent {
   totalPrice?: number;
   depositAmount?: number;
   isDepositPaid?: boolean;
+
+  // STAV ZRUŠENIA A DÔVOD
+  isCancelled?: boolean;
+  cancelReason?: string;
 }
 
 export interface GoogleCalendarItem {
@@ -42,6 +46,12 @@ interface CalendarProps {
 }
 
 type ViewMode = 'day' | 'week' | 'month';
+
+// Hodiny pre časovú os (07:00 - 20:00)
+const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => {
+  const hour = i + 7;
+  return `${hour < 10 ? '0' : ''}${hour}:00`;
+});
 
 export default function Calendar({ 
   events: initialPropEvents = [], 
@@ -61,8 +71,13 @@ export default function Calendar({
   
   // Detail & Úprava udalosti
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [isEditingEvent, setIsAddingEditModal] = useState(false);
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [editingEventData, setEditingEventData] = useState<Partial<CalendarEvent>>({});
+
+  // Zrušenie termínu modal
+  const [cancellingEvent, setCancellingEvent] = useState<CalendarEvent | null>(null);
+  const [cancelReasonInput, setCancelReasonInput] = useState('Choroba pacienta');
+  const [customCancelReason, setCustomCancelReason] = useState('');
 
   // E-mailový panel priamo pod udalosťou
   const [openEmailEventId, setOpenEmailEventId] = useState<string | null>(null);
@@ -96,7 +111,6 @@ export default function Calendar({
     isDepositPaid: false
   });
 
-  // Pomocná funkcia pre automatické určenie typu udalosti z textu
   const detectEventType = (title: string = ''): EventType => {
     const t = title.toLowerCase();
     if (t.includes('konzultac') || t.includes('vysetren')) return 'konzultacia';
@@ -105,7 +119,6 @@ export default function Calendar({
     return 'operacia';
   };
 
-  // Pomocná funkcia pre nastavenie cien podľa typu vo formulári
   const handleTypeChangeInForm = (type: EventType, isEdit = false) => {
     let price = 0;
     let deposit = 0;
@@ -116,19 +129,9 @@ export default function Calendar({
     else if (type === 'kontrola') { price = 0; deposit = 0; }
 
     if (isEdit) {
-      setEditingEventData(prev => ({
-        ...prev,
-        type: type,
-        totalPrice: price,
-        depositAmount: deposit
-      }));
+      setEditingEventData(prev => ({ ...prev, type, totalPrice: price, depositAmount: deposit }));
     } else {
-      setNewEvent(prev => ({
-        ...prev,
-        type: type,
-        totalPrice: price,
-        depositAmount: deposit
-      }));
+      setNewEvent(prev => ({ ...prev, type, totalPrice: price, depositAmount: deposit }));
     }
   };
 
@@ -196,7 +199,6 @@ export default function Calendar({
     }
   }, [session]);
 
-  // Filtrovanie udalostí podľa vybraného kalendára A typu udalosti
   const filteredEvents = calendarEvents.filter(e => {
     const matchesCalendar = selectedCalendarId === 'all' || e.calendarId === selectedCalendarId;
     const matchesType = selectedTypeFilter === 'all' || e.type === selectedTypeFilter;
@@ -239,7 +241,23 @@ export default function Calendar({
     });
   };
 
-  // Uloženie úpravy existujúcej udalosti (Možnosť 2)
+  const handleConfirmCancelEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancellingEvent) return;
+
+    const finalReason = cancelReasonInput === 'Iné (vlastný dôvod)' ? customCancelReason : cancelReasonInput;
+
+    setCalendarEvents(prev => {
+      const updated = prev.map(evt => evt.id === cancellingEvent.id ? { ...evt, isCancelled: true, cancelReason: finalReason } : evt);
+      localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+      return updated;
+    });
+
+    setCancellingEvent(null);
+    setCustomCancelReason('');
+    alert(`❌ Termín bol zrušený. Dôvod: ${finalReason}`);
+  };
+
   const handleSaveEditedEvent = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEventData.id) return;
@@ -254,7 +272,7 @@ export default function Calendar({
       setSelectedEvent(editingEventData as CalendarEvent);
     }
 
-    setIsAddingEditModal(false);
+    setIsEditingEvent(false);
     alert('✅ Udalosť bola úspešne upravená!');
   };
 
@@ -337,7 +355,6 @@ export default function Calendar({
     }
   };
 
-  // Pomocné farby a štítky pre kategórie
   const getEventTypeBadge = (type: EventType) => {
     switch (type) {
       case 'operacia':
@@ -361,6 +378,26 @@ export default function Calendar({
       case 'kontrola': return 'Kontrola';
       default: return 'Termín';
     }
+  };
+
+  const timeToMinutes = (timeStr: string) => {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h * 60) + (m || 0);
+  };
+
+  const getEventBlockStyle = (startTime: string, endTime: string) => {
+    const startMin = timeToMinutes(startTime);
+    const endMin = timeToMinutes(endTime);
+    const dayStartMin = 7 * 60; // 07:00
+    
+    const top = Math.max(0, (startMin - dayStartMin) * 1.33);
+    const height = Math.max(50, (endMin - startMin) * 1.33);
+
+    return {
+      top: `${top}px`,
+      height: `${height}px`,
+    };
   };
 
   const getDaysInMonth = (date: Date) => {
@@ -457,202 +494,147 @@ export default function Calendar({
     else alert('Pacient nebol nájdený v kartotéke.');
   };
 
-  // --- POHĽAD: DEŇ ---
+  // --- POHĽAD: DEŇ (ČASOVÁ OS) ---
   const renderDayView = () => {
     const formattedDate = currentDate.toISOString().split('T')[0];
     const dayEvents = filteredEvents.filter(e => e.date === formattedDate).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
     return (
-      <div className="space-y-3">
-        {dayEvents.length === 0 ? (
-          <div className="text-center py-16 text-[#8C857B] text-xs italic bg-[#FBF9F6] rounded-xl border border-[#E8E2D9]">
-            Žiadne udalosti na tento deň.
-          </div>
-        ) : (
-          dayEvents.map(evt => {
-            const currentPhone = getEventPhone(evt);
-            const currentEmail = getEventEmail(evt);
-            
-            const price = evt.totalPrice !== undefined ? evt.totalPrice : (evt.type === 'operacia' ? 3500 : 50);
-            const deposit = evt.depositAmount !== undefined ? evt.depositAmount : (evt.type === 'operacia' ? 500 : 0);
-            const isPaid = evt.isDepositPaid || false;
-            const remaining = Math.max(0, price - (isPaid ? deposit : 0));
+      <div className="relative border border-[#E8E2D9] rounded-2xl bg-white overflow-hidden shadow-sm">
+        
+        {/* ČASOVÁ OS - HODINOVÉ RIADKY (07:00 - 20:00) */}
+        <div className="relative min-h-[1040px]">
+          {TIME_SLOTS.map((slotTime) => (
+            <div key={slotTime} className="h-[80px] border-b border-[#E8E2D9]/60 flex items-start">
+              <div className="w-16 text-right pr-3 pt-1 font-mono text-[10px] font-bold text-[#8C857B] border-r border-[#E8E2D9]">
+                {slotTime}
+              </div>
+              <div className="flex-1 h-full bg-[#FBF9F6]/20"></div>
+            </div>
+          ))}
 
-            return (
-              <div key={evt.id} className="bg-white border border-[#E8E2D9] hover:border-[#C5A059] p-4 rounded-xl shadow-sm transition-all space-y-3">
-                
-                {/* HLAVNÝ RIADOK UDALOSTI */}
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                  <div className="flex items-center gap-4 cursor-pointer" onClick={() => setSelectedEvent(evt)}>
-                    <div className="bg-[#2C2A29] text-white p-2.5 rounded-lg text-center font-mono min-w-[70px]">
-                      <span className="text-xs font-bold block">{evt.startTime}</span>
-                      <span className="text-[9px] text-[#C5A059] block">{evt.endTime}</span>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        {/* ROZLIŠOVACÍ ŠTÍTOK PRE TYP ZÁKROKU */}
-                        {getEventTypeBadge(evt.type)}
-                        
-                        {/* INDIKÁTOR ZÁLOHY */}
-                        {deposit > 0 && (
+          {/* VIZUÁLNE BLOKY UMESTNENÉ NA ČASOVEJ OSI */}
+          <div className="absolute top-0 left-16 right-0 bottom-0 pointer-events-none p-1">
+            {dayEvents.map(evt => {
+              const currentPhone = getEventPhone(evt);
+              const currentEmail = getEventEmail(evt);
+              const price = evt.totalPrice !== undefined ? evt.totalPrice : (evt.type === 'operacia' ? 3500 : 50);
+              const deposit = evt.depositAmount !== undefined ? evt.depositAmount : (evt.type === 'operacia' ? 500 : 0);
+              const isPaid = evt.isDepositPaid || false;
+              const remaining = Math.max(0, price - (isPaid ? deposit : 0));
+
+              const blockStyle = getEventBlockStyle(evt.startTime, evt.endTime);
+
+              return (
+                <div 
+                  key={evt.id} 
+                  style={blockStyle} 
+                  className={`absolute left-2 right-2 rounded-xl p-3 shadow-md border pointer-events-auto transition-all hover:scale-[1.002] z-10 flex flex-col justify-between ${
+                    evt.isCancelled 
+                      ? 'bg-gray-100 border-gray-300 opacity-60 line-through' 
+                      : evt.type === 'operacia'
+                      ? 'bg-white border-[#2C2A29] border-l-8 border-l-[#2C2A29]'
+                      : evt.type === 'konzultacia'
+                      ? 'bg-[#FBF9F6] border-[#C5A059] border-l-8 border-l-[#C5A059]'
+                      : evt.type === 'osetrenie'
+                      ? 'bg-emerald-50/50 border-emerald-500 border-l-8 border-l-emerald-600'
+                      : 'bg-blue-50/50 border-blue-400 border-l-8 border-l-blue-500'
+                  }`}
+                >
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex items-center gap-2 flex-wrap" onClick={() => setSelectedEvent(evt)}>
+                      <span className="font-mono text-xs font-bold text-[#2C2A29] bg-gray-100 px-2 py-0.5 rounded cursor-pointer">
+                        {evt.startTime} - {evt.endTime}
+                      </span>
+                      {getEventTypeBadge(evt.type)}
+
+                      {evt.isCancelled ? (
+                        <span className="bg-rose-100 text-rose-800 px-2 py-0.5 rounded text-[9px] font-bold uppercase border border-rose-300">
+                          ❌ ZRUŠENÉ ({evt.cancelReason})
+                        </span>
+                      ) : (
+                        deposit > 0 && (
                           <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded border ${
-                            isPaid ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' : 'bg-rose-50 text-rose-800 border-rose-300 font-bold'
+                            isPaid ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-300'
                           }`}>
                             {isPaid ? '🟢 Záloha ÚHRADENÁ' : '🔴 Záloha NEÚHRADENÁ'}
                           </span>
-                        )}
-                      </div>
-
-                      <h4 className="font-bold text-sm text-[#2C2A29]">{evt.title}</h4>
-                      <p className="text-xs text-[#8C857B]">
-                        Pacient: <strong className="text-[#2C2A29]">{evt.patientName || 'Nezadaný'}</strong> | Lekár: {evt.doctorName || 'MUDr. Ján Mráz'}
-                      </p>
-
-                      {/* ROZPIS CENY, ZÁLOHY A DOPLATKU */}
-                      <div className="flex items-center gap-3 mt-1.5 font-mono text-[11px] bg-[#FBF9F6] p-1.5 rounded-lg border border-[#E8E2D9] w-fit">
-                        <span>Cena: <strong className="text-[#2C2A29]">{price} €</strong></span>
-                        {deposit > 0 && <span className="border-l border-[#E8E2D9] pl-2">Záloha: <strong className="text-[#C5A059]">{deposit} €</strong></span>}
-                        <span className="border-l border-[#E8E2D9] pl-2">Doplatok: <strong className="text-rose-600 font-bold">{remaining} €</strong></span>
-                      </div>
+                        )
+                      )}
                     </div>
+
+                    {!evt.isCancelled && (
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <input 
+                          type="text" 
+                          placeholder="Tel..." 
+                          value={currentPhone} 
+                          onChange={e => handlePhoneChange(evt.id, e.target.value)} 
+                          className="border border-[#E8E2D9] p-1 rounded text-[10px] font-mono w-28 bg-white"
+                        />
+                        <button onClick={() => sendWhatsApp(evt)} className="bg-emerald-600 text-white px-2 py-1 rounded text-[9px] font-bold uppercase">💬 WA</button>
+                        <button onClick={() => sendSMS(evt)} className="bg-[#2C2A29] text-white px-2 py-1 rounded text-[9px] font-bold uppercase">📲 SMS</button>
+                        <button onClick={() => handleToggleEmailPanel(evt)} className="bg-[#C5A059] text-white px-2 py-1 rounded text-[9px] font-bold uppercase">✉️ E-mail</button>
+                        <button onClick={() => setCancellingEvent(evt)} className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-1 rounded text-[9px] font-bold uppercase">❌ Zrušiť</button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* AKČNÉ TLAČIDLÁ: VSTUP PRE TELEFÓN, EMAIL, WA, SMS, EMAIL, ÚHRADA */}
-                  <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-[#E8E2D9]">
-                    <div className="flex flex-col gap-1">
-                      <input 
-                        type="text"
-                        placeholder="Tel: +421..."
-                        value={currentPhone}
-                        onChange={(e) => handlePhoneChange(evt.id, e.target.value)}
-                        className="border border-[#E8E2D9] p-1 rounded text-[11px] font-mono w-32 bg-[#FBF9F6]"
-                      />
-                      <input 
-                        type="email"
-                        placeholder="Email..."
-                        value={currentEmail}
-                        onChange={(e) => handleEmailChange(evt.id, e.target.value)}
-                        className="border border-[#E8E2D9] p-1 rounded text-[11px] font-mono w-32 bg-[#FBF9F6]"
-                      />
+                  <div className="my-1 cursor-pointer" onClick={() => setSelectedEvent(evt)}>
+                    <h4 className="font-bold text-sm text-[#2C2A29]">{evt.title}</h4>
+                    <p className="text-xs text-[#8C857B]">
+                      Pacient: <strong className="text-[#2C2A29]">{evt.patientName}</strong> | Lekár: {evt.doctorName}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-between items-center border-t border-[#E8E2D9]/60 pt-1 text-[10px] font-mono">
+                    <div className="flex gap-3">
+                      <span>Cena: <strong>{price} €</strong></span>
+                      {deposit > 0 && <span>Záloha: <strong className="text-[#C5A059]">{deposit} €</strong></span>}
+                      <span>Doplatok: <strong className="text-rose-600 font-bold">{remaining} €</strong></span>
                     </div>
 
-                    <div className="flex gap-1">
-                      <button 
-                        onClick={() => sendWhatsApp(evt)} 
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase shadow-sm"
-                        title="Odoslať správu na WhatsApp"
-                      >
-                        💬 WA
-                      </button>
-                      <button 
-                        onClick={() => sendSMS(evt)} 
-                        className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase shadow-sm"
-                        title="Odoslať SMS"
-                      >
-                        📲 SMS
-                      </button>
-                      <button 
-                        onClick={() => handleToggleEmailPanel(evt)} 
-                        className={`px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase shadow-sm border ${
-                          openEmailEventId === evt.id ? 'bg-[#C5A059] text-white border-[#C5A059]' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
-                        }`}
-                        title="Otvoriť panel pre e-mail a faktúru"
-                      >
-                        ✉️ E-mail
-                      </button>
-                    </div>
-
-                    {deposit > 0 && (
+                    {deposit > 0 && !evt.isCancelled && (
                       <button 
                         onClick={() => updateDepositStatus(evt.id, !isPaid)} 
-                        className={`border px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase transition-colors ${
-                          isPaid ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
-                        }`}
+                        className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'}`}
                       >
                         {isPaid ? '✓ Hradené' : 'Označ úhradu'}
                       </button>
                     )}
                   </div>
+
+                  {openEmailEventId === evt.id && (
+                    <div className="bg-[#FBF9F6] border border-[#C5A059] p-3 rounded-xl space-y-2 mt-2 text-xs font-sans">
+                      <div className="flex justify-between items-center border-b pb-1">
+                        <span className="font-bold text-[10px] uppercase">✉️ Odoslať e-mail: {evt.patientName}</span>
+                        <button onClick={() => setOpenEmailEventId(null)} className="font-bold">✕</button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="email" value={currentEmail} onChange={e => handleEmailChange(evt.id, e.target.value)} placeholder="Email..." className="border p-1 rounded bg-white" />
+                        <input type="text" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="border p-1 rounded bg-white" />
+                      </div>
+                      <textarea rows={2} value={emailBody} onChange={e => setEmailBody(e.target.value)} className="w-full border p-1 rounded bg-white font-mono text-[10px]" />
+                      <div className="flex justify-between items-center pt-1">
+                        <div className="flex gap-2 text-[9px]">
+                          <label><input type="checkbox" checked={attachAdvanceInvoice} onChange={e => setAttachAdvanceInvoice(e.target.checked)} /> 📄 Faktúra</label>
+                          <label><input type="checkbox" checked={attachInstructions} onChange={e => setAttachInstructions(e.target.checked)} /> 📋 Poučenie</label>
+                        </div>
+                        <button onClick={() => handleSendEmailSubmit(evt)} disabled={isSendingEmail} className="bg-[#2C2A29] text-white px-3 py-1 rounded text-[9px] font-bold uppercase">Odoslať</button>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
+              );
+            })}
+          </div>
+        </div>
 
-                {/* E-MAILOVÝ PANEL */}
-                {openEmailEventId === evt.id && (
-                  <div className="bg-[#FBF9F6] border border-[#C5A059] p-4 rounded-xl space-y-3 mt-3 text-xs">
-                    <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
-                      <span className="font-bold uppercase text-[#2C2A29] text-[10px]">
-                        ✉️ Odoslať e-mail pre: {evt.patientName || 'Klienta'}
-                      </span>
-                      <button onClick={() => setOpenEmailEventId(null)} className="text-xs font-bold text-[#8C857B]">✕</button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[9px] uppercase font-bold text-[#8C857B] mb-0.5">E-mail pacienta</label>
-                        <input 
-                          type="email" 
-                          value={currentEmail} 
-                          onChange={e => handleEmailChange(evt.id, e.target.value)} 
-                          placeholder="pacient@email.sk"
-                          className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[9px] uppercase font-bold text-[#8C857B] mb-0.5">Predmet e-mailu</label>
-                        <input 
-                          type="text" 
-                          value={emailSubject} 
-                          onChange={e => setEmailSubject(e.target.value)} 
-                          className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[9px] uppercase font-bold text-[#8C857B] mb-0.5">Text správy</label>
-                      <textarea 
-                        rows={3} 
-                        value={emailBody} 
-                        onChange={e => setEmailBody(e.target.value)} 
-                        className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-[11px]"
-                      />
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E8E2D9] pt-2">
-                      <div className="flex flex-wrap gap-3">
-                        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-[#2C2A29]">
-                          <input type="checkbox" checked={attachAdvanceInvoice} onChange={e => setAttachAdvanceInvoice(e.target.checked)} className="accent-[#C5A059]" />
-                          📄 Zálohovú faktúru PDF
-                        </label>
-                        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-[#2C2A29]">
-                          <input type="checkbox" checked={attachInstructions} onChange={e => setAttachInstructions(e.target.checked)} className="accent-[#C5A059]" />
-                          📋 Poučenie o výkone
-                        </label>
-                        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-[#2C2A29]">
-                          <input type="checkbox" checked={attachPreOpInstructions} onChange={e => setAttachPreOpInstructions(e.target.checked)} className="accent-[#C5A059]" />
-                          🩺 Predoperačné pokyny
-                        </label>
-                      </div>
-
-                      <button 
-                        onClick={() => handleSendEmailSubmit(evt)}
-                        disabled={isSendingEmail}
-                        className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-lg font-bold uppercase text-[10px] shadow-sm"
-                      >
-                        {isSendingEmail ? 'Odosielam...' : '✉️ Odoslať teraz'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            );
-          })
-        )}
       </div>
     );
   };
 
-  // --- POHĽAD: TÝŽDEŇ ---
   const renderWeekView = () => {
     const weekDays = getDaysInWeek(currentDate);
     const dayNames = ['Pondelok', 'Utorok', 'Streda', 'Štvrtok', 'Piatok', 'Sobota', 'Nedeľa'];
@@ -670,10 +652,9 @@ export default function Calendar({
               </div>
               <div className="p-1.5 flex-1 space-y-1.5">
                 {dayEvents.map(evt => (
-                  <div key={evt.id} onClick={() => setSelectedEvent(evt)} className="text-[9px] p-1.5 rounded cursor-pointer border bg-gray-100 text-gray-800 space-y-0.5">
+                  <div key={evt.id} onClick={() => setSelectedEvent(evt)} className={`text-[9px] p-1.5 rounded cursor-pointer border ${evt.isCancelled ? 'line-through opacity-50 bg-gray-100' : 'bg-gray-100 text-gray-800'}`}>
                     <strong className="block">{evt.startTime}</strong>
                     <span className="truncate block font-bold">{evt.patientName || evt.title}</span>
-                    <span className="block text-[8px] font-bold text-[#C5A059] uppercase">{getEventTypeLabel(evt.type)}</span>
                   </div>
                 ))}
               </div>
@@ -684,7 +665,6 @@ export default function Calendar({
     );
   };
 
-  // --- POHĽAD: MESIAC ---
   const renderMonthView = () => {
     const monthDays = getDaysInMonth(currentDate);
     const dayNames = ['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'];
@@ -720,27 +700,18 @@ export default function Calendar({
   return (
     <div className="bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-6">
       
-      {/* HLAVIČKA A FILTROVANIE */}
+      {/* HLAVIČKA */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#E8E2D9] pb-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Plánovanie & Kalendár</h2>
-            {isSyncing && (
-              <span className="text-[9px] bg-[#FBF9F6] border border-[#C5A059] text-[#C5A059] px-2 py-0.5 rounded-full font-bold animate-pulse">
-                🔄 Synch...
-              </span>
-            )}
+            {isSyncing && <span className="text-[9px] bg-[#FBF9F6] border border-[#C5A059] text-[#C5A059] px-2 py-0.5 rounded-full font-bold animate-pulse">🔄 Synch...</span>}
           </div>
-          <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Rozdelenie na Konzultácie, Ošetrenia, Kontroly a Operácie</p>
+          <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Vizuálna časová os, zrušenie termínov, úpravy a faktúry</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* FILTER TYPU ZÁKROKU */}
-          <select
-            value={selectedTypeFilter}
-            onChange={(e) => setSelectedTypeFilter(e.target.value)}
-            className="bg-[#FBF9F6] border border-[#C5A059] text-[#2C2A29] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider focus:outline-none"
-          >
+          <select value={selectedTypeFilter} onChange={(e) => setSelectedTypeFilter(e.target.value)} className="bg-[#FBF9F6] border border-[#C5A059] text-[#2C2A29] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase">
             <option value="all">🎯 Všetky typy návštev</option>
             <option value="operacia">🔪 Iba Operácie</option>
             <option value="konzultacia">🩺 Iba Konzultácie</option>
@@ -748,20 +719,7 @@ export default function Calendar({
             <option value="kontrola">🔍 Iba Kontroly</option>
           </select>
 
-          {session && availableCalendars.length > 0 && (
-            <select
-              value={selectedCalendarId}
-              onChange={(e) => setSelectedCalendarId(e.target.value)}
-              className="bg-[#FBF9F6] border border-[#E8E2D9] text-[#2C2A29] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider focus:outline-none"
-            >
-              <option value="all">🗓️ Všetky kalendáre ({availableCalendars.length})</option>
-              {availableCalendars.map(cal => (
-                <option key={cal.id} value={cal.id}>{cal.summary}</option>
-              ))}
-            </select>
-          )}
-
-          <button onClick={() => setIsAddingEvent(true)} className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold shadow-sm transition-colors">
+          <button onClick={() => setIsAddingEvent(true)} className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold shadow-sm">
             + Nový termín
           </button>
         </div>
@@ -794,7 +752,7 @@ export default function Calendar({
         {view === 'month' && renderMonthView()}
       </div>
 
-      {/* MODAL DETAIL + MOŽNOSŤ UPRAVIŤ (MOŽNOSŤ 2) */}
+      {/* MODAL DETAIL UDALOSTI */}
       {selectedEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-[#E8E2D9] space-y-4">
@@ -812,18 +770,19 @@ export default function Calendar({
               <p><strong>Čas:</strong> <span className="ml-1 font-mono">{selectedEvent.startTime} - {selectedEvent.endTime}</span> ({selectedEvent.date})</p>
               <p><strong>Cena:</strong> <span className="ml-1 font-bold">{selectedEvent.totalPrice || 0} €</span></p>
               <p><strong>Záloha:</strong> <span className="ml-1 font-bold text-[#C5A059]">{selectedEvent.depositAmount || 0} €</span></p>
-              <p><strong>Stav zálohy:</strong> <span className="ml-1 font-bold">{selectedEvent.isDepositPaid ? '🟢 Hradená' : '🔴 Nehradená'}</span></p>
+              {selectedEvent.isCancelled && <p className="text-rose-700 font-bold">❌ ZRUŠENÉ: {selectedEvent.cancelReason}</p>}
             </div>
 
             <div className="flex justify-between items-center pt-2 gap-2">
               <button 
                 onClick={() => {
                   setEditingEventData(selectedEvent);
-                  setIsAddingEditModal(true);
+                  setIsEditingEvent(true);
+                  setSelectedEvent(null);
                 }}
                 className="bg-[#C5A059] hover:bg-[#b08d4b] text-white px-3 py-2 rounded-xl text-xs font-bold uppercase shadow-sm"
               >
-                ✏️ Upraviť udalosť / typ
+                ✏️ Upraviť udalosť
               </button>
 
               <button 
@@ -840,93 +799,38 @@ export default function Calendar({
         </div>
       )}
 
-      {/* MODAL RUČNEJ ÚPRAVY UDALOSTI (MOŽNOSŤ 2) */}
+      {/* MODAL RUČNEJ ÚPRAVY UDALOSTI */}
       {isEditingEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-xl border border-[#E8E2D9]">
             <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-3 mb-4">
-              Upraviť udalosť & Typ návštevy
+              Upraviť udalosť
             </h3>
 
             <form onSubmit={handleSaveEditedEvent} className="space-y-3 text-xs">
               <div>
-                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Typ Návštevy / Zákroku</label>
+                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Typ Návštevy</label>
                 <div className="grid grid-cols-4 gap-1.5">
-                  <button 
-                    type="button" 
-                    onClick={() => handleTypeChangeInForm('konzultacia', true)}
-                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'konzultacia' ? 'bg-amber-100 border-amber-500 text-amber-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
-                  >
-                    🩺 Konzultácia
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => handleTypeChangeInForm('osetrenie', true)}
-                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'osetrenie' ? 'bg-emerald-100 border-emerald-500 text-emerald-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
-                  >
-                    💉 Ošetrenie
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => handleTypeChangeInForm('kontrola', true)}
-                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'kontrola' ? 'bg-blue-100 border-blue-500 text-blue-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
-                  >
-                    🔍 Kontrola
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => handleTypeChangeInForm('operacia', true)}
-                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'operacia' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
-                  >
-                    🔪 Operácia
-                  </button>
+                  <button type="button" onClick={() => handleTypeChangeInForm('konzultacia', true)} className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'konzultacia' ? 'bg-amber-100 border-amber-500 text-amber-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>🩺 Konzultácia</button>
+                  <button type="button" onClick={() => handleTypeChangeInForm('osetrenie', true)} className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'osetrenie' ? 'bg-emerald-100 border-emerald-500 text-emerald-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>💉 Ošetrenie</button>
+                  <button type="button" onClick={() => handleTypeChangeInForm('kontrola', true)} className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'kontrola' ? 'bg-blue-100 border-blue-500 text-blue-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>🔍 Kontrola</button>
+                  <button type="button" onClick={() => handleTypeChangeInForm('operacia', true)} className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${editingEventData.type === 'operacia' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>🔪 Operácia</button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Názov Zákroku</label>
-                <input 
-                  type="text" 
-                  value={editingEventData.title || ''} 
-                  onChange={e => setEditingEventData({...editingEventData, title: e.target.value})} 
-                  className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
-                />
+                <input type="text" value={editingEventData.title || ''} onChange={e => setEditingEventData({...editingEventData, title: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" />
               </div>
 
               <div className="grid grid-cols-3 gap-3 bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
-                <div>
-                  <label className="block text-[9px] uppercase text-[#8C857B] font-bold">Cena (€)</label>
-                  <input 
-                    type="number" 
-                    value={editingEventData.totalPrice || 0} 
-                    onChange={e => setEditingEventData({...editingEventData, totalPrice: Number(e.target.value)})} 
-                    className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase text-[#8C857B] font-bold">Záloha (€)</label>
-                  <input 
-                    type="number" 
-                    value={editingEventData.depositAmount || 0} 
-                    onChange={e => setEditingEventData({...editingEventData, depositAmount: Number(e.target.value)})} 
-                    className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold text-[#C5A059]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase text-[#8C857B] font-bold">Stav Zálohy</label>
-                  <select 
-                    value={editingEventData.isDepositPaid ? 'paid' : 'unpaid'} 
-                    onChange={e => setEditingEventData({...editingEventData, isDepositPaid: e.target.value === 'paid'})} 
-                    className="w-full border p-1.5 rounded-lg bg-white font-bold"
-                  >
-                    <option value="unpaid">🔴 Neúhradené</option>
-                    <option value="paid">🟢 Úhradené</option>
-                  </select>
-                </div>
+                <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Cena (€)</label><input type="number" value={editingEventData.totalPrice || 0} onChange={e => setEditingEventData({...editingEventData, totalPrice: Number(e.target.value)})} className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold" /></div>
+                <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Záloha (€)</label><input type="number" value={editingEventData.depositAmount || 0} onChange={e => setEditingEventData({...editingEventData, depositAmount: Number(e.target.value)})} className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold text-[#C5A059]" /></div>
+                <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Stav Zálohy</label><select value={editingEventData.isDepositPaid ? 'paid' : 'unpaid'} onChange={e => setEditingEventData({...editingEventData, isDepositPaid: e.target.value === 'paid'})} className="w-full border p-1.5 rounded-lg bg-white font-bold"><option value="unpaid">🔴 Neúhradené</option><option value="paid">🟢 Úhradené</option></select></div>
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9]">
-                <button type="button" onClick={() => setIsAddingEditModal(false)} className="px-4 py-2 font-bold text-[#8C857B]">ZRUŠIŤ</button>
+                <button type="button" onClick={() => setIsEditingEvent(false)} className="px-4 py-2 font-bold text-[#8C857B]">ZRUŠIŤ</button>
                 <button type="submit" className="px-5 py-2 bg-[#2C2A29] text-white font-bold rounded-xl uppercase">ULOŽIŤ ZMENY</button>
               </div>
             </form>
@@ -934,46 +838,70 @@ export default function Calendar({
         </div>
       )}
 
-      {/* MODAL PRIDANIA UDALOSTI A TYPU */}
+      {/* MODAL PRE ZRUŠENIE TERMÍNU S DÔVODOM */}
+      {cancellingEvent && (
+        <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-[#E8E2D9] space-y-4">
+            <h3 className="font-brand text-lg font-bold text-rose-700 uppercase border-b border-[#E8E2D9] pb-2">
+              ❌ Zrušenie Termínu
+            </h3>
+            <p className="text-xs text-[#8C857B]">
+              Udalosť: <strong>{cancellingEvent.title}</strong> ({cancellingEvent.patientName})
+            </p>
+
+            <form onSubmit={handleConfirmCancelEvent} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Vyberte dôvod zrušenia *</label>
+                <select 
+                  value={cancelReasonInput} 
+                  onChange={e => setCancelReasonInput(e.target.value)} 
+                  className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6] font-bold"
+                >
+                  <option value="Choroba pacienta">Choroba pacienta</option>
+                  <option value="Zrušené zo strany pacienta">Zrušené zo strany pacienta</option>
+                  <option value="Presun na iný termín">Presun na iný termín</option>
+                  <option value="Choroba lekára / zmena na klinike">Choroba lekára / zmena na klinike</option>
+                  <option value="Iné (vlastný dôvod)">Iné (vlastný dôvod)</option>
+                </select>
+              </div>
+
+              {cancelReasonInput === 'Iné (vlastný dôvod)' && (
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Uveďte vlastný dôvod *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Dôvod zrušenia..."
+                    value={customCancelReason} 
+                    onChange={e => setCustomCancelReason(e.target.value)} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#E8E2D9]">
+                <button type="button" onClick={() => setCancellingEvent(null)} className="px-4 py-2 font-bold text-[#8C857B]">ZRUŠIŤ</button>
+                <button type="submit" className="px-5 py-2 bg-rose-700 text-white font-bold rounded-xl uppercase">POTVRDIŤ ZRUŠENIE</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PRIDANIA UDALOSTI */}
       {isAddingEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-xl border border-[#E8E2D9]">
             <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-3 mb-4">Pridať novú udalosť</h3>
             
             <form onSubmit={handleCreateSubmit} className="space-y-3 text-xs">
-              
-              {/* VÝBER TYPU NÁVŠTEVY */}
               <div>
-                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Typ Návštevy / Zákroku *</label>
+                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Typ Návštevy *</label>
                 <div className="grid grid-cols-4 gap-1.5">
-                  <button 
-                    type="button" 
-                    onClick={() => handleTypeChangeInForm('konzultacia')}
-                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'konzultacia' ? 'bg-amber-100 border-amber-500 text-amber-900 font-bold' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
-                  >
-                    🩺 Konzultácia
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => handleTypeChangeInForm('osetrenie')}
-                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'osetrenie' ? 'bg-emerald-100 border-emerald-500 text-emerald-900 font-bold' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
-                  >
-                    💉 Ošetrenie
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => handleTypeChangeInForm('kontrola')}
-                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'kontrola' ? 'bg-blue-100 border-blue-500 text-blue-900 font-bold' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
-                  >
-                    🔍 Kontrola
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => handleTypeChangeInForm('operacia')}
-                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'operacia' ? 'bg-[#2C2A29] text-white border-[#2C2A29] font-bold' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
-                  >
-                    🔪 Operácia
-                  </button>
+                  <button type="button" onClick={() => handleTypeChangeInForm('konzultacia')} className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'konzultacia' ? 'bg-amber-100 border-amber-500 text-amber-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>🩺 Konzultácia</button>
+                  <button type="button" onClick={() => handleTypeChangeInForm('osetrenie')} className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'osetrenie' ? 'bg-emerald-100 border-emerald-500 text-emerald-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>💉 Ošetrenie</button>
+                  <button type="button" onClick={() => handleTypeChangeInForm('kontrola')} className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'kontrola' ? 'bg-blue-100 border-blue-500 text-blue-900' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>🔍 Kontrola</button>
+                  <button type="button" onClick={() => handleTypeChangeInForm('operacia')} className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'operacia' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>🔪 Operácia</button>
                 </div>
               </div>
 
@@ -982,9 +910,8 @@ export default function Calendar({
                 <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">E-mail</label><input type="email" value={newEvent.patientEmail} onChange={e => setNewEvent({...newEvent, patientEmail: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
               </div>
 
-              <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Názov Zákroku / Návštevy *</label><input type="text" required placeholder="napr. Augmentácia, Konzultácia prsníkov..." value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
+              <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Názov Zákroku *</label><input type="text" required placeholder="napr. Augmentácia, Konzultácia prsníkov..." value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
 
-              {/* FINANČNÉ POLOŽKY */}
               <div className="grid grid-cols-3 gap-3 bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
                 <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Cena (€)</label><input type="number" value={newEvent.totalPrice} onChange={e => setNewEvent({...newEvent, totalPrice: Number(e.target.value)})} className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold" /></div>
                 <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Záloha (€)</label><input type="number" value={newEvent.depositAmount} onChange={e => setNewEvent({...newEvent, depositAmount: Number(e.target.value)})} className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold text-[#C5A059]" /></div>
