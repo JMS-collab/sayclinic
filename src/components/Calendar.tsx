@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
 export type EventType = 'operacia' | 'konzultacia' | 'osetrenie' | 'kontrola';
@@ -74,7 +74,7 @@ export default function Calendar({
   const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [editingEventData, setEditingEventData] = useState<Partial<CalendarEvent>>({});
 
-  // Zrušenie termínu
+  // Zrušenie termínu modal
   const [cancellingEvent, setCancellingEvent] = useState<CalendarEvent | null>(null);
   const [cancelReasonInput, setCancelReasonInput] = useState('Choroba pacienta');
   const [customCancelReason, setCustomCancelReason] = useState('');
@@ -150,7 +150,7 @@ export default function Calendar({
           setCalendarEvents(formatted);
         }
       } catch (e) {
-        console.error('Chyba načítania:', e);
+        console.error('Chyba pri čítaní kešovaných udalostí:', e);
       }
     }
 
@@ -159,7 +159,7 @@ export default function Calendar({
         const parsedCal = JSON.parse(cachedCalendars);
         if (Array.isArray(parsedCal) && parsedCal.length > 0) setAvailableCalendars(parsedCal);
       } catch (e) {
-        console.error('Chyba načítania kalendárov:', e);
+        console.error('Chyba pri čítaní kešovaných kalendárov:', e);
       }
     }
 
@@ -194,7 +194,7 @@ export default function Calendar({
             localStorage.setItem('say_clinic_calendars', JSON.stringify(fetchedCalendars));
           }
         })
-        .catch(err => console.error("Chyba synchronizácie:", err))
+        .catch(err => console.error("Chyba pri tichej synchronizácii Google Kalendára:", err))
         .finally(() => setIsSyncing(false));
     }
   }, [session]);
