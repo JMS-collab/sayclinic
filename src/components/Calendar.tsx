@@ -71,7 +71,6 @@ export default function Calendar({
   
   const [customPhones, setCustomPhones] = useState<Record<string, string>>({});
   const [customEmails, setCustomEmails] = useState<Record<string, string>>({});
-  const [reminderStatuses, setReminderStatuses] = useState<Record<string, 'pending' | 'sent' | 'confirmed'>>({});
 
   const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [newEvent, setNewEvent] = useState<Partial<CalendarEvent>>({
@@ -90,7 +89,7 @@ export default function Calendar({
     isDepositPaid: false
   });
 
-  // 1. Načítanie z cache + tichá synchronizácia s Google Calendar
+  // Načítanie z cache (0 ms) + tichá synchronizácia s Google Calendar
   useEffect(() => {
     const cachedEvents = localStorage.getItem('say_clinic_calendar_events');
     const cachedCalendars = localStorage.getItem('say_clinic_calendars');
@@ -142,7 +141,7 @@ export default function Calendar({
             localStorage.setItem('say_clinic_calendars', JSON.stringify(fetchedCalendars));
           }
         })
-        .catch(err => console.error("Chyba pri tichej synchronizácii Google Kalendára:", err))
+        .catch(err => console.error("Chyba synchronizácie Google Kalendára:", err))
         .finally(() => setIsSyncing(false));
     }
   }, [session]);
@@ -205,7 +204,6 @@ export default function Calendar({
     const msg = `Dobrý deň ${evt.patientName || ''}, pripomíname Vám Váš termín zákroku (${evt.title}) na SAY CLINIC dňa ${formattedDate} o ${evt.startTime}. Adresa: Lazovná 43, Banská Bystrica. Prosíme o potvrdenie odpoveďou na túto správu.`;
 
     window.open(`https://wa.me/${phoneWithPrefix}?text=${encodeURIComponent(msg)}`, '_blank');
-    setReminderStatuses(prev => ({ ...prev, [evt.id]: 'sent' }));
   };
 
   // SMS
@@ -219,7 +217,6 @@ export default function Calendar({
     const msg = `Dobrý deň ${evt.patientName || ''}, pripomíname Vám Váš termín zákroku (${evt.title}) na SAY CLINIC dňa ${formattedDate} o ${evt.startTime}. Adresa: Lazovná 43, Banská Bystrica. Prosíme o potvrdenie.`;
 
     window.open(`sms:${phone}?body=${encodeURIComponent(msg)}`, '_blank');
-    setReminderStatuses(prev => ({ ...prev, [evt.id]: 'sent' }));
   };
 
   // E-mailový panel prepínač
@@ -230,8 +227,8 @@ export default function Calendar({
       setOpenEmailEventId(evt.id);
       setEmailSubject(`SAY CLINIC: Zálohová faktúra a pokyny k zákroku - ${evt.title}`);
       
-      const price = evt.totalPrice || 0;
-      const deposit = evt.depositAmount || 0;
+      const price = evt.totalPrice !== undefined ? evt.totalPrice : 3500;
+      const deposit = evt.depositAmount !== undefined ? evt.depositAmount : 500;
       const formattedDate = new Date(evt.date).toLocaleDateString('sk-SK');
       
       setEmailBody(
@@ -309,11 +306,8 @@ export default function Calendar({
   };
 
   const handleGoogleConnect = () => {
-    if (session) {
-      signOut();
-    } else {
-      signIn('google');
-    }
+    if (session) signOut();
+    else signIn('google');
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -334,8 +328,8 @@ export default function Calendar({
       type: (newEvent.type as any) || 'operacia',
       calendarId: newEvent.calendarId || 'primary',
       notes: newEvent.notes,
-      totalPrice: Number(newEvent.totalPrice) || 0,
-      depositAmount: Number(newEvent.depositAmount) || 0,
+      totalPrice: Number(newEvent.totalPrice) || 3500,
+      depositAmount: Number(newEvent.depositAmount) || 500,
       isDepositPaid: newEvent.isDepositPaid || false
     };
 
@@ -362,44 +356,13 @@ export default function Calendar({
 
   const handleOpenFolderForEvent = (event: CalendarEvent) => {
     if (!onOpenPatientFolder) return;
-
     if (event.patientId) {
       onOpenPatientFolder(event.patientId);
       return;
     }
-
-    const eventTitleLower = (event.title || '').toLowerCase().trim();
-    const eventPatientLower = (event.patientName || '').toLowerCase().trim();
-
-    let matchedPatient = patients.find(p => {
-      const patientNameLower = p.name.toLowerCase().trim();
-      if (!patientNameLower) return false;
-
-      const matchInTitle = eventTitleLower.includes(patientNameLower);
-      const matchInPatientName = eventPatientLower.includes(patientNameLower);
-      const reverseMatchInTitle = patientNameLower.includes(eventTitleLower);
-      const reverseMatchInPatient = patientNameLower.includes(eventPatientLower);
-
-      return matchInTitle || matchInPatientName || reverseMatchInTitle || reverseMatchInPatient;
-    });
-
-    if (!matchedPatient) {
-      const ignoreWords = ['operacia', 'konzultacia', 'kontrolne', 'vysetrenie', 'augmentacia', 'plastika', 'mraz', 'mudr'];
-      const words = `${event.title} ${event.patientName}`
-        .split(/[\s\-–—,]+/)
-        .map(w => w.toLowerCase().trim())
-        .filter(w => w.length > 3 && !ignoreWords.includes(w));
-
-      matchedPatient = patients.find(p => 
-        words.some(word => p.name.toLowerCase().includes(word))
-      );
-    }
-
-    if (matchedPatient) {
-      onOpenPatientFolder(matchedPatient.id);
-    } else {
-      alert(`Pacient pre udalosť "${event.title}" nebol automaticky nájdený v kartotéke.\nSkontrolujte, či názov zložky na Google Disku obsahuje meno klienta.`);
-    }
+    const matched = patients.find(p => p.name.toLowerCase().includes((event.patientName || '').toLowerCase()));
+    if (matched) onOpenPatientFolder(matched.id);
+    else alert('Pacient nebol nájdený v kartotéke.');
   };
 
   // --- POHĽAD: DEŇ ---
@@ -417,8 +380,9 @@ export default function Calendar({
           dayEvents.map(evt => {
             const currentPhone = getEventPhone(evt);
             const currentEmail = getEventEmail(evt);
-            const price = evt.totalPrice || 0;
-            const deposit = evt.depositAmount || 0;
+            
+            const price = evt.totalPrice !== undefined ? evt.totalPrice : 3500;
+            const deposit = evt.depositAmount !== undefined ? evt.depositAmount : 500;
             const isPaid = evt.isDepositPaid || false;
             const remaining = Math.max(0, price - (isPaid ? deposit : 0));
 
@@ -434,71 +398,80 @@ export default function Calendar({
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded text-white ${evt.type === 'operacia' ? 'bg-[#2C2A29]' : 'bg-[#C5A059]'}`}>
-                          {evt.type.replace('_', ' ')}
+                        <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded text-white bg-[#2C2A29]">
+                          {evt.type ? evt.type.replace('_', ' ') : 'ZÁKROK'}
                         </span>
                         
-                        {/* INDIKÁTOR ÚHRADY ZÁLOHOVEJ FAKTUROVANIA */}
+                        {/* INDIKÁTOR ZÁLOHY */}
                         <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded border ${
-                          isPaid 
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' 
-                            : 'bg-rose-50 text-rose-800 border-rose-300 font-bold'
+                          isPaid ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' : 'bg-rose-50 text-rose-800 border-rose-300 font-bold'
                         }`}>
                           {isPaid ? '🟢 Záloha ÚHRADENÁ' : '🔴 Záloha NEÚHRADENÁ'}
                         </span>
                       </div>
 
-                      <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059]">{evt.title}</h4>
+                      <h4 className="font-bold text-sm text-[#2C2A29]">{evt.title}</h4>
                       <p className="text-xs text-[#8C857B]">
-                        Pacient: <strong className="text-[#2C2A29]">{evt.patientName}</strong> | Lekár: {evt.doctorName}
+                        Pacient: <strong className="text-[#2C2A29]">{evt.patientName || 'Nezadaný'}</strong> | Lekár: {evt.doctorName || 'MUDr. Ján Mráz'}
                       </p>
 
                       {/* ROZPIS CENY, ZÁLOHY A DOPLATKU */}
-                      <div className="flex items-center gap-3 mt-1.5 font-mono text-[11px]">
+                      <div className="flex items-center gap-3 mt-1.5 font-mono text-[11px] bg-[#FBF9F6] p-1.5 rounded-lg border border-[#E8E2D9] w-fit">
                         <span>Cena: <strong className="text-[#2C2A29]">{price} €</strong></span>
-                        <span>Záloha: <strong className="text-[#C5A059]">{deposit} €</strong></span>
-                        <span>Doplatok: <strong className="text-rose-600 font-bold">{remaining} €</strong></span>
+                        <span className="border-l border-[#E8E2D9] pl-2">Záloha: <strong className="text-[#C5A059]">{deposit} €</strong></span>
+                        <span className="border-l border-[#E8E2D9] pl-2">Doplatok: <strong className="text-rose-600 font-bold">{remaining} €</strong></span>
                       </div>
                     </div>
                   </div>
 
-                  {/* AKČNÝ PANEL: TELEFÓN, WHATSAPP, SMS, E-MAIL, PREPNUTIE ÚHRADY */}
+                  {/* AKČNÉ TLAČIDLÁ: VSTUP PRE TELEFÓN, EMAIL, WA, SMS, EMAIL, ÚHRADA */}
                   <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-[#E8E2D9]">
-                    <input 
-                      type="text"
-                      placeholder="+421 905 123 456"
-                      value={currentPhone}
-                      onChange={(e) => handlePhoneChange(evt.id, e.target.value)}
-                      className="border border-[#E8E2D9] p-1.5 rounded-lg text-xs font-mono w-28 bg-[#FBF9F6] outline-none focus:border-[#C5A059]"
-                    />
-                    <button 
-                      onClick={() => sendWhatsApp(evt)} 
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors shadow-sm"
-                    >
-                      💬 WA
-                    </button>
-                    <button 
-                      onClick={() => sendSMS(evt)} 
-                      className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors shadow-sm"
-                    >
-                      📲 SMS
-                    </button>
-                    
-                    {/* TLAČIDLO PRE OTVORENIE E-MAIL MODULU */}
-                    <button 
-                      onClick={() => handleToggleEmailPanel(evt)} 
-                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors shadow-sm border ${
-                        openEmailEventId === evt.id 
-                          ? 'bg-[#C5A059] text-white border-[#C5A059]' 
-                          : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
-                      }`}
-                    >
-                      ✉️ E-mail
-                    </button>
+                    <div className="flex flex-col gap-1">
+                      <input 
+                        type="text"
+                        placeholder="Tel: +421..."
+                        value={currentPhone}
+                        onChange={(e) => handlePhoneChange(evt.id, e.target.value)}
+                        className="border border-[#E8E2D9] p-1 rounded text-[11px] font-mono w-32 bg-[#FBF9F6]"
+                      />
+                      <input 
+                        type="email"
+                        placeholder="Email..."
+                        value={currentEmail}
+                        onChange={(e) => handleEmailChange(evt.id, e.target.value)}
+                        className="border border-[#E8E2D9] p-1 rounded text-[11px] font-mono w-32 bg-[#FBF9F6]"
+                      />
+                    </div>
+
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={() => sendWhatsApp(evt)} 
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase shadow-sm"
+                        title="Odoslať správu na WhatsApp"
+                      >
+                        💬 WA
+                      </button>
+                      <button 
+                        onClick={() => sendSMS(evt)} 
+                        className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase shadow-sm"
+                        title="Odoslať SMS"
+                      >
+                        📲 SMS
+                      </button>
+                      <button 
+                        onClick={() => handleToggleEmailPanel(evt)} 
+                        className={`px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase shadow-sm border ${
+                          openEmailEventId === evt.id ? 'bg-[#C5A059] text-white border-[#C5A059]' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
+                        }`}
+                        title="Otvoriť panel pre e-mail a faktúru"
+                      >
+                        ✉️ E-mail
+                      </button>
+                    </div>
 
                     <button 
                       onClick={() => updateDepositStatus(evt.id, !isPaid)} 
-                      className={`border px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors ${
+                      className={`border px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase transition-colors ${
                         isPaid ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
                       }`}
                     >
@@ -507,12 +480,12 @@ export default function Calendar({
                   </div>
                 </div>
 
-                {/* INTEGROVANÝ E-MAIL PANEL PRIAMO POD UDALOSŤOU */}
+                {/* E-MAILOVÝ PANEL */}
                 {openEmailEventId === evt.id && (
                   <div className="bg-[#FBF9F6] border border-[#C5A059] p-4 rounded-xl space-y-3 mt-3 text-xs">
                     <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
                       <span className="font-bold uppercase text-[#2C2A29] text-[10px]">
-                        ✉️ Odoslať e-mail a zálohovú faktúru pre: {evt.patientName}
+                        ✉️ Odoslať e-mail a zálohovú faktúru pre: {evt.patientName || 'Klienta'}
                       </span>
                       <button onClick={() => setOpenEmailEventId(null)} className="text-xs font-bold text-[#8C857B]">✕</button>
                     </div>
@@ -552,30 +525,15 @@ export default function Calendar({
                     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E8E2D9] pt-2">
                       <div className="flex flex-wrap gap-3">
                         <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-[#2C2A29]">
-                          <input 
-                            type="checkbox" 
-                            checked={attachAdvanceInvoice} 
-                            onChange={e => setAttachAdvanceInvoice(e.target.checked)} 
-                            className="accent-[#C5A059]"
-                          />
-                          📄 Priložiť Zálohovú faktúru PDF
+                          <input type="checkbox" checked={attachAdvanceInvoice} onChange={e => setAttachAdvanceInvoice(e.target.checked)} className="accent-[#C5A059]" />
+                          📄 Zálohovú faktúru PDF
                         </label>
                         <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-[#2C2A29]">
-                          <input 
-                            type="checkbox" 
-                            checked={attachInstructions} 
-                            onChange={e => setAttachInstructions(e.target.checked)} 
-                            className="accent-[#C5A059]"
-                          />
-                          📋 Priložiť Poučenie
+                          <input type="checkbox" checked={attachInstructions} onChange={e => setAttachInstructions(e.target.checked)} className="accent-[#C5A059]" />
+                          📋 Poučenie o výkone
                         </label>
                         <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-[#2C2A29]">
-                          <input 
-                            type="checkbox" 
-                            checked={attachPreOpInstructions} 
-                            onChange={e => setAttachPreOpInstructions(e.target.checked)} 
-                            className="accent-[#C5A059]"
-                          />
+                          <input type="checkbox" checked={attachPreOpInstructions} onChange={e => setAttachPreOpInstructions(e.target.checked)} className="accent-[#C5A059]" />
                           🩺 Predoperačné pokyny
                         </label>
                       </div>
@@ -583,7 +541,7 @@ export default function Calendar({
                       <button 
                         onClick={() => handleSendEmailSubmit(evt)}
                         disabled={isSendingEmail}
-                        className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-lg font-bold uppercase text-[10px] shadow-sm transition-colors"
+                        className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-lg font-bold uppercase text-[10px] shadow-sm"
                       >
                         {isSendingEmail ? 'Odosielam...' : '✉️ Odoslať teraz'}
                       </button>
@@ -603,26 +561,23 @@ export default function Calendar({
   const renderWeekView = () => {
     const weekDays = getDaysInWeek(currentDate);
     const dayNames = ['Pondelok', 'Utorok', 'Streda', 'Štvrtok', 'Piatok', 'Sobota', 'Nedeľa'];
-
     return (
       <div className="grid grid-cols-7 gap-2">
         {weekDays.map((date, idx) => {
           const formattedDate = date.toISOString().split('T')[0];
           const dayEvents = filteredEvents.filter(e => e.date === formattedDate);
           const isToday = formattedDate === new Date().toISOString().split('T')[0];
-
           return (
             <div key={formattedDate} className={`border rounded-xl flex flex-col h-[400px] overflow-y-auto ${isToday ? 'border-[#C5A059] bg-[#FBF9F6]' : 'border-[#E8E2D9] bg-white'}`}>
-              <div className={`text-center p-2 border-b text-[10px] uppercase font-bold sticky top-0 z-10 ${isToday ? 'bg-[#C5A059] text-white border-[#C5A059]' : 'bg-[#FBF9F6] text-[#8C857B] border-[#E8E2D9]'}`}>
+              <div className={`text-center p-2 border-b text-[10px] uppercase font-bold sticky top-0 z-10 ${isToday ? 'bg-[#C5A059] text-white' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>
                 <span className="block">{dayNames[idx]}</span>
                 <span className="text-sm">{date.getDate()}.{date.getMonth() + 1}.</span>
               </div>
               <div className="p-1.5 flex-1 space-y-1.5">
                 {dayEvents.map(evt => (
-                  <div key={evt.id} onClick={() => setSelectedEvent(evt)} className={`text-[9px] p-1.5 rounded cursor-pointer border ${evt.type === 'operacia' ? 'bg-gray-100 border-gray-300 text-gray-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                  <div key={evt.id} onClick={() => setSelectedEvent(evt)} className="text-[9px] p-1.5 rounded cursor-pointer border bg-gray-100 text-gray-800">
                     <strong className="block">{evt.startTime}</strong>
                     <span className="truncate block font-bold">{evt.patientName || evt.title}</span>
-                    <span className="text-[8px] block text-[#C5A059]">{evt.totalPrice ? `${evt.totalPrice} €` : ''}</span>
                   </div>
                 ))}
               </div>
@@ -637,34 +592,26 @@ export default function Calendar({
   const renderMonthView = () => {
     const monthDays = getDaysInMonth(currentDate);
     const dayNames = ['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'];
-
     return (
       <div className="border border-[#E8E2D9] rounded-xl overflow-hidden bg-white">
         <div className="grid grid-cols-7 bg-[#FBF9F6] border-b border-[#E8E2D9]">
-          {dayNames.map(day => (
-            <div key={day} className="text-center p-2 text-[10px] font-bold text-[#8C857B] uppercase">{day}</div>
-          ))}
+          {dayNames.map(day => (<div key={day} className="text-center p-2 text-[10px] font-bold text-[#8C857B] uppercase">{day}</div>))}
         </div>
         <div className="grid grid-cols-7 auto-rows-[100px]">
           {monthDays.map((date, idx) => {
             if (!date) return <div key={`empty-${idx}`} className="border-b border-r border-[#E8E2D9]/50 bg-gray-50" />;
-            
             const formattedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
             const dayEvents = filteredEvents.filter(e => e.date === formattedDate);
             const isToday = formattedDate === new Date().toISOString().split('T')[0];
-
             return (
               <div key={formattedDate} className={`border-b border-r border-[#E8E2D9]/50 p-1 flex flex-col ${isToday ? 'bg-amber-50/30' : ''}`}>
-                <span className={`text-[10px] font-bold self-end w-5 h-5 flex items-center justify-center rounded-full ${isToday ? 'bg-[#C5A059] text-white' : 'text-[#8C857B]'}`}>
-                  {date.getDate()}
-                </span>
+                <span className={`text-[10px] font-bold self-end w-5 h-5 flex items-center justify-center rounded-full ${isToday ? 'bg-[#C5A059] text-white' : 'text-[#8C857B]'}`}>{date.getDate()}</span>
                 <div className="flex-1 overflow-y-auto space-y-1 mt-1">
                   {dayEvents.slice(0, 3).map(evt => (
-                    <div key={evt.id} onClick={() => setSelectedEvent(evt)} className="text-[8px] bg-gray-100 p-1 rounded truncate cursor-pointer hover:bg-[#C5A059] hover:text-white transition-colors">
+                    <div key={evt.id} onClick={() => setSelectedEvent(evt)} className="text-[8px] bg-gray-100 p-1 rounded truncate cursor-pointer hover:bg-[#C5A059] hover:text-white">
                       {evt.startTime} {evt.title}
                     </div>
                   ))}
-                  {dayEvents.length > 3 && <div className="text-[8px] text-[#C5A059] font-bold text-center">+{dayEvents.length - 3} ďalšie</div>}
                 </div>
               </div>
             );
@@ -688,7 +635,7 @@ export default function Calendar({
               </span>
             )}
           </div>
-          <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Centrálny harmonogram SAY CLINIC s rozpisom platieb a zálohových faktúr</p>
+          <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">WhatsApp, SMS, E-maily, Ceny a Zálohové faktúry</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -700,9 +647,7 @@ export default function Calendar({
             >
               <option value="all">🗓️ Všetky kalendáre ({availableCalendars.length})</option>
               {availableCalendars.map(cal => (
-                <option key={cal.id} value={cal.id}>
-                  {cal.summary}
-                </option>
+                <option key={cal.id} value={cal.id}>{cal.summary}</option>
               ))}
             </select>
           )}
@@ -721,48 +666,39 @@ export default function Calendar({
           </button>
 
           <button onClick={() => setIsAddingEvent(true)} className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold shadow-sm transition-colors">
-            + Nová udalosť & Faktúra
+            + Nová udalosť & Záloha
           </button>
         </div>
       </div>
 
-      {/* NAVIGAČNÁ LIŠTA (DEŇ/TÝŽDEŇ/MESIAC) */}
+      {/* NAVIGÁCIA */}
       <div className="flex justify-between items-center bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate(-1)} className="px-2 py-1 bg-white border border-[#E8E2D9] rounded text-xs font-bold text-[#2C2A29] hover:border-[#C5A059]">←</button>
-          <button onClick={() => navigate(0)} className="px-3 py-1 bg-white border border-[#E8E2D9] rounded text-[10px] uppercase font-bold text-[#8C857B] hover:text-[#2C2A29]">Dnes</button>
-          <button onClick={() => navigate(1)} className="px-2 py-1 bg-white border border-[#E8E2D9] rounded text-xs font-bold text-[#2C2A29] hover:border-[#C5A059]">→</button>
+          <button onClick={() => navigate(-1)} className="px-2 py-1 bg-white border border-[#E8E2D9] rounded text-xs font-bold text-[#2C2A29]">←</button>
+          <button onClick={() => navigate(0)} className="px-3 py-1 bg-white border border-[#E8E2D9] rounded text-[10px] uppercase font-bold text-[#8C857B]">Dnes</button>
+          <button onClick={() => navigate(1)} className="px-2 py-1 bg-white border border-[#E8E2D9] rounded text-xs font-bold text-[#2C2A29]">→</button>
         </div>
         
-        <div className="text-center px-4">
-          <span className="text-sm font-bold text-[#2C2A29] uppercase">
-            {view === 'month' 
-              ? currentDate.toLocaleDateString('sk-SK', { month: 'long', year: 'numeric' })
-              : currentDate.toLocaleDateString('sk-SK', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
-          </span>
+        <div className="text-center px-4 font-bold text-[#2C2A29] text-sm uppercase">
+          {currentDate.toLocaleDateString('sk-SK', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
         </div>
 
         <div className="flex gap-1 bg-white border border-[#E8E2D9] p-1 rounded-lg">
-          {(['day', 'week', 'month'] as ViewMode[]).map(mode => (
-            <button 
-              key={mode} 
-              onClick={() => setView(mode)}
-              className={`px-3 py-1 text-[10px] font-bold uppercase rounded ${view === mode ? 'bg-[#2C2A29] text-white' : 'text-[#8C857B] hover:bg-gray-50'}`}
-            >
-              {mode === 'day' ? 'Deň' : mode === 'week' ? 'Týždeň' : 'Mesiac'}
+          {(['day', 'week', 'month'] as ViewMode[]).map(m => (
+            <button key={m} onClick={() => setView(m)} className={`px-3 py-1 text-[10px] font-bold uppercase rounded ${view === m ? 'bg-[#2C2A29] text-white' : 'text-[#8C857B]'}`}>
+              {m === 'day' ? 'Deň' : m === 'week' ? 'Týždeň' : 'Mesiac'}
             </button>
           ))}
         </div>
       </div>
 
-      {/* RENDER VYBRANÉHO POHĽADU */}
       <div className="min-h-[400px]">
         {view === 'day' && renderDayView()}
         {view === 'week' && renderWeekView()}
         {view === 'month' && renderMonthView()}
       </div>
 
-      {/* DETAIL UDALOSTI MODAL */}
+      {/* MODAL DETAIL */}
       {selectedEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-[#E8E2D9] space-y-4">
@@ -775,13 +711,11 @@ export default function Calendar({
             </div>
 
             <div className="space-y-2 text-xs bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
-              {selectedEvent.calendarName && <p><strong>Kalendár:</strong> <span className="ml-1 font-bold text-[#C5A059]">{selectedEvent.calendarName}</span></p>}
               <p><strong>Pacient:</strong> <span className="font-bold text-sm ml-1">{selectedEvent.patientName}</span></p>
               <p><strong>Čas:</strong> <span className="ml-1 font-mono">{selectedEvent.startTime} - {selectedEvent.endTime}</span> ({selectedEvent.date})</p>
-              <p><strong>Celková cena:</strong> <span className="ml-1 font-mono font-bold text-[#2C2A29]">{selectedEvent.totalPrice || 0} €</span></p>
-              <p><strong>Požadovaná záloha:</strong> <span className="ml-1 font-mono font-bold text-[#C5A059]">{selectedEvent.depositAmount || 0} €</span></p>
-              <p><strong>Stav zálohy:</strong> <span className="ml-1 font-bold">{selectedEvent.isDepositPaid ? '🟢 Hradená' : '🔴 Nehradená'}</span></p>
-              {selectedEvent.notes && <p className="pt-2 border-t border-[#E8E2D9] text-[#8C857B]"><strong>Poznámky:</strong> {selectedEvent.notes}</p>}
+              <p><strong>Cena zákroku:</strong> <span className="ml-1 font-bold">{selectedEvent.totalPrice || 3500} €</span></p>
+              <p><strong>Záloha:</strong> <span className="ml-1 font-bold text-[#C5A059]">{selectedEvent.depositAmount || 500} €</span></p>
+              <p><strong>Stav zálohy:</strong> <span className="ml-1 font-bold">{selectedEvent.isDepositPaid ? '🟢 Úhradené' : '🔴 Neúhradené'}</span></p>
             </div>
 
             <div className="flex justify-between items-center pt-2">
@@ -790,7 +724,7 @@ export default function Calendar({
                   handleOpenFolderForEvent(selectedEvent);
                   setSelectedEvent(null);
                 }}
-                className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
+                className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-sm"
               >
                 📁 Otvoriť kartu pacienta
               </button>
@@ -799,14 +733,11 @@ export default function Calendar({
         </div>
       )}
 
-      {/* FORMULÁR PRE PRIDANIE UDALOSTI */}
+      {/* MODAL PRIDANIA UDALOSTI */}
       {isAddingEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-xl border border-[#E8E2D9]">
-            <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-3 mb-4">
-              Pridať udalosť & Zálohovú Faktúru
-            </h3>
-
+            <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-3 mb-4">Pridať udalosť & Zálohu</h3>
             <form onSubmit={handleCreateSubmit} className="space-y-3 text-xs">
               {availableCalendars.length > 0 && (
                 <div>
@@ -824,47 +755,23 @@ export default function Calendar({
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Meno pacienta *</label><input type="text" required value={newEvent.patientName} onChange={e => setNewEvent({...newEvent, patientName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
-                <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">E-mail pacienta</label><input type="email" placeholder="pacient@email.sk" value={newEvent.patientEmail} onChange={e => setNewEvent({...newEvent, patientEmail: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
+                <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Pacient *</label><input type="text" required value={newEvent.patientName} onChange={e => setNewEvent({...newEvent, patientName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
+                <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">E-mail</label><input type="email" value={newEvent.patientEmail} onChange={e => setNewEvent({...newEvent, patientEmail: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
               </div>
-
-              <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Názov zákroku *</label><input type="text" required value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
-
-              {/* FINANČNÉ POLOŽKY */}
+              <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Zákrok *</label><input type="text" required value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
               <div className="grid grid-cols-3 gap-3 bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
-                <div>
-                  <label className="block text-[9px] uppercase text-[#8C857B] font-bold">Celková Cena (€)</label>
-                  <input type="number" value={newEvent.totalPrice} onChange={e => setNewEvent({...newEvent, totalPrice: Number(e.target.value)})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white font-mono font-bold" />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase text-[#8C857B] font-bold">Záloha (€)</label>
-                  <input type="number" value={newEvent.depositAmount} onChange={e => setNewEvent({...newEvent, depositAmount: Number(e.target.value)})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white font-mono font-bold text-[#C5A059]" />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase text-[#8C857B] font-bold">Stav Zálohy</label>
-                  <select value={newEvent.isDepositPaid ? 'paid' : 'unpaid'} onChange={e => setNewEvent({...newEvent, isDepositPaid: e.target.value === 'paid'})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white font-bold">
-                    <option value="unpaid">🔴 Neúhradené</option>
-                    <option value="paid">🟢 Úhradené</option>
-                  </select>
-                </div>
+                <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Cena (€)</label><input type="number" value={newEvent.totalPrice} onChange={e => setNewEvent({...newEvent, totalPrice: Number(e.target.value)})} className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold" /></div>
+                <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Záloha (€)</label><input type="number" value={newEvent.depositAmount} onChange={e => setNewEvent({...newEvent, depositAmount: Number(e.target.value)})} className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold text-[#C5A059]" /></div>
+                <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Stav</label><select value={newEvent.isDepositPaid ? 'paid' : 'unpaid'} onChange={e => setNewEvent({...newEvent, isDepositPaid: e.target.value === 'paid'})} className="w-full border p-1.5 rounded-lg bg-white font-bold"><option value="unpaid">Neúhradené</option><option value="paid">Úhradené</option></select></div>
               </div>
-
               <div className="grid grid-cols-3 gap-3">
-                <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Dátum</label><input type="date" value={newEvent.date} onChange={e => setNewEvent({...newEvent, date: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
-                <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Začiatok</label><input type="time" value={newEvent.startTime} onChange={e => setNewEvent({...newEvent, startTime: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
-                <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Koniec</label><input type="time" value={newEvent.endTime} onChange={e => setNewEvent({...newEvent, endTime: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
+                <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Dátum</label><input type="date" value={newEvent.date} onChange={e => setNewEvent({...newEvent, date: e.target.value})} className="w-full border p-2 rounded-lg bg-[#FBF9F6]" /></div>
+                <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Začiatok</label><input type="time" value={newEvent.startTime} onChange={e => setNewEvent({...newEvent, startTime: e.target.value})} className="w-full border p-2 rounded-lg bg-[#FBF9F6]" /></div>
+                <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Koniec</label><input type="time" value={newEvent.endTime} onChange={e => setNewEvent({...newEvent, endTime: e.target.value})} className="w-full border p-2 rounded-lg bg-[#FBF9F6]" /></div>
               </div>
-
-              <div>
-                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Poznámky</label>
-                <textarea value={newEvent.notes} onChange={e => setNewEvent({...newEvent, notes: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" rows={2}></textarea>
-              </div>
-
               <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9]">
                 <button type="button" onClick={() => setIsAddingEvent(false)} className="px-4 py-2 font-bold text-[#8C857B]">ZRUŠIŤ</button>
-                <button type="submit" disabled={isSaving} className="px-5 py-2 bg-[#2C2A29] text-white font-bold rounded-xl uppercase">
-                  {isSaving ? 'Ukladám...' : 'ULOŽIŤ UDALOSŤ'}
-                </button>
+                <button type="submit" className="px-5 py-2 bg-[#2C2A29] text-white font-bold rounded-xl uppercase">Uložiť</button>
               </div>
             </form>
           </div>
