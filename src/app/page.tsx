@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient } from '../components/PatientDatabase';
 import LoginForm from '../components/LoginForm';
@@ -22,6 +23,8 @@ const INITIAL_SALES: SaleItem[] = [
 ];
 
 export default function Home() {
+  const { data: session, status } = useSession();
+
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'generator' | 'patients' | 'finance' | 'calendar' | 'inventory'>('home');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
@@ -272,11 +275,28 @@ export default function Home() {
                     <p className="text-[10px] text-[#8C857B] mt-1">Záznamy z CRM</p>
                   </div>
 
-                  <div className="bg-white border border-[#E8E2D9] p-4 rounded-xl shadow-sm">
-                    <p className="text-[10px] uppercase text-[#8C857B] font-bold">Stav Google API</p>
-                    <p className="text-2xl font-bold text-emerald-600 mt-1">🟢 Aktívne</p>
-                    <p className="text-[10px] text-[#8C857B] mt-1">Drive & Calendar Synced</p>
-                  </div>
+                  {/* INTERAKTÍVNA KARTA PRE GOOGLE PREPOJENIE */}
+                  <button
+                    onClick={() => (session ? signOut() : signIn('google'))}
+                    disabled={status === 'loading'}
+                    className="bg-white border border-[#E8E2D9] hover:border-[#C5A059] p-4 rounded-xl shadow-sm text-left transition-all w-full group cursor-pointer"
+                  >
+                    <div className="flex justify-between items-center">
+                      <p className="text-[10px] uppercase text-[#8C857B] font-bold">Stav Google API</p>
+                      <span className="text-[10px] text-[#C5A059] opacity-0 group-hover:opacity-100 transition-opacity font-bold uppercase">
+                        {session ? 'Odpojiť ➔' : 'Pripojiť ➔'}
+                      </span>
+                    </div>
+
+                    <p className={`text-2xl font-bold mt-1 flex items-center gap-2 ${session ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      <span>{session ? '🟢' : '🔴'}</span>
+                      <span>{status === 'loading' ? 'Pripájam...' : session ? 'Aktívne' : 'Nepripojené'}</span>
+                    </p>
+
+                    <p className="text-[10px] text-[#8C857B] mt-1 truncate">
+                      {session ? `Prihlásený: ${session.user?.email}` : 'Kliknite pre prepojenie s Google Diskom & Kalendárom'}
+                    </p>
+                  </button>
                 </div>
 
                 {/* OBSAH HOMESCREENU: 2 STĹPCE */}
@@ -316,7 +336,7 @@ export default function Home() {
                               </div>
                               <div>
                                 <span className="text-[8px] uppercase font-bold bg-[#C5A059] text-white px-2 py-0.5 rounded">
-                                  {evt.type.replace('_', ' ')}
+                                  {evt.type ? evt.type.replace('_', ' ') : 'ZÁKROK'}
                                 </span>
                                 <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors mt-1">
                                   {evt.title}
