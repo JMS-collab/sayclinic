@@ -9,114 +9,124 @@ export interface ServiceCategory {
   id: string;
   name: string;
   price: number;
+  category?: string;
 }
 
-// KOMPLETNÝ CENNÍK SAY CLINIC (94 POLOŽIEK)
-const SERVICES_DATABASE = {
+// ŠTRUKTÚROVANÝ CENNÍK SAY CLINIC ROZDELENÝ DO 5 PREHĽADNÝCH KATEGÓRIÍ
+export const SERVICES_DATABASE = {
+  // 1. Operácie
   operations: [
-    { id: 'op1', name: 'Zväčšenie prsníkov silikónovými implantátmi (augmentácia)', price: 4100 },
-    { id: 'op2', name: 'Zväčšenie prsníkov tukom', price: 3100 },
-    { id: 'op3', name: 'Zmenšenie prsníkov (redukcia)', price: 4100 },
-    { id: 'op4', name: 'Lifting prsníkov (mastopexia)', price: 4100 },
-    { id: 'op5', name: 'Lifting prsníkov s implantátmi (augmentačná mastopexia)', price: 5500 },
-    { id: 'op6', name: 'Odstránenie implantátov', price: 1500 },
-    { id: 'op7', name: 'Gynekomastia s liposukciou', price: 2000 },
-    { id: 'op8', name: 'Miniabdominoplastika', price: 3000 },
-    { id: 'op9', name: 'Abdominoplastika (redukcia kože brucha)', price: 4000 },
-    { id: 'op10', name: 'Labioplastika (redukcia malých pyskov)', price: 1000 },
-    { id: 'op11', name: 'Liposukcia brucha a bokov', price: 2500 },
-    { id: 'op12', name: '360° Liposukcia', price: 3500 },
-    { id: 'op13', name: 'Liposukcia paží', price: 1000 },
-    { id: 'op14', name: 'Liposukcia krku', price: 1000 },
-    { id: 'op15', name: 'Liposukcia bra lines', price: 1000 },
-    { id: 'op16', name: 'Liposukcia love handles', price: 1000 },
-    { id: 'op17', name: 'Liposukcia vnútorných stehien', price: 1000 },
-    { id: 'op18', name: 'Liposukcia vonkajších stehien', price: 1000 },
-    { id: 'op19', name: 'Liposukcia kolien', price: 1000 },
-    { id: 'op20', name: 'Liposukcia chrbta', price: 1000 },
-    { id: 'op21', name: 'Liposukcia - iné', price: 1000 },
-    { id: 'op22', name: 'Lifting paží (arm lift)', price: 4500 },
-    { id: 'op23', name: 'Lifting stehien (thigh lift)', price: 4500 },
-    { id: 'op24', name: 'Lifting zadku (buttock lift)', price: 4500 },
-    { id: 'op25', name: 'Blefaroplastika horných viečok', price: 1000 },
-    { id: 'op26', name: 'Blefaroplastika dolných viečok', price: 1100 },
-    { id: 'op27', name: 'Korekcia odstávajúcich ušníc', price: 1200 },
-    { id: 'op28', name: 'Septoplastika s turbinoplastikou', price: 2500 },
-    { id: 'op29', name: 'Úprava špičky nosa', price: 2500 },
-    { id: 'op30', name: 'Kompletná rhinoplastika', price: 3800 },
-    { id: 'op31', name: 'Deep plane facelift', price: 5500 },
-    { id: 'op32', name: 'SMAS / MACS facelift', price: 3900 },
-    { id: 'op33', name: 'Endoskopický lifting obočia a strednej časti tváre', price: 6000 },
-    { id: 'op34', name: 'Endoskopický lifting obočia', price: 2500 },
-    { id: 'op35', name: 'Lifting pier (lip lift)', price: 900 },
-    { id: 'op36', name: 'Necklift - lifting krku', price: 2500 },
-    { id: 'op37', name: 'Odstránenie tuku z líc (bukálna lipektómia)', price: 900 },
-    { id: 'op38', name: 'Tvárové implantáty', price: 3700 },
-    { id: 'op39', name: 'Lipofilling tváre', price: 1300 },
-    { id: 'op40', name: 'Syndróm karpálneho tunela', price: 300 },
-    { id: 'op41', name: 'Skákavý prst', price: 200 },
-    { id: 'op42', name: 'Dupuytrenova kontraktúra', price: 700 },
+    { id: 'op_karpal', name: 'Syndróm karpálneho tunela', price: 300 },
+    { id: 'op_skakavy_prst', name: 'Skákavý prst', price: 200 },
+    { id: 'op_dupuytren', name: 'Dupuytrenova kontraktúra', price: 700 },
+    { id: 'op_aug_impl', name: 'Zväčšenie prsníkov silikónovými implantátmi (augmentácia)', price: 4100 },
+    { id: 'op_aug_tuk', name: 'Zväčšenie prsníkov tukom', price: 3100 },
+    { id: 'op_redukcia_prsnikov', name: 'Zmenšenie prsníkov (redukcia)', price: 4100 },
+    { id: 'op_mastopexia', name: 'Lifting prsníkov (mastopexia)', price: 4100 },
+    { id: 'op_aug_mastopexia', name: 'Lifting prsníkov s implantátmi (augmentačná mastopexia)', price: 5500 },
+    { id: 'op_odstranenie_impl', name: 'Odstránenie implantátov', price: 1500 },
+    { id: 'op_gynekomastia', name: 'Gynekomastia s liposukciou', price: 2000 },
+    { id: 'op_miniabdo', name: 'Miniabdominoplastika', price: 3000 },
+    { id: 'op_abdominoplastika', name: 'Abdominoplastika (redukcia kože brucha)', price: 4000 },
+    { id: 'op_labioplastika', name: 'Labioplastika (redukcia malých pyskov)', price: 1000 },
+    { id: 'op_lipo_brucho_boky', name: 'Liposukcia brucha a bokov', price: 2500 },
+    { id: 'op_lipo_360', name: '360° Liposukcia', price: 3500 },
+    { id: 'op_lipo_paze', name: 'Liposukcia paží', price: 1000 },
+    { id: 'op_lipo_krk', name: 'Liposukcia krku', price: 1000 },
+    { id: 'op_lipo_bra_lines', name: 'Liposukcia bra lines', price: 1000 },
+    { id: 'op_lipo_love_handles', name: 'Liposukcia love handles', price: 1000 },
+    { id: 'op_lipo_vnutorne_stehna', name: 'Liposukcia vnútorných stehien', price: 1000 },
+    { id: 'op_lipo_vonkajsie_stehna', name: 'Liposukcia vonkajších stehien', price: 1000 },
+    { id: 'op_lipo_kolena', name: 'Liposukcia kolien', price: 1000 },
+    { id: 'op_lipo_chrbat', name: 'Liposukcia chrbta', price: 1000 },
+    { id: 'op_lipo_ine', name: 'Liposukcia - iné', price: 1000 },
+    { id: 'op_armlift', name: 'Lifting paží (arm lift)', price: 4500 },
+    { id: 'op_thighlift', name: 'Lifting stehien (thigh lift)', price: 4500 },
+    { id: 'op_buttlift', name: 'Lifting zadku (buttock lift)', price: 4500 },
+    { id: 'op_blepharo_horne', name: 'Blefaroplastika horných viečok', price: 1000 },
+    { id: 'op_blepharo_dolne', name: 'Blefaroplastika dolných viečok', price: 1100 },
+    { id: 'op_odstavajuce_usnice', name: 'Korekcia odstávajúcich ušníc', price: 1200 },
+    { id: 'op_septoplastika', name: 'Septoplastika s turbinoplastikou', price: 2500 },
+    { id: 'op_rhino_spicka', name: 'Úprava špičky nosa', price: 2500 },
+    { id: 'op_rhino_komplet', name: 'Kompletná rhinoplastika', price: 3800 },
+    { id: 'op_deep_plane_facelift', name: 'Deep plane facelift', price: 5500 },
+    { id: 'op_smas_facelift', name: 'SMAS / MACS facelift', price: 3900 },
+    { id: 'op_endo_brow_midface', name: 'Endoskopický lifting obočia a strednej časti tváre', price: 6000 },
+    { id: 'op_endo_brow', name: 'Endoskopický lifting obočia', price: 2500 },
+    { id: 'op_liplift', name: 'Lifting pier (lip lift)', price: 900 },
+    { id: 'op_necklift', name: 'Necklift - lifting krku', price: 2500 },
+    { id: 'op_bukalna_lipektomia', name: 'Odstránenie tuku z líc (bukálna lipektómia)', price: 900 },
+    { id: 'op_tvarove_implantaty', name: 'Tvárové implantáty', price: 3700 },
+    { id: 'op_lipofilling_tvar', name: 'Lipofilling tváre', price: 1300 },
   ],
+
+  // 2. Príplatky k operáciám
   operationExtras: [
-    { id: 'ex1', name: 'Implantáty B-lite', price: 1000 },
-    { id: 'ex2', name: 'Implantáty Joy', price: 700 },
-    { id: 'ex3', name: 'Implantáty Preserve', price: 1500 },
-    { id: 'ex4', name: 'Korekcia bradaviek', price: 600 },
-    { id: 'ex5', name: 'Abdominoplastika - liposukcia brucha a bokov', price: 600 },
-    { id: 'ex6', name: 'Abdominoplastika - korekcia diastázy', price: 300 },
-    { id: 'ex7', name: 'Prenos tuku - Lipotransfer do 200ml', price: 700 },
-    { id: 'ex8', name: 'Prenos tuku - Lipotransfer nad 200ml', price: 1500 },
-    { id: 'ex9', name: 'Blefaroplastika - záves obočia', price: 200 },
-    { id: 'ex10', name: 'Blefaroplastika - korekcia ptózy viečka - jednostranne', price: 200 },
-    { id: 'ex11', name: 'Blefaroplastika - záves viečka - kantopexia', price: 200 },
-    { id: 'ex12', name: 'Korekcia ušného lalôčika', price: 300 },
-    { id: 'ex13', name: 'Úprava špičky nosa - sekundárna operácia', price: 1300 },
-    { id: 'ex14', name: 'Úprava špičky nosa - sekundárna s chrupavkou rebra', price: 2000 },
-    { id: 'ex15', name: 'Kompletná rhinoplastika - sekundárna operácia', price: 1500 },
-    { id: 'ex16', name: 'Kompletná rhinoplastika - rekonštrukcia z chrupavky rebra', price: 2500 },
-    { id: 'ex17', name: 'Kompletná rhinoplastika - septoplastika/turbinoplastika', price: 500 },
-    { id: 'ex18', name: 'Facelift - lifting krku', price: 1000 },
-    { id: 'ex19', name: 'Facelift - transplantácia tuku', price: 800 },
-    { id: 'ex20', name: 'Facelift - liplift', price: 600 },
-    { id: 'ex21', name: 'Facelift - lifting obočia', price: 1000 },
-    { id: 'ex22', name: 'Facelift - blefaroplastika', price: 600 },
+    { id: 'ex_blite', name: 'B-lite', price: 1000 },
+    { id: 'ex_joy', name: 'Joy', price: 700 },
+    { id: 'ex_preserve', name: 'Preserve', price: 1500 },
+    { id: 'ex_korekcia_bradaviek', name: 'korekcia bradaviek', price: 600 },
+    { id: 'ex_abdo_lipo', name: 'Abdominoplastika - liposukcia brucha a bokov', price: 600 },
+    { id: 'ex_abdo_diastaza', name: 'Abdominoplastika - korekcia diastázy', price: 300 },
+    { id: 'ex_lipotransfer_200', name: 'Prenos tuku - Lipotransfer do 200ml', price: 700 },
+    { id: 'ex_lipotransfer_nad200', name: 'Prenos tuku - Lipotransfer nad 200ml', price: 1500 },
+    { id: 'ex_blepharo_obocie', name: 'Blefaroplastika - záves obočia', price: 200 },
+    { id: 'ex_blepharo_ptoza', name: 'Blefaroplastika - korekcia ptózy viečka - jednostranne', price: 200 },
+    { id: 'ex_blepharo_kantopexia', name: 'Blefaroplastika - záves viečka - kantopexia', price: 200 },
+    { id: 'ex_usny_lalocik', name: 'Korekcia ušného lalôčika', price: 300 },
+    { id: 'ex_rhino_spicka_sek', name: 'Úprava špičky nosa - sekundárna operácia', price: 1300 },
+    { id: 'ex_rhino_spicka_rebro', name: 'Úprava špičky nosa - sekundárna operácia s nutnosťou chrupavky rebra', price: 2000 },
+    { id: 'ex_rhino_komplet_sek', name: 'Kompletná rhinoplastika - sekundárna operácia', price: 1500 },
+    { id: 'ex_rhino_komplet_rebro', name: 'Kompletná rhinoplastika - sekundárna operácia - totálna rekonštrukcia z chrupavky rebra', price: 2500 },
+    { id: 'ex_rhino_komplet_septo', name: 'Kompletná rhinoplastika - septoplastika alebo turbinoplastika', price: 500 },
+    { id: 'ex_facelift_krk', name: 'Facelift - lifting krku', price: 1000 },
+    { id: 'ex_facelift_tuk', name: 'Facelift - transplantácia tuku', price: 800 },
+    { id: 'ex_facelift_liplift', name: 'Facelift - liplift', price: 600 },
+    { id: 'ex_facelift_obocie', name: 'Facelift - lifting obočia', price: 1000 },
+    { id: 'ex_facelift_blepharo', name: 'Facelift - blefaroplastika', price: 600 },
   ],
-  applications: [
-    { id: 'app1', name: 'Aplikácia kyseliny hyalurónovej - 0,5ml', price: 180 },
-    { id: 'app2', name: 'Aplikácia kyseliny hyalurónovej - 1ml', price: 290 },
-    { id: 'app3', name: 'Doplnenie už zakúpeného materiálu', price: 50 },
-    { id: 'app4', name: 'Botox - 1 oblasť', price: 120 },
-    { id: 'app5', name: 'Botox - Odstránenie potenia v podpaží', price: 400 },
-    { id: 'app6', name: 'Botox - Zúženie tváre (Masseter)', price: 300 },
-    { id: 'app7', name: 'Aplikácia hyaluronidázy 150UI', price: 80 },
-    { id: 'app8', name: 'Kortikosteroidy', price: 20 },
-    { id: 'app9', name: 'Skinbooster 1ml', price: 300 },
-    { id: 'app10', name: 'Sculptra', price: 450 },
+
+  // 3. Korektívne výkony
+  correctiveProcedures: [
+    { id: 'cor_ha_05', name: 'Aplikácia kyseliny hyalurónovej - 0,5ml', price: 180 },
+    { id: 'cor_ha_1', name: 'Aplikácia kyseliny hyalurónovej - 1ml', price: 290 },
+    { id: 'cor_doplnenie', name: 'Doplnenie už zakúpeného materiálu', price: 50 },
+    { id: 'cor_botox_1', name: 'Botox - 1 oblasť', price: 120 },
+    { id: 'cor_botox_potenie', name: 'Botox - Odstránenie potenia v podpaží', price: 400 },
+    { id: 'cor_botox_masseter', name: 'Botox - Zúženie tváre (Masseter)', price: 300 },
+    { id: 'cor_hyaluronidaza', name: 'Aplikácia hyaluronidázy 150UI', price: 80 },
+    { id: 'cor_kortikoidy', name: 'Kortikosteroidy', price: 20 },
+    { id: 'cor_peeling', name: 'Chemický peeling', price: 50 },
+    { id: 'cor_skinbooster', name: 'Skinbooster 1ml', price: 300 },
+    { id: 'cor_sculptra', name: 'Sculptra', price: 450 },
+    { id: 'cor_znamienko', name: 'Odstránenie znamienka', price: 90 },
+    { id: 'cor_podkoznoutvar', name: 'Odstránenie podkožného útvaru (lipóm, ganglion,...)', price: 130 },
+    { id: 'cor_utvar_lalok', name: 'Odstránenie útvaru s nutnosťou lalokovej plastiky alebo transplantátu', price: 400 },
   ],
-  cosmetics: [
-    { id: 'koz1', name: 'Chemický peeling', price: 50 },
-    { id: 'koz2', name: 'Odstránenie znamienka', price: 90 },
-    { id: 'koz3', name: 'Odstránenie podkožného útvaru (lipóm, ganglion)', price: 130 },
-    { id: 'koz4', name: 'Odstránenie útvaru s lalokovou plastikou/transplantátom', price: 400 },
-    { id: 'pr1', name: 'PI ideal', price: 60 },
-    { id: 'pr2', name: 'PI relax', price: 75 },
-    { id: 'pr3', name: 'PI filling', price: 70 },
-    { id: 'pr4', name: 'PU 03', price: 30 },
-    { id: 'pr5', name: 'VH special comfort', price: 75 },
-    { id: 'pr6', name: 'VH body variant', price: 75 },
-    { id: 'pr7', name: 'VD comfort', price: 115 },
-    { id: 'pr8', name: 'VF body/body comfort', price: 90 },
-    { id: 'pr9', name: 'MTmS comf', price: 80 },
-    { id: 'pr10', name: 'KPlus', price: 50 },
-    { id: 'pr11', name: 'FM', price: 50 },
-    { id: 'pr12', name: 'PS ideal', price: 75 },
-    { id: 'pr13', name: 'lipoelastic gel', price: 35 },
-  ],
+
+  // 4. Služby
   services: [
-    { id: 'sl1', name: 'Konzultácia / Vstupné vyšetrenie', price: 50 },
-    { id: 'sl2', name: 'Predoperačné vyšetrenia', price: 150 },
-    { id: 'sl3', name: 'Histologické vyšetrenie', price: 30 },
-    { id: 'sl4', name: 'Nadštandardná samostatná lôžková izba', price: 30 },
+    { id: 'srv_konzultacia', name: 'Konzultácia', price: 50 },
+    { id: 'srv_predoperacne', name: 'Predoperačné vyšetrenia', price: 150 },
+    { id: 'srv_histologia', name: 'Histologické vyšetrenie', price: 30 },
+    { id: 'srv_nadstandard_izba', name: 'Nadštandardná samostatná lôžková izba', price: 30 },
+  ],
+
+  // 5. Pooperačná starostlivosť & Kompresívne prádlo
+  aftercareAndGarments: [
+    { id: 'gar_pi_ideal', name: 'PI ideal', price: 60 },
+    { id: 'gar_pi_relax', name: 'PI relax', price: 75 },
+    { id: 'gar_pi_filling', name: 'PI filling', price: 70 },
+    { id: 'gar_pu_03', name: 'PU 03', price: 30 },
+    { id: 'gar_vh_special', name: 'VH special comfort', price: 75 },
+    { id: 'gar_vh_body', name: 'VH body variant', price: 75 },
+    { id: 'gar_vd_comfort', name: 'VD comfort', price: 115 },
+    { id: 'gar_vf_body', name: 'VF body/body comfort', price: 90 },
+    { id: 'gar_mtms', name: 'MTmS comf', price: 80 },
+    { id: 'gar_kplus', name: 'KPlus', price: 50 },
+    { id: 'gar_fm', name: 'FM', price: 50 },
+    { id: 'gar_ps_ideal', name: 'PS ideal', price: 75 },
+    { id: 'gar_lipoelastic_gel', name: 'lipoelastic gel', price: 35 },
   ],
 };
 
@@ -326,11 +336,10 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   // PDF Export stav
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
-  // ZDIEĽANÝ STAV PRE ANESTÉZIU A HOSPITALIZÁCIU
-  const [hasOperation, setHasOperation] = useState(false);
+  // ZDIEĽANÝ STAV PRE ANESTÉZIU A HOSPITALIZÁCIU (130€ / hod, 100€ dospanie v ten istý deň, 200€ do ďalšieho dňa)
+  const [anesthesiaType, setAnesthesiaType] = useState<'Lokálna' | 'Celková' | 'Analgosedácia'>('Celková');
   const [anesthesiaHours, setAnesthesiaHours] = useState(1);
-  const [hospitalizationType, setHospitalizationType] = useState<'none' | 'half' | 'full' | 'full_2'>('none');
-  const [vvAnesthesiaType, setVvAnesthesiaType] = useState('Lokálna');
+  const [hospitalizationType, setHospitalizationType] = useState<'none' | 'half' | 'full'>('none');
 
   // PLATBY
   const [depositPaid, setDepositPaid] = useState<number>(0);
@@ -431,7 +440,6 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
       if (diffDays === 0) return 'Dnes vykonaná operácia';
       if (diffDays < 7) return `${diffDays} dní po operácii`;
       const weeks = Math.floor(diffDays / 7);
-      const remDays = diffDays % 7;
       if (diffDays < 30) return `${diffDays} dní (${weeks}. týždeň po operácii)`;
       const months = Math.floor(diffDays / 30.4);
       return `${diffDays} dní (cca ${months} ${months === 1 ? 'mesiac' : months < 5 ? 'mesiace' : 'mesiacov'} po operácii)`;
@@ -482,7 +490,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
   // 1. INFORMOVANÝ SÚHLAS S OPERÁCIOU
   const [surgeryConsent, setSurgeryConsent] = useState({
-    procedureName: 'Augmentácia prsníkov silikónovými implantátmi',
+    procedureName: 'Zväčšenie prsníkov silikónovými implantátmi (augmentácia)',
     anesthesiaType: 'Celková anestézia',
     alternativeTreatments: 'Konzervatívny postup, bez operačného zákroku',
     risksExplained: true,
@@ -563,14 +571,6 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     }
   }, [birthNumber]);
 
-  useEffect(() => {
-    if (vvAnesthesiaType === 'Celková' || vvAnesthesiaType === 'Analgosedácia') {
-      setHasOperation(true);
-    } else {
-      setHasOperation(false);
-    }
-  }, [vvAnesthesiaType]);
-
   const calcBMI = () => {
     const w = parseFloat(vvVaha);
     const h = parseFloat(vvVyska);
@@ -604,13 +604,18 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
   const handleAddItemFromDropdown = (itemId: string, isOperation = false) => {
     if (!itemId) return;
-    const allServices = [...SERVICES_DATABASE.operations, ...SERVICES_DATABASE.operationExtras, ...SERVICES_DATABASE.applications, ...SERVICES_DATABASE.cosmetics, ...SERVICES_DATABASE.services];
+    const allServices = [
+      ...SERVICES_DATABASE.operations,
+      ...SERVICES_DATABASE.operationExtras,
+      ...SERVICES_DATABASE.correctiveProcedures,
+      ...SERVICES_DATABASE.services,
+      ...SERVICES_DATABASE.aftercareAndGarments
+    ];
     const found = allServices.find((s) => s.id === itemId);
     if (found && !selectedItems.some((i) => i.id === found.id)) {
       setSelectedItems([...selectedItems, found]);
       if (isOperation) {
-        setHasOperation(true);
-        // Ak je to operácia, nastavíme ju aj do operačného protokolu / kontroly
+        setManualProcedure(found.name);
         setCheckupData(prev => ({ ...prev, operationName: found.name }));
         setSurgeryConsent(prev => ({ ...prev, procedureName: found.name }));
         setPreopRequest(prev => ({ ...prev, targetSurgery: found.name }));
@@ -622,13 +627,13 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     setSelectedItems(selectedItems.filter((i) => i.id !== id));
   };
 
+  // VÝPOČET CIEN
   const basePrice = selectedItems.reduce((acc, curr) => acc + curr.price, 0);
-  const anesthesiaPrice = hasOperation ? anesthesiaHours * 130 : 0;
-  const hospitalizationPrice = hasOperation 
-    ? hospitalizationType === 'half' ? 100 
-    : hospitalizationType === 'full' ? 200 
-    : hospitalizationType === 'full_2' ? 400 
-    : 0 : 0;
+  // Anestézia: ak je Celková alebo Analgosedácia -> účtujeme 130 € za každú začatú hodinu
+  const isPaidAnesthesia = anesthesiaType === 'Celková' || anesthesiaType === 'Analgosedácia';
+  const anesthesiaPrice = isPaidAnesthesia ? Math.max(1, Math.ceil(anesthesiaHours)) * 130 : 0;
+  // Hospitalizácia: dospanie v ten istý deň (1/2 dňa) = 100 €, hospitalizácia do ďalšieho dňa (1 deň) = 200 €
+  const hospitalizationPrice = hospitalizationType === 'half' ? 100 : hospitalizationType === 'full' ? 200 : 0;
   const totalPrice = basePrice + anesthesiaPrice + hospitalizationPrice;
   const remainingPrice = totalPrice - depositPaid;
 
@@ -774,14 +779,14 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                 <h3 className="font-brand text-lg font-bold uppercase text-[#2C2A29]">Správa & Úprava Šablón</h3>
                 <p className="text-[10px] text-[#8C857B] uppercase tracking-wider">Prispôsobte si texty, odporúčania a makrá podľa Vašich preferencií</p>
               </div>
-              <button onClick={() => setIsTemplateEditorOpen(false)} className="text-gray-400 hover:text-gray-700 text-lg font-bold">✕</button>
+              <button onClick={() => setIsTemplateEditorOpen(false)} className="text-gray-400 hover:text-gray-700 text-lg font-bold cursor-pointer">✕</button>
             </div>
 
             {/* Prepínanie kategórie */}
             <div className="flex gap-2">
               <button 
                 onClick={() => { setTemplateEditorCategory('checkup'); setEditingTemplateKey('checkup_1w'); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${templateEditorCategory === 'checkup' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:text-[#2C2A29]'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${templateEditorCategory === 'checkup' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:text-[#2C2A29]'}`}
               >
                 🩺 Kontrolné vyšetrenia
               </button>
@@ -960,6 +965,58 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             </div>
 
+            {/* SPOLOČNÉ NASTAVENIE ANESTÉZIE A HOSPITALIZÁCIE (PRE VSTUPNÉ VYŠETRENIE, CENOVÚ PONUKU, DOHODU O CENE) */}
+            {(showVV || showPricing) && (
+              <div className="border border-[#C5A059]/40 rounded-xl p-4 bg-[#FBF9F6] space-y-3">
+                <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Anestézia & Hospitalizácia</p>
+                  <span className="text-[9px] text-[#8C857B] font-mono">130 €/hod anestézia | 100 €/200 € pobyt</span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Druh anestézie</label>
+                    <select 
+                      value={anesthesiaType} 
+                      onChange={e => setAnesthesiaType(e.target.value as any)} 
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29] font-medium"
+                    >
+                      <option value="Lokálna">Lokálna (0 €)</option>
+                      <option value="Celková">Celková (130 € / hod)</option>
+                      <option value="Analgosedácia">Analgosedácia (130 € / hod)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Čas / Dĺžka anestézie</label>
+                    <select 
+                      value={anesthesiaHours} 
+                      disabled={anesthesiaType === 'Lokálna'}
+                      onChange={e => setAnesthesiaHours(parseFloat(e.target.value))} 
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29] font-medium disabled:bg-gray-100 disabled:text-gray-400"
+                    >
+                      {[1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8].map(h => (
+                        <option key={h} value={h}>{h} {h === 1 ? 'hodina' : h < 5 ? 'hodiny' : 'hodín'} ({Math.ceil(h) * 130} €)</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Hospitalizácia / Pobyt</label>
+                    <select 
+                      value={hospitalizationType} 
+                      onChange={e => setHospitalizationType(e.target.value as any)} 
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29] font-medium"
+                    >
+                      <option value="none">Ambulantne (0 €)</option>
+                      <option value="half">Dospanie v ten istý deň - 1/2 dňa (100 €)</option>
+                      <option value="full">Hospitalizácia do ďalšieho dňa - 1 deň (200 €)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ROZŠÍRENÉ KONTAKTY PRE DOHODU O CENE A SÚHLASY */}
             {(docType === 'dohoda_o_cene' || docType === 'suhlas_operacia' || docType === 'suhlas_aplikacia') && (
               <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
@@ -980,34 +1037,29 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               <div className="space-y-4">
                 {/* Plán a termín */}
                 <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
-                  <div>
-                    <label className="block text-[10px] uppercase font-bold text-[#C5A059] mb-1">Podrobný popis plánovaného výkonu</label>
-                    <textarea rows={3} value={vvPlan} onChange={(e) => setVvPlan(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" />
+                  <div className="flex justify-between items-center">
+                    <label className="block text-[10px] uppercase font-bold text-[#C5A059]">Plánovaný operačný výkon / Zákrok</label>
+                    <select 
+                      onChange={e => {
+                        handleAddItemFromDropdown(e.target.value, true);
+                        const item = SERVICES_DATABASE.operations.find(op => op.id === e.target.value);
+                        if (item) setVvPlan(item.name);
+                      }} 
+                      value="" 
+                      className="border border-[#E8E2D9] p-1 rounded-lg text-[10px] bg-white font-bold text-[#2C2A29]"
+                    >
+                      <option value="" disabled>+ Vybrať z cenníka operácií...</option>
+                      {SERVICES_DATABASE.operations.map(op => (
+                        <option key={op.id} value={op.id}>{op.name} ({op.price} €)</option>
+                      ))}
+                    </select>
                   </div>
+                  <textarea rows={3} value={vvPlan} onChange={(e) => setVvPlan(e.target.value)} placeholder="Popis plánovaného výkonu..." className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" />
+                  
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Termín zákroku</label>
                       <input type="date" value={vvDate} onChange={(e) => setVvDate(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Typ Anestézie</label>
-                      <select value={vvAnesthesiaType} onChange={e => setVvAnesthesiaType(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
-                        <option value="Lokálna">Lokálna</option><option value="Celková">Celková</option><option value="Analgosedácia">Analgosedácia</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Dĺžka zákroku</label>
-                      <select value={anesthesiaHours} onChange={e => setAnesthesiaHours(parseFloat(e.target.value))} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
-                        {[1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8].map(h => <option key={h} value={h}>{h} hod</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Hospitalizácia</label>
-                      <select value={hospitalizationType} onChange={e => setHospitalizationType(e.target.value as any)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
-                        <option value="none">Ambulantne</option><option value="half">1/2 dňa</option><option value="full">1 deň</option><option value="full_2">2 dni</option>
-                      </select>
                     </div>
                   </div>
                 </div>
@@ -1072,7 +1124,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                         list="operations-list"
                         value={checkupData.operationName} 
                         onChange={e => setCheckupData({...checkupData, operationName: e.target.value})} 
-                        placeholder="napr. Augmentácia prsníkov..."
+                        placeholder="napr. Zväčšenie prsníkov silikónovými implantátmi..."
                         className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-[#FBF9F6] font-bold text-[#2C2A29]" 
                       />
                       <datalist id="operations-list">
@@ -1098,7 +1150,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     <button 
                       type="button" 
                       onClick={() => setIsTemplateEditorOpen(true)}
-                      className="text-[9px] text-[#C5A059] hover:underline font-bold"
+                      className="text-[9px] text-[#C5A059] hover:underline font-bold cursor-pointer"
                     >
                       ✏️ Upraviť texty šablón
                     </button>
@@ -1109,7 +1161,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                         key={key}
                         type="button"
                         onClick={() => handleSelectCheckupPreset(key)}
-                        className={`p-2 rounded-lg text-xs font-semibold border transition-all text-left ${
+                        className={`p-2 rounded-lg text-xs font-semibold border transition-all text-left cursor-pointer ${
                           selectedCheckupKey === key 
                             ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-sm' 
                             : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
@@ -1174,33 +1226,66 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* SEKCIA: CENOVÁ PONUKA / DOHODA O CENE */}
+            {/* SEKCIA: CENOVÁ PONUKA / DOHODA O CENE - ROZDELENÝ VÝBER PODĽA 5 KATEGÓRIÍ */}
             {showPricing && (
               <div className="space-y-4">
                 <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Výber položiek z cenníka</p>
-                  <select onChange={e => handleAddItemFromDropdown(e.target.value, true)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
-                    <option value="" disabled>+ Pridať operáciu...</option>
-                    {SERVICES_DATABASE.operations.map(op => <option key={op.id} value={op.id}>{op.name} ({op.price} €)</option>)}
-                  </select>
-                  <select onChange={e => handleAddItemFromDropdown(e.target.value)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
-                    <option value="" disabled>+ Pridať doplnkový zákrok / materiál...</option>
-                    {SERVICES_DATABASE.operationExtras.map(ex => <option key={ex.id} value={ex.id}>{ex.name} ({ex.price} €)</option>)}
-                  </select>
-                  <select onChange={e => handleAddItemFromDropdown(e.target.value)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
-                    <option value="" disabled>+ Pridať aplikácie / kozmetiku...</option>
-                    {SERVICES_DATABASE.applications.map(app => <option key={app.id} value={app.id}>{app.name} ({app.price} €)</option>)}
-                    {SERVICES_DATABASE.cosmetics.map(koz => <option key={koz.id} value={koz.id}>{koz.name} ({koz.price} €)</option>)}
-                  </select>
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Výber položiek z cenníka (5 Kategórií)</p>
+                  
+                  {/* 1. Operácie */}
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-[#8C857B] mb-1">1. Operácie</label>
+                    <select onChange={e => handleAddItemFromDropdown(e.target.value, true)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                      <option value="" disabled>+ Pridať operáciu...</option>
+                      {SERVICES_DATABASE.operations.map(op => <option key={op.id} value={op.id}>{op.name} ({op.price} €)</option>)}
+                    </select>
+                  </div>
+
+                  {/* 2. Príplatky k operáciám */}
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-[#8C857B] mb-1">2. Príplatky k operáciám</label>
+                    <select onChange={e => handleAddItemFromDropdown(e.target.value)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                      <option value="" disabled>+ Pridať príplatok k operácii...</option>
+                      {SERVICES_DATABASE.operationExtras.map(ex => <option key={ex.id} value={ex.id}>{ex.name} ({ex.price} €)</option>)}
+                    </select>
+                  </div>
+
+                  {/* 3. Korektívne výkony */}
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-[#8C857B] mb-1">3. Korektívne výkony</label>
+                    <select onChange={e => handleAddItemFromDropdown(e.target.value)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                      <option value="" disabled>+ Pridať korektívny výkon (výplne, botox, znamienka)...</option>
+                      {SERVICES_DATABASE.correctiveProcedures.map(cp => <option key={cp.id} value={cp.id}>{cp.name} ({cp.price} €)</option>)}
+                    </select>
+                  </div>
+
+                  {/* 4. Služby */}
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-[#8C857B] mb-1">4. Služby</label>
+                    <select onChange={e => handleAddItemFromDropdown(e.target.value)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                      <option value="" disabled>+ Pridať službu (konzultácia, predoperačné, izba)...</option>
+                      {SERVICES_DATABASE.services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.price} €)</option>)}
+                    </select>
+                  </div>
+
+                  {/* 5. Pooperačné prádlo & Skin care */}
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-[#8C857B] mb-1">5. Pooperačné prádlo & Skin care</label>
+                    <select onChange={e => handleAddItemFromDropdown(e.target.value)} value="" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
+                      <option value="" disabled>+ Pridať pooperačné prádlo / gél (PI, VH, VD, Lipoelastic)...</option>
+                      {SERVICES_DATABASE.aftercareAndGarments.map(g => <option key={g.id} value={g.id}>{g.name} ({g.price} €)</option>)}
+                    </select>
+                  </div>
 
                   {/* Zvolené položky */}
                   <div className="space-y-1 mt-3">
+                    <p className="text-[10px] uppercase font-bold text-[#8C857B]">Zvolené položky ({selectedItems.length}):</p>
                     {selectedItems.map(item => (
                       <div key={item.id} className="flex justify-between items-center bg-white p-2 rounded-lg border border-[#E8E2D9] text-xs">
                         <span>{item.name}</span>
                         <div className="flex items-center gap-2">
                           <span className="font-bold">{item.price} €</span>
-                          <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-rose-600 font-bold px-1">✕</button>
+                          <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-rose-600 font-bold px-1 cursor-pointer">✕</button>
                         </div>
                       </div>
                     ))}
@@ -1228,7 +1313,20 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Údaje k operačnému súhlasu</p>
                 <div>
-                  <label className="block text-[10px] text-[#8C857B] mb-1">Názov plánovanej operácie</label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-[10px] text-[#8C857B]">Názov plánovanej operácie</label>
+                    <select 
+                      onChange={e => {
+                        const op = SERVICES_DATABASE.operations.find(o => o.id === e.target.value);
+                        if (op) setSurgeryConsent({...surgeryConsent, procedureName: op.name});
+                      }} 
+                      value="" 
+                      className="border border-[#E8E2D9] p-1 rounded-lg text-[10px] bg-white font-bold"
+                    >
+                      <option value="" disabled>+ Vybrať operáciu z cenníka...</option>
+                      {SERVICES_DATABASE.operations.map(op => <option key={op.id} value={op.id}>{op.name}</option>)}
+                    </select>
+                  </div>
                   <input type="text" value={surgeryConsent.procedureName} onChange={e => setSurgeryConsent({...surgeryConsent, procedureName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1359,8 +1457,47 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
             {/* OPERAČNÉ ÚDAJE (PRE PROTOKOL A PREPÚŠŤACIU SPRÁVU) */}
             {showSurgeryDetails && (
               <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Operačné časy a personál</p>
-                <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Operačné údaje & Voľba výkonu</p>
+                  <span className="text-[9px] text-[#8C857B] font-mono">42+ chirurgických výkonov</span>
+                </div>
+
+                {/* VOĽBA OPERÁCIE PRIAMO V OPERAČNOM PROTOKOLE */}
+                {docType === 'operacny_protokol' && (
+                  <div className="space-y-2">
+                    <label className="block text-[9px] text-[#8C857B] uppercase font-bold">Vyberte operáciu / zákrok z cenníka kliniky:</label>
+                    <select 
+                      onChange={e => {
+                        const found = SERVICES_DATABASE.operations.find(o => o.id === e.target.value);
+                        if (found) {
+                          setManualProcedure(found.name);
+                          setCheckupData(prev => ({ ...prev, operationName: found.name }));
+                          handleAddItemFromDropdown(found.id, true);
+                        }
+                      }} 
+                      value="" 
+                      className="w-full border border-[#C5A059] p-2 rounded-lg text-xs bg-white text-[#2C2A29] font-bold"
+                    >
+                      <option value="" disabled>+ Vybrať operáciu z cenníka...</option>
+                      {SERVICES_DATABASE.operations.map(op => (
+                        <option key={op.id} value={op.id}>{op.name} ({op.price} €)</option>
+                      ))}
+                    </select>
+
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] uppercase font-bold mb-1">Názov zákroku (zobrazený v protokole)</label>
+                      <input 
+                        type="text" 
+                        value={manualProcedure} 
+                        onChange={e => setManualProcedure(e.target.value)} 
+                        placeholder="napr. Zväčšenie prsníkov silikónovými implantátmi..." 
+                        className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold" 
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 text-xs pt-2">
                   {docType === 'operacny_protokol' && (
                     <div className="col-span-2">
                       <label className="block text-[9px] text-[#8C857B] mb-1">Termín zákroku</label>
@@ -1435,7 +1572,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   <select 
                     value="" 
                     onChange={(e) => handleMacroInsert(e.target.value, 'notes')}
-                    className="border border-[#E8E2D9] p-1.5 rounded-lg text-[10px] bg-[#FBF9F6] text-[#8C857B] font-bold shadow-sm"
+                    className="border border-[#E8E2D9] p-1.5 rounded-lg text-[10px] bg-[#FBF9F6] text-[#8C857B] font-bold shadow-sm cursor-pointer"
                   >
                     <option value="" disabled>+ Vložiť operačné makro...</option>
                     <optgroup label="Tvár">
@@ -1587,11 +1724,11 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 border border-[#E8E2D9] rounded-xl p-3 bg-[#FBF9F6] text-xs">
-                  <div><span className="block text-[9px] text-[#8C857B] uppercase font-bold">Anestézia</span>{vvAnesthesiaType}</div>
-                  <div><span className="block text-[9px] text-[#8C857B] uppercase font-bold">Dĺžka zákroku</span>{anesthesiaHours} hod</div>
+                  <div><span className="block text-[9px] text-[#8C857B] uppercase font-bold">Druh anestézie</span>{anesthesiaType}</div>
+                  <div><span className="block text-[9px] text-[#8C857B] uppercase font-bold">Dĺžka anestézie</span>{anesthesiaType === 'Lokálna' ? '---' : `${anesthesiaHours} hod`}</div>
                   <div>
                     <span className="block text-[9px] text-[#8C857B] uppercase font-bold">Hospitalizácia</span>
-                    {hospitalizationType === 'none' ? 'ambulantne' : hospitalizationType === 'half' ? '1/2 dňa' : hospitalizationType === 'full' ? '1 deň' : '2 dni'}
+                    {hospitalizationType === 'none' ? 'Ambulantne' : hospitalizationType === 'half' ? '1/2 dňa (dospanie)' : '1 deň (do ďalšieho dňa)'}
                   </div>
                 </div>
 
@@ -1724,11 +1861,19 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                       <span className="font-medium">{item.name}</span><span className="font-bold">{item.price.toFixed(2)} €</span>
                     </li>
                   ))}
-                  {hasOperation && (
-                    <>
-                      <li className="py-2 flex justify-between text-xs"><span className="font-medium">Celková anestézia ({anesthesiaHours} hod.)</span><span className="font-bold">{anesthesiaPrice.toFixed(2)} €</span></li>
-                      {hospitalizationType !== 'none' && <li className="py-2 flex justify-between text-xs"><span className="font-medium">{hospitalizationType === 'half' ? 'Pobyt 1/2 dňa' : hospitalizationType === 'full' ? 'Pobyt 1 deň' : 'Pobyt 2 dni'}</span><span className="font-bold">{hospitalizationPrice.toFixed(2)} €</span></li>}
-                    </>
+                  {isPaidAnesthesia && (
+                    <li className="py-2 flex justify-between text-xs">
+                      <span className="font-medium">{anesthesiaType} anestézia ({anesthesiaHours} hod. × 130 €)</span>
+                      <span className="font-bold">{anesthesiaPrice.toFixed(2)} €</span>
+                    </li>
+                  )}
+                  {hospitalizationType !== 'none' && (
+                    <li className="py-2 flex justify-between text-xs">
+                      <span className="font-medium">
+                        {hospitalizationType === 'half' ? 'Hospitalizácia - dospanie v ten istý deň (1/2 dňa)' : 'Hospitalizácia do ďalšieho dňa (1 deň)'}
+                      </span>
+                      <span className="font-bold">{hospitalizationPrice.toFixed(2)} €</span>
+                    </li>
                   )}
                 </ul>
                 <div className="flex justify-between items-center bg-[#FBF9F6] p-4 rounded-xl border border-[#C5A059] font-bold text-sm">
@@ -1814,13 +1959,13 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     <ul className="list-disc pl-4 font-bold">
                       {selectedItems.length > 0 
                         ? selectedItems.map(i => <li key={i.id}>{i.name}</li>) 
-                        : <li>{vvPlan || 'Nezadané'}</li>}
+                        : <li>{manualProcedure || vvPlan || 'Nezadané'}</li>}
                     </ul>
                     
                     <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#E8E2D9]">
-                      <div><span className="text-[#8C857B] font-bold uppercase text-[9px] block">Anestézia:</span>{hasOperation ? 'Celková/Analgosedácia' : 'Lokálna'}</div>
-                      <div><span className="text-[#8C857B] font-bold uppercase text-[9px] block">Dĺžka zákroku:</span>{hasOperation ? `${anesthesiaHours} hod` : '---'}</div>
-                      <div><span className="text-[#8C857B] font-bold uppercase text-[9px] block">Hospitalizácia:</span>{hospitalizationType === 'none' ? 'ambulantne' : hospitalizationType === 'half' ? '1/2 dňa' : hospitalizationType === 'full' ? '1 deň' : '2 dni'}</div>
+                      <div><span className="text-[#8C857B] font-bold uppercase text-[9px] block">Druh anestézie:</span>{anesthesiaType}</div>
+                      <div><span className="text-[#8C857B] font-bold uppercase text-[9px] block">Dĺžka anestézie:</span>{anesthesiaType === 'Lokálna' ? '---' : `${anesthesiaHours} hod`}</div>
+                      <div><span className="text-[#8C857B] font-bold uppercase text-[9px] block">Hospitalizácia:</span>{hospitalizationType === 'none' ? 'Ambulantne' : hospitalizationType === 'half' ? '1/2 dňa (dospanie)' : '1 deň (do ďalšieho dňa)'}</div>
                     </div>
                   </div>
                   <p className="text-justify mb-2">Klientovi/klientke bol zrozumiteľným spôsobom vysvetlený klientom zvolený zákrok. Zvláštny dôraz bol kladený na vysvetlenie výskytu, veľkosti a tvaru jaziev, získavaného prínosu i toho, čo zákrok nedorieši. Klient/klientka bol/a zoznámená s možnými rizikami operácie. Zároveň bolo s klientom prediskutované, čo bude pre klienta/klientku zákrok obnášať, prínosy, prípadne ďalšie nutné postupy, ktoré môžu v priebehu operácie nastať (napr. krvné transfúzie) a boli zodpovedané všetky otázky klienta.</p>
