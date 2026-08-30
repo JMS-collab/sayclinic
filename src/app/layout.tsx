@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-// OPRAVENÁ CESTA:
 import NextAuthProvider from "../components/NextAuthProvider";
+import GlobalContextMenu from "../components/GlobalContextMenu";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,7 +20,9 @@ export default function RootLayout({
     <html lang="sk">
       <body className={inter.className}>
         <NextAuthProvider>
-          {children}
+          <GlobalContextMenu>
+            {children}
+          </GlobalContextMenu>
         </NextAuthProvider>
       </body>
     </html>

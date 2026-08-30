@@ -381,7 +381,7 @@ export default function Calendar({
     }
   };
 
-  // --- POMOCNÉ VÝPOČTY PRE ČASOVÚ OS ---
+  // POMOCNÉ VÝPOČTY PRE ČASOVÚ OS A KOLÍZIE
   const timeToMinutes = (timeStr: string) => {
     if (!timeStr) return 0;
     const [h, m] = timeStr.split(':').map(Number);
@@ -393,97 +393,6 @@ export default function Calendar({
     const m = minutes % 60;
     return `${h < 10 ? '0' : ''}${h}:${m < 10 ? '0' : ''}${m}`;
   };
-
-  // --- NAŤAHOVANIE MYŠOU (RESIZE OKRAJA PRE TRVANIE) ---
-  const handleMouseDownResize = (e: React.MouseEvent, evt: CalendarEvent) => {
-    e.stopPropagation();
-    const startY = e.clientY;
-    const startEndMin = timeToMinutes(evt.endTime);
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaY = moveEvent.clientY - startY;
-      const deltaMinutes = Math.round((deltaY / 1.33) / 15) * 15;
-      const newEndMin = Math.max(timeToMinutes(evt.startTime) + 15, startEndMin + deltaMinutes);
-      const newEndTimeStr = minutesToTimeStr(newEndMin);
-
-      setCalendarEvents(prev => {
-        const updated = prev.map(item => item.id === evt.id ? { ...item, endTime: newEndTimeStr } : item);
-        return updated;
-      });
-    };
-
-    const handleMouseUp = () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      // Uloženie po dokončení
-      setCalendarEvents(prev => {
-        localStorage.setItem('say_clinic_calendar_events', JSON.stringify(prev));
-        return prev;
-      });
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-  };
-
-  // --- PRESÚVANIE MYŠOU (DRAG & DROP PRE ZMENU ČASU ZAČIATKU) ---
-  const handleMouseDownDrag = (e: React.MouseEvent, evt: CalendarEvent) => {
-    const target = e.target as HTMLElement;
-    
-    // Ignoruj kliknutie, ak sa kliká na resize úchop, tlačidlá, inputy atď.
-    if (target.tagName.toLowerCase() === 'button' || target.tagName.toLowerCase() === 'input' || target.closest('.resize-handle')) {
-      return;
-    }
-
-    e.preventDefault(); 
-    e.stopPropagation();
-
-    let dragged = false;
-    const startY = e.clientY;
-    const originalStartMin = timeToMinutes(evt.startTime);
-    const durationMin = timeToMinutes(evt.endTime) - timeToMinutes(evt.startTime);
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaY = moveEvent.clientY - startY;
-      
-      // Detekcia, či ide o klik alebo potiahnutie
-      if (Math.abs(deltaY) > 5) dragged = true;
-
-      if (dragged) {
-        const deltaMinutes = Math.round((deltaY / 1.33) / 15) * 15;
-        let newStartMin = originalStartMin + deltaMinutes;
-        
-        // Obmedzenie na 07:00 (420 minút) ako minimum na osi
-        if (newStartMin < 7 * 60) newStartMin = 7 * 60;
-        
-        const newEndMin = newStartMin + durationMin;
-
-        setCalendarEvents(prev => prev.map(item => 
-          item.id === evt.id ? { ...item, startTime: minutesToTimeStr(newStartMin), endTime: minutesToTimeStr(newEndMin) } : item
-        ));
-      }
-    };
-
-    const handleMouseUp = () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      
-      if (!dragged) {
-        // Išlo len o obyčajný klik, otvoríme detail
-        setSelectedEvent(evt);
-      } else {
-        // Prebehlo ťahanie, uložíme nový stav do local storage
-        setCalendarEvents(prev => {
-          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(prev));
-          return prev;
-        });
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-  };
-
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -583,8 +492,92 @@ export default function Calendar({
     else alert('Pacient nebol nájdený v kartotéke.');
   };
 
+  // NAŤAHOVANIE MYŠOU (RESIZE OKRAJA PRE TRVANIE)
+  const handleMouseDownResize = (e: React.MouseEvent, evt: CalendarEvent) => {
+    e.stopPropagation();
+    const startY = e.clientY;
+    const startEndMin = timeToMinutes(evt.endTime);
 
-  // --- POHĽAD: DEŇ (ČASOVÁ OS S DRAG & DROP A KOLÍZIAMI) ---
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      const deltaMinutes = Math.round((deltaY / 1.33) / 15) * 15;
+      const newEndMin = Math.max(timeToMinutes(evt.startTime) + 15, startEndMin + deltaMinutes);
+      const newEndTimeStr = minutesToTimeStr(newEndMin);
+
+      setCalendarEvents(prev => {
+        const updated = prev.map(item => item.id === evt.id ? { ...item, endTime: newEndTimeStr } : item);
+        return updated;
+      });
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      setCalendarEvents(prev => {
+        localStorage.setItem('say_clinic_calendar_events', JSON.stringify(prev));
+        return prev;
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // PRESÚVANIE MYŠOU (DRAG & DROP PRE ZMENU ČASU)
+  const handleMouseDownDrag = (e: React.MouseEvent, evt: CalendarEvent) => {
+    const target = e.target as HTMLElement;
+    
+    // Ignoruj kliknutie, ak sa kliká na resize úchop, tlačidlá atď.
+    if (target.tagName.toLowerCase() === 'button' || target.tagName.toLowerCase() === 'input' || target.closest('.resize-handle')) {
+      return;
+    }
+
+    e.preventDefault(); 
+    e.stopPropagation();
+
+    let dragged = false;
+    const startY = e.clientY;
+    const originalStartMin = timeToMinutes(evt.startTime);
+    const durationMin = timeToMinutes(evt.endTime) - timeToMinutes(evt.startTime);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      
+      if (Math.abs(deltaY) > 5) dragged = true;
+
+      if (dragged) {
+        const deltaMinutes = Math.round((deltaY / 1.33) / 15) * 15;
+        let newStartMin = originalStartMin + deltaMinutes;
+        
+        if (newStartMin < 7 * 60) newStartMin = 7 * 60; // minimum na osi 07:00
+        
+        const newEndMin = newStartMin + durationMin;
+
+        setCalendarEvents(prev => prev.map(item => 
+          item.id === evt.id ? { ...item, startTime: minutesToTimeStr(newStartMin), endTime: minutesToTimeStr(newEndMin) } : item
+        ));
+      }
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      
+      if (!dragged) {
+        setSelectedEvent(evt);
+      } else {
+        setCalendarEvents(prev => {
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(prev));
+          return prev;
+        });
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // --- POHĽAD: DEŇ (S INTELIGENTNÝM VÝPOČTOM KOLÍZIÍ, DRAG, RESIZE A CELODENNÝMI UDALOSŤAMI) ---
   const renderDayView = () => {
     const formattedDate = currentDate.toISOString().split('T')[0];
     const allEventsToday = filteredEvents
@@ -628,6 +621,7 @@ export default function Calendar({
               {allDayEvents.map(evt => (
                 <div 
                   key={evt.id} 
+                  data-event-id={evt.id} // IDENTIFIKÁTOR PRE GLOBÁLNE KONTEXTOVÉ MENU (PRAVÝ KLIK)
                   onClick={() => setSelectedEvent(evt)} 
                   className={`bg-white border hover:border-[#C5A059] p-2.5 rounded-xl cursor-pointer flex justify-between items-center shadow-sm transition-all ${evt.isCancelled ? 'opacity-60 border-rose-200' : 'border-[#E8E2D9]'}`}
                 >
@@ -657,7 +651,7 @@ export default function Calendar({
             </div>
           ))}
 
-          {/* VIZUÁLNE BLOKY UMESTNENÉ NA ČASOVEJ OSI */}
+          {/* VIZUÁLNE BLOKY UMESTNENÉ NA ČASOVEJ OSI VEDĽA SEBA */}
           <div className="absolute top-0 left-16 right-0 bottom-0 p-1 pointer-events-none flex">
             {groups.map((group, groupIndex) => {
               const columnWidth = 100 / group.length; 
@@ -678,6 +672,7 @@ export default function Calendar({
                 return (
                   <div 
                     key={evt.id} 
+                    data-event-id={evt.id} // IDENTIFIKÁTOR PRE GLOBÁLNE KONTEXTOVÉ MENU (PRAVÝ KLIK)
                     onMouseDown={(e) => handleMouseDownDrag(e, evt)}
                     className={`absolute rounded-xl p-1.5 shadow-sm border pointer-events-auto cursor-move active:cursor-grabbing transition-all hover:shadow-md flex flex-col justify-between z-10 overflow-hidden group/card ${
                       evt.isCancelled 
@@ -721,15 +716,6 @@ export default function Calendar({
                       </div>
                     )}
 
-                    {/* TLAČIDLO PRE DETAIL KARTY (zobrazí sa len pri normálnej dĺžke aby neprekrývalo text) */}
-                    {!isShort && (
-                      <div className="mt-1 flex justify-end">
-                         <span className="text-[9px] bg-white border border-[#E8E2D9] px-2 py-0.5 rounded font-bold uppercase text-[#C5A059]">
-                           {evt.isCancelled ? '❌ Zrušené' : 'Otvoriť →'}
-                         </span>
-                      </div>
-                    )}
-
                     {/* SPODNÝ UCHOP PRE NAŤAHOVANIE ČASU - ABSOLÚTNE POZICIOVANÝ DOLE */}
                     {!evt.isCancelled && (
                       <div 
@@ -769,7 +755,7 @@ export default function Calendar({
               </div>
               <div className="p-1.5 flex-1 space-y-1.5">
                 {dayEvents.map(evt => (
-                  <div key={evt.id} onClick={() => setSelectedEvent(evt)} className={`text-[9px] p-1.5 rounded cursor-pointer border ${evt.isCancelled ? 'line-through opacity-50 bg-gray-100' : 'bg-gray-100 text-gray-800 space-y-0.5'}`}>
+                  <div key={evt.id} data-event-id={evt.id} onClick={() => setSelectedEvent(evt)} className={`text-[9px] p-1.5 rounded cursor-pointer border ${evt.isCancelled ? 'line-through opacity-50 bg-gray-100' : 'bg-gray-100 text-gray-800 space-y-0.5'}`}>
                     <strong className="block">{evt.isAllDay ? 'Celý deň' : evt.startTime}</strong>
                     <span className="truncate block font-bold">{evt.patientName || evt.title}</span>
                     <span className="block text-[8px] font-bold text-[#C5A059] uppercase">{getEventTypeLabel(evt.type)}</span>
@@ -802,7 +788,7 @@ export default function Calendar({
                 <span className={`text-[10px] font-bold self-end w-5 h-5 flex items-center justify-center rounded-full ${isToday ? 'bg-[#C5A059] text-white' : 'text-[#8C857B]'}`}>{date.getDate()}</span>
                 <div className="flex-1 overflow-y-auto space-y-1 mt-1">
                   {dayEvents.slice(0, 3).map(evt => (
-                    <div key={evt.id} onClick={() => setSelectedEvent(evt)} className="text-[8px] bg-gray-100 p-1 rounded truncate cursor-pointer hover:bg-[#C5A059] hover:text-white">
+                    <div key={evt.id} data-event-id={evt.id} onClick={() => setSelectedEvent(evt)} className="text-[8px] bg-gray-100 p-1 rounded truncate cursor-pointer hover:bg-[#C5A059] hover:text-white">
                       {evt.isAllDay ? '☀️' : evt.startTime} {evt.title}
                     </div>
                   ))}
