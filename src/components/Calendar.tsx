@@ -18,7 +18,7 @@ export interface CalendarEvent {
   date: string; // YYYY-MM-DD
   startTime: string; // HH:MM
   endTime: string; // HH:MM
-  isAllDay?: boolean; // PRIDANÝ PRÍZNAK PRE CELODENNÚ UDALOSŤ
+  isAllDay?: boolean;
   type: EventType;
   anesthesiaType?: string;
   notes?: string;
@@ -265,8 +265,8 @@ export default function Calendar({
     e.preventDefault();
     if (!editingEventData.id) return;
 
-    const finalStartTime = editingEventData.isAllDay ? '00:00' : editingEventData.startTime;
-    const finalEndTime = editingEventData.isAllDay ? '23:59' : editingEventData.endTime;
+    const finalStartTime = editingEventData.isAllDay ? '00:00' : (editingEventData.startTime || '09:00');
+    const finalEndTime = editingEventData.isAllDay ? '23:59' : (editingEventData.endTime || '10:00');
 
     setCalendarEvents(prev => {
       const updated = prev.map(evt => evt.id === editingEventData.id ? ({ ...evt, ...editingEventData, startTime: finalStartTime, endTime: finalEndTime } as CalendarEvent) : evt);
@@ -381,7 +381,7 @@ export default function Calendar({
     }
   };
 
-  // POMOCNÉ VÝPOČTY PRE ČASOVÚ OS A KOLÍZIE (PREKRÝVANIE KARIET)
+  // --- POMOCNÉ VÝPOČTY PRE ČASOVÚ OS ---
   const timeToMinutes = (timeStr: string) => {
     if (!timeStr) return 0;
     const [h, m] = timeStr.split(':').map(Number);
@@ -393,6 +393,97 @@ export default function Calendar({
     const m = minutes % 60;
     return `${h < 10 ? '0' : ''}${h}:${m < 10 ? '0' : ''}${m}`;
   };
+
+  // --- NAŤAHOVANIE MYŠOU (RESIZE OKRAJA PRE TRVANIE) ---
+  const handleMouseDownResize = (e: React.MouseEvent, evt: CalendarEvent) => {
+    e.stopPropagation();
+    const startY = e.clientY;
+    const startEndMin = timeToMinutes(evt.endTime);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      const deltaMinutes = Math.round((deltaY / 1.33) / 15) * 15;
+      const newEndMin = Math.max(timeToMinutes(evt.startTime) + 15, startEndMin + deltaMinutes);
+      const newEndTimeStr = minutesToTimeStr(newEndMin);
+
+      setCalendarEvents(prev => {
+        const updated = prev.map(item => item.id === evt.id ? { ...item, endTime: newEndTimeStr } : item);
+        return updated;
+      });
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      // Uloženie po dokončení
+      setCalendarEvents(prev => {
+        localStorage.setItem('say_clinic_calendar_events', JSON.stringify(prev));
+        return prev;
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // --- PRESÚVANIE MYŠOU (DRAG & DROP PRE ZMENU ČASU ZAČIATKU) ---
+  const handleMouseDownDrag = (e: React.MouseEvent, evt: CalendarEvent) => {
+    const target = e.target as HTMLElement;
+    
+    // Ignoruj kliknutie, ak sa kliká na resize úchop, tlačidlá, inputy atď.
+    if (target.tagName.toLowerCase() === 'button' || target.tagName.toLowerCase() === 'input' || target.closest('.resize-handle')) {
+      return;
+    }
+
+    e.preventDefault(); 
+    e.stopPropagation();
+
+    let dragged = false;
+    const startY = e.clientY;
+    const originalStartMin = timeToMinutes(evt.startTime);
+    const durationMin = timeToMinutes(evt.endTime) - timeToMinutes(evt.startTime);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      
+      // Detekcia, či ide o klik alebo potiahnutie
+      if (Math.abs(deltaY) > 5) dragged = true;
+
+      if (dragged) {
+        const deltaMinutes = Math.round((deltaY / 1.33) / 15) * 15;
+        let newStartMin = originalStartMin + deltaMinutes;
+        
+        // Obmedzenie na 07:00 (420 minút) ako minimum na osi
+        if (newStartMin < 7 * 60) newStartMin = 7 * 60;
+        
+        const newEndMin = newStartMin + durationMin;
+
+        setCalendarEvents(prev => prev.map(item => 
+          item.id === evt.id ? { ...item, startTime: minutesToTimeStr(newStartMin), endTime: minutesToTimeStr(newEndMin) } : item
+        ));
+      }
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      
+      if (!dragged) {
+        // Išlo len o obyčajný klik, otvoríme detail
+        setSelectedEvent(evt);
+      } else {
+        // Prebehlo ťahanie, uložíme nový stav do local storage
+        setCalendarEvents(prev => {
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(prev));
+          return prev;
+        });
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -492,35 +583,8 @@ export default function Calendar({
     else alert('Pacient nebol nájdený v kartotéke.');
   };
 
-  // NAŤAHOVANIE MYŠOU (RESIZE OKRAJA)
-  const handleMouseDownResize = (e: React.MouseEvent, evt: CalendarEvent) => {
-    e.stopPropagation();
-    const startY = e.clientY;
-    const startEndMin = timeToMinutes(evt.endTime);
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaY = moveEvent.clientY - startY;
-      const deltaMinutes = Math.round((deltaY / 1.33) / 15) * 15;
-      const newEndMin = Math.max(timeToMinutes(evt.startTime) + 15, startEndMin + deltaMinutes);
-      const newEndTimeStr = minutesToTimeStr(newEndMin);
-
-      setCalendarEvents(prev => {
-        const updated = prev.map(item => item.id === evt.id ? { ...item, endTime: newEndTimeStr } : item);
-        localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
-        return updated;
-      });
-    };
-
-    const handleMouseUp = () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-  };
-
-  // --- POHĽAD: DEŇ (S INTELIGENTNÝM VÝPOČTOM KOLÍZIÍ A CELODENNÝMI UDALOSŤAMI) ---
+  // --- POHĽAD: DEŇ (ČASOVÁ OS S DRAG & DROP A KOLÍZIAMI) ---
   const renderDayView = () => {
     const formattedDate = currentDate.toISOString().split('T')[0];
     const allEventsToday = filteredEvents
@@ -593,7 +657,7 @@ export default function Calendar({
             </div>
           ))}
 
-          {/* VIZUÁLNE BLOKY UMESTNENÉ NA ČASOVEJ OSI VEDĽA SEBA */}
+          {/* VIZUÁLNE BLOKY UMESTNENÉ NA ČASOVEJ OSI */}
           <div className="absolute top-0 left-16 right-0 bottom-0 p-1 pointer-events-none flex">
             {groups.map((group, groupIndex) => {
               const columnWidth = 100 / group.length; 
@@ -614,8 +678,8 @@ export default function Calendar({
                 return (
                   <div 
                     key={evt.id} 
-                    onClick={() => setSelectedEvent(evt)}
-                    className={`absolute rounded-xl p-1.5 shadow-sm border pointer-events-auto cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md flex flex-col justify-between z-10 overflow-hidden group/card ${
+                    onMouseDown={(e) => handleMouseDownDrag(e, evt)}
+                    className={`absolute rounded-xl p-1.5 shadow-sm border pointer-events-auto cursor-move active:cursor-grabbing transition-all hover:shadow-md flex flex-col justify-between z-10 overflow-hidden group/card ${
                       evt.isCancelled 
                         ? 'bg-gray-100 border-gray-300 opacity-60 line-through' 
                         : evt.type === 'operacia'
@@ -637,13 +701,13 @@ export default function Calendar({
                     
                     {/* KOMPAKTNÝ DIZAJN PRE KRÁTKE UDALOSTI (< 30 min) VS NORMÁLNY DIZAJN */}
                     {isShort ? (
-                      <div className="flex items-center gap-1.5 h-full truncate">
+                      <div className="flex items-center gap-1.5 h-full truncate pointer-events-none">
                         <span className="font-mono text-[9px] font-bold text-[#2C2A29] shrink-0 leading-none mt-0.5">{evt.startTime}</span>
                         {!isNarrow && <div className="scale-75 origin-left shrink-0 -ml-1 mt-0.5">{getEventTypeBadge(evt.type)}</div>}
                         <span className="text-[10px] font-bold text-[#2C2A29] truncate leading-none mt-0.5">{evt.patientName || evt.title}</span>
                       </div>
                     ) : (
-                      <div className="flex-1 overflow-hidden">
+                      <div className="flex-1 overflow-hidden pointer-events-none">
                         <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
                           <span className="font-mono text-[10px] font-bold text-[#2C2A29]">
                             {evt.startTime}
@@ -657,11 +721,20 @@ export default function Calendar({
                       </div>
                     )}
 
+                    {/* TLAČIDLO PRE DETAIL KARTY (zobrazí sa len pri normálnej dĺžke aby neprekrývalo text) */}
+                    {!isShort && (
+                      <div className="mt-1 flex justify-end">
+                         <span className="text-[9px] bg-white border border-[#E8E2D9] px-2 py-0.5 rounded font-bold uppercase text-[#C5A059]">
+                           {evt.isCancelled ? '❌ Zrušené' : 'Otvoriť →'}
+                         </span>
+                      </div>
+                    )}
+
                     {/* SPODNÝ UCHOP PRE NAŤAHOVANIE ČASU - ABSOLÚTNE POZICIOVANÝ DOLE */}
                     {!evt.isCancelled && (
                       <div 
                         onMouseDown={(e) => handleMouseDownResize(e, evt)}
-                        className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize flex items-center justify-center transition-colors group/resize bg-gradient-to-t from-black/5 to-transparent"
+                        className="resize-handle absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize flex items-center justify-center transition-colors group/resize bg-gradient-to-t from-black/5 to-transparent"
                         title="Potiahnite pre zmenu trvania"
                       >
                         <div className="w-6 h-0.5 bg-black/20 group-hover/resize:bg-black/50 rounded-full mb-0.5 transition-colors"></div>
@@ -756,11 +829,10 @@ export default function Calendar({
               </span>
             )}
           </div>
-          <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Časová os, rozdelenie do stĺpcov, resize, email a faktúry</p>
+          <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Časová os, Drag & Drop presúvanie a rezise termínov</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* FILTER TYPU ZÁKROKU */}
           <select
             value={selectedTypeFilter}
             onChange={(e) => setSelectedTypeFilter(e.target.value)}
@@ -819,7 +891,7 @@ export default function Calendar({
         {view === 'month' && renderMonthView()}
       </div>
 
-      {/* MODAL DETAIL UDALOSTI A AKCIE - OTVORÍ SA PO KLIKNUTÍ NA KARTU */}
+      {/* MODAL DETAIL UDALOSTI A AKCIE */}
       {selectedEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-2xl border border-[#E8E2D9] space-y-4">
@@ -930,7 +1002,7 @@ export default function Calendar({
                 }}
                 className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase shadow-sm transition-colors"
               >
-                📁 Karta pacienta
+                📁 Otvoriť kartu pacienta
               </button>
             </div>
           </div>
