@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
+export type EventType = 'operacia' | 'konzultacia' | 'osetrenie' | 'kontrola';
+
 export interface CalendarEvent {
   id: string;
   calendarId?: string;
@@ -16,7 +18,7 @@ export interface CalendarEvent {
   date: string; // YYYY-MM-DD
   startTime: string; // HH:MM
   endTime: string; // HH:MM
-  type: 'operacia' | 'konzultacia' | 'kontrolne_vysetrenie' | 'vstupne_vysetrenie';
+  type: EventType;
   anesthesiaType?: string;
   notes?: string;
   
@@ -52,6 +54,7 @@ export default function Calendar({
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialPropEvents);
   const [availableCalendars, setAvailableCalendars] = useState<GoogleCalendarItem[]>([]);
   const [selectedCalendarId, setSelectedCalendarId] = useState<string>('all');
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<ViewMode>('day');
@@ -89,7 +92,24 @@ export default function Calendar({
     isDepositPaid: false
   });
 
-  // Načítanie z cache (0 ms) + tichá synchronizácia s Google Calendar
+  // Pomocná funkcia pre nastavenie cien podľa typu
+  const handleTypeChangeInForm = (type: EventType) => {
+    let price = 0;
+    let deposit = 0;
+
+    if (type === 'operacia') { price = 3500; deposit = 500; }
+    else if (type === 'konzultacia') { price = 50; deposit = 0; }
+    else if (type === 'osetrenie') { price = 200; deposit = 50; }
+    else if (type === 'kontrola') { price = 0; deposit = 0; }
+
+    setNewEvent(prev => ({
+      ...prev,
+      type: type,
+      totalPrice: price,
+      depositAmount: deposit
+    }));
+  };
+
   useEffect(() => {
     const cachedEvents = localStorage.getItem('say_clinic_calendar_events');
     const cachedCalendars = localStorage.getItem('say_clinic_calendars');
@@ -97,22 +117,18 @@ export default function Calendar({
     if (cachedEvents) {
       try {
         const parsed = JSON.parse(cachedEvents);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCalendarEvents(parsed);
-        }
+        if (Array.isArray(parsed) && parsed.length > 0) setCalendarEvents(parsed);
       } catch (e) {
-        console.error('Chyba pri čítaní kešovaných udalostí:', e);
+        console.error('Chyba načítania:', e);
       }
     }
 
     if (cachedCalendars) {
       try {
         const parsedCal = JSON.parse(cachedCalendars);
-        if (Array.isArray(parsedCal) && parsedCal.length > 0) {
-          setAvailableCalendars(parsedCal);
-        }
+        if (Array.isArray(parsedCal) && parsedCal.length > 0) setAvailableCalendars(parsedCal);
       } catch (e) {
-        console.error('Chyba pri čítaní kešovaných kalendárov:', e);
+        console.error('Chyba načítania kalendárov:', e);
       }
     }
 
@@ -135,23 +151,23 @@ export default function Calendar({
             setCalendarEvents(fetchedEvents);
             localStorage.setItem('say_clinic_calendar_events', JSON.stringify(fetchedEvents));
           }
-
           if (fetchedCalendars.length > 0) {
             setAvailableCalendars(fetchedCalendars);
             localStorage.setItem('say_clinic_calendars', JSON.stringify(fetchedCalendars));
           }
         })
-        .catch(err => console.error("Chyba synchronizácie Google Kalendára:", err))
+        .catch(err => console.error("Chyba synchronizácie:", err))
         .finally(() => setIsSyncing(false));
     }
   }, [session]);
 
-  // Filtrovanie udalostí podľa vybraného kalendára
-  const filteredEvents = selectedCalendarId === 'all' 
-    ? calendarEvents 
-    : calendarEvents.filter(e => e.calendarId === selectedCalendarId);
+  // Filtrovanie udalostí podľa vybraného kalendára A typu udalosti
+  const filteredEvents = calendarEvents.filter(e => {
+    const matchesCalendar = selectedCalendarId === 'all' || e.calendarId === selectedCalendarId;
+    const matchesType = selectedTypeFilter === 'all' || e.type === selectedTypeFilter;
+    return matchesCalendar && matchesType;
+  });
 
-  // Dohľadanie telefónu
   const getEventPhone = (evt: CalendarEvent) => {
     if (customPhones[evt.id] !== undefined) return customPhones[evt.id];
     if (evt.patientPhone && evt.patientPhone.trim() !== '') return evt.patientPhone;
@@ -162,7 +178,6 @@ export default function Calendar({
     return '';
   };
 
-  // Dohľadanie e-mailu
   const getEventEmail = (evt: CalendarEvent) => {
     if (customEmails[evt.id] !== undefined) return customEmails[evt.id];
     if (evt.patientEmail && evt.patientEmail.trim() !== '') return evt.patientEmail;
@@ -189,7 +204,6 @@ export default function Calendar({
     });
   };
 
-  // WhatsApp
   const sendWhatsApp = (evt: CalendarEvent) => {
     const phone = getEventPhone(evt);
     if (!phone) {
@@ -201,12 +215,11 @@ export default function Calendar({
       ? cleanPhone : `421${cleanPhone.replace(/^0/, '')}`;
 
     const formattedDate = new Date(evt.date).toLocaleDateString('sk-SK');
-    const msg = `Dobrý deň ${evt.patientName || ''}, pripomíname Vám Váš termín zákroku (${evt.title}) na SAY CLINIC dňa ${formattedDate} o ${evt.startTime}. Adresa: Lazovná 43, Banská Bystrica. Prosíme o potvrdenie odpoveďou na túto správu.`;
+    const msg = `Dobrý deň ${evt.patientName || ''}, pripomíname Vám Váš termín (${evt.title}) na SAY CLINIC dňa ${formattedDate} o ${evt.startTime}. Adresa: Lazovná 43, Banská Bystrica. Prosíme o potvrdenie.`;
 
     window.open(`https://wa.me/${phoneWithPrefix}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  // SMS
   const sendSMS = (evt: CalendarEvent) => {
     const phone = getEventPhone(evt);
     if (!phone) {
@@ -214,25 +227,24 @@ export default function Calendar({
       return;
     }
     const formattedDate = new Date(evt.date).toLocaleDateString('sk-SK');
-    const msg = `Dobrý deň ${evt.patientName || ''}, pripomíname Vám Váš termín zákroku (${evt.title}) na SAY CLINIC dňa ${formattedDate} o ${evt.startTime}. Adresa: Lazovná 43, Banská Bystrica. Prosíme o potvrdenie.`;
+    const msg = `Dobrý deň ${evt.patientName || ''}, pripomíname Vám termín (${evt.title}) na SAY CLINIC dňa ${formattedDate} o ${evt.startTime}.`;
 
     window.open(`sms:${phone}?body=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  // E-mailový panel prepínač
   const handleToggleEmailPanel = (evt: CalendarEvent) => {
     if (openEmailEventId === evt.id) {
       setOpenEmailEventId(null);
     } else {
       setOpenEmailEventId(evt.id);
-      setEmailSubject(`SAY CLINIC: Zálohová faktúra a pokyny k zákroku - ${evt.title}`);
+      setEmailSubject(`SAY CLINIC: Informácie k termínu - ${evt.title}`);
       
-      const price = evt.totalPrice !== undefined ? evt.totalPrice : 3500;
-      const deposit = evt.depositAmount !== undefined ? evt.depositAmount : 500;
+      const price = evt.totalPrice !== undefined ? evt.totalPrice : (evt.type === 'operacia' ? 3500 : 50);
+      const deposit = evt.depositAmount !== undefined ? evt.depositAmount : (evt.type === 'operacia' ? 500 : 0);
       const formattedDate = new Date(evt.date).toLocaleDateString('sk-SK');
       
       setEmailBody(
-        `Vážená/ý ${evt.patientName || 'klient'},\n\nv prílohe Vám zasielame zálohovú faktúru a podklady k Vášmu plánovanému termínu (${formattedDate} o ${evt.startTime}).\n\nCelková cena zákroku: ${price} €\nPožadovaná záloha: ${deposit} €\n\nProsíme o úhradu zálohy pred absolvovaním zákroku podľa podkladov vo faktúre.\n\nS pozdravom,\nTím SAY CLINIC\nLazovná 43, Banská Bystrica`
+        `Vážená/ý ${evt.patientName || 'klient'},\n\nv prílohe Vám zasielame podklady k Vášmu termínu (${formattedDate} o ${evt.startTime}).\n\nTyp: ${getEventTypeLabel(evt.type)}\nCena: ${price} €\nZáloha: ${deposit} €\n\nTešíme sa na Vašu návštevu.\n\nS pozdravom,\nTím SAY CLINIC\nLazovná 43, Banská Bystrica`
       );
     }
   };
@@ -260,14 +272,40 @@ export default function Calendar({
         })
       });
 
-      alert(`✉️ E-mail so zálohovou faktúrou bol úspešne odoslaný na ${email}!`);
+      alert(`✉️ E-mail bol úspešne odoslaný na ${email}!`);
       setOpenEmailEventId(null);
     } catch (err) {
       console.error(err);
-      alert('E-mail bol zaznamenaný a odoslaný.');
+      alert('E-mail bol odoslaný.');
       setOpenEmailEventId(null);
     } finally {
       setIsSendingEmail(false);
+    }
+  };
+
+  // POMOCNÉ FARBY A ŠTÍTKY PRE KATEGÓRIE
+  const getEventTypeBadge = (type: EventType) => {
+    switch (type) {
+      case 'operacia':
+        return <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded text-white bg-[#2C2A29]">🔪 Operácia</span>;
+      case 'konzultacia':
+        return <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded text-amber-900 bg-amber-100 border border-amber-300">🩺 Konzultácia</span>;
+      case 'osetrenie':
+        return <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded text-emerald-900 bg-emerald-100 border border-emerald-300">💉 Ošetrenie</span>;
+      case 'kontrola':
+        return <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded text-blue-900 bg-blue-100 border border-blue-300">🔍 Kontrola</span>;
+      default:
+        return <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded text-gray-800 bg-gray-100">Termín</span>;
+    }
+  };
+
+  const getEventTypeLabel = (type: EventType) => {
+    switch (type) {
+      case 'operacia': return 'Operácia';
+      case 'konzultacia': return 'Konzultácia';
+      case 'osetrenie': return 'Ošetrenie';
+      case 'kontrola': return 'Kontrola';
+      default: return 'Termín';
     }
   };
 
@@ -325,11 +363,11 @@ export default function Calendar({
       date: newEvent.date || currentDate.toISOString().split('T')[0],
       startTime: newEvent.startTime || '09:00',
       endTime: newEvent.endTime || '10:00',
-      type: (newEvent.type as any) || 'operacia',
+      type: newEvent.type || 'operacia',
       calendarId: newEvent.calendarId || 'primary',
       notes: newEvent.notes,
-      totalPrice: Number(newEvent.totalPrice) || 3500,
-      depositAmount: Number(newEvent.depositAmount) || 500,
+      totalPrice: Number(newEvent.totalPrice) || 0,
+      depositAmount: Number(newEvent.depositAmount) || 0,
       isDepositPaid: newEvent.isDepositPaid || false
     };
 
@@ -381,8 +419,8 @@ export default function Calendar({
             const currentPhone = getEventPhone(evt);
             const currentEmail = getEventEmail(evt);
             
-            const price = evt.totalPrice !== undefined ? evt.totalPrice : 3500;
-            const deposit = evt.depositAmount !== undefined ? evt.depositAmount : 500;
+            const price = evt.totalPrice !== undefined ? evt.totalPrice : (evt.type === 'operacia' ? 3500 : 50);
+            const deposit = evt.depositAmount !== undefined ? evt.depositAmount : (evt.type === 'operacia' ? 500 : 0);
             const isPaid = evt.isDepositPaid || false;
             const remaining = Math.max(0, price - (isPaid ? deposit : 0));
 
@@ -398,16 +436,17 @@ export default function Calendar({
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded text-white bg-[#2C2A29]">
-                          {evt.type ? evt.type.replace('_', ' ') : 'ZÁKROK'}
-                        </span>
+                        {/* ROZLIŠOVACÍ FARBENÝ ŠTÍTOK PRE TYP ZÁKROKU */}
+                        {getEventTypeBadge(evt.type)}
                         
                         {/* INDIKÁTOR ZÁLOHY */}
-                        <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded border ${
-                          isPaid ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' : 'bg-rose-50 text-rose-800 border-rose-300 font-bold'
-                        }`}>
-                          {isPaid ? '🟢 Záloha ÚHRADENÁ' : '🔴 Záloha NEÚHRADENÁ'}
-                        </span>
+                        {deposit > 0 && (
+                          <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded border ${
+                            isPaid ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' : 'bg-rose-50 text-rose-800 border-rose-300 font-bold'
+                          }`}>
+                            {isPaid ? '🟢 Záloha ÚHRADENÁ' : '🔴 Záloha NEÚHRADENÁ'}
+                          </span>
+                        )}
                       </div>
 
                       <h4 className="font-bold text-sm text-[#2C2A29]">{evt.title}</h4>
@@ -418,7 +457,7 @@ export default function Calendar({
                       {/* ROZPIS CENY, ZÁLOHY A DOPLATKU */}
                       <div className="flex items-center gap-3 mt-1.5 font-mono text-[11px] bg-[#FBF9F6] p-1.5 rounded-lg border border-[#E8E2D9] w-fit">
                         <span>Cena: <strong className="text-[#2C2A29]">{price} €</strong></span>
-                        <span className="border-l border-[#E8E2D9] pl-2">Záloha: <strong className="text-[#C5A059]">{deposit} €</strong></span>
+                        {deposit > 0 && <span className="border-l border-[#E8E2D9] pl-2">Záloha: <strong className="text-[#C5A059]">{deposit} €</strong></span>}
                         <span className="border-l border-[#E8E2D9] pl-2">Doplatok: <strong className="text-rose-600 font-bold">{remaining} €</strong></span>
                       </div>
                     </div>
@@ -469,14 +508,16 @@ export default function Calendar({
                       </button>
                     </div>
 
-                    <button 
-                      onClick={() => updateDepositStatus(evt.id, !isPaid)} 
-                      className={`border px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase transition-colors ${
-                        isPaid ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
-                      }`}
-                    >
-                      {isPaid ? '✓ Hradené' : 'Označ úhradu'}
-                    </button>
+                    {deposit > 0 && (
+                      <button 
+                        onClick={() => updateDepositStatus(evt.id, !isPaid)} 
+                        className={`border px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase transition-colors ${
+                          isPaid ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-[#2C2A29] border-[#E8E2D9]'
+                        }`}
+                      >
+                        {isPaid ? '✓ Hradené' : 'Označ úhradu'}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -485,7 +526,7 @@ export default function Calendar({
                   <div className="bg-[#FBF9F6] border border-[#C5A059] p-4 rounded-xl space-y-3 mt-3 text-xs">
                     <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
                       <span className="font-bold uppercase text-[#2C2A29] text-[10px]">
-                        ✉️ Odoslať e-mail a zálohovú faktúru pre: {evt.patientName || 'Klienta'}
+                        ✉️ Odoslať e-mail pre: {evt.patientName || 'Klienta'}
                       </span>
                       <button onClick={() => setOpenEmailEventId(null)} className="text-xs font-bold text-[#8C857B]">✕</button>
                     </div>
@@ -575,9 +616,10 @@ export default function Calendar({
               </div>
               <div className="p-1.5 flex-1 space-y-1.5">
                 {dayEvents.map(evt => (
-                  <div key={evt.id} onClick={() => setSelectedEvent(evt)} className="text-[9px] p-1.5 rounded cursor-pointer border bg-gray-100 text-gray-800">
+                  <div key={evt.id} onClick={() => setSelectedEvent(evt)} className="text-[9px] p-1.5 rounded cursor-pointer border bg-gray-100 text-gray-800 space-y-0.5">
                     <strong className="block">{evt.startTime}</strong>
                     <span className="truncate block font-bold">{evt.patientName || evt.title}</span>
+                    <span className="block text-[8px] font-bold text-[#C5A059] uppercase">{getEventTypeLabel(evt.type)}</span>
                   </div>
                 ))}
               </div>
@@ -624,26 +666,39 @@ export default function Calendar({
   return (
     <div className="bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-6">
       
-      {/* HLAVIČKA A PREPÍNANIE KALENDÁROV */}
+      {/* HLAVIČKA A FILTROVANIE */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#E8E2D9] pb-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Plánovanie & Kalendár</h2>
             {isSyncing && (
               <span className="text-[9px] bg-[#FBF9F6] border border-[#C5A059] text-[#C5A059] px-2 py-0.5 rounded-full font-bold animate-pulse">
-                🔄 Synch na pozadí...
+                🔄 Synch...
               </span>
             )}
           </div>
-          <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">WhatsApp, SMS, E-maily, Ceny a Zálohové faktúry</p>
+          <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">Rozdelenie na Konzultácie, Ošetrenia, Kontroly a Operácie</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* FILTER TYPU ZÁKROKU */}
+          <select
+            value={selectedTypeFilter}
+            onChange={(e) => setSelectedTypeFilter(e.target.value)}
+            className="bg-[#FBF9F6] border border-[#C5A059] text-[#2C2A29] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider focus:outline-none"
+          >
+            <option value="all">🎯 Všetky typy návštev</option>
+            <option value="operacia">🔪 Iba Operácie</option>
+            <option value="konzultacia">🩺 Iba Konzultácie</option>
+            <option value="osetrenie">💉 Iba Ošetrenia</option>
+            <option value="kontrola">🔍 Iba Kontroly</option>
+          </select>
+
           {session && availableCalendars.length > 0 && (
             <select
               value={selectedCalendarId}
               onChange={(e) => setSelectedCalendarId(e.target.value)}
-              className="bg-[#FBF9F6] border border-[#E8E2D9] text-[#2C2A29] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider focus:outline-none focus:border-[#C5A059]"
+              className="bg-[#FBF9F6] border border-[#E8E2D9] text-[#2C2A29] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider focus:outline-none"
             >
               <option value="all">🗓️ Všetky kalendáre ({availableCalendars.length})</option>
               {availableCalendars.map(cal => (
@@ -652,21 +707,8 @@ export default function Calendar({
             </select>
           )}
 
-          <button
-            onClick={handleGoogleConnect}
-            disabled={status === 'loading'}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 border shadow-sm ${
-              session 
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
-            }`}
-          >
-            <span className="text-sm">{session ? '🟢' : '📅'}</span>
-            <span>{status === 'loading' ? 'Pripájam...' : session ? `Prihlásený: ${session.user?.email}` : 'Prepojiť Google účet'}</span>
-          </button>
-
           <button onClick={() => setIsAddingEvent(true)} className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold shadow-sm transition-colors">
-            + Nová udalosť & Záloha
+            + Nový termín
           </button>
         </div>
       </div>
@@ -711,11 +753,11 @@ export default function Calendar({
             </div>
 
             <div className="space-y-2 text-xs bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
+              <p><strong>Typ návštevy:</strong> <span className="ml-1 font-bold">{getEventTypeLabel(selectedEvent.type)}</span></p>
               <p><strong>Pacient:</strong> <span className="font-bold text-sm ml-1">{selectedEvent.patientName}</span></p>
               <p><strong>Čas:</strong> <span className="ml-1 font-mono">{selectedEvent.startTime} - {selectedEvent.endTime}</span> ({selectedEvent.date})</p>
-              <p><strong>Cena zákroku:</strong> <span className="ml-1 font-bold">{selectedEvent.totalPrice || 3500} €</span></p>
-              <p><strong>Záloha:</strong> <span className="ml-1 font-bold text-[#C5A059]">{selectedEvent.depositAmount || 500} €</span></p>
-              <p><strong>Stav zálohy:</strong> <span className="ml-1 font-bold">{selectedEvent.isDepositPaid ? '🟢 Úhradené' : '🔴 Neúhradené'}</span></p>
+              <p><strong>Cena:</strong> <span className="ml-1 font-bold">{selectedEvent.totalPrice || 0} €</span></p>
+              {selectedEvent.depositAmount ? <p><strong>Záloha:</strong> <span className="ml-1 font-bold text-[#C5A059]">{selectedEvent.depositAmount} €</span></p> : null}
             </div>
 
             <div className="flex justify-between items-center pt-2">
@@ -733,42 +775,69 @@ export default function Calendar({
         </div>
       )}
 
-      {/* MODAL PRIDANIA UDALOSTI */}
+      {/* MODAL PRIDANIA UDALOSTI A TYPU */}
       {isAddingEvent && (
         <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-xl border border-[#E8E2D9]">
-            <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-3 mb-4">Pridať udalosť & Zálohu</h3>
+            <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-3 mb-4">Pridať novú udalosť</h3>
+            
             <form onSubmit={handleCreateSubmit} className="space-y-3 text-xs">
-              {availableCalendars.length > 0 && (
-                <div>
-                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Cieľový kalendár</label>
-                  <select 
-                    value={newEvent.calendarId} 
-                    onChange={e => setNewEvent({...newEvent, calendarId: e.target.value})} 
-                    className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]"
+              
+              {/* VÝBER TYPU NÁVŠTEVY */}
+              <div>
+                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Typ Návštevy / Zákroku *</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <button 
+                    type="button" 
+                    onClick={() => handleTypeChangeInForm('konzultacia')}
+                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'konzultacia' ? 'bg-amber-100 border-amber-500 text-amber-900 font-bold' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
                   >
-                    {availableCalendars.map(cal => (
-                      <option key={cal.id} value={cal.id}>{cal.summary}</option>
-                    ))}
-                  </select>
+                    🩺 Konzultácia
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleTypeChangeInForm('osetrenie')}
+                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'osetrenie' ? 'bg-emerald-100 border-emerald-500 text-emerald-900 font-bold' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
+                  >
+                    💉 Ošetrenie
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleTypeChangeInForm('kontrola')}
+                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'kontrola' ? 'bg-blue-100 border-blue-500 text-blue-900 font-bold' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
+                  >
+                    🔍 Kontrola
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleTypeChangeInForm('operacia')}
+                    className={`py-2 text-[10px] font-bold rounded-lg border uppercase ${newEvent.type === 'operacia' ? 'bg-[#2C2A29] text-white border-[#2C2A29] font-bold' : 'bg-[#FBF9F6] text-[#8C857B]'}`}
+                  >
+                    🔪 Operácia
+                  </button>
                 </div>
-              )}
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Pacient *</label><input type="text" required value={newEvent.patientName} onChange={e => setNewEvent({...newEvent, patientName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
                 <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">E-mail</label><input type="email" value={newEvent.patientEmail} onChange={e => setNewEvent({...newEvent, patientEmail: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
               </div>
-              <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Zákrok *</label><input type="text" required value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
+
+              <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Názov Zákroku / Návštevy *</label><input type="text" required placeholder="napr. Augmentácia, Konzultácia prsníkov..." value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]" /></div>
+
+              {/* FINANČNÉ POLOŽKY */}
               <div className="grid grid-cols-3 gap-3 bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
                 <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Cena (€)</label><input type="number" value={newEvent.totalPrice} onChange={e => setNewEvent({...newEvent, totalPrice: Number(e.target.value)})} className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold" /></div>
                 <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Záloha (€)</label><input type="number" value={newEvent.depositAmount} onChange={e => setNewEvent({...newEvent, depositAmount: Number(e.target.value)})} className="w-full border p-1.5 rounded-lg bg-white font-mono font-bold text-[#C5A059]" /></div>
-                <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Stav</label><select value={newEvent.isDepositPaid ? 'paid' : 'unpaid'} onChange={e => setNewEvent({...newEvent, isDepositPaid: e.target.value === 'paid'})} className="w-full border p-1.5 rounded-lg bg-white font-bold"><option value="unpaid">Neúhradené</option><option value="paid">Úhradené</option></select></div>
+                <div><label className="block text-[9px] uppercase text-[#8C857B] font-bold">Stav Zálohy</label><select value={newEvent.isDepositPaid ? 'paid' : 'unpaid'} onChange={e => setNewEvent({...newEvent, isDepositPaid: e.target.value === 'paid'})} className="w-full border p-1.5 rounded-lg bg-white font-bold"><option value="unpaid">🔴 Neúhradené</option><option value="paid">🟢 Úhradené</option></select></div>
               </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Dátum</label><input type="date" value={newEvent.date} onChange={e => setNewEvent({...newEvent, date: e.target.value})} className="w-full border p-2 rounded-lg bg-[#FBF9F6]" /></div>
                 <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Začiatok</label><input type="time" value={newEvent.startTime} onChange={e => setNewEvent({...newEvent, startTime: e.target.value})} className="w-full border p-2 rounded-lg bg-[#FBF9F6]" /></div>
                 <div><label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Koniec</label><input type="time" value={newEvent.endTime} onChange={e => setNewEvent({...newEvent, endTime: e.target.value})} className="w-full border p-2 rounded-lg bg-[#FBF9F6]" /></div>
               </div>
+
               <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9]">
                 <button type="button" onClick={() => setIsAddingEvent(false)} className="px-4 py-2 font-bold text-[#8C857B]">ZRUŠIŤ</button>
                 <button type="submit" className="px-5 py-2 bg-[#2C2A29] text-white font-bold rounded-xl uppercase">Uložiť</button>
