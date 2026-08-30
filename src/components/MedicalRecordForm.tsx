@@ -1679,24 +1679,24 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
             {/* --- Hlavička všeobecná s logom SAY BY MRAZ (Skrytá pri Dohode o cene) --- */}
             {docType !== 'dohoda_o_cene' && (
               <>
-                <div className="border-b-2 border-[#C5A059] pb-5 mb-6 flex justify-between items-start">
-                  <div className="flex items-center gap-4">
+                <div className="border-b-2 border-[#C5A059] pb-6 mb-6 flex justify-between items-center">
+                  <div className="flex items-center gap-5">
                     <img 
                       src="/logo.png" 
                       alt="SAY BY MRAZ" 
-                      className="h-12 w-auto object-contain" 
+                      className="h-20 w-auto object-contain" 
                     />
-                    <div className="border-l border-[#E8E2D9] pl-3.5">
-                      <h2 className="font-brand text-2xl font-light tracking-widest uppercase text-[#2C2A29]">SAY CLINIC</h2>
-                      <p className="text-[9px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mt-0.5">PLASTICKÁ CHIRURGIA & DERMATOLÓGIA</p>
+                    <div className="border-l-2 border-[#C5A059] pl-4">
+                      <h2 className="font-brand text-2xl md:text-3xl font-light tracking-widest uppercase text-[#2C2A29]">SAY CLINIC</h2>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mt-1">PLASTICKÁ CHIRURGIA & DERMATOLÓGIA</p>
                       <p className="text-[9px] text-[#8C857B] mt-0.5">Lazovná 43, 974 01 Banská Bystrica | www.sayclinic.sk</p>
                     </div>
                   </div>
                   <div className="text-right text-[10px] text-[#8C857B]">
-                    <span className="bg-[#2C2A29] text-white px-2.5 py-1 rounded text-[8px] uppercase tracking-wider font-bold shadow-sm inline-block">
+                    <span className="bg-[#2C2A29] text-white px-3 py-1.5 rounded text-[9px] uppercase tracking-wider font-bold shadow-sm inline-block">
                       {DOC_TITLES[docType]}
                     </span>
-                    <p className="font-bold text-[#2C2A29] mt-2 text-xs">{doctor}</p>
+                    <p className="font-bold text-[#2C2A29] mt-2.5 text-xs">{doctor}</p>
                     <p className="mt-0.5">Dátum: {new Date().toLocaleDateString('sk-SK')}</p>
                   </div>
                 </div>
@@ -1907,15 +1907,15 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
             {/* --- 3. Dohoda o cene a podmienkach (Právny formát s Logom a Hlavičkou) --- */}
             {docType === 'dohoda_o_cene' && (
               <div className="text-[11px] leading-tight space-y-6">
-                <div className="flex items-center justify-between border-b-2 border-[#C5A059] pb-4 mb-4">
-                  <div className="flex items-center gap-3">
-                    <img src="/logo.png" alt="SAY BY MRAZ" className="h-10 w-auto object-contain" />
-                    <div>
-                      <h2 className="font-brand text-lg font-light tracking-widest text-[#2C2A29]">SAY CLINIC</h2>
-                      <p className="text-[8px] text-[#C5A059] font-bold tracking-widest uppercase">PLASTICKÁ CHIRURGIA & DERMATOLÓGIA</p>
+                <div className="flex items-center justify-between border-b-2 border-[#C5A059] pb-5 mb-5">
+                  <div className="flex items-center gap-4">
+                    <img src="/logo.png" alt="SAY BY MRAZ" className="h-16 w-auto object-contain" />
+                    <div className="border-l-2 border-[#C5A059] pl-3.5">
+                      <h2 className="font-brand text-2xl font-light tracking-widest text-[#2C2A29]">SAY CLINIC</h2>
+                      <p className="text-[9px] text-[#C5A059] font-bold tracking-widest uppercase">PLASTICKÁ CHIRURGIA & DERMATOLÓGIA</p>
                     </div>
                   </div>
-                  <span className="text-[9px] bg-[#2C2A29] text-white px-2.5 py-1 rounded font-bold uppercase tracking-wider">Zmluva o poskytnutí starostlivosti</span>
+                  <span className="text-[10px] bg-[#2C2A29] text-white px-3 py-1.5 rounded font-bold uppercase tracking-wider">Zmluva o poskytnutí starostlivosti</span>
                 </div>
 
                 <h1 className="text-xl font-bold text-center uppercase tracking-widest text-[#2C2A29] mb-4">Dohoda o cene a podmienkach</h1>

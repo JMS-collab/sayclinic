@@ -29,12 +29,12 @@ export default function PdfExportButton({ record }: { record: MedicalRecordData 
     printElement.style.color = '#2C2A29';
 
     printElement.innerHTML = `
-      <div style="border-bottom: 2px solid #C5A059; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 14px;">
-          <img src="/logo.png" style="height: 48px; width: auto; object-fit: contain;" alt="SAY BY MRAZ" />
-          <div style="border-left: 1px solid #E8E2D9; padding-left: 14px;">
-            <h1 style="font-size: 20px; margin: 0; color: #2C2A29; font-weight: 300; letter-spacing: 2px; text-transform: uppercase;">SAY CLINIC</h1>
-            <p style="font-size: 8px; color: #C5A059; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; margin: 2px 0 0 0;">Plastická chirurgia & Dermatológia</p>
+      <div style="border-bottom: 2px solid #C5A059; padding-bottom: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 18px;">
+          <img src="/logo.png" style="height: 70px; width: auto; object-fit: contain;" alt="SAY BY MRAZ" />
+          <div style="border-left: 2px solid #C5A059; padding-left: 16px;">
+            <h1 style="font-size: 24px; margin: 0; color: #2C2A29; font-weight: 300; letter-spacing: 2.5px; text-transform: uppercase;">SAY CLINIC</h1>
+            <p style="font-size: 9px; color: #C5A059; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; margin: 3px 0 0 0;">Plastická chirurgia & Dermatológia</p>
             <p style="font-size: 9px; color: #8C857B; margin: 2px 0 0 0;">Lazovná 43, 974 01 Banská Bystrica | www.sayclinic.sk</p>
           </div>
         </div>
