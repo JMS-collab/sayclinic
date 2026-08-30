@@ -120,7 +120,7 @@ const SERVICES_DATABASE = {
   ],
 };
 
-const CLINIC_MACROS: Record<string, string> = {
+const DEFAULT_CLINIC_MACROS: Record<string, string> = {
   viecka: "VIEČKA:\n• Objem znížený, v neadekvátnej distribúcii\n• Koža v prebytku\n• Orbitálny tuk prolabuje na horných aj dolných mihalniciach\n• laterálny kantálny uhol v norme\n• Scleral show\n• Snap test a distorzný test adekvátny subadekvátny neadekvátny\n• Midface s deficitom v tukových kompartmentoch\n• Výška obočia cca. 5mm pod ideálnou pozíciou",
   nos: "NOS:\n• Dorsum - vyššej projekcie, primeranej šírky, dorzálne línie primeranej šírky nasion, rhinion, keystone, ASA\n• Špička - v hyperprojekcii, bulbózna, poklesnutá, kolumela, koža adekvátna\n• Krídla primeranej šírky a výšky\n• Septum - bez známok deviácie, endonazálne zväčšené conch, inf. bilat.\n• Inspiračný test - , Funkčné problémy -, Operácie nosa neguje",
   tvar: "TVÁR:\n• Objem znížený, v neadekvátnej distribúcii\n• koža jemná, papyrusová, výrazné mimické vrásky\n• Podkožné tkanivá laxné - gravitačné vrásky a previsy tkanív\n• Operácie tváre a korektívne zákroky",
@@ -131,7 +131,7 @@ const CLINIC_MACROS: Record<string, string> = {
   ruka: "RUKA:\nKarpálny tunel:\n• Tinel -, Phalen +\n• senzitívny deficit neprítomný, paroxyzmálne tŕpnutie, nočné bolesti\n• motorický deficit - slabosť, hypotrofia thenarových svalov\n\nDupuytrenova kontraktúra:\n• dlaňovo - prstová forma\n• DIP v norme, PIP flekč. kontr v 50°, CMP fix. v 20-30°\n• Tubiana II -III"
 };
 
-const OP_MACROS: Record<string, string> = {
+const DEFAULT_OP_MACROS: Record<string, string> = {
   op_facelift_macs: "V CA po príprave operačného poľa vykonávame tumescenciu plánovaného operačného poľa /adrenali 1:200000, levobupivacain, exacyl/ 60ml/strana. Následne vykonávame plánované rezy so zachovaním vlasov. folikulov vo vlasovej línii, retrotragálne a retroaurikulárne. Preparácia kožného laloka. Hemostáza. 3x loop slučka /vertikálna pretragálne, šikmá v oblasti líca - fixácia k preaurikulárnej fascii PDS 1.0, loop malárnej oblasti s fixáciou k periostu orbity - vicryl 2.0/. Hemostáza. Excízia prebytočnej kože s vertikálnym vektorom bez ťahu. Sutura, glykolon 4.0. Haemostatic net. Rezom v kapilíciu uvoľnujeme temporo-frontálne ligamentum a orbitálne ligamentá. Po uvolnení elevácia obočia s eleváciou viac vľavo na symetrizáciu /L2mm, P 3mm/, elevácia obmedzená predošlou blefaroplastikou. Fixácia o periost PDS 1.0. Suturam. frontalis a kože glykolon 4.0. Ohlávka.",
   op_deep_plane: "V CA po zavedení PMK, po príprave operačného poľa vykonávame tumescenciu plánovaného operačného poľa /adrenali 1:200000, levobupivacain, exacyl/ 60ml/strana + krk. Následne vykonávame plánované rezy so zachovaním vlasov. folikulov vo vlasovej línii, retrotragálne a retroaurikulárne. Preparácia kožného laloka. Hemostáza. V plánovanej línii preparujeme deep plane pod SMAS od latr. očného kútika až na krk pod m. platysma. za dôrazného šetrenia nervov a ciev. Prerušenie retaining ligament. Kontrola uvoľnenia tkanív. Sutura SMAS k temp. a parotid. fascii - superolaterálny vektor PDS 4.0. Priečne prerušenie m. platysma 1cm pod mandibolou a fixácia k fascii proc. mastoideu - hammock. Excízia prebytočnej kože. Sutura vo vrstvách. Obdobný postup na kontralat. strane. Haemostatic net. Suturam. frontalis a kože. Ohlávka.",
   op_necklift: "V CA po príprave operačného poľa vykonávame tumescenciu plánovaného operačného poľa /adrenali 1:200000, levobupivacain, exacyl/ 60ml/strana. Submentálnym prístupom preparujeme subkutánny priestor celej oblasti krku. Preparujeme okraje m. platysma a exstirpujeme submandibulány tuk. preparujeme a excidujeme ptotickú časť mm. digastrici a gl. submandibul. bilat. Dôsledná hemostáza. Fixácia platysma k fascii perihyoidálne. Centrálne raphia platysmy s priečnym nárezom infrahyoidálne",
@@ -166,8 +166,8 @@ const OP_MACROS: Record<string, string> = {
   op_excizie: "V ……….. bloku /levobupivacain + adrenalin/ - v prídavnej tumescencii LA /mesocain + adrenalin/ po príprave operačného poľa vykonávame exstirpáciu …………… bez porušenia obalu s dôsledným šetrením okolitých tkanív. Mat. ad. histologiam. Sutura kože."
 };
 
-// PREHĽADNÉ ČASOVÉ ŠABLÓNY PRE KONTROLNÉ VYŠETRENIA
-export const CHECKUP_MACROS: Record<string, {
+// PREDVOLENÉ ČASOVÉ ŠABLÓNY PRE KONTROLNÉ VYŠETRENIA
+export const DEFAULT_CHECKUP_MACROS: Record<string, {
   label: string;
   timeframe: string;
   subjective: string;
@@ -298,7 +298,7 @@ export const DOC_TITLES: Record<DocumentType, string> = {
 
 interface FormProps {
   onRecordCreated?: (sale: { date: string; patientName: string; doctorName: string; serviceType: string; amount: number; }) => void;
-  initialPatient?: { name: string; birthNumber: string; phone?: string; email?: string; address?: string } | null;
+  initialPatient?: { name: string; birthNumber: string; phone?: string; email?: string; address?: string; lastSurgery?: string; lastSurgeryDate?: string } | null;
 }
 
 export default function MedicalRecordForm({ onRecordCreated, initialPatient }: FormProps) {
@@ -383,27 +383,98 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const [vvNoContra, setVvNoContra] = useState(true);
   const [vvContraReason, setVvContraReason] = useState('');
 
-  // --- KONTROLNÉ VYŠETRENIE (ČASOVÉ ŠABLÓNY A ODPORÚČANIA) ---
+  // --- SPRÁVA ŠABLÓN (CUSTOMIZABLE TEMPLATES STATE) ---
+  const [checkupMacros, setCheckupMacros] = useState(DEFAULT_CHECKUP_MACROS);
+  const [opMacros, setOpMacros] = useState(DEFAULT_OP_MACROS);
+  const [clinicMacros, setClinicMacros] = useState(DEFAULT_CLINIC_MACROS);
+  const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
+  const [templateEditorCategory, setTemplateEditorCategory] = useState<'checkup' | 'op' | 'clinic'>('checkup');
+  const [editingTemplateKey, setEditingTemplateKey] = useState<string>('checkup_1w');
+
+  // Načítanie upravených šablón z localStorage
+  useEffect(() => {
+    try {
+      const savedCheckup = localStorage.getItem('say_clinic_custom_checkup_macros');
+      if (savedCheckup) setCheckupMacros(JSON.parse(savedCheckup));
+
+      const savedOp = localStorage.getItem('say_clinic_custom_op_macros');
+      if (savedOp) setOpMacros(JSON.parse(savedOp));
+
+      const savedClinic = localStorage.getItem('say_clinic_custom_clinic_macros');
+      if (savedClinic) setClinicMacros(JSON.parse(savedClinic));
+    } catch (e) {
+      console.error('Chyba načítania vlastných šablón:', e);
+    }
+  }, []);
+
+  // --- KONTROLNÉ VYŠETRENIE (S AUTOMATICKOU VÄZBOU NA OPERÁCIU A DÁTUM) ---
   const [selectedCheckupKey, setSelectedCheckupKey] = useState<string>('checkup_1w');
   const [checkupData, setCheckupData] = useState({
-    timeframe: CHECKUP_MACROS.checkup_1w.timeframe,
-    subjective: CHECKUP_MACROS.checkup_1w.subjective,
-    objective: CHECKUP_MACROS.checkup_1w.objective,
-    recommendations: CHECKUP_MACROS.checkup_1w.recommendations.join('\n• '),
-    nextCheckup: CHECKUP_MACROS.checkup_1w.nextCheckup
+    operationName: initialPatient?.lastSurgery || 'Augmentácia prsníkov silikónovými implantátmi',
+    operationDate: initialPatient?.lastSurgeryDate || new Date().toISOString().split('T')[0],
+    timeframe: DEFAULT_CHECKUP_MACROS.checkup_1w.timeframe,
+    subjective: DEFAULT_CHECKUP_MACROS.checkup_1w.subjective,
+    objective: DEFAULT_CHECKUP_MACROS.checkup_1w.objective,
+    recommendations: DEFAULT_CHECKUP_MACROS.checkup_1w.recommendations.join('\n• '),
+    nextCheckup: DEFAULT_CHECKUP_MACROS.checkup_1w.nextCheckup
   });
+
+  // Pomocná funkcia na výpočet odstupu od operácie
+  const calculateElapsedString = (opDateStr: string) => {
+    if (!opDateStr) return '';
+    try {
+      const opDate = new Date(opDateStr);
+      const today = new Date();
+      const diffTime = today.getTime() - opDate.getTime();
+      const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+      
+      if (diffDays === 0) return 'Dnes vykonaná operácia';
+      if (diffDays < 7) return `${diffDays} dní po operácii`;
+      const weeks = Math.floor(diffDays / 7);
+      const remDays = diffDays % 7;
+      if (diffDays < 30) return `${diffDays} dní (${weeks}. týždeň po operácii)`;
+      const months = Math.floor(diffDays / 30.4);
+      return `${diffDays} dní (cca ${months} ${months === 1 ? 'mesiac' : months < 5 ? 'mesiace' : 'mesiacov'} po operácii)`;
+    } catch {
+      return '';
+    }
+  };
+
+  // Automatické hľadanie operácie v pamäti kliniky pre pacienta
+  useEffect(() => {
+    if (birthNumber) {
+      const cleanRC = birthNumber.trim();
+      try {
+        const storedOperations = localStorage.getItem('say_clinic_patient_surgeries');
+        if (storedOperations) {
+          const opsMap = JSON.parse(storedOperations);
+          if (opsMap[cleanRC]) {
+            const lastOp = opsMap[cleanRC];
+            setCheckupData(prev => ({
+              ...prev,
+              operationName: lastOp.name || prev.operationName,
+              operationDate: lastOp.date || prev.operationDate
+            }));
+          }
+        }
+      } catch (e) {
+        console.error('Chyba pri hľadaní operácie pacienta:', e);
+      }
+    }
+  }, [birthNumber]);
 
   const handleSelectCheckupPreset = (key: string) => {
     setSelectedCheckupKey(key);
-    const macro = CHECKUP_MACROS[key];
+    const macro = (checkupMacros as any)[key] || DEFAULT_CHECKUP_MACROS[key];
     if (macro) {
-      setCheckupData({
+      setCheckupData(prev => ({
+        ...prev,
         timeframe: macro.timeframe,
         subjective: macro.subjective,
         objective: macro.objective,
-        recommendations: macro.recommendations.join('\n• '),
+        recommendations: Array.isArray(macro.recommendations) ? macro.recommendations.join('\n• ') : macro.recommendations,
         nextCheckup: macro.nextCheckup
-      });
+      }));
     }
   };
 
@@ -475,6 +546,13 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
       if(initialPatient.phone) setPatientPhone(initialPatient.phone);
       if(initialPatient.email) setPatientEmail(initialPatient.email);
       if(initialPatient.address) setPatientAddress(initialPatient.address);
+      if(initialPatient.lastSurgery) {
+        setCheckupData(prev => ({
+          ...prev,
+          operationName: initialPatient.lastSurgery || prev.operationName,
+          operationDate: initialPatient.lastSurgeryDate || prev.operationDate
+        }));
+      }
     }
   }, [initialPatient]);
 
@@ -530,7 +608,13 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     const found = allServices.find((s) => s.id === itemId);
     if (found && !selectedItems.some((i) => i.id === found.id)) {
       setSelectedItems([...selectedItems, found]);
-      if (isOperation) setHasOperation(true);
+      if (isOperation) {
+        setHasOperation(true);
+        // Ak je to operácia, nastavíme ju aj do operačného protokolu / kontroly
+        setCheckupData(prev => ({ ...prev, operationName: found.name }));
+        setSurgeryConsent(prev => ({ ...prev, procedureName: found.name }));
+        setPreopRequest(prev => ({ ...prev, targetSurgery: found.name }));
+      }
     }
   };
 
@@ -568,10 +652,11 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
   const handleMacroInsert = (val: string, target: 'vv' | 'notes') => {
     if (!val) return;
-    if (target === 'vv' && CLINIC_MACROS[val]) {
-      setVvSPL(prev => prev ? prev + "\n\n" + CLINIC_MACROS[val] : CLINIC_MACROS[val]);
+    if (target === 'vv' && (clinicMacros[val] || DEFAULT_CLINIC_MACROS[val])) {
+      const macroText = clinicMacros[val] || DEFAULT_CLINIC_MACROS[val];
+      setVvSPL(prev => prev ? prev + "\n\n" + macroText : macroText);
     } else if (target === 'notes') {
-      const selectedMacro = CLINIC_MACROS[val] || OP_MACROS[val];
+      const selectedMacro = clinicMacros[val] || DEFAULT_CLINIC_MACROS[val] || opMacros[val] || DEFAULT_OP_MACROS[val];
       if(selectedMacro) {
         setNotes(prev => prev ? prev + "\n\n" + selectedMacro : selectedMacro);
       }
@@ -585,13 +670,30 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
     const serviceTitle = (docType === 'cenova_ponuka' || docType === 'dohoda_o_cene')
       ? selectedItems.map((i) => i.name).join(', ') || DOC_TITLES[docType]
+      : docType === 'kontrolne_vysetrenie'
+      ? `Kontrola po: ${checkupData.operationName}`
       : manualProcedure || DOC_TITLES[docType];
 
     const recordNote = docType === 'vstupne_vysetrenie' 
       ? vvPlan 
       : docType === 'kontrolne_vysetrenie' 
-      ? `Subjektívne: ${checkupData.subjective}\nObjektívne: ${checkupData.objective}\nOdporúčania:\n${checkupData.recommendations}` 
+      ? `Operácia: ${checkupData.operationName} (${checkupData.operationDate})\nSubjektívne: ${checkupData.subjective}\nObjektívne: ${checkupData.objective}\nOdporúčania:\n${checkupData.recommendations}` 
       : notes;
+
+    // Uloženie operácie pre budúce kontroly tohto pacienta
+    if (docType === 'operacny_protokol' && birthNumber) {
+      try {
+        const storedOps = localStorage.getItem('say_clinic_patient_surgeries');
+        const opsMap = storedOps ? JSON.parse(storedOps) : {};
+        opsMap[birthNumber.trim()] = {
+          name: manualProcedure || selectedItems[0]?.name || 'Chirurgický zákrok',
+          date: surgeryDetails.opDate || new Date().toISOString().split('T')[0]
+        };
+        localStorage.setItem('say_clinic_patient_surgeries', JSON.stringify(opsMap));
+      } catch (err) {
+        console.error('Chyba ukladania operácie:', err);
+      }
+    }
 
     const response = await HealthProService.sendMedicalRecord({
       patientBirthNumber: birthNumber,
@@ -611,6 +713,30 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
         serviceType: `${DOC_TITLES[docType]}: ${serviceTitle}`,
         amount: (docType === 'cenova_ponuka' || docType === 'dohoda_o_cene') ? totalPrice : 0,
       });
+    }
+  };
+
+  // Uloženie upravených šablón v modal okne
+  const handleSaveCustomTemplate = (updatedData: any) => {
+    if (templateEditorCategory === 'checkup') {
+      const updated = { ...checkupMacros, [editingTemplateKey]: updatedData };
+      setCheckupMacros(updated);
+      localStorage.setItem('say_clinic_custom_checkup_macros', JSON.stringify(updated));
+    }
+    alert('Šablóna bola úspešne uložená a bude použitá pri každom generovaní!');
+    setIsTemplateEditorOpen(false);
+  };
+
+  const handleResetTemplates = () => {
+    if (confirm('Naozaj si želáte obnoviť všetky šablóny na pôvodné výrobné nastavenia?')) {
+      setCheckupMacros(DEFAULT_CHECKUP_MACROS);
+      setOpMacros(DEFAULT_OP_MACROS);
+      setClinicMacros(DEFAULT_CLINIC_MACROS);
+      localStorage.removeItem('say_clinic_custom_checkup_macros');
+      localStorage.removeItem('say_clinic_custom_op_macros');
+      localStorage.removeItem('say_clinic_custom_clinic_macros');
+      alert('Všetky šablóny boli obnovené na predvolené.');
+      setIsTemplateEditorOpen(false);
     }
   };
 
@@ -637,6 +763,143 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
         `}
       </style>
 
+      {/* ======================================================= */}
+      {/* MODAL PRE SPRÁVU A ÚPRAVU ŠABLÓN                        */}
+      {/* ======================================================= */}
+      {isTemplateEditorOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#E8E2D9] max-w-3xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
+              <div>
+                <h3 className="font-brand text-lg font-bold uppercase text-[#2C2A29]">Správa & Úprava Šablón</h3>
+                <p className="text-[10px] text-[#8C857B] uppercase tracking-wider">Prispôsobte si texty, odporúčania a makrá podľa Vašich preferencií</p>
+              </div>
+              <button onClick={() => setIsTemplateEditorOpen(false)} className="text-gray-400 hover:text-gray-700 text-lg font-bold">✕</button>
+            </div>
+
+            {/* Prepínanie kategórie */}
+            <div className="flex gap-2">
+              <button 
+                onClick={() => { setTemplateEditorCategory('checkup'); setEditingTemplateKey('checkup_1w'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${templateEditorCategory === 'checkup' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:text-[#2C2A29]'}`}
+              >
+                🩺 Kontrolné vyšetrenia
+              </button>
+            </div>
+
+            {/* Editácia vybranej šablóny kontroly */}
+            {templateEditorCategory === 'checkup' && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-[#8C857B]">Vyberte interval:</label>
+                  <select 
+                    value={editingTemplateKey} 
+                    onChange={e => setEditingTemplateKey(e.target.value)}
+                    className="border border-[#E8E2D9] p-1.5 rounded-lg text-xs font-bold bg-[#FBF9F6]"
+                  >
+                    {Object.entries(checkupMacros).map(([k, v]: any) => (
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Názov časového obdobia</label>
+                  <input 
+                    type="text" 
+                    value={(checkupMacros as any)[editingTemplateKey]?.timeframe || ''} 
+                    onChange={e => {
+                      const updated = { ...checkupMacros, [editingTemplateKey]: { ...(checkupMacros as any)[editingTemplateKey], timeframe: e.target.value } };
+                      setCheckupMacros(updated);
+                    }}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Predvolený subjektívny stav</label>
+                  <textarea 
+                    rows={3} 
+                    value={(checkupMacros as any)[editingTemplateKey]?.subjective || ''} 
+                    onChange={e => {
+                      const updated = { ...checkupMacros, [editingTemplateKey]: { ...(checkupMacros as any)[editingTemplateKey], subjective: e.target.value } };
+                      setCheckupMacros(updated);
+                    }}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Predvolený objektívny nález (Hojenie p.p.i., jazvy)</label>
+                  <textarea 
+                    rows={3} 
+                    value={(checkupMacros as any)[editingTemplateKey]?.objective || ''} 
+                    onChange={e => {
+                      const updated = { ...checkupMacros, [editingTemplateKey]: { ...(checkupMacros as any)[editingTemplateKey], objective: e.target.value } };
+                      setCheckupMacros(updated);
+                    }}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#C5A059] mb-1">Predvolené odporúčania (Každý riadok = 1 bod)</label>
+                  <textarea 
+                    rows={5} 
+                    value={Array.isArray((checkupMacros as any)[editingTemplateKey]?.recommendations) ? (checkupMacros as any)[editingTemplateKey].recommendations.join('\n') : (checkupMacros as any)[editingTemplateKey]?.recommendations || ''} 
+                    onChange={e => {
+                      const lines = e.target.value.split('\n').filter(l => l.trim() !== '');
+                      const updated = { ...checkupMacros, [editingTemplateKey]: { ...(checkupMacros as any)[editingTemplateKey], recommendations: lines } };
+                      setCheckupMacros(updated);
+                    }}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Predvolená ďalšia kontrola</label>
+                  <input 
+                    type="text" 
+                    value={(checkupMacros as any)[editingTemplateKey]?.nextCheckup || ''} 
+                    onChange={e => {
+                      const updated = { ...checkupMacros, [editingTemplateKey]: { ...(checkupMacros as any)[editingTemplateKey], nextCheckup: e.target.value } };
+                      setCheckupMacros(updated);
+                    }}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center pt-4 border-t border-[#E8E2D9]">
+              <button 
+                type="button" 
+                onClick={handleResetTemplates}
+                className="text-xs text-rose-600 hover:text-rose-800 font-bold underline cursor-pointer"
+              >
+                🔄 Resetovať na predvolené šablóny
+              </button>
+              <div className="flex gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setIsTemplateEditorOpen(false)}
+                  className="px-4 py-2 border border-[#E8E2D9] rounded-xl text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
+                >
+                  Zrušiť
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => handleSaveCustomTemplate((checkupMacros as any)[editingTemplateKey])}
+                  className="px-5 py-2 bg-[#C5A059] hover:bg-[#b08d48] text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm cursor-pointer"
+                >
+                  💾 Uložiť zmeny
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 print:block print:gap-0">
         
         {/* ======================================================= */}
@@ -645,7 +908,16 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
         <div className="lg:col-span-6 bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-5 print:hidden">
           
           <div className="border-b border-[#E8E2D9] pb-4">
-            <h2 className="font-brand text-xl font-light text-[#2C2A29] uppercase font-bold mb-3">Generátor Dokumentov</h2>
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="font-brand text-xl font-light text-[#2C2A29] uppercase font-bold">Generátor Dokumentov</h2>
+              <button
+                type="button"
+                onClick={() => setIsTemplateEditorOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FBF9F6] hover:bg-[#F4EFEA] border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl text-[10px] font-bold uppercase tracking-wider text-[#2C2A29] transition-all cursor-pointer shadow-xs"
+              >
+                ⚙️ Upraviť šablóny
+              </button>
+            </div>
             
             <select 
               value={docType} 
@@ -779,13 +1051,60 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* SEKCIA: KONTROLNÉ VYŠETRENIE (NOVÉ ŠTRUKTÚROVANÉ ČASOVÉ ŠABLÓNY) */}
+            {/* SEKCIA: KONTROLNÉ VYŠETRENIE (S AUTOMATICKOU VÄZBOU NA OPERÁCIU A DÁTUM) */}
             {showCheckup && (
               <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-4">
+                
+                {/* 1. Údaje o podstúpenej operácii */}
+                <div className="bg-white p-3.5 rounded-xl border border-[#C5A059]/40 space-y-3 shadow-xs">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Operácia & Dátum (Zdroj: Operačný protokol)</p>
+                    <span className="text-[9px] text-[#8C857B] font-mono font-bold bg-[#FBF9F6] px-2 py-0.5 rounded border border-[#E8E2D9]">
+                      {calculateElapsedString(checkupData.operationDate)}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[9px] text-[#8C857B] uppercase font-bold mb-1">Názov vykonanej operácie</label>
+                      <input 
+                        type="text" 
+                        list="operations-list"
+                        value={checkupData.operationName} 
+                        onChange={e => setCheckupData({...checkupData, operationName: e.target.value})} 
+                        placeholder="napr. Augmentácia prsníkov..."
+                        className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-[#FBF9F6] font-bold text-[#2C2A29]" 
+                      />
+                      <datalist id="operations-list">
+                        {SERVICES_DATABASE.operations.map(op => <option key={op.id} value={op.name} />)}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] uppercase font-bold mb-1">Dátum operácie</label>
+                      <input 
+                        type="date" 
+                        value={checkupData.operationDate} 
+                        onChange={e => setCheckupData({...checkupData, operationDate: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-[#FBF9F6] font-bold text-[#2C2A29]" 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Výber časového intervalu */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059] mb-2">Výber časového intervalu kontroly</p>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-[#8C857B]">Interval kontroly</p>
+                    <button 
+                      type="button" 
+                      onClick={() => setIsTemplateEditorOpen(true)}
+                      className="text-[9px] text-[#C5A059] hover:underline font-bold"
+                    >
+                      ✏️ Upraviť texty šablón
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                    {Object.entries(CHECKUP_MACROS).map(([key, macro]) => (
+                    {Object.entries(checkupMacros).map(([key, macro]: any) => (
                       <button
                         key={key}
                         type="button"
@@ -803,7 +1122,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-[#8C857B] uppercase font-bold mb-1">Doba od operácie</label>
+                  <label className="block text-[10px] text-[#8C857B] uppercase font-bold mb-1">Doba od operácie (V dokumente)</label>
                   <input 
                     type="text" 
                     value={checkupData.timeframe} 
@@ -1334,17 +1653,32 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 1. KONTROLNÉ VYŠETRENIE (NOVÝ PROFESIONÁLNY DOKUMENT) --- */}
+            {/* --- 1. KONTROLNÉ VYŠETRENIE (S DETAILOM O OPERÁCII A DÁTUME) --- */}
             {showCheckup && (
               <div className="space-y-5 mb-8 text-justify leading-relaxed">
-                <div className="bg-[#FBF9F6] p-3.5 rounded-xl border border-[#E8E2D9] flex justify-between items-center">
-                  <div>
-                    <span className="text-[9px] uppercase font-bold text-[#8C857B] block">Časový interval kontroly:</span>
-                    <span className="text-sm font-bold text-[#2C2A29]">{checkupData.timeframe}</span>
+                
+                {/* Dvojfarebný luxusný banner o operácii a dobe po výkone */}
+                <div className="bg-[#FBF9F6] border-2 border-[#C5A059]/40 rounded-xl p-4 space-y-2 shadow-xs">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-[9px] uppercase font-bold text-[#8C857B] block tracking-wider">Podstúpená operácia:</span>
+                      <span className="text-sm font-bold text-[#2C2A29]">{checkupData.operationName || 'Chirurgický zákrok'}</span>
+                    </div>
+                    <span className="text-[9px] font-bold bg-[#2C2A29] text-white px-2.5 py-1 rounded tracking-wider uppercase">
+                      Hojenie p.p.i.
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold bg-[#C5A059] text-white px-2.5 py-1 rounded shadow-xs">
-                    Hojenie p.p.i.
-                  </span>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#E8E2D9] text-xs">
+                    <div>
+                      <span className="text-[9px] text-[#8C857B] uppercase font-bold mr-1">Dátum operácie:</span>
+                      <span className="font-mono font-bold text-[#2C2A29]">{checkupData.operationDate ? new Date(checkupData.operationDate).toLocaleDateString('sk-SK') : '---'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] text-[#8C857B] uppercase font-bold mr-1">Fáza kontroly:</span>
+                      <span className="font-bold text-[#C5A059]">{checkupData.timeframe}</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
