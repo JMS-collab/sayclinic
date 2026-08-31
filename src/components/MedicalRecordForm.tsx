@@ -262,7 +262,7 @@ const calculateAgeFromRC = (rc: string) => {
   
   let year = parseInt(cleanRc.substring(0, 2), 10);
   let month = parseInt(cleanRc.substring(2, 4), 10);
-  let day = parseInt(cleanRc.substring(4, 6), 10);
+  const day = parseInt(cleanRc.substring(4, 6), 10);
   
   if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
   
@@ -277,6 +277,83 @@ const calculateAgeFromRC = (rc: string) => {
     age--;
   }
   return age.toString();
+};
+
+export const calculateBirthDateFromRC = (rc: string): string => {
+  if (!rc || rc.length < 6) return '';
+  const cleanRc = rc.replace(/\D/g, '');
+  if (cleanRc.length < 6) return '';
+
+  let year = parseInt(cleanRc.substring(0, 2), 10);
+  let month = parseInt(cleanRc.substring(2, 4), 10);
+  const day = parseInt(cleanRc.substring(4, 6), 10);
+
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+
+  if (month > 50) month -= 50;
+  if (month > 20) month -= 20;
+
+  year += (year > 26) ? 1900 : 2000;
+
+  const pad = (n: number) => n < 10 ? `0${n}` : `${n}`;
+  return `${pad(day)}. ${pad(month)}. ${year}`;
+};
+
+export const formatSlovakDateLong = (dateStr: string): string => {
+  if (!dateStr) return new Date().toLocaleDateString('sk-SK');
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+
+  const monthsGenitive = [
+    'januára', 'februára', 'marca', 'apríla', 'mája', 'júna',
+    'júla', 'augusta', 'septembra', 'októbra', 'novembra', 'decembra'
+  ];
+  return `${d.getDate()}. ${monthsGenitive[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+export const numberToSlovakWords = (num: number): string => {
+  if (isNaN(num)) return '';
+  num = Math.round(Math.abs(num));
+  if (num === 0) return 'nula';
+
+  const units = ['', 'jeden', 'dva', 'tri', 'štyri', 'päť', 'šesť', 'sedem', 'osem', 'deväť'];
+  const teens = ['desať', 'jedenásť', 'dvanásť', 'trinásť', 'štrnásť', 'pätnásť', 'šestnásť', 'sedemnásť', 'osemnásť', 'devätnásť'];
+  const tens = ['', 'desať', 'dvadsať', 'tridsať', 'štyridsať', 'päťdesiat', 'šesťdesiat', 'sedemdesiat', 'osemdesiat', 'deväťdesiat'];
+  const hundreds = ['', 'sto', 'dvesto', 'tristo', 'štyristo', 'päťsto', 'šesťsto', 'sedemsto', 'osemsto', 'deväťsto'];
+
+  const convertHundreds = (n: number): string => {
+    let res = '';
+    const h = Math.floor(n / 100);
+    const remainder = n % 100;
+    if (h > 0) res += hundreds[h];
+    if (remainder >= 10 && remainder <= 19) {
+      res += teens[remainder - 10];
+    } else {
+      const t = Math.floor(remainder / 10);
+      const u = remainder % 10;
+      if (t > 0) res += tens[t];
+      if (u > 0) res += units[u];
+    }
+    return res;
+  };
+
+  let result = '';
+  const thousands = Math.floor(num / 1000);
+  const remainder = num % 1000;
+
+  if (thousands > 0) {
+    if (thousands === 1) {
+      result += 'tisíc';
+    } else {
+      result += convertHundreds(thousands) + 'tisíc';
+    }
+  }
+
+  if (remainder > 0) {
+    result += convertHundreds(remainder);
+  }
+
+  return result;
 };
 
 export type DocumentType = 
@@ -343,6 +420,17 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
   // PLATBY
   const [depositPaid, setDepositPaid] = useState<number>(0);
+
+  // DOHODA O CENE - ROZŠÍRENÉ ŠPECIFICKÉ ÚDAJE
+  const [patientCitizenship, setPatientCitizenship] = useState('Slovenská republika');
+  const [patientBirthDate, setPatientBirthDate] = useState('');
+  const [bankName, setBankName] = useState('Tatra banka, a.s.');
+  const [bankIban, setBankIban] = useState('SK12 1100 0000 0029 4812 3456');
+  const [agreementSurgeryDate, setAgreementSurgeryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [agreementSurgeryTime, setAgreementSurgeryTime] = useState('08:30');
+  const [depositDueDays, setDepositDueDays] = useState(3);
+  const [customVariableSymbol, setCustomVariableSymbol] = useState('');
+  const [agreementDate, setAgreementDate] = useState(new Date().toISOString().split('T')[0]);
 
   // OPERAČNÉ ÚDAJE
   const [surgeryDetails, setSurgeryDetails] = useState({
@@ -569,7 +657,11 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     if (computedAge) {
       setVvVek(computedAge);
     }
-  }, [birthNumber]);
+    const computedBirthDate = calculateBirthDateFromRC(birthNumber);
+    if (computedBirthDate && !patientBirthDate) {
+      setPatientBirthDate(computedBirthDate);
+    }
+  }, [birthNumber, patientBirthDate]);
 
   const calcBMI = () => {
     const w = parseFloat(vvVaha);
@@ -1020,14 +1112,23 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
             {/* ROZŠÍRENÉ KONTAKTY PRE DOHODU O CENE A SÚHLASY */}
             {(docType === 'dohoda_o_cene' || docType === 'suhlas_operacia' || docType === 'suhlas_aplikacia') && (
               <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Kontaktné údaje pacienta</p>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Kontaktné a identifikačné údaje pacienta</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="block text-[10px] text-[#8C857B] mb-1">Telefón</label><input type="text" value={patientPhone} onChange={e => setPatientPhone(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" /></div>
                   <div><label className="block text-[10px] text-[#8C857B] mb-1">Email</label><input type="text" value={patientEmail} onChange={e => setPatientEmail(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" /></div>
                 </div>
-                <div><label className="block text-[10px] text-[#8C857B] mb-1">Bydlisko</label><input type="text" value={patientAddress} onChange={e => setPatientAddress(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" /></div>
+                <div><label className="block text-[10px] text-[#8C857B] mb-1">Trvalý pobyt (Bydlisko)</label><input type="text" value={patientAddress} onChange={e => setPatientAddress(e.target.value)} placeholder="Muškátová 12, 974 01 Banská Bystrica" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" /></div>
                 {docType === 'dohoda_o_cene' && (
-                  <div><label className="block text-[10px] text-[#8C857B] mb-1">Príbuzná osoba (Meno a Telefón)</label><input type="text" value={patientRelative} onChange={e => setPatientRelative(e.target.value)} placeholder="Ján Kováč, 0900 123 456" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] text-[#8C857B] mb-1">Dátum narodenia</label>
+                      <input type="text" value={patientBirthDate || calculateBirthDateFromRC(birthNumber)} onChange={e => setPatientBirthDate(e.target.value)} placeholder="12. 05. 1988" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-[#8C857B] mb-1">Štátne občianstvo</label>
+                      <input type="text" value={patientCitizenship} onChange={e => setPatientCitizenship(e.target.value)} placeholder="Slovenská republika" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -1291,16 +1392,63 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     ))}
                   </div>
 
-                  {/* Doplatok a záloha */}
+                  {/* Doplatok, záloha a zmluvné parametre */}
                   {docType === 'dohoda_o_cene' && (
-                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#E8E2D9]">
-                      <div>
-                        <label className="block text-[10px] text-[#8C857B] mb-1">Uhradená záloha (€)</label>
-                        <input type="number" value={depositPaid} onChange={e => setDepositPaid(parseFloat(e.target.value) || 0)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                    <div className="space-y-3 pt-3 border-t border-[#E8E2D9]">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] text-[#8C857B] mb-1 font-bold">Plánovaný termín zákroku</label>
+                          <input type="date" value={agreementSurgeryDate} onChange={e => setAgreementSurgeryDate(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-medium" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-[#8C857B] mb-1 font-bold">Čas zákroku</label>
+                          <input type="time" value={agreementSurgeryTime} onChange={e => setAgreementSurgeryTime(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-medium" />
+                        </div>
                       </div>
-                      <div className="flex flex-col justify-end">
-                        <p className="text-[10px] text-[#8C857B]">Doplatok po zákroku:</p>
-                        <p className="text-base font-bold text-[#C5A059]">{remainingPrice.toFixed(2)} €</p>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] text-[#8C857B] mb-1">Dátum podpisu dohody</label>
+                          <input type="date" value={agreementDate} onChange={e => setAgreementDate(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-[#8C857B] mb-1">Splatnosť zálohy (pracovné dni)</label>
+                          <input type="number" min="1" max="30" value={depositDueDays} onChange={e => setDepositDueDays(parseInt(e.target.value, 10) || 3)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] text-[#8C857B] mb-1">Banka poskytovateľa</label>
+                          <input type="text" value={bankName} onChange={e => setBankName(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-[#8C857B] mb-1">IBAN poskytovateľa</label>
+                          <input type="text" value={bankIban} onChange={e => setBankIban(e.target.value)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-mono" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] text-[#8C857B] mb-1">Variabilný symbol (predvolené z RČ)</label>
+                        <input type="text" value={customVariableSymbol} onChange={e => setCustomVariableSymbol(e.target.value)} placeholder={birthNumber ? birthNumber.replace(/\D/g, '') : '8855126789'} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-mono" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#E8E2D9]">
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="block text-[10px] text-[#8C857B]">Záloha (€)</label>
+                            <div className="flex gap-1">
+                              <button type="button" onClick={() => setDepositPaid(Math.round(totalPrice * 0.2))} className="text-[9px] bg-white border border-[#E8E2D9] px-1.5 py-0.5 rounded text-[#8C857B] hover:text-[#2C2A29]">20%</button>
+                              <button type="button" onClick={() => setDepositPaid(Math.round(totalPrice * 0.3))} className="text-[9px] bg-white border border-[#E8E2D9] px-1.5 py-0.5 rounded text-[#8C857B] hover:text-[#2C2A29]">30%</button>
+                              <button type="button" onClick={() => setDepositPaid(500)} className="text-[9px] bg-white border border-[#E8E2D9] px-1.5 py-0.5 rounded text-[#8C857B] hover:text-[#2C2A29]">500€</button>
+                            </div>
+                          </div>
+                          <input type="number" value={depositPaid} onChange={e => setDepositPaid(parseFloat(e.target.value) || 0)} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold" />
+                        </div>
+                        <div className="flex flex-col justify-end">
+                          <p className="text-[10px] text-[#8C857B]">Doplatok najneskôr v deň zákroku:</p>
+                          <p className="text-base font-bold text-[#C5A059]">{remainingPrice.toFixed(2)} €</p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1904,7 +2052,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 3. Dohoda o cene a podmienkach (Kompaktný, luxusný a prehľadný formát) --- */}
+            {/* --- 3. Dohoda o cene a platobných podmienkach pre plánovanú estetickú zdravotnú starostlivosť --- */}
             {docType === 'dohoda_o_cene' && (
               <div className="text-[10px] leading-relaxed space-y-4 text-[#2C2A29]">
                 {/* Hlavička s Logom */}
@@ -1913,248 +2061,415 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     <img src="/logo.png" alt="SAY BY MRAZ" className="h-14 w-auto object-contain" />
                     <div className="border-l border-[#E8E2D9] pl-3 text-[9px] text-[#8C857B] leading-tight">
                       <p className="text-[#C5A059] font-bold tracking-widest uppercase">PLASTICKÁ CHIRURGIA & DERMATOLÓGIA</p>
-                      <p className="mt-0.5">Lazovná 43, 974 01 Banská Bystrica | www.sayclinic.sk</p>
+                      <p className="mt-0.5">Muškátová 15652/37, 974 01 Banská Bystrica | Lazovná 43</p>
+                      <p className="mt-0.5 font-medium text-[#2C2A29]">www.sayclinic.sk</p>
                     </div>
                   </div>
-                  <span className="text-[9px] bg-[#2C2A29] text-white px-2.5 py-1 rounded font-bold uppercase tracking-wider">Zmluva o poskytnutí starostlivosti</span>
-                </div>
-
-                <h1 className="text-base font-bold text-center uppercase tracking-widest text-[#2C2A29] mb-2">Dohoda o cene a podmienkach</h1>
-
-                {/* Zmluvné strany v 2 kompaktných stĺpcoch */}
-                <div className="grid grid-cols-2 gap-4 bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9] text-[10px]">
-                  <div>
-                    <h3 className="font-bold text-[10px] mb-1.5 border-b border-[#E8E2D9] pb-0.5 text-[#C5A059] uppercase tracking-wider">Klient:</h3>
-                    <table className="w-full text-left">
-                      <tbody>
-                        <tr><td className="py-0.5 w-1/3 text-[#8C857B]">Meno:</td><td className="font-bold text-[#2C2A29]">{patientName || '---'}</td></tr>
-                        <tr><td className="py-0.5 text-[#8C857B]">Rodné číslo:</td><td className="font-mono">{birthNumber || '---'}</td></tr>
-                        <tr><td className="py-0.5 text-[#8C857B]">Telefón:</td><td>{patientPhone || '---'}</td></tr>
-                        <tr><td className="py-0.5 text-[#8C857B]">E-mail:</td><td>{patientEmail || '---'}</td></tr>
-                        <tr><td className="py-0.5 text-[#8C857B]">Bydlisko:</td><td>{patientAddress || '---'}</td></tr>
-                        <tr><td className="py-0.5 text-[#8C857B]">Príbuzný:</td><td>{patientRelative || '---'}</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-[10px] mb-1.5 border-b border-[#E8E2D9] pb-0.5 text-[#C5A059] uppercase tracking-wider">Zhotoviteľ:</h3>
-                    <table className="w-full text-left">
-                      <tbody>
-                        <tr><td className="py-0.5 w-1/3 text-[#8C857B]">Obchodné meno:</td><td className="font-bold">DOKTOR MRÁZ s.r.o.</td></tr>
-                        <tr><td className="py-0.5 text-[#8C857B]">Sídlo:</td><td>Muškátová 15652/37, 974 01 B. Bystrica</td></tr>
-                        <tr><td className="py-0.5 text-[#8C857B]">IČO / DIČ:</td><td>54 918 375 / 2121822901</td></tr>
-                        <tr><td className="py-0.5 text-[#8C857B]">Konateľ:</td><td>MUDr. Ján Mráz</td></tr>
-                        <tr><td className="py-0.5 text-[#8C857B]">Zápis:</td><td>ORSR OS B. Bystrica, Sro 44785/S</td></tr>
-                        <tr><td className="py-0.5 text-[#8C857B]">Kontakt:</td><td>info@doktormraz.sk</td></tr>
-                      </tbody>
-                    </table>
+                  <div className="text-right">
+                    <span className="text-[9px] bg-[#2C2A29] text-white px-2.5 py-1 rounded font-bold uppercase tracking-wider block mb-1">
+                      Zmluvný dokument
+                    </span>
+                    <span className="text-[9px] text-[#8C857B] font-mono">
+                      Dátum: {formatSlovakDateLong(agreementDate)}
+                    </span>
                   </div>
                 </div>
 
-                <p className="text-center italic text-[9px] text-[#8C857B]">sa dohodli na uzatvorení tejto dohody, ktorej obsah a podmienky sú upravené nižšie:</p>
+                {/* Názov zmluvy */}
+                <div className="text-center space-y-1 mb-4">
+                  <h1 className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#2C2A29]">
+                    DOHODA O CENE A PLATOBNÝCH PODMIENKACH PRE PLÁNOVANÚ ESTETICKÚ ZDRAVOTNÚ STAROSTLIVOSŤ
+                  </h1>
+                  <p className="text-[8.5px] text-[#8C857B] text-justify leading-tight max-w-[95%] mx-auto">
+                    uzatvorená podľa ustanovení § 51 a § 588 a nasl. zákona č. 40/1964 Zb. Občiansky zákonník v platnom znení, zákona č. 18/1996 Z. z. o cenách v platnom znení, zákona č. 576/2004 Z. z. o zdravotnej starostlivosti, službách súvisiacich s poskytovaním zdravotnej starostlivosti a o zmene a doplnení niektorých zákonov v platnom znení a zákona č. 108/2024 Z. z. o ochrane spotrebiteľa a o zmene a doplnení niektorých zákonov (ďalej len „Dohoda“)
+                  </p>
+                </div>
 
-                {/* ČLÁNOK I. PREDMET DOHODY */}
+                {/* ČLÁNOK I: ZMLUVNÉ STRANY */}
                 <div className="space-y-2">
-                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">I. Predmet dohody</h3>
-                  
-                  <div className="bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9] space-y-1.5">
-                    <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Zákrok(y):</strong> <span className="font-bold text-xs ml-2 text-[#2C2A29]">{selectedItems.length > 0 ? selectedItems.map(i => i.name).join(', ') : manualProcedure || vvPlan || 'Nezadané'}</span></p>
-                    {vvPlan && <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Popis:</strong> <span className="ml-2 font-medium">{vvPlan}</span></p>}
-                    
-                    {/* Anestézia a hospitalizácia v elegantnom 1-riadkovom paneli */}
-                    <div className="flex flex-wrap gap-4 pt-1.5 border-t border-[#E8E2D9] text-[9px]">
-                      <div><strong className="text-[#8C857B] uppercase">Anestézia:</strong> <span className="font-bold ml-1">{anesthesiaType} {isPaidAnesthesia ? `(${anesthesiaHours} hod)` : ''}</span></div>
-                      <div><strong className="text-[#8C857B] uppercase">Hospitalizácia:</strong> <span className="font-bold ml-1">{hospitalizationType === 'none' ? 'Ambulantne' : hospitalizationType === 'half' ? '1/2 dňa (dospanie)' : '1 deň (do ďalšieho dňa)'}</span></div>
+                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    Článok I<br /><span className="text-[10px] text-[#2C2A29]">Zmluvné strany</span>
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-3 bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9] text-[9.5px]">
+                    <div className="space-y-1">
+                      <p className="font-bold uppercase tracking-wider text-[#C5A059] border-b border-[#E8E2D9] pb-0.5 mb-1 text-[9px]">
+                        Poskytovateľ zdravotnej starostlivosti:
+                      </p>
+                      <p><strong>Obchodné meno:</strong> DOKTOR MRÁZ s.r.o.</p>
+                      <p><strong>Sídlo:</strong> Muškátová 15652/37, 974 01 Banská Bystrica</p>
+                      <p><strong>IČO:</strong> 54 918 375 | <strong>DIČ:</strong> 2121822901</p>
+                      <p><strong>Zápis v registri:</strong> Obchodný register Okresného súdu Banská Bystrica, oddiel: Sro, vložka č. 44785/S</p>
+                      <p><strong>Štatutárny orgán:</strong> MUDr. Ján Mráz, konateľ</p>
+                      <p><strong>E-mail:</strong> info@doktormraz.sk</p>
+                      <p><strong>E-mail pre koordináciu:</strong> koordinator@sayclinic.sk</p>
+                      <p><strong>Bankové spojenie:</strong> {bankName}</p>
+                      <p className="font-mono text-[9px]"><strong>IBAN:</strong> {bankIban}</p>
+                      <p className="italic text-[#8C857B] text-[8.5px] pt-0.5">(ďalej len „Poskytovateľ“)</p>
+                    </div>
+
+                    <div className="space-y-1 border-l border-[#E8E2D9] pl-3">
+                      <p className="font-bold uppercase tracking-wider text-[#C5A059] border-b border-[#E8E2D9] pb-0.5 mb-1 text-[9px]">
+                        Pacient:
+                      </p>
+                      <p><strong>Meno a priezvisko:</strong> <span className="font-bold text-[#2C2A29]">{patientName || '---'}</span></p>
+                      <p><strong>Dátum narodenia:</strong> {patientBirthDate || calculateBirthDateFromRC(birthNumber) || '---'}</p>
+                      <p><strong>Rodné číslo:</strong> <span className="font-mono font-bold">{birthNumber || '---'}</span></p>
+                      <p><strong>Trvalý pobyt:</strong> {patientAddress || '---'}</p>
+                      <p><strong>Štátne občianstvo:</strong> {patientCitizenship || 'Slovenská republika'}</p>
+                      <p><strong>Telefónny kontakt:</strong> {patientPhone || '---'}</p>
+                      <p><strong>E-mail:</strong> {patientEmail || '---'}</p>
+                      <p className="italic text-[#8C857B] text-[8.5px] pt-0.5">(ďalej len „Pacient“)</p>
                     </div>
                   </div>
 
-                  <p className="text-justify">Klientovi/klientke bol zrozumiteľným spôsobom vysvetlený klientom zvolený zákrok. Zvláštny dôraz bol kladený na vysvetlenie výskytu, veľkosti a tvaru jaziev, získavaného prínosu i toho, čo zákrok nedorieši. Klient/klientka bol/a zoznámená s možnými rizikami operácie.</p>
-
-                  <p className="text-justify">Zároveň bolo s klientom prediskutované, čo bude pre klienta/klientku zákrok obnášať, prínosy, prípadne ďalšie nutné postupy, ktoré môžu v priebehu operácie nastať (napr. krvné transfúzie) a boli zodpovedané všetky otázky klienta.</p>
-
-                  <div>
-                    <p className="font-semibold mb-0.5">Klientovi/ klientke boli odovzdané nasledujúce prílohy:</p>
-                    <ul className="list-disc pl-4 space-y-0.5 text-[9px] text-[#8C857B]">
-                      <li>Popis zákroku, jeho priebeh, možné riziká a komplikácie, rekonvalescencie.</li>
-                      <li>Pokyny pred plánovaným operačným výkonom.</li>
-                      <li>Informovaný súhlas s anestéziou.</li>
-                    </ul>
-                  </div>
-
-                  <p className="text-justify">Zhotoviteľ sa zaviazal vykonať pre klienta ním zvolený zákrok a klient sa zaviazal zaplatiť za jeho vykonanie odplatu dohodnutú v čl. II tejto dohody. Klient súhlasí s tým aby zhotoviteľ vykonal zákrok prostredníctvom operatéra.</p>
-
-                  <div className="flex justify-between items-end pt-2 text-[9px]">
-                    <div>V Banskej Bystrici dňa: <span className="font-mono font-bold ml-1">{new Date().toLocaleDateString('sk-SK')}</span></div>
-                    <div className="text-center">
-                      <div className="w-36 border-b border-[#2C2A29] mb-0.5"></div>
-                      <span className="text-[8px] text-[#8C857B]">podpis lekára</span>
-                    </div>
-                  </div>
+                  <p className="text-center italic text-[8.5px] text-[#8C857B]">
+                    (Poskytovateľ a Pacient ďalej spolu len „Zmluvné strany“ alebo jednotlivo „Zmluvná strana“)
+                  </p>
                 </div>
 
-                {/* ČLÁNOK II. CENA & PREHĽADNÝ ROZPIS POLOŽIEK */}
+                {/* ČLÁNOK II: PREDMET DOHODY A ŠPECIFIKÁCIA ZDRAVOTNEJ STAROSTLIVOSTI */}
                 <div className="space-y-2">
-                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">II. Cena a platobné podmienky</h3>
-                  
-                  {/* Prehľadná tabuľka položiek a cien */}
+                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    Článok II<br /><span className="text-[10px] text-[#2C2A29]">Predmet Dohody a špecifikácia zdravotnej starostlivosti</span>
+                  </h3>
+
+                  <p className="text-justify">
+                    <strong>1.</strong> Predmetom tejto Dohody je záväzné dojednanie celkovej ceny, platobných podmienok, storno podmienok a súvisiacich organizačných pravidiel pri poskytnutí priamo hradenej plánovanej estetickej zdravotnej starostlivosti (zdravotných výkonov nehradených z verejného zdravotného poistenia) Poskytovateľom pre Pacienta. Zmluvné strany výslovne potvrdzujú, že plánovaný zdravotný výkon špecifikovaný v odseku 2 tohto článku nepatrí do rozsahu zdravotnej starostlivosti hradenej z verejného zdravotného poistenia a je poskytovaný ako priamo hradená služba na základe dohody Zmluvných strán v zmysle zákona č. 576/2004 Z. z. o zdravotnej starostlivosti v platnom znení.
+                  </p>
+
+                  <div className="bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9] space-y-1.5 text-[9.5px]">
+                    <p className="font-bold text-[9px] uppercase tracking-wider text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                      2. Špecifikácia plánovanej zdravotnej starostlivosti:
+                    </p>
+                    <p>
+                      <strong>a) Názov plánovaného zdravotného výkonu / zákroku:</strong>{' '}
+                      <span className="font-bold text-[#2C2A29]">
+                        {selectedItems.length > 0 ? selectedItems.map(i => i.name).join(' + ') : manualProcedure || vvPlan || 'Estetický chirurgický zákrok'}
+                      </span>
+                    </p>
+                    <p>
+                      <strong>b) Plánovaný termín vykonania zákroku:</strong>{' '}
+                      <span className="font-bold text-[#2C2A29]">{formatSlovakDateLong(agreementSurgeryDate)}</span> o <span className="font-bold">{agreementSurgeryTime}</span> hod.
+                    </p>
+                    <p>
+                      <strong>c) Forma anestézie a rozsah pobytu / hospitalizácie:</strong>{' '}
+                      <span className="font-medium text-[#2C2A29]">
+                        {anesthesiaType === 'Lokálna' ? 'Lokálna anestézia' : `${anesthesiaType} anestézia (${anesthesiaHours} hod.)`}
+                      </span>{' '}
+                      a{' '}
+                      <span className="font-medium text-[#2C2A29]">
+                        {hospitalizationType === 'none' ? 'Ambulantný zákrok' : hospitalizationType === 'half' ? 'Jednodňová zdravotná starostlivosť s dospaním v ten istý deň (1/2 dňa)' : 'Jednodňová zdravotná starostlivosť s pobytom na 1 noc'}
+                      </span>
+                    </p>
+                  </div>
+
+                  <p className="text-justify">
+                    <strong>3.</strong> Zmluvné strany berú na vedomie, že táto Dohoda upravuje výlučne finančné, platobné a organizačné podmienky poskytnutia zdravotnej starostlivosti. Informovaný súhlas, podrobné medicínske poučenie, spracúvanie osobných údajov a prípadný súhlas s vyhotovením fotodokumentácie sú predmetom samostatných právnych dokumentov a administratívnych úkonov.
+                  </p>
+
+                  <p className="text-justify">
+                    <strong>4.</strong> Poskytovateľ potvrdzuje a Pacient svojím podpisom potvrdzuje, že Pacient mal pred podpisom tejto Dohody plnú príležitosť oboznámiť sa s aktuálnym cenníkom Poskytovateľa a že dohodnutá cena je v súlade s platným a zverejneným cenníkom Poskytovateľa, ktorého výňatok tvorí Prílohu č. 1 tejto Dohody.
+                  </p>
+                </div>
+
+                {/* ČLÁNOK III: CENA A PLATOBNÉ PODMIENKY */}
+                <div className="space-y-2">
+                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    Článok III<br /><span className="text-[10px] text-[#2C2A29]">Cena a platobné podmienky</span>
+                  </h3>
+
+                  <p className="text-justify">
+                    <strong>1.</strong> Celková dohodnutá cena za plánovanú estetickú zdravotnú starostlivosť špecifikovanú v Článku II ods. 2 tejto Dohody je stanovená dohodou Zmluvných strán v súlade so zákonom č. 18/1996 Z. z. o cenách vo výške:
+                  </p>
+
                   <div className="bg-[#FBF9F6] p-3.5 rounded-xl border border-[#E8E2D9] space-y-2">
-                    <p className="font-bold text-[9px] uppercase tracking-wider text-[#C5A059] border-b border-[#E8E2D9] pb-1">Rozpis dohodnutých položiek:</p>
-                    
-                    <ul className="divide-y divide-[#E8E2D9]/60 text-[10px]">
-                      {selectedItems.map((item) => (
-                        <li key={item.id} className="py-1 flex justify-between items-center">
-                          <span className="font-medium">{item.name}</span>
-                          <span className="font-bold">{item.price.toFixed(2)} €</span>
+                    <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-[#C5A059]">
+                      <div>
+                        <span className="text-[9px] uppercase text-[#8C857B] font-bold block">Celková dohodnutá cena:</span>
+                        <span className="text-base font-bold text-[#C5A059]">{totalPrice.toFixed(2)} EUR</span>
+                      </div>
+                      <div className="text-right text-[10px] text-[#2C2A29]">
+                        <span className="italic">(slovom: <strong>{numberToSlovakWords(Math.round(totalPrice))} eur</strong>)</span>
+                      </div>
+                    </div>
+
+                    {/* Prehľadný rozpis položiek */}
+                    <div className="space-y-1 pt-1">
+                      <p className="font-bold text-[9px] uppercase tracking-wider text-[#8C857B]">Rozpis kalkulácie ceny:</p>
+                      <ul className="divide-y divide-[#E8E2D9]/70 text-[9.5px]">
+                        {selectedItems.map((item) => (
+                          <li key={item.id} className="py-1 flex justify-between items-center">
+                            <span>{item.name}</span>
+                            <span className="font-bold">{item.price.toFixed(2)} €</span>
+                          </li>
+                        ))}
+                        {isPaidAnesthesia && (
+                          <li className="py-1 flex justify-between items-center">
+                            <span>{anesthesiaType} anestézia ({anesthesiaHours} hod. × 130 €)</span>
+                            <span className="font-bold">{anesthesiaPrice.toFixed(2)} €</span>
+                          </li>
+                        )}
+                        {hospitalizationType !== 'none' && (
+                          <li className="py-1 flex justify-between items-center">
+                            <span>
+                              {hospitalizationType === 'half' ? 'Hospitalizácia - dospanie v ten istý deň (1/2 dňa)' : 'Hospitalizácia do ďalšieho dňa (1 deň)'}
+                            </span>
+                            <span className="font-bold">{hospitalizationPrice.toFixed(2)} €</span>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#E8E2D9] text-center text-[9px]">
+                      <div className="bg-white p-2 rounded-lg border border-[#E8E2D9]">
+                        <span className="block text-[8px] uppercase text-[#8C857B] font-bold">Dohodnutá záloha</span>
+                        <span className="text-xs font-bold text-[#2C2A29]">{depositPaid.toFixed(2)} EUR</span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-[#E8E2D9]">
+                        <span className="block text-[8px] uppercase text-[#8C857B] font-bold">Doplatok ceny</span>
+                        <span className="text-xs font-bold text-[#C5A059]">{remainingPrice.toFixed(2)} EUR</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-justify">
+                    <p><strong>2. Štruktúra a splatnosť dohodnutej ceny:</strong></p>
+                    <p className="pl-2">
+                      <strong>a) Záloha:</strong> Pacient sa zaväzuje zaplatiť Poskytovateľovi zálohu na rezerváciu operačného termínu, personálnych a materiálno-technických kapacít vo výške <strong>{depositPaid.toFixed(2)} EUR</strong> (slovom: {numberToSlovakWords(Math.round(depositPaid))} eur). Záloha je splatná do <strong>{depositDueDays} pracovných dní</strong> odo dňa podpisu tejto Dohody, a to bezhotovostným prevodom na bankový účet Poskytovateľa uvedený v Článku I ods. 1 tejto Dohody alebo v hotovosti / platobnou kartou na recepcii Poskytovateľa. Pacient je povinný pri bezhotovostnej úhrade zálohy uviesť variabilný symbol: <strong>{customVariableSymbol || (birthNumber ? birthNumber.replace(/\D/g, '') : '---')}</strong>. Zmluvné strany berú na vedomie, že bez uvedenia správneho variabilného symbolu nemusí byť záloha správne a včas priradená k pacientovmu spisu a záväzná rezervácia termínu zákroku vzniká až riadnym pripísaním celej sumy zálohy na účet Poskytovateľa.
+                    </p>
+                    <p className="pl-2">
+                      <strong>b) Doplatok ceny:</strong> Zostávajúcu časť celkovej ceny vo výške <strong>{remainingPrice.toFixed(2)} EUR</strong> (slovom: {numberToSlovakWords(Math.round(remainingPrice))} eur) sa Pacient zaväzuje uhradiť najneskôr v deň plánovaného zákroku pred jeho samotným vykonaním (v hotovosti alebo platobnou kartou na recepcii Poskytovateľa), alebo na základe vopred vystavenej zálohovej faktúry / faktúry Poskytovateľa tak, aby bol doplatok pripísaný na bankový účet Poskytovateľa najneskôr v deň konania zákroku.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1 text-justify">
+                    <p><strong>3. Príplatky za nepredvídané a dodatočné zdravotné služby:</strong></p>
+                    <p className="text-[9px] text-[#8C857B]">
+                      Zmluvné strany sa výslovne dohodli na nasledujúcich sadzbách príplatkov pre prípad, že si priebeh výkonu alebo pooperačný stav Pacienta vyžiada dodatočné medicínske alebo ošetrovateľské kapacity nad rámec pôvodného plánu:
+                    </p>
+                    <div className="bg-[#FBF9F6] p-2.5 rounded-lg border border-[#E8E2D9] space-y-1 text-[9px]">
+                      <p>
+                        <strong>a) Príplatok za anestéziu nad plánovaný rozsah:</strong> Ak si zdravotný stav Pacienta alebo priebeh výkonu vyžiada predĺženie podávania anestézie nad pôvodne plánovaný a v cene zahrnutý časový rozsah, Pacient sa zaväzuje uhradiť príplatok vo výške <strong>130,00 EUR</strong> (slovom: jednostotridsať eur) za každú aj začatú hodinu anestézie nad pôvodný plán.
+                      </p>
+                      <p>
+                        <strong>b) Príplatok za dodatočnú hospitalizáciu:</strong> Ak si pooperačný stav, zdravotná indikácia alebo požiadavka Pacienta vyžiada predĺženie pobytu v zdravotníckom zariadení Poskytovateľa, Pacient sa zaväzuje uhradiť príplatok vo výške <strong>200,00 EUR</strong> (slovom: dvesto eur) za každú dodatočnú noc hospitalizácie / pobytu na lôžku.
+                      </p>
+                      <p>
+                        <strong>c)</strong> Príplatky podľa písm. a) a b) tohto odseku vyúčtuje Poskytovateľ Pacientovi pri prepustení zo zdravotníckeho zariadenia konečnou faktúrou / vyúčtovaním, pričom Pacient je povinný tieto príplatky uhradiť pri prepustení, ak sa Zmluvné strany písomne nedohodnú inak.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ČLÁNOK IV: PREDOPERAČNÉ VYŠETRENIA */}
+                <div className="space-y-1.5 text-justify">
+                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    Článok IV<br /><span className="text-[10px] text-[#2C2A29]">Predoperačné vyšetrenia</span>
+                  </h3>
+                  <p>
+                    <strong>1.</strong> Pacient je povinný na vlastné náklady zabezpečiť kompletné predoperačné vyšetrenia v rozsahu určenom Poskytovateľom s ohľadom na zvolený typ anestézie a rozsah zákroku.
+                  </p>
+                  <p>
+                    <strong>2.</strong> Pacient sa zaväzuje doručiť všetky výsledky predoperačných vyšetrení v elektronickej podobe na e-mailovú adresu koordinátora Poskytovateľa: <strong>koordinator@sayclinic.sk</strong>, a to najneskôr <strong>1 týždeň (7 kalendárnych dní)</strong> pred plánovaným termínom zákroku. Originály alebo overené kópie výsledkov predoperačných vyšetrení je Pacient povinný odovzdať Poskytovateľovi pri nástupe na zákrok v deň jeho konania.
+                  </p>
+                  <p>
+                    <strong>3.</strong> Poskytovateľ si vyhradzuje právo zákrok v plánovanom termíne neuskutočniť, ak Pacient nedoručí výsledky predoperačných vyšetrení v stanovenej lehote, alebo ak predložené predoperačné vyšetrenia nebudú spĺňať medicínske štandardy potrebné na bezpečné vykonanie anestézie či výkonu. V takomto prípade sa neuskutočnenie zákroku považuje za zrušenie termínu z dôvodu na strane Pacienta a uplatňujú sa storno podmienky podľa Článku V tejto Dohody.
+                  </p>
+                </div>
+
+                {/* ČLÁNOK V: ZMENA TERMÍNU, STORNO PODMIENKY A ODSTÚPENIE OD DOHODY */}
+                <div className="space-y-2 text-justify">
+                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    Článok V<br /><span className="text-[10px] text-[#2C2A29]">Zmena termínu, storno podmienky a odstúpenie od Dohody</span>
+                  </h3>
+
+                  <p>
+                    <strong>1.</strong> V záujme transparentnosti, primeranosti a vyváženosti zmluvného vzťahu sa Zmluvné strany dohodli na nasledujúcich storno pravidlách pri zrušení alebo zmene termínu plánovaného zákroku zo strany Pacienta:
+                  </p>
+                  <div className="bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9] space-y-1.5 text-[9px]">
+                    <p>
+                      <strong>a) Zrušenie viac ako 21 kalendárnych dní pred plánovaným termínom:</strong> Pacient má právo zrušiť termín zákroku bez uvedenia dôvodu. Poskytovateľ vráti Pacientovi uhradenú zálohu v plnej výške zníženú iba o paušálny administratívny poplatok vo výške <strong>50,00 EUR</strong> na pokrytie preukázateľných administratívnych nákladov spojených s otvorením spisu a rezerváciou.
+                    </p>
+                    <p>
+                      <strong>b) Zrušenie v lehote od 20 do 8 kalendárnych dní pred plánovaným termínom:</strong> Poskytovateľ vráti Pacientovi <strong>50 %</strong> z uhradenej zálohy; zvyšných 50 % zálohy slúži na paušálnu úhradu nákladov vzniknutých s blokovaním operačnej sály a personálu.
+                    </p>
+                    <p>
+                      <strong>c) Zrušenie v lehote 7 kalendárnych dní a menej pred plánovaným termínom, alebo nedostavenie sa na zákrok:</strong> Poskytovateľovi vzniká nárok na storno poplatok vo výške <strong>100 %</strong> uhradenej zálohy na úhradu márne vynaložených personálnych, materiálových a prevádzkových nákladov a fixnej blokácie operačného tímu.
+                    </p>
+                    <p className="italic text-[#8C857B] text-[8.5px] pt-1">
+                      Zmluvné strany potvrdzujú, že vyššie uvedené storno poplatky reprezentujú primerané náhrady za preukázateľnú ujmu a stratu vzniknutú Poskytovateľovi. Pacient si je vedomý práva na súdnu moderáciu pokút a náhrad podľa príslušných ustanovení Občianskeho zákonníka, ak by dohodnutá suma výrazne prevyšovala skutočne vzniknutú ujmu.
+                    </p>
+                  </div>
+
+                  <p>
+                    <strong>2. Osobitné ustanovenie o medicínskych kontraindikáciách:</strong> Ak dôjde k zrušeniu alebo odkladu plánovaného zákroku z dôvodu náhleho vzniku objektívne preukázaných medicínskych kontraindikácií na strane Pacienta (najmä akútne respiračné ochorenie, horúčkový stav, náhle zhoršenie celkového zdravotného stavu alebo nepriaznivé výsledky predoperačných vyšetrení vylučujúce bezpečné vykonanie zákroku či anestézie), storno poplatky podľa odseku 1 tohto článku sa neuplatnia a Poskytovateľ vráti Pacientovi uhradenú zálohu v plnej výške (100 %), prípadne sa Zmluvné strany dohodnú na bezplatnom presune termínu zákroku na iný vhodný termín po pominutí kontraindikácie. Ako medicínska kontraindikácia sa uznávajú výlučne skutočnosti bezodkladne potvrdené písomným lekárskym nálezom všeobecného alebo špecializovaného lekára a následne overené lekárom Poskytovateľa. Náklady na prípadné verifikačné vyšetrenie znáša Pacient, pokiaľ sa Zmluvné strany písomne nedohodnú inak.
+                  </p>
+
+                  <p>
+                    <strong>3.</strong> Vrátenie finančných prostriedkov podľa tohto článku uskutoční Poskytovateľ bezhotovostným prevodom na bankový účet, z ktorého bola platba prijatá (alebo na účet písomne oznámený Pacientom), a to najneskôr do 14 kalendárnych dní odo dňa doručenia oznámenia o odstúpení a predloženia potrebných lekárskych potvrdení.
+                  </p>
+
+                  <p>
+                    <strong>4.</strong> Pacient si je vedomý, že v prípade uzatvorenia zmluvy na diaľku alebo mimo prevádzkových priestorov Poskytovateľa má podľa zákona č. 108/2024 Z. z. o ochrane spotrebiteľa právo odstúpiť od Dohody v lehote 14 dní bez uvedenia dôvodu, pokiaľ poskytovanie zdravotnej starostlivosti nebolo s jeho výslovným súhlasom začaté pred uplynutím tejto lehoty.
+                  </p>
+                </div>
+
+                {/* ČLÁNOK VI: POSUDZOVANIE KOMPLIKÁCIÍ, ESTETICKÉHO VÝSLEDKU A KONTROLNÉ VYŠETRENIA */}
+                <div className="space-y-1.5 text-justify">
+                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    Článok VI<br /><span className="text-[10px] text-[#2C2A29]">Posudzovanie komplikácií, estetického výsledku a kontrolné vyšetrenia</span>
+                  </h3>
+                  <p>
+                    <strong>1.</strong> Zmluvné strany berú na vedomie, že poskytovanie estetickej zdravotnej starostlivosti predstavuje poskytovanie služieb s biologickou povahou tkanív, kde konečný estetický výsledok a proces hojenia závisia od individuálnych anatomických, fyziologických a genetických vlastností organizmu Pacienta, ako aj od striktného dodržiavania pooperačného režimu Pacientom. Poskytovateľ nezodpovedá za subjektívne estetické predstavy Pacienta, ktoré nezodpovedajú reálnym anatomickým možnostiam alebo vopred dohodnutému medicínskemu plánu.
+                  </p>
+                  <p>
+                    <strong>2.</strong> Výskyt prípadných pooperačných komplikácií a dosiahnutý estetický výsledok sa posudzujú výlučne na základe vedenej zdravotnej dokumentácie, objektívneho klinického nálezu a v súlade so štandardnými medicínskymi postupmi <em>lege artis</em> podľa zákona č. 576/2004 Z. z. o zdravotnej starostlivosti.
+                  </p>
+                  <p>
+                    <strong>3.</strong> Pacientovi sa dôrazne odporúča pri akomkoľvek podozrení na neštandardný priebeh hojenia, vznik pooperačných komplikácií, bolesti alebo pri pochybnostiach o dosahovanom výsledku bezodkladne kontaktovať Poskytovateľa (telefonicky na kontaktných číslach kliniky alebo e-mailom na <strong>koordinator@sayclinic.sk</strong>) a bez zbytočného odkladu sa osobne dostaviť na kontrolné vyšetrenie u ošetrujúceho lekára. Včasná osobná kontrola je kľúčovým predpokladom úspešného manažmentu akýchkoľvek hojacich procesov a prevencie trvalých nežiaducich následkov.
+                  </p>
+                </div>
+
+                {/* ČLÁNOK VII: PRÁVA PACIENTA, OCHRANA DOBREJ POVESTI A ZODPOVEDNOSŤ ZA TVRDENIA */}
+                <div className="space-y-1.5 text-justify">
+                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    Článok VII<br /><span className="text-[10px] text-[#2C2A29]">Práva Pacienta, ochrana dobrej povesti a zodpovednosť za tvrdenia</span>
+                  </h3>
+                  <p>
+                    <strong>1.</strong> Táto Dohoda žiadnym spôsobom neobmedzuje ani nevylučuje zákonné práva Pacienta na ochranu zdravia, riadne prešetrenie poskytnutej zdravotnej starostlivosti a právnu ochranu. Pacient má plné a nespochybniteľné právo:
+                  </p>
+                  <div className="pl-4 space-y-0.5 text-[9px]">
+                    <p><strong>a)</strong> podať podnet na prešetrenie správnosti poskytnutej zdravotnej starostlivosti Úradu pre dohľad nad zdravotnou starostlivosťou (ÚDZS) podľa zákona č. 581/2004 Z. z. o zdravotných poisťovniach, dohľade nad zdravotnou starostlivosťou v platnom znení,</p>
+                    <p><strong>b)</strong> uplatniť svoje nároky a domáhať sa ochrany svojich práv na vecne a miestne príslušnom všeobecnom súde Slovenskej republiky,</p>
+                    <p><strong>c)</strong> verejne a slobodne opísať svoju vlastnú autentickú a pravdivú skúsenosť s poskytnutou starostlivosťou a službami Poskytovateľa.</p>
+                  </div>
+                  <p>
+                    <strong>2.</strong> Zmluvné strany sa navzájom zaväzujú vystupovať vo vzájomných vzťahoch a na verejnosti korektne. Zmluvné strany výslovne potvrdzujú, že každá Zmluvná strana nesie plnú právnu zodpovednosť za akékoľvek vedome nepravdivé, skresľujúce, difamačné alebo neoprávnene poškodzujúce skutkové tvrdenia, ktoré by neoprávnene zasiahli do dobrej povesti právnickej osoby Poskytovateľa podľa § 19b Občianskeho zákonníka alebo do osobnostných práv a cti zdravotníckych pracovníkov či Pacienta podľa § 11 a nasl. Občianskeho zákonníka, vrátane zodpovednosti za vzniknutú majetkovú a nemajetkovú ujmu. Za porušenie tejto doložky sa nepovažujú pravdivé opisy vlastnej autentickej skúsenosti Pacienta, ani vecná a korektná kritika poskytnutej starostlivosti. Povinnosťou Zmluvných strán je zdržiavať sa nepravdivých tvrdení, ktoré sú fakticky overiteľné a ktorých cieľom je úmyselne poškodiť reputáciu druhej strany.
+                  </p>
+                </div>
+
+                {/* ČLÁNOK VIII: ZÁVEREČNÉ USTANOVENIA */}
+                <div className="space-y-1.5 text-justify">
+                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    Článok VIII<br /><span className="text-[10px] text-[#2C2A29]">Záverečné ustanovenia</span>
+                  </h3>
+                  <p><strong>1.</strong> Táto Dohoda nadobúda platnosť a účinnosť dňom jej podpisu oboma Zmluvnými stranami.</p>
+                  <p><strong>2.</strong> Právne vzťahy touto Dohodou výslovne neupravené sa spravujú príslušnými ustanoveniami Občianskeho zákonníka, zákona č. 18/1996 Z. z. o cenách, zákona č. 576/2004 Z. z. o zdravotnej starostlivosti, zákona č. 108/2024 Z. z. o ochrane spotrebiteľa a ďalšími všeobecne záväznými právnymi predpismi Slovenskej republiky.</p>
+                  <p><strong>3.</strong> Akékoľvek zmeny alebo doplnenia tejto Dohody je možné vykonať výlučne vo forme písomných, vzostupne číslovaných dodatkov podpísaných oboma Zmluvnými stranami.</p>
+                  <p><strong>4.</strong> Neoddeliteľnou súčasťou tejto Dohody je:<br /><span className="font-semibold pl-3">Príloha č. 1: Výňatok z platného Cenníka zdravotných výkonov Poskytovateľa</span></p>
+                  <p><strong>5.</strong> Zmluvné strany vyhlasujú, že si text tejto Dohody pred jej podpisom riadne prečítali, jej obsahu v celom rozsahu porozumeli, text vyjadruje ich slobodnú, vážnu, určitú a zrozumiteľnú vôľu a Dohodu neuzatvárajú v tiesni ani za nápadne nevýhodných podmienok, na dôkaz čoho pripájajú svoje vlastnoručné podpisy.</p>
+                  <p><strong>6.</strong> Táto Dohoda je vyhotovená v dvoch (2) rovnopisoch s platnosťou originálu, z ktorých každá Zmluvná strana obdrží po jednom (1) vyhotovení.</p>
+                </div>
+
+                {/* PODPISOVÁ DOLOŽKA */}
+                <div className="border-t-2 border-[#C5A059] pt-4 mt-6 space-y-4">
+                  <p className="text-[10px]">
+                    V Banskej Bystrici, dňa: <span className="font-bold font-mono">{formatSlovakDateLong(agreementDate)}</span>
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-8 pt-4">
+                    <div className="text-center space-y-1">
+                      <div className="w-48 mx-auto border-b border-[#2C2A29] mb-2"></div>
+                      <p className="font-bold text-[10px] uppercase text-[#2C2A29]">Poskytovateľ:</p>
+                      <p className="font-semibold text-[9.5px]">DOKTOR MRÁZ s.r.o.</p>
+                      <p className="text-[8.5px] text-[#8C857B]">MUDr. Ján Mráz, konateľ</p>
+                    </div>
+
+                    <div className="text-center space-y-1">
+                      <div className="w-48 mx-auto border-b border-[#2C2A29] mb-2"></div>
+                      <p className="font-bold text-[10px] uppercase text-[#2C2A29]">Pacient:</p>
+                      <p className="font-semibold text-[9.5px] text-[#2C2A29]">{patientName || '---'}</p>
+                      <p className="text-[8.5px] text-[#8C857B]">podpis pacienta</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PRÍLOHA Č. 1: VÝŇATOK Z PLATNÉHO CENNÍKA */}
+                <div className="mt-8 pt-4 border-t-2 border-dashed border-[#C5A059] space-y-3">
+                  <div className="text-center space-y-0.5">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-[#C5A059]">
+                      Príloha č. 1: Výňatok z platného Cenníka zdravotných výkonov Poskytovateľa
+                    </h4>
+                    <p className="text-[9px] text-[#8C857B]">
+                      DOKTOR MRÁZ s.r.o., Muškátová 15652/37, 974 01 Banská Bystrica, IČO: 54 918 375
+                    </p>
+                    <p className="text-[8.5px] text-[#8C857B] italic">Platnosť od: 1. januára 2026</p>
+                  </div>
+
+                  <div className="bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9] space-y-2 text-[9px]">
+                    <div>
+                      <p className="font-bold uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5 mb-1">
+                        1. Základné operačné výkony estetickej chirurgie:
+                      </p>
+                      <ul className="divide-y divide-[#E8E2D9]/60">
+                        {selectedItems.length > 0 ? (
+                          selectedItems.map((item) => (
+                            <li key={item.id} className="py-0.5 flex justify-between">
+                              <span>{item.name}</span>
+                              <span className="font-bold">{item.price.toFixed(2)} EUR</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="py-0.5 flex justify-between">
+                            <span>{manualProcedure || vvPlan || 'Estetický výkon'}</span>
+                            <span className="font-bold">{basePrice.toFixed(2)} EUR</span>
+                          </li>
+                        )}
+                      </ul>
+                      <p className="pt-1 text-[#8C857B] text-[8.5px]">
+                        • Predoperačná konzultácia a plánovanie: v cene zákroku / samostatne 50,00 EUR
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="font-bold uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5 mb-1">
+                        2. Anestéziologické služby:
+                      </p>
+                      <ul className="space-y-0.5">
+                        <li className="flex justify-between">
+                          <span>Lokálna anestézia:</span>
+                          <span className="font-bold">zahrnutá v základnej cene výkonu</span>
                         </li>
-                      ))}
-                      {isPaidAnesthesia && (
-                        <li className="py-1 flex justify-between items-center">
-                          <span className="font-medium">{anesthesiaType} anestézia ({anesthesiaHours} hod. × 130 €)</span>
-                          <span className="font-bold">{anesthesiaPrice.toFixed(2)} €</span>
-                        </li>
-                      )}
-                      {hospitalizationType !== 'none' && (
-                        <li className="py-1 flex justify-between items-center">
-                          <span className="font-medium">
-                            {hospitalizationType === 'half' ? 'Hospitalizácia - dospanie v ten istý deň (1/2 dňa)' : 'Hospitalizácia do ďalšieho dňa (1 deň)'}
+                        <li className="flex justify-between">
+                          <span>Celková anestézia / analgosedácia v plánovanom rozsahu:</span>
+                          <span className="font-bold">
+                            {anesthesiaType === 'Lokálna' ? 'zahrnutá v cene' : `${anesthesiaPrice.toFixed(2)} EUR`}
                           </span>
-                          <span className="font-bold">{hospitalizationPrice.toFixed(2)} €</span>
                         </li>
-                      )}
-                    </ul>
-
-                    {/* Celková rekapitulácia */}
-                    <div className="grid grid-cols-3 gap-2 pt-2 border-t-2 border-[#C5A059] text-center">
-                      <div className="bg-white p-2 rounded-lg border border-[#E8E2D9]">
-                        <span className="block text-[8px] uppercase text-[#8C857B] font-bold">Celková cena</span>
-                        <span className="text-xs font-bold text-[#C5A059]">{totalPrice.toFixed(2)} €</span>
-                      </div>
-                      <div className="bg-white p-2 rounded-lg border border-[#E8E2D9]">
-                        <span className="block text-[8px] uppercase text-[#8C857B] font-bold">Uhradená záloha</span>
-                        <span className="text-xs font-bold text-[#2C2A29]">{depositPaid.toFixed(2)} €</span>
-                      </div>
-                      <div className="bg-white p-2 rounded-lg border border-[#E8E2D9]">
-                        <span className="block text-[8px] uppercase text-[#8C857B] font-bold">Zostávajúci doplatok</span>
-                        <span className="text-xs font-bold text-[#C5A059]">{remainingPrice.toFixed(2)} €</span>
-                      </div>
+                        <li className="flex justify-between text-[#8C857B]">
+                          <span>Príplatok za každú začatú hodinu anestézie nad rámec plánovaného času:</span>
+                          <span className="font-bold text-[#2C2A29]">130,00 EUR / hod.</span>
+                        </li>
+                      </ul>
                     </div>
-                  </div>
 
-                  <p className="text-justify">Zostávajúca časť ceny za zákrok je splatná po zákroku na recepcii zhotoviteľa najneskôr v deň prepustenia alebo faktúrou, ktorá bude odoslaná na email klienta po zákroku.</p>
-
-                  <p className="text-justify">Celková cena zákroku môže byť navýšená o 100€ za každú hodinu anestézie navyše, prípadne o 200€ za noc na klinike navyše. Ak by z technických alebo bezpečnostných príčin nebolo možné niektorú z položiek vykonať, bude cena o danú položku ponížená a rozdiel vrátený.</p>
-
-                  <p className="text-justify">Pre prípad zrušenia zákroku zo strany klienta/tky (napr. ak sa klient riadne a včas a v dohodnutom termíne nedostaví na objednaný zákrok), sa klient/tka zaväzuje uhradiť storno poplatok vo výške 100% z už uhradenej zálohy. V prípade závažných medicínskych dôvodov (tzv. kontraindikácií), je storno poplatok 0% z celkovej ceny dohodnutého zákroku. Klient sa zaväzuje v prípade, že si zvolí vlastné predoperačné vyšetrenie, doručiť najneskôr 1 týždeň pred plánovaným termínom zákroku odsúhlasené vyšetrenie (výsledky) od svojho obvodného lekára podľa žiadanky a požiadaviek zhotoviteľa na email: <strong>mrazplastickachirurgia@gmail.com</strong>. Ak klient poruší svoju povinnosť podľa predchádzajúcej vety a zhotoviteľ bude musieť z tohoto dôvodu zrušiť termín plánovaného zákroku je zhotoviteľ oprávnený od tejto dohody odstúpiť s tým, že storno poplatok v takomto prípade je 100% už z uhradenej zálohy. Zhotoviteľ je oprávnený jednostranne si započítať svoj nárok na storno poplatok voči klientom uhradenej zálohe.</p>
-                </div>
-
-                {/* ČLÁNOK III. PREHLÁSENIE KLIENTA */}
-                <div className="space-y-2">
-                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">III. Prehlásenie klienta</h3>
-                  
-                  <p className="text-justify">Mal/a som možnosť sa oboznámiť s vyššie uvedenými informáciami a poučením o plánovanom zákroku. Bol/a som zhotoviteľom (resp. ním určeným lekárom) zrozumiteľne informovaný/á o účele, povahe, výhodách a rizikách, ako i o možných alternatívach vyššie uvedeného lekárskeho zákroku.</p>
-
-                  <p className="text-justify">Obdržal/a som prílohy uvedené vyššie v čl. I. a čl. II. s ich obsahom som sa podrobne oboznámil/a. Mal/a som možnosť pýtať sa doplňujúce otázky, ktoré mi boli riadne zodpovedané. Uvedeným údajom a poučeniam, ako i odpovediam na moje otázky som plne porozumel/a.</p>
-
-                  <p className="text-justify">Na základe poskytnutých informácií a po vlastnom uvážení súhlasím s podstúpením zákroku/kombinácie zákrokov/špecifikovanom v tejto dokumentácií a ich prílohách, ktoré sú voliteľným estetickým zákrokom a týmto beriem na vedomie/som uzrozumený/á s nasledujúcim:</p>
-
-                  <ol className="list-decimal pl-4 space-y-1 text-justify">
-                    <li>Tento zákrok je vykonávaný z estetických dôvodov a v dôsledku toho môžu byť výsledky posudzované subjektívne, kedy pacient subjektívne vníma aj súvisiace fyzické problémy v súvislosti s aktuálnym somatickým stavom a s tým súvisiace psychické problémy, čo je z jeho strany i dôvodom pre podstúpenie zákroku, ktorý má byť tento stav zmenený. Preto akceptujem fakt a porozumel/a som, že plánovaný výsledok zákroku nemôže byť považovaný za 100% garanciu ani pri dodržaní všetkých pravidiel postupu lege artis zo strany vykonávajúceho lekára (operatéra) a/alebo dodržovaní všetkých preventívnych opatrení a doporučení z mojej strany.</li>
-                    <li>Aj napriek tomu, že komplikácie sú v tomto zákroku ojedinelé, môžu sa vyskytovať. So všetkými komplikáciami a rizikami som bol/a oboznámený/a a akceptujem ich.</li>
-                    <li>V prípade, že zhotoviteľ prevedie akútnu re-operáciu alebo ďalší zákrok z dôvodu neuspokojivého estetického výsledku predchádzajúceho zákroku, ktorý je možné objektívne zhodnotiť, preberá všetky náklady spojené s týmto ďalším zákrokom zhotoviteľ.</li>
-                    <li>Oboznámil/a som sa predložil/a zhotoviteľovi (resp. nám určenému ošetrujúcemu lekárovi/sestre) evidenciu o všetkých predošlých a súčasných chorobách, podstúpených chirurgických zákrokoch a užívaných liekov, ktoré môžu mať vplyv na moju schopnosť podstúpiť plánovaný zákrok (tiež anamnestický dotazník). Nič zo svojho predchorobia ani zo svojho súčasného stavu som nezatajil/a, uvedomujem si, že by mi to mohlo spôsobiť nežiadúce komplikácie, ktoré nemôže zhotoviteľ (resp. ním zvolený ošetrujúci lekár alebo sestra) predpokladať, a tak tomu predísť.</li>
-                    <li>Bol(a) som oboznámený(a), že po zákroku vykonanom v lokálnej (miestnej) anestézii je nutné zostať na území Slovenskej Republiky, minimálne jeden deň a v prípade výkonu zákroku v celkovej anestézii alebo analgosedácii je nutné zostať na území Slovenskej Republiky minimálne tri dni po zákroku. Beriem na vedomie, že odporúčaná doba pobytu na území Slovenskej republiky je sedem dní po zákroku, v oboch prípadoch.</li>
-                    <li>Existujú alternatívy tohto zákroku, ako napríklad akceptovanie súčasného stavu a vzhľadu.</li>
-                  </ol>
-
-                  <p className="text-justify">Týmto potvrdzujem, že som nikdy nebol/a pre tento, prípadne iný zákrok odmietnutý/a iným zhotoviteľom, resp. plastickým chirurgom. Pokiaľ áno, oznámil/a som túto skutočnosť zhotoviteľovi alebo ním určenému lekárovi indikujúcemu zákrok. Ďalej potvrdzujem, že sa neliečim a ani v minulosti som sa neliečil/a z iných psychických či mentálnych zdravotných problémov ako tých, ktoré som už uviedol/a.</p>
-
-                  <p className="text-justify">Bol/a som poučená o význame histologického vyšetrenia, ktoré ako jediné môže presne určiť podstatu môjho ochorenia.</p>
-
-                  {/* Histológia checkbox */}
-                  <div className="bg-[#FBF9F6] p-2.5 rounded-lg border border-[#E8E2D9] flex justify-between items-center text-[10px]">
-                    <span className="font-semibold">S odberom biologického materiálu na histologické vyšetrenie:</span>
-                    <div className="flex gap-4 font-mono font-bold">
-                      <span className="text-[#C5A059]">[✓] súhlasím</span>
-                      <span className="text-gray-400">[ ] nesúhlasím</span>
+                    <div>
+                      <p className="font-bold uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5 mb-1">
+                        3. Hospitalizácia a pobytové služby:
+                      </p>
+                      <ul className="space-y-0.5">
+                        <li className="flex justify-between">
+                          <span>Štandardný pooperačný pobyt na dospávacej izbe / 1 noc (ak je indikované):</span>
+                          <span className="font-bold">
+                            {hospitalizationType === 'none' ? 'zahrnuté v cene' : `${hospitalizationPrice.toFixed(2)} EUR`}
+                          </span>
+                        </li>
+                        <li className="flex justify-between text-[#8C857B]">
+                          <span>Dodatočná noc hospitalizácie / pobytu na lôžku nad plán:</span>
+                          <span className="font-bold text-[#2C2A29]">200,00 EUR / noc</span>
+                        </li>
+                      </ul>
                     </div>
-                  </div>
 
-                  <p className="text-justify"><strong>Dokumentácia</strong> - som si vedomý/á, že v súvislosti so zákrokom budú pri vedení zdravotnej dokumentácie spracovávané moje osobné údaje vrátane citlivých údajov (údajov o zdravotnom stave) a s týmto spracovávaním súhlasím.</p>
-
-                  <p className="text-justify">Porozumel/a som a súhlasím s tým, že pred a po zákroku môžu byť zhotovené klinické fotografie, ktoré nebudú bez môjho písomného súhlasu použité na akýkoľvek iný účel ako súčasť mojej zdravotníckej dokumentácie alebo anonymne pre vedecké účely (napr. prezentácie na odbornom kongrese, v odbornej literatúre).</p>
-
-                  <p className="text-justify"><strong>Anestézia</strong> - bol/a som oboznámený/a a dodržím pokyny pre klientov/ky pred plánovaným operačným zákrokom / vyšetrením podstúpeným v anestézii, zvlášť dodržím dobu na lačno – bez jedla pitia a fajčenia. Porozumel/a som, že budem mať príležitosť prediskutovať detaily anestézie s odborným lekárom - anesteziológom pred zákrokom (týka sa iba klientov/tiek podstupujúcich celkovú anestéziu alebo analgosedáciu). Súhlasím s podaním anestézie.</p>
-
-                  <p className="text-justify"><strong>Ďalšie zákroky/postupy</strong> - porozumel/a som a súhlasím s tým, že môže byť vykonaný akýkoľvek iný zákrok mimo vyššie uvedeného, ktorý by bol nutný k záchrane môjho života alebo predchádzaniu vážneho poškodenia môjho zdravia.</p>
-
-                  <p className="text-justify">Bol/a som oboznámený/a s ďalšími zákrokmi/postupmi, ktoré by mohli byť v priebehu zákroku nutné vykonať a nižšie uvádzam zákroky, ktoré si neprajem, aby boli prevádzané bez ďalšej konzultácie so mnou. (napr. odmietnutie krvnej transfúzie a pod.):</p>
-                  
-                  <div className="border border-dashed border-[#E8E2D9] p-2 rounded bg-white text-[9px] text-gray-500 italic">
-                    Žiadne výhrady / Nepovolené postupy neboli uvedené
-                  </div>
-
-                  <p className="text-justify">Pokiaľ by v dôsledku nešťastnej náhody došlo v priebehu chirurgického zákroku ku kontaminácii personálu mojimi telesnými tekutinami (napr. krvou) súhlasím s okamžitým odberom a vyšetrením na všetkých krvou prenosných ochorení (žltačka, HIV a ďalšie), iba za predpokladu, že bude ihneď rovnako testovaný i poranený zdravotník (vzájomný prenos).</p>
-
-                  <p className="text-justify">Porozumel/a som, že je nevyhnutné dochádzať na pravidelné kontroly, a to podľa pokynov zhotoviteľa alebo ním určeného lekára a po dohode s asistentkou. Kontroly sú odporučené v intervaloch podľa poslednej správy z pooperačnej kontroly. Ak nie je uvedené inak ide o kontroly v intervaloch: 1 týždeň, 2 týždeň, 1 mesiac, 3 mesiac, 6 mesiac a 1 rok od vykonania zákroku. Pokiaľ sa klient(ka) nemôže dostaviť na plánovanú kontrolu, podľa uvedených intervalov, musí o tomto informovať asistentku.</p>
-
-                  <p className="text-justify"><strong>Cena</strong> - Pred zákrokom som bol oboznámený s celkovou cenou zákroku (operácie, anestézie, hospitalizácie, ev. ďalších nákladov) a platobnými podmienkami. Beriem si na vedomie, že vo výnimočných prípadoch nutnosti ďalšieho korektívneho zákroku, sa cena za tento zákrok stanovuje nasledovne:</p>
-
-                  <div className="space-y-1 pl-2 text-[9px]">
-                    <p><strong>1. Náklady za zákrok znáša klinika ak:</strong> <span className="text-[#8C857B]">dôjde k pochybeniu lekára alebo personálu.</span></p>
-                    <p><strong>2. Klient uhradí stanovené prevádzkové náklady re-operácie ak:</strong> <span className="text-[#8C857B]">dôjde k suboptimálnemu hojeniu bez zavinenia lekára či klienta, alebo k vysoko pravdepodobným stavom poučeným pred výkonom.</span></p>
-                    <p><strong>3. Klient hradí reoperáciu v plnom rozsahu ak:</strong> <span className="text-[#8C857B]">nedodržiaval liečebný režim, termíny kontrol alebo nie je objektívny dôvod na reoperáciu.</span></p>
-                  </div>
-
-                  <p className="text-justify font-medium pt-1">V nadväznosti na vyššie uvedené, týmto svojím podpisom potvrdzujem a súhlasím s podstúpením vyššie podpísaného zákroku. Bol/a som oboznámený/a s tým, že kdekoľvek do zákroku môžem tento súhlas odvolať.</p>
-                </div>
-
-                {/* ČLÁNOK IV. ĎALŠIE USTANOVENIA */}
-                <div className="space-y-2">
-                  <h3 className="font-bold text-xs uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">IV. Ďalšie ustanovenia a prehlásenia</h3>
-                  
-                  <p className="text-justify">Podpisom tejto dohody udeľuje klient zhotoviteľovi v zmysle platného znenia zákona č. 18/2018 Z. z. súhlas so spracovaním osobných údajov (vrátane prípadných citlivých údajov) pre účely plnenia tejto dohody. Za osobné údaje sa pre účely tejto dohody považujú najmä klientove údaje o mene a priezvisku, titule, dátume narodenia/rodnom čísle, ako i ďalšie údaje ako klientova adresa bydliska, telefonický kontakt, či zdravotná poisťovňa. Za citlivé údaje sú považované údaje o zdravotnom stave klienta. Súhlas so spracovaním osobných údajov udeľuje klient na dobu do odvolania súhlasu. Klient berie na vedomie, že jeho osobné údaje bude spracovávať zhotoviteľ v rámci svojej počítačovej databázy, prípadne tiež v papierovej podobe, a že údaje nebudú ďalej sprístupnene bez výslovného súhlasu klienta.</p>
-
-                  <p className="text-justify">Klient týmto udeľuje zhotoviteľovi svoj výslovný súhlas s obstaraním obrazových fotografií a obrazových a zvukových záznamov postavy klienta, ako aj operovanej časti postavy klienta, a to v rozsahu nevyhnutnom pre dokumentáciu operovanej oblasti a tiež celej postavy klienta, a to po celú dobu vykonávaného zákroku a všetkých činností súvisiacich so zákrokom, tj. činností pred zákrokom a po zákroku vykonávaných podľa tejto dohody, a to v rozsahu podľa uváženia zhotoviteľa.</p>
-
-                  <p className="text-justify">Klient sa zaväzuje, že sa nebude v tlači, na internete alebo v akomkoľvek inom médiu negatívne vyjadrovať o zhotoviteľovi, ani o jeho personále, poprípade jeho vybavení a iných skutočnostiach. Zhotoviteľ sa zaväzuje, že sa nebude v tlači, na internete alebo v akomkoľvek inom médiu, bez predchádzajúceho súhlasu klienta, negatívne vyjadrovať o klientovi, jeho zákroku a iných skutočnostiach týkajúcich sa klienta.</p>
-
-                  <p className="text-justify">Táto dohoda a práva a povinnosti z nich vyplývajúce sa riadia právnymi predpismi Slovenskej republiky a podľa týchto právnych predpisov musí byť vykladaná.</p>
-
-                  <p className="text-justify">Klient akceptuje, že zhotoviteľ nezodpovedá za elasticitu a spôsob hojenia kože klienta, a teda za jeho pooperačnú normalizáciu, kde je výsledný efekt závislý na starnutí klienta, jeho zdravotnom stave, type kože, jej elasticite a genetických faktoroch. Klient bol uzrozumený s tým, že akokoľvek sú výsledky výborné, neexistuje vzhľadom k vyššie uvedeným faktorom žiadna záruka či už dočasného alebo trvalého úspechu, čo klient akceptuje.</p>
-
-                  <p className="text-justify font-bold">Klient svojím podpisom prehlasuje, že dohode porozumel v plnom rozsahu a nemá žiadne nejasnosti a nezodpovedané otázky.</p>
-
-                  <p className="text-justify text-[9px] text-[#8C857B]">Zmluvné strany sa v zmysle článku 25 nariadenia (EÚ) č. 1215/2012 (Brusel I bis) výslovne dohodli, že všetky spory, ktoré vzniknú z tejto zmluvy o vykonaní plastickej operácie alebo v súvislosti s ňou, budú prejednávané a rozhodované výlučne príslušným súdom Slovenskej republiky.</p>
-                </div>
-
-                {/* Potvrdenie udelenia súhlasu a podpisy */}
-                <div className="border-t-2 border-[#C5A059] pt-4 mt-4 space-y-4">
-                  <div className="space-y-1">
-                    <p className="font-bold text-xs uppercase tracking-wider text-[#C5A059]">Potvrdenie udelenia súhlasu</p>
-                    <p className="text-[10px]">Za operačný tím, ktorý pacienta/ku ošetruje, potvrdzuje, že klient/ka nemá žiadne ďalšie otázky a priania, zákrok môže byť uskutočnený.</p>
-                    <p className="text-[10px] pt-1">Meno a podpis odborného zdravotníka: <span className="inline-block w-52 border-b border-[#2C2A29] ml-2"></span></p>
-                  </div>
-
-                  <div className="flex justify-between items-end pt-3">
-                    <div className="text-center">
-                      <div className="w-48 border-b border-[#2C2A29] mb-1.5"></div>
-                      <span className="text-[10px] font-semibold text-[#2C2A29]">meno a podpis klienta/ky</span>
-                    </div>
-                    <div className="text-center">
-                      <div className="w-48 border-b border-[#2C2A29] mb-1.5"></div>
-                      <span className="font-bold text-[10px] text-[#2C2A29]">DOKTOR MRÁZ s.r.o.</span><br />
-                      <span className="text-[9px] text-[#8C857B]">MUDr. Ján Mráz, konateľ<br/>zhotoviteľ</span>
-                    </div>
-                  </div>
-
-                  {/* Dôležité poznámky - Odvolanie súhlasu */}
-                  <div className="bg-[#FBF9F6] p-3 rounded-xl border border-dashed border-[#E8E2D9] text-[9px] space-y-1.5 mt-3">
-                    <p className="font-bold text-rose-800 uppercase tracking-wider">Dôležité poznámky:</p>
-                    <p className="text-[#8C857B]">klient/ka odvolal/a daný súhlas</p>
-                    <div className="flex justify-between items-end pt-2">
-                      <div className="w-56 border-b border-gray-400"></div>
-                      <span className="text-gray-500 italic text-[8px]">(podpis klienta/ky, dátum a čas)</span>
+                    <div>
+                      <p className="font-bold uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5 mb-1">
+                        4. Administratívne a organizačné poplatky:
+                      </p>
+                      <p className="flex justify-between">
+                        <span>Paušálny administratívny poplatok pri včasnom storne (viac ako 21 dní pred termínom):</span>
+                        <span className="font-bold">50,00 EUR</span>
+                      </p>
                     </div>
                   </div>
                 </div>
