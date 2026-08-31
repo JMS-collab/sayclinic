@@ -4,7 +4,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { HealthProService, HealthProResponse } from '../services/healthpro';
 import { MKCHItem } from '../data/mkch';
 import { generatePdfFilename, exportElementToPdf } from '../lib/pdfGenerator';
-import { findSurgeryConsentProfile } from '../data/surgeryConsentCatalog';
+import { 
+  findSurgeryConsentProfile, 
+  saveSurgeryConsentProfile, 
+  SurgeryConsentProfile 
+} from '../data/surgeryConsentCatalog';
+import { SurgeryConsentTemplateManager } from './SurgeryConsentTemplateManager';
+import { Sliders, Save, RotateCcw, Check } from './Icons';
 
 export interface ServiceCategory {
   id: string;
@@ -424,6 +430,10 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   // PDF Export stav
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
+  // SPRÁVA ŠABLÓN INFORMOVANÉHO SÚHLASU
+  const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
+  const [templateSaveFeedback, setTemplateSaveFeedback] = useState<string | null>(null);
+
   // ZDIEĽANÝ STAV PRE ANESTÉZIU A HOSPITALIZÁCIU (130€ / hod, 100€ dospanie v ten istý deň, 200€ do ďalšieho dňa)
   const [anesthesiaType, setAnesthesiaType] = useState<'Lokálna' | 'Celková' | 'Analgosedácia'>('Celková');
   const [anesthesiaHours, setAnesthesiaHours] = useState(1);
@@ -653,6 +663,69 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
       postopMedication: profile.postopCare.medication,
       postopCheckup: profile.postopCare.checkupSchedule
     }));
+  };
+
+  const handleApplyProfileFromManager = (profile: SurgeryConsentProfile) => {
+    setManualProcedure(profile.procedureName);
+    setSurgeryConsent(prev => ({
+      ...prev,
+      procedureName: profile.procedureName,
+      anatomicalArea: profile.anatomicalArea,
+      purposeAndNature: profile.purposeAndNature,
+      technique: profile.technique,
+      anesthesiaType: profile.anesthesiaType,
+      alternatives: profile.alternatives,
+      refusalConsequences: profile.refusalConsequences,
+      specificRisks: profile.specificRisks,
+      postopRest: profile.postopCare.restAndPositioning,
+      postopGarment: profile.postopCare.compressionGarment,
+      postopPhysical: profile.postopCare.physicalRestrictions,
+      postopWound: profile.postopCare.woundCare,
+      postopEnvironment: profile.postopCare.environmentalRestrictions,
+      postopMedication: profile.postopCare.medication,
+      postopCheckup: profile.postopCare.checkupSchedule
+    }));
+  };
+
+  const handleSaveCurrentAsDefaultTemplate = () => {
+    if (!surgeryConsent.procedureName.trim()) {
+      setTemplateSaveFeedback('Chyba: Zákrok nemá zadaný názov.');
+      setTimeout(() => setTemplateSaveFeedback(null), 3000);
+      return;
+    }
+
+    const matchedExisting = findSurgeryConsentProfile(surgeryConsent.procedureName);
+    const profileId = matchedExisting.id !== 'custom_procedure' 
+      ? matchedExisting.id 
+      : `custom_op_${Date.now()}`;
+
+    const updatedProfile: SurgeryConsentProfile = {
+      id: profileId,
+      keywords: matchedExisting.keywords && matchedExisting.keywords.length > 0 
+        ? matchedExisting.keywords 
+        : [surgeryConsent.procedureName.toLowerCase()],
+      procedureName: surgeryConsent.procedureName,
+      anatomicalArea: surgeryConsent.anatomicalArea,
+      purposeAndNature: surgeryConsent.purposeAndNature,
+      technique: surgeryConsent.technique,
+      anesthesiaType: surgeryConsent.anesthesiaType,
+      alternatives: surgeryConsent.alternatives,
+      refusalConsequences: surgeryConsent.refusalConsequences,
+      specificRisks: surgeryConsent.specificRisks,
+      postopCare: {
+        restAndPositioning: surgeryConsent.postopRest,
+        compressionGarment: surgeryConsent.postopGarment,
+        physicalRestrictions: surgeryConsent.postopPhysical,
+        woundCare: surgeryConsent.postopWound,
+        environmentalRestrictions: surgeryConsent.postopEnvironment,
+        medication: surgeryConsent.postopMedication,
+        checkupSchedule: surgeryConsent.postopCheckup
+      }
+    };
+
+    saveSurgeryConsentProfile(updatedProfile);
+    setTemplateSaveFeedback(`Šablóna pre „${surgeryConsent.procedureName}“ bola úspešne uložená ako predvolená!`);
+    setTimeout(() => setTemplateSaveFeedback(null), 4000);
   };
 
   // 2. INFORMOVANÝ SÚHLAS S APLIKÁCIOU VÝPLNÍ / BOTOXU
@@ -963,12 +1036,22 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
             </div>
 
             {/* Prepínanie kategórie */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button 
                 onClick={() => { setTemplateEditorCategory('checkup'); setEditingTemplateKey('checkup_1w'); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${templateEditorCategory === 'checkup' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:text-[#2C2A29]'}`}
               >
                 🩺 Kontrolné vyšetrenia
+              </button>
+              <button 
+                onClick={() => {
+                  setIsTemplateEditorOpen(false);
+                  setIsTemplateManagerOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer bg-[#C5A059]/15 text-[#C5A059] hover:bg-[#C5A059]/25 flex items-center gap-1.5 border border-[#C5A059]/30"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                📋 Informovaný súhlas s operáciou (Katalóg výkonov)
               </button>
             </div>
 
@@ -1095,13 +1178,25 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
           <div className="border-b border-[#E8E2D9] pb-4">
             <div className="flex justify-between items-center mb-3">
               <h2 className="font-brand text-xl font-light text-[#2C2A29] uppercase font-bold">Generátor Dokumentov</h2>
-              <button
-                type="button"
-                onClick={() => setIsTemplateEditorOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FBF9F6] hover:bg-[#F4EFEA] border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl text-[10px] font-bold uppercase tracking-wider text-[#2C2A29] transition-all cursor-pointer shadow-xs"
-              >
-                ⚙️ Upraviť šablóny
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsTemplateManagerOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#C5A059]/10 hover:bg-[#C5A059]/20 border border-[#C5A059]/30 rounded-xl text-[10px] font-bold text-[#C5A059] transition-all cursor-pointer shadow-2xs"
+                  title="Otvoriť správcu šablón informovaných súhlasov pre všetky operácie"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Šablóny súhlasov</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTemplateEditorOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#FBF9F6] hover:bg-[#F4EFEA] border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl text-[10px] font-bold text-[#2C2A29] transition-all cursor-pointer shadow-2xs"
+                  title="Upraviť makrá kontrolných vyšetrení"
+                >
+                  <span>Šablóny kontrol</span>
+                </button>
+              </div>
             </div>
             
             <select 
@@ -1547,12 +1642,23 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
             {/* SEKCIA: INFORMOVANÝ SÚHLAS S OPERÁCIOU (PODĽA § 6 ZÁKONA Č. 576/2004 Z. Z.) */}
             {showSurgeryConsent && (
               <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-4">
-                <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Konfigurácia informovaného súhlasu</p>
-                  <span className="text-[9px] text-[#8C857B] bg-white px-2 py-0.5 rounded border border-[#E8E2D9]">Zákon č. 576/2004 Z. z.</span>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-[#E8E2D9] pb-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Konfigurácia informovaného súhlasu</p>
+                    <p className="text-[9px] text-[#8C857B]">§ 6 zákona č. 576/2004 Z. z. • SAY CLINIC</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsTemplateManagerOpen(true)}
+                    className="px-2.5 py-1.5 rounded-lg bg-[#C5A059]/15 text-[#C5A059] hover:bg-[#C5A059]/25 text-[10px] font-bold flex items-center gap-1.5 border border-[#C5A059]/30 transition-colors shadow-2xs cursor-pointer"
+                    title="Otvoriť správcu preddefinovaných textov pre všetky operácie"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Upraviť preddefinované texty & šablóny</span>
+                  </button>
                 </div>
 
-                {/* 1. VÝBER OPERÁCIE Z DATABÁZY */}
+                {/* 1. VÝBER OPERÁCIE Z DATABÁZY & ŠABLÓNY */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-[10px] font-bold text-[#8C857B] uppercase">Výber operácie z katalógu (automatické vyplnenie)</label>
@@ -1587,6 +1693,46 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                       className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold text-[#2C2A29]" 
                     />
                   </div>
+
+                  {/* LIŠTA RÝCHLYCH AKCIÍ SO ŠABLÓNOU */}
+                  <div className="flex flex-wrap items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => updateConsentFromProcedure(surgeryConsent.procedureName || manualProcedure || 'Augmentácia')}
+                      className="px-2.5 py-1 rounded-lg border border-[#E8E2D9] bg-white text-[10px] font-semibold text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FBF9F6] flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                      title="Znova načítať predvolené texty zo šablóny"
+                    >
+                      <RotateCcw className="w-3 h-3 text-[#C5A059]" />
+                      <span>Znova načítať zo šablóny</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveCurrentAsDefaultTemplate}
+                      className="px-2.5 py-1 rounded-lg border border-[#C5A059]/40 bg-[#C5A059]/10 text-[10px] font-bold text-[#C5A059] hover:bg-[#C5A059]/20 flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                      title="Uložiť aktuálne vyplnené texty do šablóny pre túto operáciu"
+                    >
+                      <Save className="w-3 h-3" />
+                      <span>Uložiť tieto texty ako predvolenú šablónu</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsTemplateManagerOpen(true)}
+                      className="px-2.5 py-1 rounded-lg border border-[#E8E2D9] bg-white text-[10px] font-semibold text-[#2C2A29] hover:bg-[#FBF9F6] flex items-center gap-1 cursor-pointer transition-colors shadow-2xs ml-auto"
+                      title="Otvoriť kompletný editor všetkých šablón"
+                    >
+                      <Sliders className="w-3 h-3 text-[#C5A059]" />
+                      <span>Katalóg šablón</span>
+                    </button>
+                  </div>
+
+                  {templateSaveFeedback && (
+                    <div className="mt-2 p-2 rounded-lg bg-[#10B981]/15 border border-[#10B981]/30 text-[#047857] text-[10px] font-bold flex items-center gap-1.5 animate-in fade-in">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{templateSaveFeedback}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* 2. IDENTIFIKÁCIA PACIENTA A POISŤOVŇA */}
@@ -3373,6 +3519,18 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
         </div>
       </div>
+
+      {/* MODÁLNE OKNO SPRÁVY ŠABLÓN INFORMOVANÝCH SÚHLASOV */}
+      <SurgeryConsentTemplateManager
+        isOpen={isTemplateManagerOpen}
+        onClose={() => setIsTemplateManagerOpen(false)}
+        onSelectAndApply={(profile) => {
+          handleApplyProfileFromManager(profile);
+          setIsTemplateManagerOpen(false);
+          setTemplateSaveFeedback(`Použitá šablóna pre „${profile.procedureName}“`);
+          setTimeout(() => setTemplateSaveFeedback(null), 3000);
+        }}
+      />
     </>
   );
 }

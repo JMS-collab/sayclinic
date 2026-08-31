@@ -459,11 +459,112 @@ export const SURGERY_CONSENT_DATABASE: Record<string, SurgeryConsentProfile> = {
   }
 };
 
+const STORAGE_KEY = 'sayclinic_surgery_consent_templates';
+
+// Získanie aktívnej databázy šablón (predvolené + používateľské úpravy z localStorage)
+export function getSurgeryConsentDatabase(): Record<string, SurgeryConsentProfile> {
+  if (typeof window === 'undefined') {
+    return SURGERY_CONSENT_DATABASE;
+  }
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...SURGERY_CONSENT_DATABASE, ...parsed };
+    }
+  } catch (e) {
+    console.error('Chyba pri načítaní šablón z localStorage:', e);
+  }
+  return SURGERY_CONSENT_DATABASE;
+}
+
+// Uloženie konkrétnej šablóny (úprava existujúcej alebo vytvorenie novej)
+export function saveSurgeryConsentProfile(profile: SurgeryConsentProfile): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const currentCustom = getCustomSurgeryConsentDatabase();
+    currentCustom[profile.id] = profile;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentCustom));
+  } catch (e) {
+    console.error('Chyba pri ukladaní šablóny do localStorage:', e);
+  }
+}
+
+// Uloženie celej databázy šablón
+export function saveAllSurgeryConsentProfiles(database: Record<string, SurgeryConsentProfile>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(database));
+  } catch (e) {
+    console.error('Chyba pri ukladaní šablón do localStorage:', e);
+  }
+}
+
+// Získanie iba používateľsky upravených alebo pridaných šablón
+export function getCustomSurgeryConsentDatabase(): Record<string, SurgeryConsentProfile> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const saved逃 = localStorage.getItem(STORAGE_KEY);
+    if (saved逃) {
+      return JSON.parse(saved逃);
+    }
+  } catch (e) {
+    console.error('Chyba pri načítaní custom šablón:', e);
+  }
+  return {};
+}
+
+// Obnovenie konkrétnej šablóny na pôvodnú predvolenú hodnotu
+export function resetSurgeryConsentProfile(id: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const currentCustom = getCustomSurgeryConsentDatabase();
+    if (currentCustom[id]) {
+      delete currentCustom[id];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(currentCustom));
+    }
+  } catch (e) {
+    console.error('Chyba pri resetovaní šablóny:', e);
+  }
+}
+
+// Obnovenie všetkých šablón na výrobné/predvolené nastavenie
+export function resetAllSurgeryConsentProfiles(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    console.error('Chyba pri resete všetkých šablón:', e);
+  }
+}
+
+// Export šablón do JSON reťazca
+export function exportSurgeryConsentProfilesJson(): string {
+  const db = getSurgeryConsentDatabase();
+  return JSON.stringify(db, null, 2);
+}
+
+// Import šablón z JSON reťazca
+export function importSurgeryConsentProfilesJson(jsonStr: string): boolean {
+  try {
+    const parsed = JSON.parse(jsonStr);
+    if (parsed && typeof parsed === 'object') {
+      saveAllSurgeryConsentProfiles(parsed);
+      return true;
+    }
+  } catch (e) {
+    console.error('Neplatný JSON pre šablóny informovaného súhlasu:', e);
+  }
+  return false;
+}
+
 // Pomocná funkcia na inteligentné vyhľadanie profilu operácie
 export function findSurgeryConsentProfile(query: string, defaultAnesthesia = 'Celková anestézia'): SurgeryConsentProfile {
   if (!query || query.trim() === '') {
     return getDefaultSurgeryConsentProfile('Plánovaný estetický chirurgický výkon', defaultAnesthesia);
   }
+
+  const db = getSurgeryConsentDatabase();
 
   const normalized = query
     .toLowerCase()
@@ -472,13 +573,22 @@ export function findSurgeryConsentProfile(query: string, defaultAnesthesia = 'Ce
     .trim();
 
   // 1. Priame ID párovanie
-  if (SURGERY_CONSENT_DATABASE[query]) {
-    return SURGERY_CONSENT_DATABASE[query];
+  if (db[query]) {
+    return db[query];
   }
 
-  // 2. Kľúčové slová
-  for (const profile of Object.values(SURGERY_CONSENT_DATABASE)) {
-    for (const kw of profile.keywords) {
+  // 2. Kľúčové slová a zhoda názvu
+  for (const profile of Object.values(db)) {
+    const normName强 = profile.procedureName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    
+    if (normName强.includes(normalized) || normalized.includes(normName强)) {
+      return profile;
+    }
+
+    for (const kw of profile.keywords || []) {
       const normKw = kw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       if (normalized.includes(normKw)) {
         return profile;
