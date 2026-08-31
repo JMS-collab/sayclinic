@@ -417,6 +417,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   });
 
   const [doctor, setDoctor] = useState('MUDr. Ján Mráz');
+  const [doctorCode, setDoctorCode] = useState('A86342871');
   const [diagnosis, setDiagnosis] = useState('Z41.1 - Estetická chirurgická úprava');
   const [manualProcedure, setManualProcedure] = useState('');
   const [notes, setNotes] = useState('');
@@ -622,6 +623,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     previousSurgeries: 'Bez predchádzajúcich operácií v operovanej anatomickej oblasti',
     otherAnamnesis: 'Negatívne (tehotenstvo a dojčenie vylúčené)',
     // VIII. Pooperačný režim a pokyny
+    recoveryWeeks: '4 – 6',
     postopRest: initialProfile.postopCare.restAndPositioning,
     postopGarment: initialProfile.postopCare.compressionGarment,
     postopPhysical: initialProfile.postopCare.physicalRestrictions,
@@ -638,6 +640,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     // XI. & XII. Čas, miesto a odovzdanie
     instructionDateTime: `${new Date().toLocaleDateString('sk-SK')} o 08:30 hod.`,
     consentDateTime: `${new Date().toLocaleDateString('sk-SK')} o 09:00 hod.`,
+    consentTime: '09:30',
     signaturePlace: 'Banská Bystrica',
     copyReceived: true
   });
@@ -1961,6 +1964,16 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   <p className="text-[10px] font-bold text-[#2C2A29] uppercase">Pooperačný režim, obmedzenia a pokyny</p>
                   
                   <div className="space-y-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[9px] text-[#8C857B] mb-0.5">Dĺžka kľudového režimu (týždne)</label>
+                        <input type="text" value={surgeryConsent.recoveryWeeks} onChange={e => setSurgeryConsent({...surgeryConsent, recoveryWeeks: e.target.value})} placeholder="napr. 4 - 6" className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white font-medium" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-[#8C857B] mb-0.5">Kód operujúceho lekára</label>
+                        <input type="text" value={doctorCode} onChange={e => setDoctorCode(e.target.value)} placeholder="A86342871" className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white font-medium" />
+                      </div>
+                    </div>
                     <div>
                       <label className="block text-[9px] text-[#8C857B] mb-0.5">Kľudový režim a polohovanie</label>
                       <textarea rows={2} value={surgeryConsent.postopRest} onChange={e => setSurgeryConsent({...surgeryConsent, postopRest: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
@@ -2030,7 +2043,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                 {/* 8. ČASOVÉ ÚDAJE A MIESTO */}
                 <div className="border-t border-[#E8E2D9] pt-3 space-y-2">
                   <p className="text-[10px] font-bold text-[#2C2A29] uppercase">Časové údaje a podpisy</p>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     <div>
                       <label className="block text-[9px] text-[#8C857B] mb-1">Dátum a čas poučenia</label>
                       <input type="text" value={surgeryConsent.instructionDateTime} onChange={e => setSurgeryConsent({...surgeryConsent, instructionDateTime: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
@@ -2038,6 +2051,10 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     <div>
                       <label className="block text-[9px] text-[#8C857B] mb-1">Dátum a čas súhlasu</label>
                       <input type="text" value={surgeryConsent.consentDateTime} onChange={e => setSurgeryConsent({...surgeryConsent, consentDateTime: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Presný čas súhlasu (hh:mm)</label>
+                      <input type="text" value={surgeryConsent.consentTime} onChange={e => setSurgeryConsent({...surgeryConsent, consentTime: e.target.value})} placeholder="09:30" className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white font-medium" />
                     </div>
                     <div>
                       <label className="block text-[9px] text-[#8C857B] mb-1">Miesto podpisu</label>
@@ -3024,7 +3041,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     <div className="border-l border-[#E8E2D9] pl-3 text-[9px] text-[#8C857B] leading-tight">
                       <p className="uppercase tracking-[0.15em] text-[#C5A059] font-bold">PLASTICKÁ CHIRURGIA & ESTETICKÁ MEDICÍNA</p>
                       <p className="mt-0.5 font-semibold text-[#2C2A29]">DOKTOR MRÁZ s.r.o. | SAY CLINIC</p>
-                      <p>Lazovná 43, 974 01 Banská Bystrica</p>
+                      <p>Klinika Rudlová, Rudlovská cesta 5978/83, 974 11 Banská Bystrica</p>
                       <p className="mt-0.5 text-[#C5A059] font-medium">say@sayclinic.sk | www.sayclinic.sk</p>
                     </div>
                   </div>
@@ -3040,306 +3057,327 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                 {/* HLAVNÝ NÁZOV DOKUMENTU */}
                 <div className="text-center space-y-1 mb-5">
                   <h1 className="text-sm font-bold uppercase tracking-wider text-[#2C2A29]">
-                    INFORMOVANÝ SÚHLAS K OPERAČNÉMU VÝKONU V ODBORE ESTETICKÁ CHIRURGIA
+                    INFORMOVANÝ SÚHLAS PACIENTA S POSKYTNUTÍM ZDRAVOTNEJ STAROSTLIVOSTI – ESTETICKÝ OPERAČNÝ ZÁKROK
                   </h1>
-                  <p className="text-[9px] text-[#8C857B] max-w-lg mx-auto italic leading-tight">
-                    podľa § 6 zákona č. 576/2004 Z. z. o zdravotnej starostlivosti, službách súvisiacich s poskytovaním zdravotnej starostlivosti a o zmene a doplnení niektorých zákonov v znení neskorších predpisov
+                  <p className="text-[9.5px] text-[#8C857B] max-w-2xl mx-auto italic leading-tight">
+                    uzatvorený a udelený v súlade s ustanoveniami § 6 a nasl. zákona č. 576/2004 Z. z. o zdravotnej starostlivosti, službách súvisiacich s poskytovaním zdravotnej starostlivosti a o zmene a doplnení niektorých zákonov v platnom znení a zákona č. 40/1964 Zb. Občiansky zákonník v platnom znení.
                   </p>
                 </div>
 
-                {/* I. POSKYTOVATEĽ ZDRAVOTNEJ STAROSTLIVOSTI */}
-                <div className="space-y-1.5">
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    I. Poskytovateľ zdravotnej starostlivosti
-                  </p>
-                  <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-[10px] grid grid-cols-2 gap-x-4 gap-y-1">
-                    <p><strong className="text-[#8C857B]">Obchodné meno:</strong> <span className="font-bold text-[#2C2A29]">DOKTOR MRÁZ s.r.o.</span></p>
-                    <p><strong className="text-[#8C857B]">Sídlo:</strong> Muškátová 15652/37, 974 01 Banská Bystrica</p>
-                    <p><strong className="text-[#8C857B]">IČO / DIČ:</strong> 54 918 375 / 2121822901</p>
-                    <p><strong className="text-[#8C857B]">Miesto prevádzky:</strong> Lazovná 43, 974 01 Banská Bystrica</p>
-                    <p><strong className="text-[#8C857B]">Register:</strong> OS Banská Bystrica, vl. č. 44785/S</p>
-                    <p><strong className="text-[#8C857B]">Štatutárny orgán:</strong> MUDr. Ján Mráz, konateľ</p>
-                    <p className="col-span-2"><strong className="text-[#8C857B]">Kontakt / E-mail:</strong> say@sayclinic.sk | +421 917 550 550</p>
-                  </div>
-                </div>
-
-                {/* II. IDENTIFIKÁCIA PACIENTA */}
-                <div className="space-y-1.5">
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    II. Identifikácia pacienta
-                  </p>
-                  <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-[10px] grid grid-cols-2 gap-x-4 gap-y-1">
-                    <p><strong className="text-[#8C857B]">Meno a priezvisko:</strong> <span className="font-bold text-xs text-[#2C2A29]">{patientName || '---'}</span></p>
-                    <p><strong className="text-[#8C857B]">Rodné priezvisko:</strong> {patientMaidenName || '---'}</p>
-                    <p><strong className="text-[#8C857B]">Dátum narodenia:</strong> {patientBirthDate || calculateBirthDateFromRC(birthNumber) || '---'}</p>
-                    <p><strong className="text-[#8C857B]">Rodné číslo:</strong> <span className="font-mono font-semibold">{birthNumber || '---'}</span></p>
-                    <p className="col-span-2"><strong className="text-[#8C857B]">Trvalý pobyt:</strong> {patientAddress || '---'}</p>
-                    <p><strong className="text-[#8C857B]">Štátna príslušnosť:</strong> {patientCitizenship || 'Slovenská republika'}</p>
-                    <p><strong className="text-[#8C857B]">Zdravotná poisťovňa:</strong> {patientInsurance || 'Dôvera'}</p>
-                    <p><strong className="text-[#8C857B]">Telefón:</strong> {patientPhone || '---'}</p>
-                    <p><strong className="text-[#8C857B]">E-mail:</strong> {patientEmail || '---'}</p>
-
-                    {legalRep.name && (
-                      <div className="col-span-2 mt-2 pt-2 border-t border-[#E8E2D9] text-[9px] bg-white p-2 rounded">
-                        <p className="font-bold text-[#C5A059] uppercase mb-0.5">Zákonný zástupca / opatrovník pacienta:</p>
-                        <p><strong className="text-[#8C857B]">Meno, priezvisko a titul:</strong> {legalRep.name} ({legalRep.title})</p>
-                        <p><strong className="text-[#8C857B]">Dátum narodenia a bydlisko:</strong> {legalRep.birthDate || '---'}, {legalRep.address || '---'}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* III. POUČUJÚCI ZDRAVOTNÍCKY PRACOVNÍK */}
-                <div className="space-y-1.5">
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    III. Poučujúci zdravotnícky pracovník
-                  </p>
-                  <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-[10px] space-y-1">
-                    <p><strong className="text-[#8C857B]">Meno, priezvisko a tituly:</strong> <span className="font-bold text-[#2C2A29]">{doctor}</span></p>
-                    <p><strong className="text-[#8C857B]">Odborná spôsobilosť:</strong> Lekár so špecializáciou v odbore plastická chirurgia</p>
-                    <p><strong className="text-[#8C857B]">Pracovisko:</strong> DOKTOR MRÁZ s.r.o. – SAY CLINIC, Lazovná 43, 974 01 Banská Bystrica</p>
-                  </div>
-                </div>
-
-                {/* IV. ŠPECIFIKÁCIA OPERAČNÉHO VÝKONU */}
+                {/* ČASŤ I. IDENTIFIKÁCIA ZMLUVNÝCH STRÁN A ÚČASTNÍKOV */}
                 <div className="space-y-2">
                   <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    IV. Špecifikácia operačného výkonu
+                    ČASŤ I. IDENTIFIKÁCIA ZMLUVNÝCH STRÁN A ÚČASTNÍKOV
+                  </p>
+                  
+                  <div className="space-y-2 text-[10px]">
+                    <div>
+                      <p className="font-bold text-[#2C2A29] mb-1">1. Poskytovateľ zdravotnej starostlivosti:</p>
+                      <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] grid grid-cols-2 gap-x-4 gap-y-1">
+                        <p><strong className="text-[#8C857B]">Obchodné meno:</strong> <span className="font-bold text-[#2C2A29]">DOKTOR MRÁZ s.r.o.</span></p>
+                        <p><strong className="text-[#8C857B]">Sídlo:</strong> Muškátová 15652/37, 974 01 Banská Bystrica</p>
+                        <p><strong className="text-[#8C857B]">IČO:</strong> 54 918 375</p>
+                        <p><strong className="text-[#8C857B]">DIČ:</strong> 2121822901</p>
+                        <p className="col-span-2"><strong className="text-[#8C857B]">Zápis v registri:</strong> Obchodný register Okresného súdu Banská Bystrica, oddiel: Sro, vložka č.: 44785/S</p>
+                        <p><strong className="text-[#8C857B]">Štatutárny orgán:</strong> MUDr. Ján Mráz, konateľ</p>
+                        <p><strong className="text-[#8C857B]">Miesto prevádzky / ZZ:</strong> Klinika Rudlová, Rudlovská cesta 5978/83, 974 11 Banská Bystrica</p>
+                        <p className="col-span-2 text-[9px] text-[#8C857B] italic pt-0.5">(ďalej len „Poskytovateľ“ alebo „Klinika“)</p>
+                      </div>
+                    </div>
+
+                    <div className="text-center font-bold text-xs text-[#8C857B] my-0.5">a</div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29] mb-1">1. Pacient / Osoba, ktorej sa má zdravotná starostlivosť poskytnúť:</p>
+                      <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] grid grid-cols-2 gap-x-4 gap-y-1">
+                        <p><strong className="text-[#8C857B]">Meno a priezvisko:</strong> <span className="font-bold text-xs text-[#2C2A29]">{patientName || '---'}</span></p>
+                        <p><strong className="text-[#8C857B]">Rodné priezvisko:</strong> {patientMaidenName || '---'}</p>
+                        <p><strong className="text-[#8C857B]">Dátum narodenia:</strong> {patientBirthDate || calculateBirthDateFromRC(birthNumber) || '---'}</p>
+                        <p><strong className="text-[#8C857B]">Rodné číslo:</strong> <span className="font-mono font-semibold">{birthNumber || '---'}</span></p>
+                        <p className="col-span-2"><strong className="text-[#8C857B]">Adresa trvalého pobytu:</strong> {patientAddress || '---'}</p>
+                        <p><strong className="text-[#8C857B]">Telefónny kontakt:</strong> {patientPhone || '---'}</p>
+                        <p><strong className="text-[#8C857B]">E-mailová adresa:</strong> {patientEmail || '---'}</p>
+                        <p><strong className="text-[#8C857B]">Zdravotná poisťovňa:</strong> {patientInsurance || 'Dôvera'}</p>
+                        <p><strong className="text-[#8C857B]">Štátna príslušnosť:</strong> {patientCitizenship || 'Slovenská republika'}</p>
+                        <p className="col-span-2 text-[9px] text-[#8C857B] italic pt-0.5">(ďalej len „Pacient“)</p>
+
+                        {legalRep.name && (
+                          <div className="col-span-2 mt-2 pt-2 border-t border-[#E8E2D9] text-[9px] bg-white p-2 rounded">
+                            <p className="font-bold text-[#C5A059] uppercase mb-0.5">Zákonný zástupca / opatrovník pacienta:</p>
+                            <p><strong className="text-[#8C857B]">Meno, priezvisko a titul:</strong> {legalRep.name} ({legalRep.title})</p>
+                            <p><strong className="text-[#8C857B]">Dátum narodenia a trvalý pobyt:</strong> {legalRep.birthDate || '---'}, {legalRep.address || '---'}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-1">
+                      <p className="font-bold text-[#2C2A29] mb-1">2. Informácia o spracúvaní osobných údajov a vedení zdravotnej dokumentácie:</p>
+                      <div className="bg-[#FBF9F6] p-2.5 rounded-lg border border-[#E8E2D9] text-[9.5px] text-justify text-[#4A4643] leading-relaxed">
+                        Pacient je informovaný, že jeho osobné údaje a údaje o zdravotnom stave (vrátane osobitnej kategórie osobných údajov) sú Poskytovateľom získavané a spracúvané v súlade s Nariadením Európskeho parlamentu a Rady (EÚ) 2016/679 (GDPR), zákonom č. 18/2018 Z. z. o ochrane osobných údajov a zákonom č. 576/2004 Z. z. o zdravotnej starostlivosti (najmä § 19 ods. 2 a nasl.). Právnym základom spracúvania je plnenie zákonných povinností poskytovateľa zdravotnej starostlivosti pri vedení zdravotnej dokumentácie a poskytovaní zdravotnej starostlivosti. Údaje sú bezpečne uchovávané v zdravotnej dokumentácii Poskytovateľa po dobu zákonom stanoveného retenčného obdobia (najmenej 20 rokov od posledného poskytnutia zdravotnej starostlivosti). Pacient má právo na prístup k svojim osobným údajom, právo na ich opravu, obmedzenie spracúvania a ďalšie práva garantované GDPR v rozsahu zlučiteľnom s osobitnými predpismi upravujúcimi vedenie zdravotnej dokumentácie. Podrobné zásady ochrany osobných údajov sú zverejnené v priestoroch zdravotníckeho zariadenia Poskytovateľa a na jeho webovom sídle.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ČASŤ II. ŠPECIFIKÁCIA PLÁNOVANÉHO OPERAČNÉHO VÝKONU */}
+                <div className="space-y-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    ČASŤ II. ŠPECIFIKÁCIA PLÁNOVANÉHO OPERAČNÉHO VÝKONU
                   </p>
                   
                   <div className="space-y-2 text-[10px] text-justify">
                     <div className="bg-[#FBF9F6] p-2.5 rounded-lg border border-[#E8E2D9]">
-                      <p className="font-bold text-xs text-[#2C2A29]">1. Názov operačného výkonu:</p>
-                      <p className="font-semibold text-xs text-[#C5A059] mt-0.5">{surgeryConsent.procedureName}</p>
+                      <p className="font-bold text-xs text-[#2C2A29]">1. Názov plánovaného operačného výkonu:</p>
+                      <p className="font-semibold text-xs text-[#C5A059] mt-0.5">{surgeryConsent.procedureName || '---'}</p>
                     </div>
 
                     <div>
-                      <p className="font-bold text-[#2C2A29]">2. Anatomická oblasť a lokalizácia:</p>
-                      <p className="text-[#4A4643]">{surgeryConsent.anatomicalArea}</p>
+                      <p className="font-bold text-[#2C2A29]">2. Anatomická oblasť a lokalizácia výkonu:</p>
+                      <p className="text-[#4A4643]">{surgeryConsent.anatomicalArea || '---'}</p>
                     </div>
 
                     <div>
-                      <p className="font-bold text-[#2C2A29]">3. Účel a povaha operačného výkonu:</p>
-                      <p className="text-[#4A4643]">{surgeryConsent.purposeAndNature}</p>
+                      <p className="font-bold text-[#2C2A29]">3. Plánovaný medicínsky a operačný postup:</p>
+                      <p className="text-[#4A4643] whitespace-pre-line">
+                        Operačný výkon spočíva v nasledovnom postupe: {surgeryConsent.technique || surgeryConsent.purposeAndNature || '---'}.
+                      </p>
                     </div>
 
                     <div>
-                      <p className="font-bold text-[#2C2A29]">4. Predpokladaný postup a operačná technika:</p>
-                      <p className="text-[#4A4643] whitespace-pre-line">{surgeryConsent.technique}</p>
-                    </div>
-
-                    <div>
-                      <p className="font-bold text-[#2C2A29]">5. Druh plánovanej anestézie:</p>
+                      <p className="font-bold text-[#2C2A29]">4. Forma anestézie:</p>
                       <p className="text-[#4A4643]">
-                        <strong className="text-[#2C2A29]">{surgeryConsent.anesthesiaType}</strong>. Pacient bol oboznámený s tým, že pri celkovej anestézii alebo analgosedácii je vykonané samostatné anesteziologické zhodnotenie a vyžaduje sa dodržanie predoperačného lačnenia (minimálne 6 hodín nejesť, nepiť a nefajčiť).
+                        Operačný výkon sa uskutoční v: <strong className="text-[#2C2A29]">{surgeryConsent.anesthesiaType || 'Celková anestézia'}</strong>.
+                        O rizikách spojených s formou anestézie bol Pacient osobitne poučený anestéziológom. Anestéziologický informovaný súhlas je vyhotovený ako samostatný dokument, ktorý tvorí vecnú súčasť predoperačnej dokumentácie a musí byť podpísaný pred samotným začatím operačného zákroku.
                       </p>
                     </div>
 
                     <div>
-                      <p className="font-bold text-[#2C2A29]">6. Možné alternatívy k navrhovanému operačnému výkonu:</p>
-                      <p className="text-[#4A4643]">{surgeryConsent.alternatives}</p>
-                    </div>
-
-                    <div>
-                      <p className="font-bold text-[#2C2A29]">7. Dôsledky odmietnutia poskytnutia zdravotnej starostlivosti:</p>
-                      <p className="text-[#4A4643]">{surgeryConsent.refusalConsequences}</p>
+                      <p className="font-bold text-[#2C2A29]">5. Alternatívy k navrhovanému výkonu:</p>
+                      <p className="text-[#4A4643]">
+                        Pacient bol informovaný o možných alternatívnych liečebných, korektívnych a neinvazívnych postupoch: {surgeryConsent.alternatives || 'Aplikácia kyseliny hyalurónovej, laserové ošetrenie, dermálne výplne, prípadne konzervatívny postup'}, ako aj o možnosti nepodstúpiť žiaden výkon a ponechať stav bez zmeny.
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* V. OSOBITNÉ RIZIKÁ A MOŽNÉ KOMPLIKÁCIE VÝKONU */}
+                {/* ČASŤ III. POUČENIE, DOBROVOĽNOSŤ VOĽBY A DIGITÁLNA VIZUALIZÁCIA */}
                 <div className="space-y-2">
                   <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    V. Osobitné riziká a možné komplikácie výkonu
+                    ČASŤ III. POUČENIE, DOBROVOĽNOSŤ VOĽBY A DIGITÁLNA VIZUALIZÁCIA
                   </p>
                   
-                  <div className="space-y-2 text-[10px] text-justify text-[#4A4643]">
+                  <div className="space-y-2 text-[9.5px] text-justify text-[#4A4643] leading-relaxed">
                     <div>
-                      <p className="font-bold text-[#2C2A29]">1. Všeobecné riziká spojené s každým chirurgickým výkonom:</p>
+                      <p className="font-bold text-[#2C2A29] text-[10px]">1. Poučenie a dobrovoľné rozhodnutie:</p>
                       <p>
-                        Pooperačné krvácanie, vznik hematómu alebo serómu, infekcia v operačnej rane, dehiscencia (rozostup) okrajov rany, poruchy hojenia, tvorba hypertrofických, atrofických či keloidných jaziev, zmeny pigmentácie v jazve, prechodný edém a ekchymózy (opuchy a modriny), dočasná alebo trvalá zmena citlivosti (hypestézia, parestézia) kože, alergická reakcia na použité liečivá, dezinfekčné prostriedky, anestetiká či šijací materiál, flebotrombóza a trombembólia, riziká spojené s anestéziou a celkovou záťažou organizmu.
+                        Pacient vyhlasuje, že ošetrujúci lekár mu zrozumiteľne, ohľaduplne, bez nátlaku a s poskytnutím dostatočného času na rozmyslenie vysvetlil účel, povahu, predpokladaný prínos, techniku výkonu, jeho následky a riziká. Pacient mal možnosť klásť doplňujúce otázky, ktoré mu boli uspokojivo a podrobne zodpovedané. Pacient potvrdzuje, že podstúpenie tohto estetického zákroku je jeho slobodnou, plne dobrovoľnou voľbou a nie je výsledkom tiesne ani nátlaku tretej osoby.
                       </p>
                     </div>
 
+                    <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] space-y-1">
+                      <p className="font-bold text-[#2C2A29] text-[10px]">2. Právny a medicínsky status predoperačnej vizualizácie (simulácie):</p>
+                      <p>
+                        Pokiaľ bola v rámci predoperačných konzultácií spracovaná 2D/3D počítačová simulácia, digitálna vizualizácia, nákres alebo fotodokumentácia s grafickou úpravou, táto slúži výlučne ako orientačná komunikačná a edukačná pomôcka na ujasnenie a vzájomné zosúladenie subjektívnych estetických predstáv Pacienta a medicínskych možností operatera.
+                      </p>
+                      <p className="font-semibold text-[#2C2A29]">
+                        Tieto vizualizácie v žiadnom prípade nepredstavujú exaktnú medicínsku predikciu, záväzný prísľub, opis zaručených vlastností diela ani právnu záruku konečného anatomického či estetického výsledku.
+                      </p>
+                      <p>
+                        Výsledný tvar a vzhľad operovaných oblastí (najmä nosa, prsníkov, tváre, brušnej steny a iných partií) je možné zo strany lekára len kvalifikovane medicínsky predpokladať, nakoľko je determinovaný individuálnou anatómiou Pacienta, asymetriou kostry a svalstva, elasticitou kože, mikrocirkuláciou, hojivými procesmi, jazvením a nepredvídateľnou biologickou reakciou organizmu.
+                      </p>
+                      <p className="italic text-[#8C857B] pt-0.5">
+                        Zmluvné strany sa výslovne dohodli, že digitálna vizualizácia netvorí dôkazný štandard pre posudzovanie správnosti poskytnutej zdravotnej starostlivosti ani základ pre nároky z vadného plnenia či náhrady škody.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ČASŤ IV. RIZIKÁ, KOMPLIKÁCIE A MEDICÍNSKY ŠTANDARD LEGE ARTIS */}
+                <div className="space-y-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    ČASŤ IV. RIZIKÁ, KOMPLIKÁCIE A MEDICÍNSKY ŠTANDARD LEGE ARTIS
+                  </p>
+                  
+                  <div className="space-y-2 text-[9.5px] text-justify text-[#4A4643] leading-relaxed">
                     <div>
-                      <p className="font-bold text-[#2C2A29]">2. Špecifické riziká viazané na plánovaný operačný výkon:</p>
-                      <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] font-medium text-[#2C2A29] leading-relaxed">
-                        {surgeryConsent.specificRisks}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* VI. INDIVIDUÁLNE RIZIKOVÉ FAKTORY A ANAMNESTICKÉ ÚDAJE PACIENTA */}
-                <div className="space-y-2">
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    VI. Individuálne rizikové faktory a anamnestické údaje pacienta
-                  </p>
-                  
-                  <div className="space-y-2 text-[10px]">
-                    <p className="font-bold text-[#2C2A29]">1. Záznam individuálnych rizikových faktorov zistených pri predoperačnom vyšetrení:</p>
-                    <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] space-y-1.5">
-                      <p><strong className="text-[#8C857B]">Alergie:</strong> <span className="font-semibold">{surgeryConsent.allergies}</span></p>
-                      <p><strong className="text-[#8C857B]">Chronické ochorenia:</strong> <span className="font-semibold">{surgeryConsent.chronicDiseases}</span></p>
-                      <p><strong className="text-[#8C857B]">Poruchy zrážanlivosti krvi / antikoagulačná liečba:</strong> <span className="font-semibold">{surgeryConsent.bleedingDisorders}</span></p>
-                      <p><strong className="text-[#8C857B]">Užívaná medikácia (vrátane voľnopredajných liekov a doplnkov):</strong> <span className="font-semibold">{surgeryConsent.chronicMedication}</span></p>
-                      <p><strong className="text-[#8C857B]">Sklon k tvorbe keloidných alebo hypertrofických jaziev:</strong> <span className="font-semibold">{surgeryConsent.keloidTendency}</span></p>
-                      <p><strong className="text-[#8C857B]">Fajčenie, konzumácia alkoholu / iných návykových látok:</strong> <span className="font-semibold">{surgeryConsent.smokingAlcohol}</span></p>
-                      <p><strong className="text-[#8C857B]">Predchádzajúce operácie a estetické zákroky v operovanej oblasti:</strong> <span className="font-semibold">{surgeryConsent.previousSurgeries}</span></p>
-                      <p><strong className="text-[#8C857B]">Iné závažné anamnestické údaje (vrátane tehotenstva a dojčenia):</strong> <span className="font-semibold">{surgeryConsent.otherAnamnesis}</span></p>
-                    </div>
-
-                    <div className="text-[9.5px] text-justify text-[#4A4643]">
-                      <p className="font-bold text-[#2C2A29]">2. Vyhlásenie pacienta o úplnosti a pravdivosti:</p>
-                      <p>
-                        Pacient vyhlasuje, že nezatajil žiadne informácie o svojom zdravotnom stave, prekonaných ochoreniach, alergiách, užívaných liekoch, tehotenstve ani o iných skutočnostiach, ktoré by mohli mať vplyv na priebeh operačného výkonu, anestézie alebo hojenia, a je si vedomý, že zatajenie takýchto údajov môže viesť k závažnému poškodeniu jeho zdravia.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* VII. OSOBITNÉ POVAHOVÉ VLASTNOSTI ESTETICKÉHO VÝKONU A HODNOTENIE VÝSLEDKU */}
-                <div className="space-y-2">
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    VII. Osobitné povahové vlastnosti estetického výkonu a hodnotenie výsledku
-                  </p>
-                  
-                  <ol className="list-decimal pl-4 space-y-1 text-[9.5px] text-justify text-[#4A4643]">
-                    <li>Pacient berie na vedomie, že estetická chirurgia nie je exaktná veda a výsledok výkonu je závislý od individuálnych biologických vlastností organizmu, elasticity kože, kvality podkožného tkaniva, stavby kostry a schopnosti hojenia rán.</li>
-                    <li>Poskytovateľ garantuje poskytnutie zdravotnej starostlivosti lege artis (na odbornej úrovni), negarantuje však dosiahnutie subjektívnych estetických predstáv pacienta ani dokonalú symetriu, keďže ľudské telo vykazuje prirodzenú asymetriu.</li>
-                    <li>Pacient bol poučený o tom, že konečný estetický výsledok je možné definitívne hodnotiť až po úplnom odznení pooperačného opuchu, vstrebávaní hematómov a vyzretí jaziev, čo spravidla trvá 6 až 12 mesiacov od operácie.</li>
-                    <li>Pacient bol informovaný o trvácnosti výsledku a o tom, že výsledok môže byť v priebehu času ovplyvnený prirodzeným procesom starnutia, gravitáciou, kolísaním telesnej hmotnosti, tehotenstvom, hormonálnymi zmenami a životným štýlom.</li>
-                    <li>Pacient berie na vedomie, že v prípade vzniku asymetrie, jazvových zmien alebo iných nežiaducich odchýlok môže byť indikovaný korekčný výkon (reoperácia), ktorého podmienky a prípadná finančná účasť sa spravujú dohodou strán a cenníkom poskytovateľa.</li>
-                  </ol>
-                </div>
-
-                {/* VIII. POOPERAČNÝ REŽIM, OBMEDZENIA A SÚČINNOSŤ PACIENTA */}
-                <div className="space-y-2">
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    VIII. Pooperačný režim, obmedzenia a súčinnosť pacienta
-                  </p>
-                  
-                  <div className="space-y-2 text-[10px]">
-                    <p className="font-bold text-[#2C2A29]">1. Pokyny lekára pre pooperačné obdobie:</p>
-                    <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] space-y-1.5 text-[9.5px]">
-                      <p><strong className="text-[#8C857B]">Kľudový režim a polohovanie:</strong> {surgeryConsent.postopRest}</p>
-                      <p><strong className="text-[#8C857B]">Kompresívna / fixačná bielizeň a obväzy:</strong> {surgeryConsent.postopGarment}</p>
-                      <p><strong className="text-[#8C857B]">Fyzické obmedzenia a šport:</strong> {surgeryConsent.postopPhysical}</p>
-                      <p><strong className="text-[#8C857B]">Starostlivosť o rany, stehy a jazvy:</strong> {surgeryConsent.postopWound}</p>
-                      <p><strong className="text-[#8C857B]">Environmentálne obmedzenia (voda, sauna, slnko):</strong> {surgeryConsent.postopEnvironment}</p>
-                      <p><strong className="text-[#8C857B]">Medikamentózna liečba:</strong> {surgeryConsent.postopMedication}</p>
-                      <p><strong className="text-[#8C857B]">Harmonogram kontrol:</strong> {surgeryConsent.postopCheckup}</p>
-                    </div>
-
-                    <div className="text-[9.5px] text-justify text-[#4A4643]">
-                      <p className="font-bold text-[#2C2A29]">2. Záväzok súčinnosti pacienta:</p>
-                      <p>
-                        Pacient sa zaväzuje dôsledne dodržiavať všetky pokyny lekára, nosiť predpísanú kompresívnu bielizeň, dodržiavať stanovené termíny kontrolných vyšetrení a v prípade akýchkoľvek komplikácií (náhly opuch, stupňujúca sa bolesť, krvácanie, teplota nad 38 °C) bezodkladne kontaktovať poskytovateľa na tel. čísle <strong className="text-[#2C2A29]">+421 917 550 550</strong> alebo e-mailom na <strong className="text-[#2C2A29]">say@sayclinic.sk</strong>. Pacient berie na vedomie, že nedodržanie pokynov lekára môže mať za následok zhoršenie estetického výsledku alebo poškodenie zdravia a vylučuje zodpovednosť poskytovateľa za takto vzniknuté následky.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* IX. DOPLŇUJÚCE POUČENIE, OTÁZKY PACIENTA A ODPOVEDE LEKÁRA */}
-                <div className="space-y-2">
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    IX. Doplňujúce poučenie, otázky pacienta a odpovede lekára
-                  </p>
-                  
-                  <div className="space-y-2 text-[10px]">
-                    <p className="font-bold text-[#2C2A29]">1. Záznam otázok položených pacientom a odpovedí poskytnutých lekárom:</p>
-                    <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] space-y-2 text-[9.5px]">
-                      <div>
-                        <p><strong className="text-[#8C857B]">Otázka pacienta č. 1:</strong> <span className="font-semibold text-[#2C2A29]">{surgeryConsent.patientQuestion1 || 'Bez ďalších doplňujúcich otázok.'}</span></p>
-                        <p className="mt-0.5"><strong className="text-[#8C857B]">Odpoveď lekára č. 1:</strong> {surgeryConsent.doctorAnswer1 || 'Všetky náležitosti boli zrozumiteľne vysvetlené.'}</p>
-                      </div>
-                      {surgeryConsent.patientQuestion2 && (
-                        <div className="pt-1.5 border-t border-[#E8E2D9]">
-                          <p><strong className="text-[#8C857B]">Otázka pacienta č. 2:</strong> <span className="font-semibold text-[#2C2A29]">{surgeryConsent.patientQuestion2}</span></p>
-                          <p className="mt-0.5"><strong className="text-[#8C857B]">Odpoveď lekára č. 2:</strong> {surgeryConsent.doctorAnswer2}</p>
+                      <p className="font-bold text-[#2C2A29] text-[10px] mb-1">1. Všeobecné a špecifické riziká výkonu:</p>
+                      <p className="mb-1">Pacient bol oboznámený s rizikami a možnými komplikáciami, ktoré zahŕňajú najmä:</p>
+                      <div className="space-y-1.5 pl-2">
+                        <p>
+                          <strong className="text-[#2C2A29]">a) včasné pooperačné komplikácie:</strong> krvácanie, vznik hematómu vyžadujúceho chirurgickú evakuáciu, seróm (nahromadenie tkanivového moku), pooperačnú infekciu, zápal, rozpad (dehiscenciu) operačnej rany, nekrózu kože, podkožia alebo dvorca/bradavky pri redukčných výkonoch, tromboembolickú chorobu;
+                        </p>
+                        <p>
+                          <strong className="text-[#2C2A29]">b) neskoré a estetické komplikácie:</strong> pretrvávajúcu alebo novovzniknutú asymetriu, nepravidelnosti kontúr, hypertrofické, atrofické či keloidné jazvenie, pigmentové zmeny v oblasti jaziev, dočasnú alebo trvalú zmenu či stratu citlivosti (hypestéziu, parestéziu, hyperestéziu) operovanej oblasti, hmatateľnosť či posun implantátu, kapsulárnu kontraktúru (pri prsníkových implantátoch), pretrvávanie opuchov a zatvrdlín;
+                        </p>
+                        <div>
+                          <p><strong className="text-[#2C2A29]">c) individuálne špecifické riziká pre plánovaný výkon:</strong></p>
+                          <div className="bg-[#FBF9F6] p-2.5 rounded-lg border border-[#E8E2D9] font-medium text-[#2C2A29] mt-0.5">
+                            {surgeryConsent.specificRisks || 'Riziká zodpovedajú štandardnému priebehu v zmysle predoperačnej konzultácie.'}
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
 
-                    <div className="text-[9.5px]">
-                      <p className="font-bold text-[#2C2A29]">2. Osobitné individuálne dojednania:</p>
-                      <p className="text-[#4A4643] italic">{surgeryConsent.specialAgreements || 'Bez osobitných dodatočných dojednaní.'}</p>
+                    <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] space-y-1">
+                      <p className="font-bold text-[#2C2A29] text-[10px]">2. Vymedzenie komplikácie vs. odborné pochybenie (lege artis):</p>
+                      <p>
+                        Poskytovateľ je v zmysle § 4 ods. 3 zákona č. 576/2004 Z. z. povinný poskytnúť zdravotnú starostlivosť správne – lege artis, t. j. v súlade so súčasnými poznatkami lekárskej vedy a štandardnými medicínskymi postupmi.
+                      </p>
+                      <p>
+                        Výskyt vyššie uvedených komplikácií (vrátane hematómu, infekcie, asymetrie, porúch hojenia, nepriaznivého jazvenia či zmien citlivosti) predstavuje známe, medicínsky popísané inherentné biologické riziko chirurgického výkonu. Tieto komplikácie môžu nastať aj pri plne správnom, bezchybnom a prísne lege artis postupe operatera. Samotný vznik komplikácie alebo odchýlka od subjektívnej predstavy Pacienta o estetickom výsledku samy osebe nepreukazujú a nezakladajú odborné pochybenie, porušenie právnych povinností ani zavinenie Poskytovateľa či operatera.
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* X. PREHLÁSENIE A INFORMOVANÝ SÚHLAS PACIENTA */}
+                {/* ČASŤ V. ANAMNÉZA, INDIVIDUÁLNE FAKTORY A POOPERAČNÝ REŽIM */}
                 <div className="space-y-2">
                   <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    X. Prehlásenie a informovaný súhlas pacienta
+                    ČASŤ V. ANAMNÉZA, INDIVIDUÁLNE FAKTORY A POOPERAČNÝ REŽIM
                   </p>
                   
-                  <div className="space-y-2 text-[9.5px] text-justify text-[#4A4643]">
-                    <p>Pacient svojím vlastnoručným podpisom potvrdzuje, že:</p>
-                    <ol className="list-decimal pl-4 space-y-1">
-                      <li>bol poučujúcom lekárom riadne, zrozumiteľne, v dostatočnom rozsahu a v pokojnej atmosfére poučený o účele, povahe, následkoch, rizikách, alternatívach a pooperačnom režime vyššie špecifikovaného operačného výkonu v zmysle § 6 zákona č. 576/2004 Z. z.,</li>
-                      <li>poučeniu plne porozumel, mal dostatok času na zváženie svojho rozhodnutia a na kladenie otázok, ktoré mu boli uspokojivo a vyčerpávajúco zodpovedané,</li>
-                      <li>nezatajil žiadne relevantné zdravotné údaje ani užívané lieky,</li>
-                      <li>bol oboznámený s právom slobodne sa rozhodnúť a s právom informovaný súhlas kedykoľvek odvolať až do začiatku výkonu zdravotnej starostlivosti (§ 6 ods. 6 zákona č. 576/2004 Z. z.),</li>
-                      <li>súhlasí s vyhotovením anonymnej medicínskej fotodokumentácie pred, počas a po výkone výlučne pre účely zdravotnej dokumentácie v súlade s platnou legislatívou.</li>
+                  <div className="space-y-2 text-[9.5px] text-justify text-[#4A4643] leading-relaxed">
+                    <div>
+                      <p className="font-bold text-[#2C2A29] text-[10px] mb-1">1. Pravdivosť anamnestických údajov:</p>
+                      <p>
+                        Pacient čestne vyhlasuje, že nezamlčal žiadne skutočnosti o svojom aktuálnom ani minulom zdravotnom stave, prekonaných ochoreniach, operáciách, alergiách, užívaných liekoch (najmä liekoch ovplyvňujúcich zrážanlivosť krvi, nesteroidných antiflogistikách, hormonálnej antikoncepcii), užívaní výživových doplnkov, návykových látok, konzumácii alkoholu a fajčení. Pacient berie na vedomie, že zamlčanie týchto údajov dramaticky zvyšuje riziko závažných komplikácií.
+                      </p>
+                      <div className="bg-[#FBF9F6] p-2.5 rounded-lg border border-[#E8E2D9] text-[9px] mt-1 space-y-1">
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                          <p><strong className="text-[#8C857B]">Alergie:</strong> {surgeryConsent.allergies}</p>
+                          <p><strong className="text-[#8C857B]">Chronické ochorenia:</strong> {surgeryConsent.chronicDiseases}</p>
+                          <p><strong className="text-[#8C857B]">Poruchy zrážanlivosti / lieky:</strong> {surgeryConsent.bleedingDisorders}</p>
+                          <p><strong className="text-[#8C857B]">Trvalá medikácia:</strong> {surgeryConsent.chronicMedication}</p>
+                          <p><strong className="text-[#8C857B]">Sklon k tvorbe keloidných jaziev:</strong> {surgeryConsent.keloidTendency}</p>
+                          <p><strong className="text-[#8C857B]">Fajčenie / alkohol / návykové látky:</strong> {surgeryConsent.smokingAlcohol}</p>
+                          <p className="col-span-2"><strong className="text-[#8C857B]">Predchádzajúce operácie v lokalite:</strong> {surgeryConsent.previousSurgeries}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29] text-[10px] mb-1">2. Záväzok dodržiavania liečebného a pooperačného režimu:</p>
+                      <p className="mb-1">Pacient sa zaväzuje striktne dodržiavať všetky písomné a ústne pokyny lekára, najmä:</p>
+                      <div className="bg-[#FBF9F6] p-2.5 rounded-lg border border-[#E8E2D9] space-y-1.5 pl-3">
+                        <p>
+                          <strong className="text-[#2C2A29]">a)</strong> dodržiavať nariadený kľudový režim a vyhýbať sa fyzickej námahe a športu po dobu určenú lekárom (minimálne <span className="font-bold text-[#2C2A29]">{surgeryConsent.recoveryWeeks || '4 – 6'}</span> týždňov) – {surgeryConsent.postopRest};
+                        </p>
+                        <p>
+                          <strong className="text-[#2C2A29]">b)</strong> nepretržite nosiť predpísanú kompresívnu bielizeň / elastické bandáže / fixačné dlahy po dobu stanovenú lekárom – {surgeryConsent.postopGarment};
+                        </p>
+                        <p>
+                          <strong className="text-[#2C2A29]">c)</strong> zdržať sa fajčenia, expozície UV žiareniu (slnko, solárium), návštevy sauny a bazénov po dobu rekonvalescencie – {surgeryConsent.postopEnvironment};
+                        </p>
+                        <p>
+                          <strong className="text-[#2C2A29]">d)</strong> aplikovať predpísanú medikáciu a lokálnu starostlivosť o rany a jazvy presne podľa ordinácie – {surgeryConsent.postopMedication}, {surgeryConsent.postopWound}.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29] text-[10px] mb-1">3. Kontroly a oznamovanie komplikácií:</p>
+                      <p>
+                        Pacient je povinný dostaviť sa na všetky stanovené pooperačné kontrolné vyšetrenia a preväzy v termínoch určených lekárom ({surgeryConsent.postopCheckup}). V prípade vzniku akýchkoľvek varovných príznakov alebo podozrenia na komplikácie (najmä náhly jednostranný opuch, stupňujúca sa bolesť, krvácanie z rany, horúčka nad 38 °C, začervenanie a sekrécia z rany, dýchavičnosť) je Pacient povinný bezodkladne telefonicky a e-mailom kontaktovať Poskytovateľa a dostaviť sa na mimoriadnu kontrolu, prípadne v stave bezprostredného ohrozenia života vyhľadať urgentný príjem ústavného zdravotníckeho zariadenia.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ČASŤ VI. POSUDZOVANIE VÝHRAD, KOREKČNÉ OPERÁCIE A FINANČNÉ PODMIENKY */}
+                <div className="space-y-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    ČASŤ VI. POSUDZOVANIE VÝHRAD, KOREKČNÉ OPERÁCIE A FINANČNÉ PODMIENKY
+                  </p>
+                  
+                  <div className="space-y-2 text-[9.5px] text-justify text-[#4A4643] leading-relaxed">
+                    <div>
+                      <p className="font-bold text-[#2C2A29] text-[10px]">1. Odborné posúdenie výsledku a výhrad:</p>
+                      <p>
+                        V prípade výhrad Pacienta k estetickému alebo funkčnému výsledku operácie vykoná operatér Poskytovateľa komplexné odborné klinické zhodnotenie stavu. Konečný výsledok estetického výkonu možno definitívne hodnotiť až po úplnom dozretí tkanív a jaziev, spravidla po uplynutí 6 až 12 mesiacov od operácie. Odborné posúdenie operatérom nie je výlučne a neodvolateľne záväzné pre uplatnenie zákonných práv Pacienta; Pacientovi v plnom rozsahu zostáva zachované právo obrátiť sa na Úrad pre dohľad nad zdravotnou starostlivosťou (ÚDZS) so žiadosťou o prešetrenie správnosti poskytnutej zdravotnej starostlivosti, ako aj právo na súdnu ochranu pred príslušnými súdmi Slovenskej republiky. Pacient má tiež právo obrátiť sa na Verejného ochrancu práv Slovenskej republiky so sťažnosťou alebo podnetom vo veci ochrany základných práv a slobôd pri postupe poskytovateľa zdravotnej starostlivosti.
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29] text-[10px] mb-1">2. Finančné a vecné podmienky korekčných výkonov (reoperácií):</p>
+                      <p className="mb-1">Zmluvné strany dojednávajú nasledovné pravidlá pre prípadné korekčné chirurgické výkony:</p>
+                      <div className="bg-[#FBF9F6] p-2.5 rounded-lg border border-[#E8E2D9] space-y-1.5 pl-3">
+                        <p>
+                          <strong className="text-[#2C2A29]">a) Preukázané pochybenie Poskytovateľa (postup non lege artis):</strong> Ak je preukázané (posúdením Poskytovateľa, záverom ÚDZS alebo právoplatným rozhodnutím súdu), že nežiaduci výsledok alebo komplikácia vznikli v dôsledku odborného pochybenia Poskytovateľa, korekčný výkon a súvisiaca zdravotná starostlivosť budú vykonané na náklady Poskytovateľa v plnom rozsahu.
+                        </p>
+                        <p>
+                          <strong className="text-[#2C2A29]">b) Nastúpenie známeho inherentného biologického/anatomického rizika bez pochybenia lekára:</strong> Ak si stav vyžaduje korekciu v dôsledku individuálnej biologickej reakcie organizmu, nepriaznivého hojenia či anatomických limitov pri plnom dodržaní postupu lege artis a liečebného režimu Pacientom, Poskytovateľ poskytne prácu chirurga bezplatne a Pacient hradí výlučne priame preukázateľné materiálne a režijné náklady (najmä anestéziologický tím a liečivá, spotrebný chirurgický materiál, sterilizáciu, prípadne novú sadu implantátov).
+                        </p>
+                        <p>
+                          <strong className="text-[#2C2A29]">c) Neindikovaná subjektívna zmena preferencie alebo porušenie režimu:</strong> Ak Pacient požaduje zmenu výsledku z dôvodu zmeny svojho subjektívneho estetického želania (pri dosiahnutí medicínsky a esteticky štandardného výsledku), alebo ak komplikácia vznikla v dôsledku preukázaného porušenia liečebného a pooperačného režimu zo strany Pacienta, korekčný výkon sa realizuje ako nový platený výkon za plnú cenu podľa platného cenníka Poskytovateľa.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29] text-[10px]">3. Miestna viazanosť zliav a reoperácií:</p>
+                      <p>
+                        Zvýhodnené cenové podmienky, bezplatné poskytnutie práce chirurga a kompenzačné zľavy sa vzťahujú výlučne na korekčné výkony vykonané v zdravotníckom zariadení Poskytovateľa. V prípade, že sa Pacient jednostranne rozhodne podstúpiť reoperáciu alebo korekciu v inom (externom) zdravotníckom zariadení bez predchádzajúceho písomného súhlasu Poskytovateľa alebo bez právoplatného právneho titulu, nevzniká mu automaticky nárok na refundáciu nákladov ani na finančné vyrovnanie voči Poskytovateľovi.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ČASŤ VII. ZÁVEREČNÉ VYHLÁSENIA A PODPISY */}
+                <div className="space-y-3">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    ČASŤ VII. ZÁVEREČNÉ VYHLÁSENIA A PODPISY
+                  </p>
+                  
+                  <div className="space-y-2 text-[9.5px] text-justify text-[#4A4643] leading-relaxed">
+                    <p className="font-bold text-[#2C2A29] text-[10px]">1. Pacient svojím podpisom potvrdzuje, že:</p>
+                    <ol className="list-none space-y-1 pl-2">
+                      <li><strong className="text-[#2C2A29]">a)</strong> textu tohto informovaného súhlasu a všetkým jeho ustanoveniam porozumel v celom rozsahu;</li>
+                      <li><strong className="text-[#2C2A29]">b)</strong> mu boli vysvetlené všetky medicínske aspekty, priebeh zákroku, riziká a režimové obmedzenia;</li>
+                      <li><strong className="text-[#2C2A29]">c)</strong> mal dostatočný časový priestor na zváženie svojho rozhodnutia a netrpí žiadnou duševnou poruchou ani prekážkou znižujúcou jeho spôsobilosť na právne úkony;</li>
+                      <li><strong className="text-[#2C2A29]">d)</strong> bol poučený o svojom zákonnom práve v zmysle § 6 ods. 8 zákona č. 576/2004 Z. z. kedykoľvek tento informovaný súhlas slobodne odvolať až do okamihu zahájenia samotného operačného výkonu;</li>
+                      <li><strong className="text-[#2C2A29]">e)</strong> slobodne a dobrovoľne udeľuje informovaný súhlas s vykonaním vyššie špecifikovaného estetického operačného výkonu vrátane potrebných súvisiacich diagnostických, terapeutických a anestéziologických úkonov.</li>
                     </ol>
 
-                    <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-[10px] text-[#2C2A29] font-semibold space-y-1">
-                      <p className="uppercase text-[#C5A059] text-[9px] font-bold">Výslovný súhlas:</p>
+                    <div className="bg-[#FBF9F6] p-2.5 rounded-lg border border-[#E8E2D9] text-[9.5px]">
+                      <p className="font-bold text-[#2C2A29]">2. Vyhlásenie lekára:</p>
                       <p>
-                        Na základe vyššie uvedeného poučenia slobodne, dobrovoľne, vážne a bez nátlaku <strong className="uppercase underline">udeľujem svoj informovaný súhlas</strong> s vykonaním operačného výkonu: <strong className="text-[#2C2A29]">{surgeryConsent.procedureName}</strong> a s podaním anestézie v rozsahu: <strong className="text-[#2C2A29]">{surgeryConsent.anesthesiaType}</strong>, ako aj s vykonaním všetkých ďalších nevyhnutných diagnostických a liečebných úkonov bezprostredne súvisiacich s týmto výkonom.
+                        Ošetrujúci a operujúci lekár potvrdzuje, že Pacientovi osobne a riadne poskytol poučenie v celom zákonnom rozsahu, zodpovedal všetky otázky a overil si, že Pacient poučeniu porozumel.
                       </p>
                     </div>
                   </div>
-                </div>
 
-                {/* XI. ČASOVÉ ÚDAJE A PODPISY STRÁN */}
-                <div className="space-y-3 pt-2">
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
-                    XI. Časové údaje a podpisy strán
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-[9.5px] bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9]">
-                    <p><strong className="text-[#8C857B]">Dátum a čas poskytnutia poučenia:</strong> <span className="font-semibold">{surgeryConsent.instructionDateTime}</span></p>
-                    <p><strong className="text-[#8C857B]">Dátum a čas udelenia súhlasu:</strong> <span className="font-semibold">{surgeryConsent.consentDateTime}</span></p>
-                    <p className="col-span-2"><strong className="text-[#8C857B]">Miesto:</strong> {surgeryConsent.signaturePlace}</p>
+                  {/* MIESTO, DÁTUM, ČAS */}
+                  <div className="grid grid-cols-3 gap-3 text-[9.5px] bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9]">
+                    <p><strong className="text-[#8C857B]">Miesto podpisu:</strong> <span className="font-semibold">{surgeryConsent.signaturePlace || 'Banská Bystrica'}</span></p>
+                    <p><strong className="text-[#8C857B]">Dátum:</strong> <span className="font-semibold">{formatSlovakDateLong(agreementDate) || new Date().toLocaleDateString('sk-SK')}</span></p>
+                    <p><strong className="text-[#8C857B]">Čas udelenia súhlasu:</strong> <span className="font-semibold">{surgeryConsent.consentTime || '09:30'} hod.</span></p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-8 pt-6 pb-2">
+                  {/* PODPISOVÉ BLOKY */}
+                  <div className="grid grid-cols-2 gap-8 pt-6 pb-3">
                     <div className="text-center space-y-1">
-                      <div className="w-full border-b border-[#2C2A29] mb-2 min-h-[35px]"></div>
-                      <p className="font-bold text-[10px] text-[#2C2A29]">Podpis pacienta</p>
+                      <div className="w-full border-b border-[#2C2A29] mb-2 min-h-[40px]"></div>
+                      <p className="font-bold text-[10px] text-[#2C2A29]">Podpis Pacienta</p>
+                      <p className="text-[9px] text-[#2C2A29] font-medium">{patientName || '[MENO A PRIEZVISKO PACIENTA]'}</p>
                       <p className="text-[8px] text-[#8C857B]">(resp. zákonného zástupcu / opatrovníka)</p>
                     </div>
                     <div className="text-center space-y-1">
-                      <div className="w-full border-b border-[#2C2A29] mb-2 min-h-[35px]"></div>
-                      <p className="font-bold text-[10px] text-[#2C2A29]">{doctor}</p>
-                      <p className="text-[8px] text-[#8C857B]">Pečiatka a podpis poučujúceho lekára</p>
+                      <div className="w-full border-b border-[#2C2A29] mb-2 min-h-[40px]"></div>
+                      <p className="font-bold text-[10px] text-[#2C2A29]">Podpis a odtlačok pečiatky operujúceho lekára</p>
+                      <p className="text-[9px] text-[#2C2A29] font-semibold">{doctor || 'MUDr. Ján Mráz'}</p>
+                      <p className="text-[8px] text-[#8C857B]">Kód lekára: {doctorCode || 'A86342871'} • za DOKTOR MRÁZ s.r.o.</p>
                     </div>
                   </div>
-                </div>
 
-                {/* XII. POTVRDENIE O ODOVZDANÍ VYHOTOVENIA PACIENTOVI */}
-                <div className="space-y-2 pt-2 border-t border-[#E8E2D9]">
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] pb-0.5">
-                    XII. Potvrdenie o odovzdaní vyhotovenia pacientovi
-                  </p>
-                  
-                  <div className="text-[9px] text-justify text-[#8C857B] space-y-1 bg-white p-2.5 rounded border border-[#E8E2D9]">
-                    <p>
-                      Pacient potvrdzuje, že jedno písomné vyhotovenie tohto informovaného súhlasu vrátane pooperačných pokynov a kontaktov prevzal do vlastných rúk pri podpise tohto dokumentu.
+                  {/* PRIPÁJACIE A ZÁVEREČNÉ UPOZORNENIE */}
+                  <div className="space-y-1.5 pt-2 border-t border-[#E8E2D9]">
+                    <p className="font-bold text-[9px] uppercase tracking-wider text-[#C5A059]">
+                      Pripájacie a záverečné upozornenie:
                     </p>
-                    <div className="pt-2 flex justify-between items-end text-[8.5px]">
-                      <p>V Banskej Bystrici, dňa: <span className="font-semibold text-[#2C2A29]">{new Date().toLocaleDateString('sk-SK')}</span></p>
-                      <div className="text-center">
-                        <div className="w-32 border-b border-[#8C857B] mb-1"></div>
-                        <p>Podpis pacienta o prevzatí</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-[8px] text-[#8C857B] italic text-center pt-2 leading-tight">
-                    Záverečné upozornenie: Informovaný súhlas tvorí neoddeliteľnú súčasť zdravotnej dokumentácie vedenej poskytovateľom v súlade so zákonom č. 576/2004 Z. z. a uchováva sa po dobu stanovenú osobitnými predpismi.
+                    <p className="text-[8px] text-[#8C857B] leading-relaxed text-justify">
+                      Tento dokument predstavuje právne a medicínsky záväzný individualizovaný informovaný súhlas k estetickému operačnému výkonu vypracovaný v súlade so zákonom č. 576/2004 Z. z. o zdravotnej starostlivosti, nariadením GDPR a Občianskym zákonníkom Slovenskej republiky. K dokumentu sa pripája samostatne podpísaný informovaný súhlas k anestézii. Dokument sa vyhotovuje v dvoch rovnopisoch, z ktorých jeden je neoddeliteľnou súčasťou zdravotnej dokumentácie vedenej poskytovateľom a druhý sa odovzdáva pacientovi.
+                    </p>
                   </div>
                 </div>
               </div>
