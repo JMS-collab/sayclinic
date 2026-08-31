@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient } from '../components/PatientDatabase';
-import LoginForm from '../components/LoginForm';
+import LoginForm, { UserAccount } from '../components/LoginForm';
 import FinanceCRM from '../components/FinanceCRM';
 import Calendar, { CalendarEvent } from '../components/Calendar';
 import InventoryCRM from '../components/InventoryCRM';
@@ -27,7 +27,7 @@ type TabType = 'home' | 'generator' | 'patients' | 'finance' | 'calendar' | 'inv
 export default function Home() {
   const { data: session, status } = useSession();
 
-  const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
 
@@ -84,7 +84,7 @@ export default function Home() {
     window.history.pushState({ tab }, '', `#${tab}`);
   };
 
-  const handleLoginSuccess = (user: { name: string; role: string }) => {
+  const handleLoginSuccess = (user: UserAccount) => {
     setCurrentUser(user);
     localStorage.setItem('say_clinic_user', JSON.stringify(user));
   };
@@ -170,6 +170,20 @@ export default function Home() {
   const todayString = new Date().toISOString().split('T')[0];
   const todayEvents = calendarEvents.filter(e => e.date === todayString);
 
+  // AK NIE JE POUŽÍVATEĽ PRIHLÁSENÝ, ZOBRAZUJEME IBA PRIHLASOVACÍ PORTÁL BEZ HORNEJ LIŠTY
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#FBF9F6] text-[#2C2A29] flex flex-col justify-between selection:bg-[#C5A059]/20">
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
+          <LoginForm onLoginSuccess={handleLoginSuccess} />
+        </main>
+        <footer className="border-t border-[#E8E2D9] py-4 text-center text-xs text-[#8C857B]">
+          <p>© {new Date().getFullYear()} SAY CLINIC s.r.o. • Všetky práva vyhradené • Šifrované end-to-end spojenie</p>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#FBF9F6]">
       {/* HLAVIČKA A PRECHOD NA HOMESCREEN CEZ LOGO */}
@@ -186,92 +200,98 @@ export default function Home() {
           </div>
 
           {/* NAVIGÁCIA */}
-          {currentUser && (
-            <nav className="flex flex-wrap gap-2 text-[11px] font-light uppercase tracking-wider text-[#8C857B]">
-              <button
-                onClick={() => changeTab('home')}
-                className={`px-3 py-2 transition-all ${
-                  activeTab === 'home' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-                }`}
-              >
-                🏠 Prehľad (Home)
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedPatient(null);
-                  changeTab('generator');
-                }}
-                className={`px-3 py-2 transition-all ${
-                  activeTab === 'generator' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-                }`}
-              >
-                📄 Generátor Dokumentov
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedPatientForFolder(null);
-                  changeTab('patients');
-                }}
-                className={`px-3 py-2 transition-all ${
-                  activeTab === 'patients' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-                }`}
-              >
-                🗂️ Kartotéka Pacientov
-              </button>
-              <button
-                onClick={() => changeTab('calendar')}
-                className={`px-3 py-2 transition-all ${
-                  activeTab === 'calendar' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-                }`}
-              >
-                📅 Kalendár & Plánovanie
-              </button>
-              <button
-                onClick={() => changeTab('inventory')}
-                className={`px-3 py-2 transition-all ${
-                  activeTab === 'inventory' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-                }`}
-              >
-                📦 Sklad & Materiál
-              </button>
-              <button
-                onClick={() => changeTab('finance')}
-                className={`px-3 py-2 transition-all ${
-                  activeTab === 'finance' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-                }`}
-              >
-                📊 Financie & Výsledky
-              </button>
-            </nav>
-          )}
+          <nav className="flex flex-wrap gap-2 text-[11px] font-light uppercase tracking-wider text-[#8C857B]">
+            <button
+              onClick={() => changeTab('home')}
+              className={`px-3 py-2 transition-all ${
+                activeTab === 'home' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+              }`}
+            >
+              🏠 Prehľad (Home)
+            </button>
+            <button
+              onClick={() => {
+                setSelectedPatient(null);
+                changeTab('generator');
+              }}
+              className={`px-3 py-2 transition-all ${
+                activeTab === 'generator' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+              }`}
+            >
+              📄 Generátor Dokumentov
+            </button>
+            <button
+              onClick={() => {
+                setSelectedPatientForFolder(null);
+                changeTab('patients');
+              }}
+              className={`px-3 py-2 transition-all ${
+                activeTab === 'patients' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+              }`}
+            >
+              🗂️ Kartotéka Pacientov
+            </button>
+            <button
+              onClick={() => changeTab('calendar')}
+              className={`px-3 py-2 transition-all ${
+                activeTab === 'calendar' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+              }`}
+            >
+              📅 Kalendár & Plánovanie
+            </button>
+            <button
+              onClick={() => changeTab('inventory')}
+              className={`px-3 py-2 transition-all ${
+                activeTab === 'inventory' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+              }`}
+            >
+              📦 Sklad & Materiál
+            </button>
+            <button
+              onClick={() => changeTab('finance')}
+              className={`px-3 py-2 transition-all ${
+                activeTab === 'finance' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+              }`}
+            >
+              📊 Financie & Výsledky
+            </button>
+          </nav>
 
           {/* PROFIL */}
-          {currentUser && (
-            <div className="border-l border-[#E8E2D9] pl-4 flex items-center gap-3">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-[#2C2A29]">{currentUser.name}</p>
-                <p className="text-[9px] uppercase tracking-widest text-[#C5A059]">
-                  {currentUser.role === 'doctor' ? 'Lekár' : 'Sestra'}
-                </p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="text-xs text-[#8C857B] hover:text-[#2C2A29] underline underline-offset-4"
-              >
-                Odhlásiť
-              </button>
+          <div className="border-l border-[#E8E2D9] pl-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full border border-[#C5A059] p-0.5 shadow-sm bg-[#FAF8F5] flex items-center justify-center flex-shrink-0">
+              {currentUser.avatarUrl ? (
+                <img
+                  src={currentUser.avatarUrl}
+                  alt={currentUser.name}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <div className={`w-full h-full rounded-full ${currentUser.avatarBg || 'bg-[#2C2A29]'} text-white flex items-center justify-center font-bold text-xs`}>
+                  {currentUser.name.replace(/(MUDr\.|Ing\.|Mgr\.|, MBA)/g, '').trim().split(' ').map(n => n[0]).join('')}
+                </div>
+              )}
             </div>
-          )}
+            <div className="text-right hidden sm:block">
+              <p className="text-xs font-bold text-[#2C2A29]">{currentUser.name}</p>
+              <p className="text-[9px] uppercase tracking-widest text-[#C5A059]">
+                {currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra'}
+              </p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-xs text-[#8C857B] hover:text-[#2C2A29] underline underline-offset-4"
+            >
+              Odhlásiť
+            </button>
+          </div>
         </div>
       </header>
 
       {/* OBSAH */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
-        {!currentUser ? (
-          <LoginForm onLoginSuccess={handleLoginSuccess} />
-        ) : (
-          <>
-            {/* HOMESCREEN (PREHĽAD KLINIKY) */}
+        <>
+          {/* HOMESCREEN (PREHĽAD KLINIKY) */}
             {activeTab === 'home' && (
               <div className="space-y-6">
                 
@@ -503,7 +523,6 @@ export default function Home() {
               />
             )}
           </>
-        )}
       </main>
     </div>
   );
