@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { HealthProService, HealthProResponse } from '../services/healthpro';
 import { MKCHItem } from '../data/mkch';
 import { generatePdfFilename, exportElementToPdf } from '../lib/pdfGenerator';
+import { findSurgeryConsentProfile } from '../data/surgeryConsentCatalog';
 
 export interface ServiceCategory {
   id: string;
@@ -393,11 +394,21 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   
   // ZÁKLADNÉ ÚDAJE
   const [patientName, setPatientName] = useState(initialPatient?.name || '');
+  const [patientMaidenName, setPatientMaidenName] = useState('');
   const [birthNumber, setBirthNumber] = useState(initialPatient?.birthNumber || '');
   const [patientPhone, setPatientPhone] = useState(initialPatient?.phone || '');
   const [patientEmail, setPatientEmail] = useState(initialPatient?.email || '');
   const [patientAddress, setPatientAddress] = useState(initialPatient?.address || '');
+  const [patientInsurance, setPatientInsurance] = useState('Dôvera');
   const [patientRelative, setPatientRelative] = useState('');
+
+  // ZÁKONNÝ ZÁSTUPCA / OPATROVNÍK (ak je maloletý alebo obmedzená spôsobilosť)
+  const [legalRep, setLegalRep] = useState({
+    name: '',
+    birthDate: '',
+    address: '',
+    title: 'Rodič / Zákonný zástupca'
+  });
 
   const [doctor, setDoctor] = useState('MUDr. Ján Mráz');
   const [diagnosis, setDiagnosis] = useState('Z41.1 - Estetická chirurgická úprava');
@@ -576,16 +587,73 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
   // --- OSTATNÉ ŠABLÓNY ---
 
-  // 1. INFORMOVANÝ SÚHLAS S OPERÁCIOU
+  // 1. INFORMOVANÝ SÚHLAS S OPERÁCIOU PODĽA § 6 ZÁKONA Č. 576/2004 Z. Z.
+  const initialProfile = findSurgeryConsentProfile(
+    manualProcedure || vvPlan || initialPatient?.lastSurgery || 'Zväčšenie prsníkov silikónovými implantátmi (augmentácia)',
+    anesthesiaType
+  );
+
   const [surgeryConsent, setSurgeryConsent] = useState({
-    procedureName: 'Zväčšenie prsníkov silikónovými implantátmi (augmentácia)',
-    anesthesiaType: 'Celková anestézia',
-    alternativeTreatments: 'Konzervatívny postup, bez operačného zákroku',
-    risksExplained: true,
-    photoConsent: true,
-    bloodConsent: true,
-    customRisks: 'Krvácanie, hematóm, seróm, infekcia, asymetria, kapsulárna kontraktúra, zmena citlivosti, keloidné jazvy, nutnosť reoperácie.'
+    procedureName: initialProfile.procedureName,
+    anatomicalArea: initialProfile.anatomicalArea,
+    purposeAndNature: initialProfile.purposeAndNature,
+    technique: initialProfile.technique,
+    anesthesiaType: initialProfile.anesthesiaType,
+    alternatives: initialProfile.alternatives,
+    refusalConsequences: initialProfile.refusalConsequences,
+    specificRisks: initialProfile.specificRisks,
+    // VI. Individuálne rizikové faktory a anamnestické údaje
+    allergies: 'Negatívne (bez známych alergií na lieky, dezinfekciu, náplasti, latex)',
+    chronicDiseases: 'Negatívne (bez evidovaných chronických ochorení)',
+    bleedingDisorders: 'Negatívne (bez porúch zrážanlivosti, neužíva antikoagulanciá)',
+    chronicMedication: 'Negatívne (neužíva trvalú medikáciu)',
+    keloidTendency: 'Nie',
+    smokingAlcohol: 'Nefajčiar / Príležitostne',
+    previousSurgeries: 'Bez predchádzajúcich operácií v operovanej anatomickej oblasti',
+    otherAnamnesis: 'Negatívne (tehotenstvo a dojčenie vylúčené)',
+    // VIII. Pooperačný režim a pokyny
+    postopRest: initialProfile.postopCare.restAndPositioning,
+    postopGarment: initialProfile.postopCare.compressionGarment,
+    postopPhysical: initialProfile.postopCare.physicalRestrictions,
+    postopWound: initialProfile.postopCare.woundCare,
+    postopEnvironment: initialProfile.postopCare.environmentalRestrictions,
+    postopMedication: initialProfile.postopCare.medication,
+    postopCheckup: initialProfile.postopCare.checkupSchedule,
+    // IX. Doplňujúce otázky pacienta a odpovede lekára
+    patientQuestion1: 'Bez ďalších doplňujúcich otázok',
+    doctorAnswer1: 'Všetky otázky k priebehu operácie a pooperačnému zotaveniu boli podrobne a vyčerpávajúco zodpovedané.',
+    patientQuestion2: '',
+    doctorAnswer2: '',
+    specialAgreements: 'Všetky náležitosti a voľba operačného postupu boli dohodnuté v súlade s predoperačnou konzultáciou.',
+    // XI. & XII. Čas, miesto a odovzdanie
+    instructionDateTime: `${new Date().toLocaleDateString('sk-SK')} o 08:30 hod.`,
+    consentDateTime: `${new Date().toLocaleDateString('sk-SK')} o 09:00 hod.`,
+    signaturePlace: 'Banská Bystrica',
+    copyReceived: true
   });
+
+  const updateConsentFromProcedure = (procedureText: string, customAnesthesia?: string) => {
+    if (!procedureText || !procedureText.trim()) return;
+    const profile = findSurgeryConsentProfile(procedureText, customAnesthesia || anesthesiaType);
+    setSurgeryConsent(prev => ({
+      ...prev,
+      procedureName: profile.procedureName,
+      anatomicalArea: profile.anatomicalArea,
+      purposeAndNature: profile.purposeAndNature,
+      technique: profile.technique,
+      anesthesiaType: profile.anesthesiaType,
+      alternatives: profile.alternatives,
+      refusalConsequences: profile.refusalConsequences,
+      specificRisks: profile.specificRisks,
+      postopRest: profile.postopCare.restAndPositioning,
+      postopGarment: profile.postopCare.compressionGarment,
+      postopPhysical: profile.postopCare.physicalRestrictions,
+      postopWound: profile.postopCare.woundCare,
+      postopEnvironment: profile.postopCare.environmentalRestrictions,
+      postopMedication: profile.postopCare.medication,
+      postopCheckup: profile.postopCare.checkupSchedule
+    }));
+  };
 
   // 2. INFORMOVANÝ SÚHLAS S APLIKÁCIOU VÝPLNÍ / BOTOXU
   const [aestheticConsent, setAestheticConsent] = useState({
@@ -663,6 +731,26 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     }
   }, [birthNumber, patientBirthDate]);
 
+  // Automatická synchronizácia informovaného súhlasu podľa zvoleného výkonu a anestézie
+  useEffect(() => {
+    if (vvPlan && vvPlan.trim()) {
+      updateConsentFromProcedure(vvPlan);
+    }
+  }, [vvPlan, anesthesiaType]);
+
+  // Automatická synchronizácia anamnestických údajov do informovaného súhlasu
+  useEffect(() => {
+    setSurgeryConsent(prev => ({
+      ...prev,
+      allergies: vvAA ? vvAA : (anesthesiaAnswers.allergies !== 'Nie' ? 'Pozitívne alergie' : prev.allergies),
+      chronicDiseases: vvOA ? vvOA : (anesthesiaAnswers.diseases !== 'Nie' ? 'Pozitívne chronické ochorenia' : prev.chronicDiseases),
+      bleedingDisorders: rxAnticoagulants ? `Užívanie: ${rxAnticoagulants}` : prev.bleedingDisorders,
+      chronicMedication: vvLA ? vvLA : (anesthesiaAnswers.medications !== 'Nie' ? 'Užíva lieky' : prev.chronicMedication),
+      smokingAlcohol: vvCave ? vvCave : prev.smokingAlcohol,
+      otherAnamnesis: vvGA ? vvGA : (anesthesiaAnswers.pregnant !== 'Nie' ? `Tehotenstvo: ${anesthesiaAnswers.pregnant}` : prev.otherAnamnesis)
+    }));
+  }, [vvAA, vvOA, vvLA, vvCave, vvGA, rxAnticoagulants, anesthesiaAnswers]);
+
   const calcBMI = () => {
     const w = parseFloat(vvVaha);
     const h = parseFloat(vvVyska);
@@ -709,7 +797,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
       if (isOperation) {
         setManualProcedure(found.name);
         setCheckupData(prev => ({ ...prev, operationName: found.name }));
-        setSurgeryConsent(prev => ({ ...prev, procedureName: found.name }));
+        updateConsentFromProcedure(found.name);
         setPreopRequest(prev => ({ ...prev, targetSurgery: found.name }));
       }
     }
@@ -1456,44 +1544,360 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* SEKCIA: INFORMOVANÝ SÚHLAS S OPERÁCIOU */}
+            {/* SEKCIA: INFORMOVANÝ SÚHLAS S OPERÁCIOU (PODĽA § 6 ZÁKONA Č. 576/2004 Z. Z.) */}
             {showSurgeryConsent && (
-              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Údaje k operačnému súhlasu</p>
+              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-4">
+                <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Konfigurácia informovaného súhlasu</p>
+                  <span className="text-[9px] text-[#8C857B] bg-white px-2 py-0.5 rounded border border-[#E8E2D9]">Zákon č. 576/2004 Z. z.</span>
+                </div>
+
+                {/* 1. VÝBER OPERÁCIE Z DATABÁZY */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="block text-[10px] text-[#8C857B]">Názov plánovanej operácie</label>
-                    <select 
+                    <label className="block text-[10px] font-bold text-[#8C857B] uppercase">Výber operácie z katalógu (automatické vyplnenie)</label>
+                    <span className="text-[9px] text-[#C5A059] font-medium">Auto-doplnenie všetkých polí</span>
+                  </div>
+                  <select 
+                    onChange={e => {
+                      const op = SERVICES_DATABASE.operations.find(o => o.id === e.target.value);
+                      if (op) {
+                        setManualProcedure(op.name);
+                        setCheckupData(prev => ({ ...prev, operationName: op.name }));
+                        updateConsentFromProcedure(op.name);
+                      }
+                    }} 
+                    value="" 
+                    className="w-full border border-[#C5A059] p-2 rounded-lg text-xs bg-white font-bold text-[#2C2A29] mb-2 shadow-xs cursor-pointer"
+                  >
+                    <option value="" disabled>+ Vybrať operáciu zo zoznamu...</option>
+                    {SERVICES_DATABASE.operations.map(op => <option key={op.id} value={op.id}>{op.name} ({op.price} €)</option>)}
+                  </select>
+
+                  <div>
+                    <label className="block text-[9px] text-[#8C857B] uppercase mb-1">Názov operačného výkonu</label>
+                    <input 
+                      type="text" 
+                      value={surgeryConsent.procedureName} 
                       onChange={e => {
-                        const op = SERVICES_DATABASE.operations.find(o => o.id === e.target.value);
-                        if (op) setSurgeryConsent({...surgeryConsent, procedureName: op.name});
+                        const val = e.target.value;
+                        setSurgeryConsent(prev => ({ ...prev, procedureName: val }));
+                        setManualProcedure(val);
                       }} 
-                      value="" 
-                      className="border border-[#E8E2D9] p-1 rounded-lg text-[10px] bg-white font-bold"
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold text-[#2C2A29]" 
+                    />
+                  </div>
+                </div>
+
+                {/* 2. IDENTIFIKÁCIA PACIENTA A POISŤOVŇA */}
+                <div className="border-t border-[#E8E2D9] pt-3 space-y-2">
+                  <p className="text-[10px] font-bold text-[#2C2A29] uppercase">Doplnková identifikácia pacienta</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Rodné priezvisko</label>
+                      <input 
+                        type="text" 
+                        value={patientMaidenName} 
+                        onChange={e => setPatientMaidenName(e.target.value)} 
+                        placeholder="napr. Nováková" 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Zdravotná poisťovňa</label>
+                      <select 
+                        value={patientInsurance} 
+                        onChange={e => setPatientInsurance(e.target.value)} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white font-medium"
+                      >
+                        <option value="Všeobecná zdravotná poisťovňa (VšZP)">VšZP (25)</option>
+                        <option value="Dôvera zdravotná poisťovňa">Dôvera (24)</option>
+                        <option value="Union zdravotná poisťovňa">Union (27)</option>
+                        <option value="Samoplatca (bez poistenia v SR)">Samoplatca</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <details className="text-[10px] text-[#8C857B] cursor-pointer pt-1">
+                    <summary className="font-semibold text-[#C5A059] hover:underline">Zákonný zástupca / Opatrovník (voliteľné)</summary>
+                    <div className="mt-2 space-y-2 bg-white p-2.5 rounded-lg border border-[#E8E2D9]">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[9px] text-[#8C857B]">Meno a priezvisko zástupcu</label>
+                          <input type="text" value={legalRep.name} onChange={e => setLegalRep({...legalRep, name: e.target.value})} className="w-full border border-[#E8E2D9] p-1 rounded text-xs" />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] text-[#8C857B]">Dátum narodenia zástupcu</label>
+                          <input type="text" value={legalRep.birthDate} onChange={e => setLegalRep({...legalRep, birthDate: e.target.value})} placeholder="DD. MM. RRRR" className="w-full border border-[#E8E2D9] p-1 rounded text-xs" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[9px] text-[#8C857B]">Trvalý pobyt zástupcu</label>
+                          <input type="text" value={legalRep.address} onChange={e => setLegalRep({...legalRep, address: e.target.value})} className="w-full border border-[#E8E2D9] p-1 rounded text-xs" />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] text-[#8C857B]">Právny titul</label>
+                          <input type="text" value={legalRep.title} onChange={e => setLegalRep({...legalRep, title: e.target.value})} placeholder="Rodič / Opatrovník" className="w-full border border-[#E8E2D9] p-1 rounded text-xs" />
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+
+                {/* 3. ŠPECIFIKÁCIA OPERÁCIE */}
+                <div className="border-t border-[#E8E2D9] pt-3 space-y-2">
+                  <p className="text-[10px] font-bold text-[#2C2A29] uppercase">Špecifikácia operačného výkonu</p>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Anatomická oblasť a lokalizácia</label>
+                      <input 
+                        type="text" 
+                        value={surgeryConsent.anatomicalArea} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, anatomicalArea: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white font-medium" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Druh plánovanej anestézie</label>
+                      <select 
+                        value={surgeryConsent.anesthesiaType} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, anesthesiaType: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white font-medium"
+                      >
+                        <option value="Celková anestézia">Celková anestézia</option>
+                        <option value="Analgosedácia">Analgosedácia</option>
+                        <option value="Lokálna anestézia">Lokálna anestézia</option>
+                        <option value="Zvodová (regionálna) anestézia">Zvodová anestézia</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] text-[#8C857B] mb-1">Účel a povaha operačného výkonu</label>
+                    <textarea 
+                      rows={2} 
+                      value={surgeryConsent.purposeAndNature} 
+                      onChange={e => setSurgeryConsent({...surgeryConsent, purposeAndNature: e.target.value})} 
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] text-[#8C857B] mb-1">Predpokladaný postup a operačná technika</label>
+                    <textarea 
+                      rows={3} 
+                      value={surgeryConsent.technique} 
+                      onChange={e => setSurgeryConsent({...surgeryConsent, technique: e.target.value})} 
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" 
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Možné alternatívy výkonu</label>
+                      <textarea 
+                        rows={2} 
+                        value={surgeryConsent.alternatives} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, alternatives: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Dôsledky odmietnutia výkonu</label>
+                      <textarea 
+                        rows={2} 
+                        value={surgeryConsent.refusalConsequences} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, refusalConsequences: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. ŠPECIFICKÉ RIZIKÁ A KOMPLIKÁCIE */}
+                <div className="border-t border-[#E8E2D9] pt-3 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] font-bold text-[#2C2A29] uppercase">Špecifické riziká & komplikácie viazané na výkon</p>
+                    <button 
+                      type="button" 
+                      onClick={() => updateConsentFromProcedure(surgeryConsent.procedureName)} 
+                      className="text-[9px] text-[#C5A059] hover:underline"
                     >
-                      <option value="" disabled>+ Vybrať operáciu z cenníka...</option>
-                      {SERVICES_DATABASE.operations.map(op => <option key={op.id} value={op.id}>{op.name}</option>)}
-                    </select>
+                      ↺ Obnoviť z katalógu
+                    </button>
                   </div>
-                  <input type="text" value={surgeryConsent.procedureName} onChange={e => setSurgeryConsent({...surgeryConsent, procedureName: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold" />
+                  <textarea 
+                    rows={4} 
+                    value={surgeryConsent.specificRisks} 
+                    onChange={e => setSurgeryConsent({...surgeryConsent, specificRisks: e.target.value})} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-medium text-[#2C2A29]" 
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] text-[#8C857B] mb-1">Druh anestézie</label>
-                    <select value={surgeryConsent.anesthesiaType} onChange={e => setSurgeryConsent({...surgeryConsent, anesthesiaType: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white">
-                      <option value="Celková anestézia">Celková anestézia</option>
-                      <option value="Analgosedácia">Analgosedácia</option>
-                      <option value="Lokálna anestézia">Lokálna anestézia</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-[#8C857B] mb-1">Alternatívny postup</label>
-                    <input type="text" value={surgeryConsent.alternativeTreatments} onChange={e => setSurgeryConsent({...surgeryConsent, alternativeTreatments: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+
+                {/* 5. INDIVIDUÁLNA ANAMNÉZA PACIENTA */}
+                <div className="border-t border-[#E8E2D9] pt-3 space-y-2">
+                  <p className="text-[10px] font-bold text-[#2C2A29] uppercase">Individuálne rizikové faktory a anamnéza</p>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Alergie</label>
+                      <input 
+                        type="text" 
+                        value={surgeryConsent.allergies} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, allergies: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Chronické ochorenia</label>
+                      <input 
+                        type="text" 
+                        value={surgeryConsent.chronicDiseases} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, chronicDiseases: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Poruchy zrážanlivosti / Lieky</label>
+                      <input 
+                        type="text" 
+                        value={surgeryConsent.bleedingDisorders} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, bleedingDisorders: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Užívaná trvalá medikácia</label>
+                      <input 
+                        type="text" 
+                        value={surgeryConsent.chronicMedication} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, chronicMedication: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Sklon k tvorbe keloidných jaziev</label>
+                      <select 
+                        value={surgeryConsent.keloidTendency} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, keloidTendency: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white font-medium"
+                      >
+                        <option value="Nie">Nie</option>
+                        <option value="Áno (pozitívna sklonnosť)">Áno</option>
+                        <option value="Nevie / Nebolo zistené">Nevie</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Fajčenie / Nikotín / Alkohol</label>
+                      <input 
+                        type="text" 
+                        value={surgeryConsent.smokingAlcohol} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, smokingAlcohol: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" 
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Predchádzajúce operácie a estetické zákroky v lokalite</label>
+                      <input 
+                        type="text" 
+                        value={surgeryConsent.previousSurgeries} 
+                        onChange={e => setSurgeryConsent({...surgeryConsent, previousSurgeries: e.target.value})} 
+                        className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" 
+                      />
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] text-[#8C857B] mb-1">Špecifické riziká operácie</label>
-                  <textarea rows={3} value={surgeryConsent.customRisks} onChange={e => setSurgeryConsent({...surgeryConsent, customRisks: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white" />
+
+                {/* 6. POOPERAČNÝ REŽIM A POKYNY */}
+                <div className="border-t border-[#E8E2D9] pt-3 space-y-2">
+                  <p className="text-[10px] font-bold text-[#2C2A29] uppercase">Pooperačný režim, obmedzenia a pokyny</p>
+                  
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-0.5">Kľudový režim a polohovanie</label>
+                      <textarea rows={2} value={surgeryConsent.postopRest} onChange={e => setSurgeryConsent({...surgeryConsent, postopRest: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-0.5">Kompresívna / fixačná bielizeň a obväzy</label>
+                      <textarea rows={2} value={surgeryConsent.postopGarment} onChange={e => setSurgeryConsent({...surgeryConsent, postopGarment: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-0.5">Fyzické obmedzenia a šport</label>
+                      <textarea rows={2} value={surgeryConsent.postopPhysical} onChange={e => setSurgeryConsent({...surgeryConsent, postopPhysical: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-0.5">Starostlivosť o rany, stehy a jazvy</label>
+                      <textarea rows={2} value={surgeryConsent.postopWound} onChange={e => setSurgeryConsent({...surgeryConsent, postopWound: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-0.5">Environmentálne obmedzenia (voda, sauna, slnko)</label>
+                      <textarea rows={2} value={surgeryConsent.postopEnvironment} onChange={e => setSurgeryConsent({...surgeryConsent, postopEnvironment: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[9px] text-[#8C857B] mb-0.5">Medikamentózna liečba</label>
+                        <input type="text" value={surgeryConsent.postopMedication} onChange={e => setSurgeryConsent({...surgeryConsent, postopMedication: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-[#8C857B] mb-0.5">Harmonogram kontrol</label>
+                        <input type="text" value={surgeryConsent.postopCheckup} onChange={e => setSurgeryConsent({...surgeryConsent, postopCheckup: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 7. OTÁZKY PACIENTA A ODPOVEDE LEKÁRA */}
+                <div className="border-t border-[#E8E2D9] pt-3 space-y-2">
+                  <p className="text-[10px] font-bold text-[#2C2A29] uppercase">Doplňujúce otázky pacienta a odpovede lekára</p>
+                  <div className="space-y-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[9px] text-[#8C857B] mb-0.5">Otázka pacienta č. 1</label>
+                        <input type="text" value={surgeryConsent.patientQuestion1} onChange={e => setSurgeryConsent({...surgeryConsent, patientQuestion1: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-[#8C857B] mb-0.5">Odpoveď lekára č. 1</label>
+                        <input type="text" value={surgeryConsent.doctorAnswer1} onChange={e => setSurgeryConsent({...surgeryConsent, doctorAnswer1: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[9px] text-[#8C857B] mb-0.5">Otázka pacienta č. 2 (voliteľná)</label>
+                        <input type="text" value={surgeryConsent.patientQuestion2} onChange={e => setSurgeryConsent({...surgeryConsent, patientQuestion2: e.target.value})} placeholder="napr. Použitie silikónových náplastí..." className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-[#8C857B] mb-0.5">Odpoveď lekára č. 2</label>
+                        <input type="text" value={surgeryConsent.doctorAnswer2} onChange={e => setSurgeryConsent({...surgeryConsent, doctorAnswer2: e.target.value})} placeholder="napr. Aplikovať po zahojení jazvy..." className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-0.5">Osobitné individuálne dojednania</label>
+                      <input type="text" value={surgeryConsent.specialAgreements} onChange={e => setSurgeryConsent({...surgeryConsent, specialAgreements: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 8. ČASOVÉ ÚDAJE A MIESTO */}
+                <div className="border-t border-[#E8E2D9] pt-3 space-y-2">
+                  <p className="text-[10px] font-bold text-[#2C2A29] uppercase">Časové údaje a podpisy</p>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Dátum a čas poučenia</label>
+                      <input type="text" value={surgeryConsent.instructionDateTime} onChange={e => setSurgeryConsent({...surgeryConsent, instructionDateTime: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Dátum a čas súhlasu</label>
+                      <input type="text" value={surgeryConsent.consentDateTime} onChange={e => setSurgeryConsent({...surgeryConsent, consentDateTime: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] mb-1">Miesto podpisu</label>
+                      <input type="text" value={surgeryConsent.signaturePlace} onChange={e => setSurgeryConsent({...surgeryConsent, signaturePlace: e.target.value})} className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-xs bg-white" />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -1824,8 +2228,8 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
           {/* TLAČOVÝ A4 DOKUMENT */}
           <div id="printable-a4" ref={printRef} className="bg-white border border-[#E8E2D9] p-10 shadow-sm text-xs leading-relaxed w-full max-w-[595px] mx-auto print:border-none print:shadow-none print:p-0 print:max-w-none print:w-full" style={{ minHeight: '842px' }}>
             
-            {/* --- Hlavička všeobecná s logom SAY BY MRAZ (Skrytá pri Dohode o cene) --- */}
-            {docType !== 'dohoda_o_cene' && (
+            {/* --- Hlavička všeobecná s logom SAY BY MRAZ (Skrytá pri Dohode o cene a Informovanom súhlase s operáciou) --- */}
+            {docType !== 'dohoda_o_cene' && docType !== 'suhlas_operacia' && (
               <>
                 <div className="border-b-2 border-[#C5A059] pb-5 mb-6 flex justify-between items-center">
                   <div className="flex items-center gap-4">
@@ -2460,36 +2864,337 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* --- 7. INFORMOVANÝ SÚHLAS S OPERÁCIOU --- */}
+            {/* --- 7. INFORMOVANÝ SÚHLAS K OPERAČNÉMU VÝKONU V ODBORE ESTETICKÁ CHIRURGIA PODĽA § 6 ZÁKONA Č. 576/2004 Z. Z. --- */}
             {showSurgeryConsent && (
-              <div className="space-y-5 mb-8 text-justify leading-relaxed">
-                <div className="bg-[#FBF9F6] p-4 rounded-xl border border-[#E8E2D9] space-y-2">
-                  <p><strong className="text-[#8C857B] uppercase text-[9px]">Plánovaný výkon:</strong> <span className="font-bold text-sm text-[#2C2A29] ml-2">{surgeryConsent.procedureName}</span></p>
-                  <p><strong className="text-[#8C857B] uppercase text-[9px]">Spôsob anestézie:</strong> <span className="font-semibold text-xs text-[#C5A059] ml-2">{surgeryConsent.anesthesiaType}</span></p>
-                  <p><strong className="text-[#8C857B] uppercase text-[9px]">Alternatívne možnosti liečby:</strong> <span className="text-xs ml-2">{surgeryConsent.alternativeTreatments}</span></p>
-                </div>
-
-                <div>
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">I. Poučenie o povahe a cieli operačného výkonu</p>
-                  <p className="text-xs mb-2">Klient/ka potvrdzuje, že bol/a ošetrujúcim lekárom (operatérom) podrobne a zrozumiteľne poučený/á o plánovanom zákroku, jeho technike, predpokladanom trvaní, pooperačnom priebehu a o umiestnení výsledných jaziev. Bol/a oboznámený/á s tým, že konečný estetický výsledok je ovplyvnený individuálnou reakciou organizmu, schopnosťou hojenia tkanív a dodržiavaním pooperačného kľudového režimu.</p>
-                </div>
-
-                <div>
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">II. Možné riziká a pooperačné komplikácie</p>
-                  <p className="text-xs mb-2">Pacient/ka bol/a oboznámený/á s typickými aj menej častými rizikami spojenými s operačným výkonom v plastickej chirurgii:</p>
-                  <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-xs font-semibold text-[#2C2A29]">
-                    {surgeryConsent.customRisks}
+              <div className="space-y-6 text-[#2C2A29] leading-relaxed">
+                {/* HLAVIČKA DOKUMENTU S LOGOM A IDENTIFIKÁCIOU KLINIKY */}
+                <div className="border-b-2 border-[#C5A059] pb-4 mb-4 flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <img 
+                      src="/logo.png" 
+                      alt="SAY BY MRAZ" 
+                      className="h-16 w-auto object-contain" 
+                    />
+                    <div className="border-l border-[#E8E2D9] pl-3 text-[9px] text-[#8C857B] leading-tight">
+                      <p className="uppercase tracking-[0.15em] text-[#C5A059] font-bold">PLASTICKÁ CHIRURGIA & ESTETICKÁ MEDICÍNA</p>
+                      <p className="mt-0.5 font-semibold text-[#2C2A29]">DOKTOR MRÁZ s.r.o. | SAY CLINIC</p>
+                      <p>Lazovná 43, 974 01 Banská Bystrica</p>
+                      <p className="mt-0.5 text-[#C5A059] font-medium">say@sayclinic.sk | www.sayclinic.sk</p>
+                    </div>
+                  </div>
+                  <div className="text-right text-[9px] text-[#8C857B]">
+                    <span className="bg-[#2C2A29] text-white px-2.5 py-1 rounded text-[8px] uppercase tracking-wider font-bold shadow-xs inline-block">
+                      ZDRAVOTNÁ DOKUMENTÁCIA
+                    </span>
+                    <p className="font-bold text-[#2C2A29] mt-1.5 text-xs">Informovaný súhlas</p>
+                    <p className="text-[9px]">§ 6 zákona č. 576/2004 Z. z.</p>
                   </div>
                 </div>
 
-                <div>
-                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-2">III. Vyhlásenie a súhlas pacienta</p>
-                  <ol className="list-decimal pl-4 space-y-1.5 text-xs">
-                    <li>Prehlasujem, že som mal/a možnosť klásť doplňujúce otázky, ktoré mi operatér zrozumiteľne a vyčerpávajúco zodpovedal.</li>
-                    <li>Nezatajil/a som žiadne informácie o svojom zdravotnom stave, užívaných liekoch, alergiách ani o prekonaných ochoreniach.</li>
-                    <li>Súhlasím s vykonaním operačného zákroku a so všetkými nevyhnutnými liečebnými a diagnostickými úkonmi vrátane anestézie.</li>
-                    <li>Súhlasím s vyhotovením anonymnej medicínskej fotodokumentácie pre účely zdravotného záznamu.</li>
+                {/* HLAVNÝ NÁZOV DOKUMENTU */}
+                <div className="text-center space-y-1 mb-5">
+                  <h1 className="text-sm font-bold uppercase tracking-wider text-[#2C2A29]">
+                    INFORMOVANÝ SÚHLAS K OPERAČNÉMU VÝKONU V ODBORE ESTETICKÁ CHIRURGIA
+                  </h1>
+                  <p className="text-[9px] text-[#8C857B] max-w-lg mx-auto italic leading-tight">
+                    podľa § 6 zákona č. 576/2004 Z. z. o zdravotnej starostlivosti, službách súvisiacich s poskytovaním zdravotnej starostlivosti a o zmene a doplnení niektorých zákonov v znení neskorších predpisov
+                  </p>
+                </div>
+
+                {/* I. POSKYTOVATEĽ ZDRAVOTNEJ STAROSTLIVOSTI */}
+                <div className="space-y-1.5">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    I. Poskytovateľ zdravotnej starostlivosti
+                  </p>
+                  <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-[10px] grid grid-cols-2 gap-x-4 gap-y-1">
+                    <p><strong className="text-[#8C857B]">Obchodné meno:</strong> <span className="font-bold text-[#2C2A29]">DOKTOR MRÁZ s.r.o.</span></p>
+                    <p><strong className="text-[#8C857B]">Sídlo:</strong> Muškátová 15652/37, 974 01 Banská Bystrica</p>
+                    <p><strong className="text-[#8C857B]">IČO / DIČ:</strong> 54 918 375 / 2121822901</p>
+                    <p><strong className="text-[#8C857B]">Miesto prevádzky:</strong> Lazovná 43, 974 01 Banská Bystrica</p>
+                    <p><strong className="text-[#8C857B]">Register:</strong> OS Banská Bystrica, vl. č. 44785/S</p>
+                    <p><strong className="text-[#8C857B]">Štatutárny orgán:</strong> MUDr. Ján Mráz, konateľ</p>
+                    <p className="col-span-2"><strong className="text-[#8C857B]">Kontakt / E-mail:</strong> say@sayclinic.sk | +421 917 550 550</p>
+                  </div>
+                </div>
+
+                {/* II. IDENTIFIKÁCIA PACIENTA */}
+                <div className="space-y-1.5">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    II. Identifikácia pacienta
+                  </p>
+                  <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-[10px] grid grid-cols-2 gap-x-4 gap-y-1">
+                    <p><strong className="text-[#8C857B]">Meno a priezvisko:</strong> <span className="font-bold text-xs text-[#2C2A29]">{patientName || '---'}</span></p>
+                    <p><strong className="text-[#8C857B]">Rodné priezvisko:</strong> {patientMaidenName || '---'}</p>
+                    <p><strong className="text-[#8C857B]">Dátum narodenia:</strong> {patientBirthDate || calculateBirthDateFromRC(birthNumber) || '---'}</p>
+                    <p><strong className="text-[#8C857B]">Rodné číslo:</strong> <span className="font-mono font-semibold">{birthNumber || '---'}</span></p>
+                    <p className="col-span-2"><strong className="text-[#8C857B]">Trvalý pobyt:</strong> {patientAddress || '---'}</p>
+                    <p><strong className="text-[#8C857B]">Štátna príslušnosť:</strong> {patientCitizenship || 'Slovenská republika'}</p>
+                    <p><strong className="text-[#8C857B]">Zdravotná poisťovňa:</strong> {patientInsurance || 'Dôvera'}</p>
+                    <p><strong className="text-[#8C857B]">Telefón:</strong> {patientPhone || '---'}</p>
+                    <p><strong className="text-[#8C857B]">E-mail:</strong> {patientEmail || '---'}</p>
+
+                    {legalRep.name && (
+                      <div className="col-span-2 mt-2 pt-2 border-t border-[#E8E2D9] text-[9px] bg-white p-2 rounded">
+                        <p className="font-bold text-[#C5A059] uppercase mb-0.5">Zákonný zástupca / opatrovník pacienta:</p>
+                        <p><strong className="text-[#8C857B]">Meno, priezvisko a titul:</strong> {legalRep.name} ({legalRep.title})</p>
+                        <p><strong className="text-[#8C857B]">Dátum narodenia a bydlisko:</strong> {legalRep.birthDate || '---'}, {legalRep.address || '---'}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* III. POUČUJÚCI ZDRAVOTNÍCKY PRACOVNÍK */}
+                <div className="space-y-1.5">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    III. Poučujúci zdravotnícky pracovník
+                  </p>
+                  <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-[10px] space-y-1">
+                    <p><strong className="text-[#8C857B]">Meno, priezvisko a tituly:</strong> <span className="font-bold text-[#2C2A29]">{doctor}</span></p>
+                    <p><strong className="text-[#8C857B]">Odborná spôsobilosť:</strong> Lekár so špecializáciou v odbore plastická chirurgia</p>
+                    <p><strong className="text-[#8C857B]">Pracovisko:</strong> DOKTOR MRÁZ s.r.o. – SAY CLINIC, Lazovná 43, 974 01 Banská Bystrica</p>
+                  </div>
+                </div>
+
+                {/* IV. ŠPECIFIKÁCIA OPERAČNÉHO VÝKONU */}
+                <div className="space-y-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    IV. Špecifikácia operačného výkonu
+                  </p>
+                  
+                  <div className="space-y-2 text-[10px] text-justify">
+                    <div className="bg-[#FBF9F6] p-2.5 rounded-lg border border-[#E8E2D9]">
+                      <p className="font-bold text-xs text-[#2C2A29]">1. Názov operačného výkonu:</p>
+                      <p className="font-semibold text-xs text-[#C5A059] mt-0.5">{surgeryConsent.procedureName}</p>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29]">2. Anatomická oblasť a lokalizácia:</p>
+                      <p className="text-[#4A4643]">{surgeryConsent.anatomicalArea}</p>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29]">3. Účel a povaha operačného výkonu:</p>
+                      <p className="text-[#4A4643]">{surgeryConsent.purposeAndNature}</p>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29]">4. Predpokladaný postup a operačná technika:</p>
+                      <p className="text-[#4A4643] whitespace-pre-line">{surgeryConsent.technique}</p>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29]">5. Druh plánovanej anestézie:</p>
+                      <p className="text-[#4A4643]">
+                        <strong className="text-[#2C2A29]">{surgeryConsent.anesthesiaType}</strong>. Pacient bol oboznámený s tým, že pri celkovej anestézii alebo analgosedácii je vykonané samostatné anesteziologické zhodnotenie a vyžaduje sa dodržanie predoperačného lačnenia (minimálne 6 hodín nejesť, nepiť a nefajčiť).
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29]">6. Možné alternatívy k navrhovanému operačnému výkonu:</p>
+                      <p className="text-[#4A4643]">{surgeryConsent.alternatives}</p>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29]">7. Dôsledky odmietnutia poskytnutia zdravotnej starostlivosti:</p>
+                      <p className="text-[#4A4643]">{surgeryConsent.refusalConsequences}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* V. OSOBITNÉ RIZIKÁ A MOŽNÉ KOMPLIKÁCIE VÝKONU */}
+                <div className="space-y-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    V. Osobitné riziká a možné komplikácie výkonu
+                  </p>
+                  
+                  <div className="space-y-2 text-[10px] text-justify text-[#4A4643]">
+                    <div>
+                      <p className="font-bold text-[#2C2A29]">1. Všeobecné riziká spojené s každým chirurgickým výkonom:</p>
+                      <p>
+                        Pooperačné krvácanie, vznik hematómu alebo serómu, infekcia v operačnej rane, dehiscencia (rozostup) okrajov rany, poruchy hojenia, tvorba hypertrofických, atrofických či keloidných jaziev, zmeny pigmentácie v jazve, prechodný edém a ekchymózy (opuchy a modriny), dočasná alebo trvalá zmena citlivosti (hypestézia, parestézia) kože, alergická reakcia na použité liečivá, dezinfekčné prostriedky, anestetiká či šijací materiál, flebotrombóza a trombembólia, riziká spojené s anestéziou a celkovou záťažou organizmu.
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-[#2C2A29]">2. Špecifické riziká viazané na plánovaný operačný výkon:</p>
+                      <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] font-medium text-[#2C2A29] leading-relaxed">
+                        {surgeryConsent.specificRisks}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* VI. INDIVIDUÁLNE RIZIKOVÉ FAKTORY A ANAMNESTICKÉ ÚDAJE PACIENTA */}
+                <div className="space-y-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    VI. Individuálne rizikové faktory a anamnestické údaje pacienta
+                  </p>
+                  
+                  <div className="space-y-2 text-[10px]">
+                    <p className="font-bold text-[#2C2A29]">1. Záznam individuálnych rizikových faktorov zistených pri predoperačnom vyšetrení:</p>
+                    <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] space-y-1.5">
+                      <p><strong className="text-[#8C857B]">Alergie:</strong> <span className="font-semibold">{surgeryConsent.allergies}</span></p>
+                      <p><strong className="text-[#8C857B]">Chronické ochorenia:</strong> <span className="font-semibold">{surgeryConsent.chronicDiseases}</span></p>
+                      <p><strong className="text-[#8C857B]">Poruchy zrážanlivosti krvi / antikoagulačná liečba:</strong> <span className="font-semibold">{surgeryConsent.bleedingDisorders}</span></p>
+                      <p><strong className="text-[#8C857B]">Užívaná medikácia (vrátane voľnopredajných liekov a doplnkov):</strong> <span className="font-semibold">{surgeryConsent.chronicMedication}</span></p>
+                      <p><strong className="text-[#8C857B]">Sklon k tvorbe keloidných alebo hypertrofických jaziev:</strong> <span className="font-semibold">{surgeryConsent.keloidTendency}</span></p>
+                      <p><strong className="text-[#8C857B]">Fajčenie, konzumácia alkoholu / iných návykových látok:</strong> <span className="font-semibold">{surgeryConsent.smokingAlcohol}</span></p>
+                      <p><strong className="text-[#8C857B]">Predchádzajúce operácie a estetické zákroky v operovanej oblasti:</strong> <span className="font-semibold">{surgeryConsent.previousSurgeries}</span></p>
+                      <p><strong className="text-[#8C857B]">Iné závažné anamnestické údaje (vrátane tehotenstva a dojčenia):</strong> <span className="font-semibold">{surgeryConsent.otherAnamnesis}</span></p>
+                    </div>
+
+                    <div className="text-[9.5px] text-justify text-[#4A4643]">
+                      <p className="font-bold text-[#2C2A29]">2. Vyhlásenie pacienta o úplnosti a pravdivosti:</p>
+                      <p>
+                        Pacient vyhlasuje, že nezatajil žiadne informácie o svojom zdravotnom stave, prekonaných ochoreniach, alergiách, užívaných liekoch, tehotenstve ani o iných skutočnostiach, ktoré by mohli mať vplyv na priebeh operačného výkonu, anestézie alebo hojenia, a je si vedomý, že zatajenie takýchto údajov môže viesť k závažnému poškodeniu jeho zdravia.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* VII. OSOBITNÉ POVAHOVÉ VLASTNOSTI ESTETICKÉHO VÝKONU A HODNOTENIE VÝSLEDKU */}
+                <div className="space-y-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    VII. Osobitné povahové vlastnosti estetického výkonu a hodnotenie výsledku
+                  </p>
+                  
+                  <ol className="list-decimal pl-4 space-y-1 text-[9.5px] text-justify text-[#4A4643]">
+                    <li>Pacient berie na vedomie, že estetická chirurgia nie je exaktná veda a výsledok výkonu je závislý od individuálnych biologických vlastností organizmu, elasticity kože, kvality podkožného tkaniva, stavby kostry a schopnosti hojenia rán.</li>
+                    <li>Poskytovateľ garantuje poskytnutie zdravotnej starostlivosti lege artis (na odbornej úrovni), negarantuje však dosiahnutie subjektívnych estetických predstáv pacienta ani dokonalú symetriu, keďže ľudské telo vykazuje prirodzenú asymetriu.</li>
+                    <li>Pacient bol poučený o tom, že konečný estetický výsledok je možné definitívne hodnotiť až po úplnom odznení pooperačného opuchu, vstrebávaní hematómov a vyzretí jaziev, čo spravidla trvá 6 až 12 mesiacov od operácie.</li>
+                    <li>Pacient bol informovaný o trvácnosti výsledku a o tom, že výsledok môže byť v priebehu času ovplyvnený prirodzeným procesom starnutia, gravitáciou, kolísaním telesnej hmotnosti, tehotenstvom, hormonálnymi zmenami a životným štýlom.</li>
+                    <li>Pacient berie na vedomie, že v prípade vzniku asymetrie, jazvových zmien alebo iných nežiaducich odchýlok môže byť indikovaný korekčný výkon (reoperácia), ktorého podmienky a prípadná finančná účasť sa spravujú dohodou strán a cenníkom poskytovateľa.</li>
                   </ol>
+                </div>
+
+                {/* VIII. POOPERAČNÝ REŽIM, OBMEDZENIA A SÚČINNOSŤ PACIENTA */}
+                <div className="space-y-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    VIII. Pooperačný režim, obmedzenia a súčinnosť pacienta
+                  </p>
+                  
+                  <div className="space-y-2 text-[10px]">
+                    <p className="font-bold text-[#2C2A29]">1. Pokyny lekára pre pooperačné obdobie:</p>
+                    <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] space-y-1.5 text-[9.5px]">
+                      <p><strong className="text-[#8C857B]">Kľudový režim a polohovanie:</strong> {surgeryConsent.postopRest}</p>
+                      <p><strong className="text-[#8C857B]">Kompresívna / fixačná bielizeň a obväzy:</strong> {surgeryConsent.postopGarment}</p>
+                      <p><strong className="text-[#8C857B]">Fyzické obmedzenia a šport:</strong> {surgeryConsent.postopPhysical}</p>
+                      <p><strong className="text-[#8C857B]">Starostlivosť o rany, stehy a jazvy:</strong> {surgeryConsent.postopWound}</p>
+                      <p><strong className="text-[#8C857B]">Environmentálne obmedzenia (voda, sauna, slnko):</strong> {surgeryConsent.postopEnvironment}</p>
+                      <p><strong className="text-[#8C857B]">Medikamentózna liečba:</strong> {surgeryConsent.postopMedication}</p>
+                      <p><strong className="text-[#8C857B]">Harmonogram kontrol:</strong> {surgeryConsent.postopCheckup}</p>
+                    </div>
+
+                    <div className="text-[9.5px] text-justify text-[#4A4643]">
+                      <p className="font-bold text-[#2C2A29]">2. Záväzok súčinnosti pacienta:</p>
+                      <p>
+                        Pacient sa zaväzuje dôsledne dodržiavať všetky pokyny lekára, nosiť predpísanú kompresívnu bielizeň, dodržiavať stanovené termíny kontrolných vyšetrení a v prípade akýchkoľvek komplikácií (náhly opuch, stupňujúca sa bolesť, krvácanie, teplota nad 38 °C) bezodkladne kontaktovať poskytovateľa na tel. čísle <strong className="text-[#2C2A29]">+421 917 550 550</strong> alebo e-mailom na <strong className="text-[#2C2A29]">say@sayclinic.sk</strong>. Pacient berie na vedomie, že nedodržanie pokynov lekára môže mať za následok zhoršenie estetického výsledku alebo poškodenie zdravia a vylučuje zodpovednosť poskytovateľa za takto vzniknuté následky.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* IX. DOPLŇUJÚCE POUČENIE, OTÁZKY PACIENTA A ODPOVEDE LEKÁRA */}
+                <div className="space-y-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    IX. Doplňujúce poučenie, otázky pacienta a odpovede lekára
+                  </p>
+                  
+                  <div className="space-y-2 text-[10px]">
+                    <p className="font-bold text-[#2C2A29]">1. Záznam otázok položených pacientom a odpovedí poskytnutých lekárom:</p>
+                    <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] space-y-2 text-[9.5px]">
+                      <div>
+                        <p><strong className="text-[#8C857B]">Otázka pacienta č. 1:</strong> <span className="font-semibold text-[#2C2A29]">{surgeryConsent.patientQuestion1 || 'Bez ďalších doplňujúcich otázok.'}</span></p>
+                        <p className="mt-0.5"><strong className="text-[#8C857B]">Odpoveď lekára č. 1:</strong> {surgeryConsent.doctorAnswer1 || 'Všetky náležitosti boli zrozumiteľne vysvetlené.'}</p>
+                      </div>
+                      {surgeryConsent.patientQuestion2 && (
+                        <div className="pt-1.5 border-t border-[#E8E2D9]">
+                          <p><strong className="text-[#8C857B]">Otázka pacienta č. 2:</strong> <span className="font-semibold text-[#2C2A29]">{surgeryConsent.patientQuestion2}</span></p>
+                          <p className="mt-0.5"><strong className="text-[#8C857B]">Odpoveď lekára č. 2:</strong> {surgeryConsent.doctorAnswer2}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-[9.5px]">
+                      <p className="font-bold text-[#2C2A29]">2. Osobitné individuálne dojednania:</p>
+                      <p className="text-[#4A4643] italic">{surgeryConsent.specialAgreements || 'Bez osobitných dodatočných dojednaní.'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* X. PREHLÁSENIE A INFORMOVANÝ SÚHLAS PACIENTA */}
+                <div className="space-y-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    X. Prehlásenie a informovaný súhlas pacienta
+                  </p>
+                  
+                  <div className="space-y-2 text-[9.5px] text-justify text-[#4A4643]">
+                    <p>Pacient svojím vlastnoručným podpisom potvrdzuje, že:</p>
+                    <ol className="list-decimal pl-4 space-y-1">
+                      <li>bol poučujúcom lekárom riadne, zrozumiteľne, v dostatočnom rozsahu a v pokojnej atmosfére poučený o účele, povahe, následkoch, rizikách, alternatívach a pooperačnom režime vyššie špecifikovaného operačného výkonu v zmysle § 6 zákona č. 576/2004 Z. z.,</li>
+                      <li>poučeniu plne porozumel, mal dostatok času na zváženie svojho rozhodnutia a na kladenie otázok, ktoré mu boli uspokojivo a vyčerpávajúco zodpovedané,</li>
+                      <li>nezatajil žiadne relevantné zdravotné údaje ani užívané lieky,</li>
+                      <li>bol oboznámený s právom slobodne sa rozhodnúť a s právom informovaný súhlas kedykoľvek odvolať až do začiatku výkonu zdravotnej starostlivosti (§ 6 ods. 6 zákona č. 576/2004 Z. z.),</li>
+                      <li>súhlasí s vyhotovením anonymnej medicínskej fotodokumentácie pred, počas a po výkone výlučne pre účely zdravotnej dokumentácie v súlade s platnou legislatívou.</li>
+                    </ol>
+
+                    <div className="bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9] text-[10px] text-[#2C2A29] font-semibold space-y-1">
+                      <p className="uppercase text-[#C5A059] text-[9px] font-bold">Výslovný súhlas:</p>
+                      <p>
+                        Na základe vyššie uvedeného poučenia slobodne, dobrovoľne, vážne a bez nátlaku <strong className="uppercase underline">udeľujem svoj informovaný súhlas</strong> s vykonaním operačného výkonu: <strong className="text-[#2C2A29]">{surgeryConsent.procedureName}</strong> a s podaním anestézie v rozsahu: <strong className="text-[#2C2A29]">{surgeryConsent.anesthesiaType}</strong>, ako aj s vykonaním všetkých ďalších nevyhnutných diagnostických a liečebných úkonov bezprostredne súvisiacich s týmto výkonom.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* XI. ČASOVÉ ÚDAJE A PODPISY STRÁN */}
+                <div className="space-y-3 pt-2">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5">
+                    XI. Časové údaje a podpisy strán
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-[9.5px] bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9]">
+                    <p><strong className="text-[#8C857B]">Dátum a čas poskytnutia poučenia:</strong> <span className="font-semibold">{surgeryConsent.instructionDateTime}</span></p>
+                    <p><strong className="text-[#8C857B]">Dátum a čas udelenia súhlasu:</strong> <span className="font-semibold">{surgeryConsent.consentDateTime}</span></p>
+                    <p className="col-span-2"><strong className="text-[#8C857B]">Miesto:</strong> {surgeryConsent.signaturePlace}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-8 pt-6 pb-2">
+                    <div className="text-center space-y-1">
+                      <div className="w-full border-b border-[#2C2A29] mb-2 min-h-[35px]"></div>
+                      <p className="font-bold text-[10px] text-[#2C2A29]">Podpis pacienta</p>
+                      <p className="text-[8px] text-[#8C857B]">(resp. zákonného zástupcu / opatrovníka)</p>
+                    </div>
+                    <div className="text-center space-y-1">
+                      <div className="w-full border-b border-[#2C2A29] mb-2 min-h-[35px]"></div>
+                      <p className="font-bold text-[10px] text-[#2C2A29]">{doctor}</p>
+                      <p className="text-[8px] text-[#8C857B]">Pečiatka a podpis poučujúceho lekára</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* XII. POTVRDENIE O ODOVZDANÍ VYHOTOVENIA PACIENTOVI */}
+                <div className="space-y-2 pt-2 border-t border-[#E8E2D9]">
+                  <p className="font-bold text-[10px] uppercase text-[#C5A059] pb-0.5">
+                    XII. Potvrdenie o odovzdaní vyhotovenia pacientovi
+                  </p>
+                  
+                  <div className="text-[9px] text-justify text-[#8C857B] space-y-1 bg-white p-2.5 rounded border border-[#E8E2D9]">
+                    <p>
+                      Pacient potvrdzuje, že jedno písomné vyhotovenie tohto informovaného súhlasu vrátane pooperačných pokynov a kontaktov prevzal do vlastných rúk pri podpise tohto dokumentu.
+                    </p>
+                    <div className="pt-2 flex justify-between items-end text-[8.5px]">
+                      <p>V Banskej Bystrici, dňa: <span className="font-semibold text-[#2C2A29]">{new Date().toLocaleDateString('sk-SK')}</span></p>
+                      <div className="text-center">
+                        <div className="w-32 border-b border-[#8C857B] mb-1"></div>
+                        <p>Podpis pacienta o prevzatí</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-[8px] text-[#8C857B] italic text-center pt-2 leading-tight">
+                    Záverečné upozornenie: Informovaný súhlas tvorí neoddeliteľnú súčasť zdravotnej dokumentácie vedenej poskytovateľom v súlade so zákonom č. 576/2004 Z. z. a uchováva sa po dobu stanovenú osobitnými predpismi.
+                  </div>
                 </div>
               </div>
             )}
@@ -2650,8 +3355,8 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* Podpisy bežné (Okrem Dohody) */}
-            {docType !== 'dohoda_o_cene' && (
+            {/* Podpisy bežné (Okrem Dohody a Informovaného súhlasu) */}
+            {docType !== 'dohoda_o_cene' && docType !== 'suhlas_operacia' && (
               <div className="mt-10 pt-6 flex justify-between items-end text-[10px] text-[#8C857B]">
                 <div className="text-center">
                   <div className="w-40 border-b border-[#2C2A29] mb-2"></div>
