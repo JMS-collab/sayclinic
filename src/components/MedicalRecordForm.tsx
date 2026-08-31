@@ -2101,7 +2101,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                       <p><strong>IČO:</strong> 54 918 375 | <strong>DIČ:</strong> 2121822901</p>
                       <p><strong>Zápis v registri:</strong> Obchodný register Okresného súdu Banská Bystrica, oddiel: Sro, vložka č. 44785/S</p>
                       <p><strong>Štatutárny orgán:</strong> MUDr. Ján Mráz, konateľ</p>
-                      <p><strong>E-mail:</strong> info@doktormraz.sk</p>
+                      <p><strong>E-mail:</strong> say@sayclinic.sk</p>
                       <p><strong>E-mail pre koordináciu:</strong> koordinator@sayclinic.sk</p>
                       <p><strong>Bankové spojenie:</strong> {bankName}</p>
                       <p className="font-mono text-[9px]"><strong>IBAN:</strong> {bankIban}</p>
@@ -2169,7 +2169,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   </p>
 
                   <p className="text-justify">
-                    <strong>4.</strong> Poskytovateľ potvrdzuje a Pacient svojím podpisom potvrdzuje, že Pacient mal pred podpisom tejto Dohody plnú príležitosť oboznámiť sa s aktuálnym cenníkom Poskytovateľa a že dohodnutá cena je v súlade s platným a zverejneným cenníkom Poskytovateľa, ktorého výňatok tvorí Prílohu č. 1 tejto Dohody.
+                    <strong>4.</strong> Poskytovateľ potvrdzuje a Pacient svojím podpisom potvrdzuje, že Pacient mal pred podpisom tejto Dohody plnú príležitosť oboznámiť sa s aktuálnym cenníkom Poskytovateľa a že dohodnutá cena je v súlade s platným cenníkom Poskytovateľa.
                   </p>
                 </div>
 
@@ -2357,9 +2357,8 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   <p><strong>1.</strong> Táto Dohoda nadobúda platnosť a účinnosť dňom jej podpisu oboma Zmluvnými stranami.</p>
                   <p><strong>2.</strong> Právne vzťahy touto Dohodou výslovne neupravené sa spravujú príslušnými ustanoveniami Občianskeho zákonníka, zákona č. 18/1996 Z. z. o cenách, zákona č. 576/2004 Z. z. o zdravotnej starostlivosti, zákona č. 108/2024 Z. z. o ochrane spotrebiteľa a ďalšími všeobecne záväznými právnymi predpismi Slovenskej republiky.</p>
                   <p><strong>3.</strong> Akékoľvek zmeny alebo doplnenia tejto Dohody je možné vykonať výlučne vo forme písomných, vzostupne číslovaných dodatkov podpísaných oboma Zmluvnými stranami.</p>
-                  <p><strong>4.</strong> Neoddeliteľnou súčasťou tejto Dohody je:<br /><span className="font-semibold pl-3">Príloha č. 1: Výňatok z platného Cenníka zdravotných výkonov Poskytovateľa</span></p>
-                  <p><strong>5.</strong> Zmluvné strany vyhlasujú, že si text tejto Dohody pred jej podpisom riadne prečítali, jej obsahu v celom rozsahu porozumeli, text vyjadruje ich slobodnú, vážnu, určitú a zrozumiteľnú vôľu a Dohodu neuzatvárajú v tiesni ani za nápadne nevýhodných podmienok, na dôkaz čoho pripájajú svoje vlastnoručné podpisy.</p>
-                  <p><strong>6.</strong> Táto Dohoda je vyhotovená v dvoch (2) rovnopisoch s platnosťou originálu, z ktorých každá Zmluvná strana obdrží po jednom (1) vyhotovení.</p>
+                  <p><strong>4.</strong> Zmluvné strany vyhlasujú, že si text tejto Dohody pred jej podpisom riadne prečítali, jej obsahu v celom rozsahu porozumeli, text vyjadruje ich slobodnú, vážnu, určitú a zrozumiteľnú vôľu a Dohodu neuzatvárajú v tiesni ani za nápadne nevýhodných podmienok, na dôkaz čoho pripájajú svoje vlastnoručné podpisy.</p>
+                  <p><strong>5.</strong> Táto Dohoda je vyhotovená v dvoch (2) rovnopisoch s platnosťou originálu, z ktorých každá Zmluvná strana obdrží po jednom (1) vyhotovení.</p>
                 </div>
 
                 {/* PODPISOVÁ DOLOŽKA */}
@@ -2381,95 +2380,6 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                       <p className="font-bold text-[10px] uppercase text-[#2C2A29]">Pacient:</p>
                       <p className="font-semibold text-[9.5px] text-[#2C2A29]">{patientName || '---'}</p>
                       <p className="text-[8.5px] text-[#8C857B]">podpis pacienta</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* PRÍLOHA Č. 1: VÝŇATOK Z PLATNÉHO CENNÍKA */}
-                <div className="mt-8 pt-4 border-t-2 border-dashed border-[#C5A059] space-y-3">
-                  <div className="text-center space-y-0.5">
-                    <h4 className="font-bold text-xs uppercase tracking-wider text-[#C5A059]">
-                      Príloha č. 1: Výňatok z platného Cenníka zdravotných výkonov Poskytovateľa
-                    </h4>
-                    <p className="text-[9px] text-[#8C857B]">
-                      DOKTOR MRÁZ s.r.o., Muškátová 15652/37, 974 01 Banská Bystrica, IČO: 54 918 375
-                    </p>
-                    <p className="text-[8.5px] text-[#8C857B] italic">Platnosť od: 1. januára 2026</p>
-                  </div>
-
-                  <div className="bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9] space-y-2 text-[9px]">
-                    <div>
-                      <p className="font-bold uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5 mb-1">
-                        1. Základné operačné výkony estetickej chirurgie:
-                      </p>
-                      <ul className="divide-y divide-[#E8E2D9]/60">
-                        {selectedItems.length > 0 ? (
-                          selectedItems.map((item) => (
-                            <li key={item.id} className="py-0.5 flex justify-between">
-                              <span>{item.name}</span>
-                              <span className="font-bold">{item.price.toFixed(2)} EUR</span>
-                            </li>
-                          ))
-                        ) : (
-                          <li className="py-0.5 flex justify-between">
-                            <span>{manualProcedure || vvPlan || 'Estetický výkon'}</span>
-                            <span className="font-bold">{basePrice.toFixed(2)} EUR</span>
-                          </li>
-                        )}
-                      </ul>
-                      <p className="pt-1 text-[#8C857B] text-[8.5px]">
-                        • Predoperačná konzultácia a plánovanie: v cene zákroku / samostatne 50,00 EUR
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="font-bold uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5 mb-1">
-                        2. Anestéziologické služby:
-                      </p>
-                      <ul className="space-y-0.5">
-                        <li className="flex justify-between">
-                          <span>Lokálna anestézia:</span>
-                          <span className="font-bold">zahrnutá v základnej cene výkonu</span>
-                        </li>
-                        <li className="flex justify-between">
-                          <span>Celková anestézia / analgosedácia v plánovanom rozsahu:</span>
-                          <span className="font-bold">
-                            {anesthesiaType === 'Lokálna' ? 'zahrnutá v cene' : `${anesthesiaPrice.toFixed(2)} EUR`}
-                          </span>
-                        </li>
-                        <li className="flex justify-between text-[#8C857B]">
-                          <span>Príplatok za každú začatú hodinu anestézie nad rámec plánovaného času:</span>
-                          <span className="font-bold text-[#2C2A29]">130,00 EUR / hod.</span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <p className="font-bold uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5 mb-1">
-                        3. Hospitalizácia a pobytové služby:
-                      </p>
-                      <ul className="space-y-0.5">
-                        <li className="flex justify-between">
-                          <span>Štandardný pooperačný pobyt na dospávacej izbe / 1 noc (ak je indikované):</span>
-                          <span className="font-bold">
-                            {hospitalizationType === 'none' ? 'zahrnuté v cene' : `${hospitalizationPrice.toFixed(2)} EUR`}
-                          </span>
-                        </li>
-                        <li className="flex justify-between text-[#8C857B]">
-                          <span>Dodatočná noc hospitalizácie / pobytu na lôžku nad plán:</span>
-                          <span className="font-bold text-[#2C2A29]">200,00 EUR / noc</span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <p className="font-bold uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-0.5 mb-1">
-                        4. Administratívne a organizačné poplatky:
-                      </p>
-                      <p className="flex justify-between">
-                        <span>Paušálny administratívny poplatok pri včasnom storne (viac ako 21 dní pred termínom):</span>
-                        <span className="font-bold">50,00 EUR</span>
-                      </p>
                     </div>
                   </div>
                 </div>
