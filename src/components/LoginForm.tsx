@@ -305,17 +305,12 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         </div>
       )}
 
-      {/* MINIMALISTICKÉ OSTRÉ LOGO */}
-      <div className="text-center mb-14">
+      {/* MINIMALISTICKÉ LOGO */}
+      <div className="text-center mb-10">
         <img
           src="/logo.png"
           alt="SAY CLINIC"
-          style={{
-            imageRendering: '-webkit-optimize-contrast',
-            WebkitBackfaceVisibility: 'hidden',
-            transform: 'translateZ(0)'
-          }}
-          className="h-20 sm:h-24 md:h-28 w-auto object-contain mx-auto transition-transform hover:scale-102 filter contrast-[1.04]"
+          className="h-16 sm:h-20 md:h-24 w-auto object-contain mx-auto transition-transform hover:scale-102"
         />
       </div>
 

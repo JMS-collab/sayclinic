@@ -195,12 +195,7 @@ export default function Home() {
             <img 
               src="/logo.png" 
               alt="SAY BY MRAZ" 
-              style={{
-                imageRendering: '-webkit-optimize-contrast',
-                WebkitBackfaceVisibility: 'hidden',
-                transform: 'translateZ(0)'
-              }}
-              className="h-16 md:h-20 w-auto object-contain transition-transform group-hover:scale-105 filter contrast-[1.04]" 
+              className="h-14 md:h-16 w-auto object-contain transition-transform group-hover:scale-105" 
             />
           </div>
 
