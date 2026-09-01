@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   MapPin, 
@@ -10,14 +10,18 @@ import {
   Layers, 
   Printer, 
   Save, 
-  User 
+  User,
+  History,
+  CheckCircle2,
+  ExternalLink,
+  Sliders
 } from 'lucide-react';
-import { Patient } from './PatientDatabase';
+import { Patient, MedicalRecord } from './PatientDatabase';
 
-interface InjectionPoint {
+export interface InjectionPoint {
   id: string;
-  x: number; // % from left
-  y: number; // % from top
+  x: number; // % from left (0 - 100)
+  y: number; // % from top (0 - 100)
   zone: string;
   productType: 'botox' | 'filler' | 'threads' | 'biostimulator' | 'meso';
   productName: string;
@@ -29,22 +33,22 @@ interface InjectionPoint {
 }
 
 const PRESET_ZONES = [
-  { id: 'glabella', name: 'Glabela (vráska hnevu)', x: 50, y: 31, defaultProduct: 'Botox Allergan 50IU', unit: 'IU', defaultQty: 20, type: 'botox' as const },
-  { id: 'forehead', name: 'Čelo (horizontálne vrásky)', x: 50, y: 22, defaultProduct: 'Botox Allergan 50IU', unit: 'IU', defaultQty: 12, type: 'botox' as const },
-  { id: 'crows_left', name: 'Vrásky okolo očí L', x: 32, y: 38, defaultProduct: 'Botox Allergan 50IU', unit: 'IU', defaultQty: 10, type: 'botox' as const },
-  { id: 'crows_right', name: 'Vrásky okolo očí P', x: 68, y: 38, defaultProduct: 'Botox Allergan 50IU', unit: 'IU', defaultQty: 10, type: 'botox' as const },
-  { id: 'bunny_lines', name: 'Bunny lines (nos)', x: 50, y: 44, defaultProduct: 'Botox Allergan 50IU', unit: 'IU', defaultQty: 6, type: 'botox' as const },
-  { id: 'lips_upper', name: 'Pery - Horná pera', x: 50, y: 64, defaultProduct: 'Juvederm Volbella 1ml', unit: 'ml', defaultQty: 0.5, type: 'filler' as const },
-  { id: 'lips_lower', name: 'Pery - Dolná pera', x: 50, y: 70, defaultProduct: 'Juvederm Volbella 1ml', unit: 'ml', defaultQty: 0.5, type: 'filler' as const },
-  { id: 'nasolabial_l', name: 'Nasolabiálna ryha L', x: 40, y: 58, defaultProduct: 'Juvederm Volift 1ml', unit: 'ml', defaultQty: 0.5, type: 'filler' as const },
-  { id: 'nasolabial_r', name: 'Nasolabiálna ryha P', x: 60, y: 58, defaultProduct: 'Juvederm Volift 1ml', unit: 'ml', defaultQty: 0.5, type: 'filler' as const },
-  { id: 'cheeks_left', name: 'Lícne kosti L', x: 30, y: 49, defaultProduct: 'Juvederm Voluma 1ml', unit: 'ml', defaultQty: 1.0, type: 'filler' as const },
-  { id: 'cheeks_right', name: 'Lícne kosti P', x: 70, y: 49, defaultProduct: 'Juvederm Voluma 1ml', unit: 'ml', defaultQty: 1.0, type: 'filler' as const },
-  { id: 'marionette_l', name: 'Marionety L', x: 42, y: 75, defaultProduct: 'Stylage M 1ml', unit: 'ml', defaultQty: 0.4, type: 'filler' as const },
-  { id: 'marionette_r', name: 'Marionety P', x: 58, y: 75, defaultProduct: 'Stylage M 1ml', unit: 'ml', defaultQty: 0.4, type: 'filler' as const },
-  { id: 'jawline_l', name: 'Čeľusťová línia L', x: 28, y: 72, defaultProduct: 'Radiesse 1.5ml', unit: 'ml', defaultQty: 0.75, type: 'biostimulator' as const },
-  { id: 'jawline_r', name: 'Čeľusťová línia P', x: 72, y: 72, defaultProduct: 'Radiesse 1.5ml', unit: 'ml', defaultQty: 0.75, type: 'biostimulator' as const },
-  { id: 'chin', name: 'Brada (projekcia & mentalis)', x: 50, y: 84, defaultProduct: 'Juvederm Volux 1ml', unit: 'ml', defaultQty: 1.0, type: 'filler' as const },
+  { id: 'glabella', name: 'Glabela (vráska hnevu)', x: 50, y: 31, defaultProduct: 'Botox Allergan 100IU', unit: 'IU', defaultQty: 20, type: 'botox' as const },
+  { id: 'forehead', name: 'Čelo (frontalis)', x: 50, y: 19, defaultProduct: 'Botox Allergan 100IU', unit: 'IU', defaultQty: 12, type: 'botox' as const },
+  { id: 'crows_left', name: 'Vrásky okolo očí Ľ', x: 33, y: 36, defaultProduct: 'Botox Allergan 100IU', unit: 'IU', defaultQty: 10, type: 'botox' as const },
+  { id: 'crows_right', name: 'Vrásky okolo očí P', x: 67, y: 36, defaultProduct: 'Botox Allergan 100IU', unit: 'IU', defaultQty: 10, type: 'botox' as const },
+  { id: 'bunny_lines', name: 'Bunny lines (nos)', x: 50, y: 44, defaultProduct: 'Botox Allergan 100IU', unit: 'IU', defaultQty: 6, type: 'botox' as const },
+  { id: 'lips_upper', name: 'Pery - Horná pera', x: 50, y: 64, defaultProduct: 'Juvederm Volbella 1ml (Pery)', unit: 'ml', defaultQty: 0.5, type: 'filler' as const },
+  { id: 'lips_lower', name: 'Pery - Dolná pera', x: 50, y: 70, defaultProduct: 'Juvederm Volbella 1ml (Pery)', unit: 'ml', defaultQty: 0.5, type: 'filler' as const },
+  { id: 'nasolabial_l', name: 'Nasolabiálna ryha Ľ', x: 41, y: 57, defaultProduct: 'Juvederm Volift 1ml', unit: 'ml', defaultQty: 0.5, type: 'filler' as const },
+  { id: 'nasolabial_r', name: 'Nasolabiálna ryha P', x: 59, y: 57, defaultProduct: 'Juvederm Volift 1ml', unit: 'ml', defaultQty: 0.5, type: 'filler' as const },
+  { id: 'cheeks_left', name: 'Lícna kosť & Malar Ľ', x: 31, y: 48, defaultProduct: 'Juvederm Voluma 1ml', unit: 'ml', defaultQty: 1.0, type: 'filler' as const },
+  { id: 'cheeks_right', name: 'Lícna kosť & Malar P', x: 69, y: 48, defaultProduct: 'Juvederm Voluma 1ml', unit: 'ml', defaultQty: 1.0, type: 'filler' as const },
+  { id: 'marionette_l', name: 'Marionety Ľ', x: 42, y: 76, defaultProduct: 'Stylage M 1ml', unit: 'ml', defaultQty: 0.4, type: 'filler' as const },
+  { id: 'marionette_r', name: 'Marionety P', x: 58, y: 76, defaultProduct: 'Stylage M 1ml', unit: 'ml', defaultQty: 0.4, type: 'filler' as const },
+  { id: 'jawline_l', name: 'Čeľusťová línia Ľ', x: 27, y: 74, defaultProduct: 'Radiesse (+) 1.5ml', unit: 'ml', defaultQty: 0.75, type: 'biostimulator' as const },
+  { id: 'jawline_r', name: 'Čeľusťová línia P', x: 73, y: 74, defaultProduct: 'Radiesse (+) 1.5ml', unit: 'ml', defaultQty: 0.75, type: 'biostimulator' as const },
+  { id: 'chin', name: 'Brada (mentalis & projekcia)', x: 50, y: 85, defaultProduct: 'Juvederm Volux 1ml', unit: 'ml', defaultQty: 1.0, type: 'filler' as const },
 ];
 
 const PRESET_MATERIALS = [
@@ -63,17 +67,48 @@ const PRESET_MATERIALS = [
 export function AestheticsModule({ 
   patients = [], 
   selectedPatientId,
-  onSelectPatient 
+  onSelectPatient,
+  onOpenPatientFolder
 }: { 
   patients?: Patient[]; 
   selectedPatientId?: string | null;
   onSelectPatient?: (id: string) => void;
+  onOpenPatientFolder?: (patient: Patient) => void;
 }) {
-  const currentPatient = (patients && patients.length > 0)
-    ? (patients.find(p => p.id === selectedPatientId) || patients[0])
-    : { id: 'P1', name: 'Mária Kováčová', birthNumber: '885512/6789', phone: '+421 905 123 456', email: 'maria.kovacova@email.sk', address: 'Banská Bystrica', dob: '12.05.1988', insurance: '24 (Dôvera)' };
+  // Synchronizácia lokálneho zoznamu pacientov
+  const [localPatients, setLocalPatients] = useState<Patient[]>(patients);
 
-  // Aktuálne zaznačené body vpichu
+  useEffect(() => {
+    if (patients && patients.length > 0) {
+      setLocalPatients(patients);
+    } else {
+      const saved = localStorage.getItem('say_clinic_patients');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLocalPatients(parsed);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  }, [patients]);
+
+  const activePatientId = selectedPatientId || (localPatients.length > 0 ? localPatients[0].id : 'P1');
+  const currentPatient: Patient = localPatients.find(p => p.id === activePatientId) || localPatients[0] || {
+    id: 'P1',
+    name: 'Mária Kováčová',
+    birthNumber: '885512/6789',
+    phone: '+421 905 123 456',
+    email: 'maria.kovacova@email.sk',
+    address: 'Slnečná 15, Banská Bystrica',
+    dob: '12.05.1988',
+    insurance: '24 (Dôvera)'
+  };
+
+  // Body vpichu
   const [points, setPoints] = useState<InjectionPoint[]>([
     {
       id: 'pt1',
@@ -91,7 +126,7 @@ export function AestheticsModule({
     {
       id: 'pt2',
       x: 50,
-      y: 22,
+      y: 19,
       zone: 'Čelo (horizontálne vrásky)',
       productType: 'botox',
       productName: 'Botox Allergan 100IU',
@@ -132,12 +167,33 @@ export function AestheticsModule({
   const [selectedPointId, setSelectedPointId] = useState<string | null>('pt1');
   const [selectedMaterialIdx, setSelectedMaterialIdx] = useState(0);
   const [inputQty, setInputQty] = useState<number>(10);
-  const [inputZoneName] = useState('Vlastná zóna');
+  const [inputZoneName, setInputZoneName] = useState('Vlastná anatomická zóna');
   const [viewMode, setViewMode] = useState<'map' | 'protocol'>('map');
-  const [isSavedSuccess, setIsSavedSuccess] = useState(false);
+  const [savedStatusMsg, setSavedStatusMsg] = useState<string | null>(null);
   const [pointSeq, setPointSeq] = useState(5);
   const [protocolRecordNo] = useState('AES-928412');
-  const [currentDateStr] = useState('01.09.2026');
+  const [showGrid, setShowGrid] = useState(true);
+  const [filterType, setFilterType] = useState<'all' | 'botox' | 'filler' | 'biostimulator'>('all');
+  const [patientHistoryRecords, setPatientHistoryRecords] = useState<MedicalRecord[]>([]);
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
+
+  // Načítanie existujúcich záznamov pacienta z localStorage
+  useEffect(() => {
+    if (!currentPatient?.id) return;
+    const savedRecs = localStorage.getItem('say_clinic_patient_records');
+    if (savedRecs) {
+      try {
+        const parsed = JSON.parse(savedRecs);
+        if (parsed && parsed[currentPatient.id]) {
+          setPatientHistoryRecords(parsed[currentPatient.id]);
+        } else {
+          setPatientHistoryRecords([]);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [currentPatient?.id]);
 
   // Výpočet celkových spotrebovaných jednotiek
   const totalBotoxIU = points
@@ -150,7 +206,16 @@ export function AestheticsModule({
 
   const activePoint = points.find(p => p.id === selectedPointId);
 
-  // Kliknutie do tvárovej mapy pre pridanie bodu
+  // Filtrované body podľa aktívneho filtra
+  const filteredPoints = points.filter(p => {
+    if (filterType === 'all') return true;
+    if (filterType === 'botox') return p.productType === 'botox';
+    if (filterType === 'filler') return p.productType === 'filler' || p.productType === 'meso';
+    if (filterType === 'biostimulator') return p.productType === 'biostimulator' || p.productType === 'threads';
+    return true;
+  });
+
+  // Kliknutie do tvárovej sochy pre umiestnenie bodu
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
@@ -161,7 +226,7 @@ export function AestheticsModule({
       id: `pt_${pointSeq}`,
       x,
       y,
-      zone: inputZoneName,
+      zone: inputZoneName || 'Aplikačný bod',
       productType: material.type as any,
       productName: material.name,
       lotNumber: material.lot,
@@ -171,7 +236,7 @@ export function AestheticsModule({
       notes: `Aplikácia ${inputQty} ${material.unit}`
     };
 
-    setPoints([...points, newPt]);
+    setPoints(prev => [...prev, newPt]);
     setSelectedPointId(newPt.id);
     setPointSeq(prev => prev + 1);
   };
@@ -192,29 +257,106 @@ export function AestheticsModule({
       notes: `Štandardná anatomická zóna: ${zone.name}`
     };
 
-    setPoints([...points, newPt]);
+    setPoints(prev => [...prev, newPt]);
     setSelectedPointId(newPt.id);
     setPointSeq(prev => prev + 1);
   };
 
   const handleDeletePoint = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setPoints(points.filter(p => p.id !== id));
+    setPoints(prev => prev.filter(p => p.id !== id));
     if (selectedPointId === id) {
-      setSelectedPointId(points.length > 1 ? points[0].id : null);
+      setSelectedPointId(points.length > 1 ? points.filter(p => p.id !== id)[0]?.id || null : null);
     }
   };
 
-  const handleSaveProtocol = () => {
-    setIsSavedSuccess(true);
-    setTimeout(() => setIsSavedSuccess(false), 3000);
+  // ULOŽENIE ZÁZNAMU PRIAMO DO ZLOŽKY PACIENTA V KARTOTÉKE
+  const handleSaveProtocolToPatientFolder = () => {
+    if (!currentPatient) return;
+
+    const todayDate = new Date().toISOString().split('T')[0];
+    const formattedDateStr = new Date().toLocaleDateString('sk-SK');
+
+    // Vytvorenie detailného štruktúrovaného textu protokolu
+    const zonesSummary = points.map((p, idx) => 
+      `${idx + 1}. ${p.zone}
+   • Prípravok: ${p.productName}
+   • Šarža (LOT): ${p.lotNumber}
+   • Dávka: ${p.unitsOrVolume} ${p.unitLabel} (${p.depth})
+   ${p.notes ? `• Poznámka: ${p.notes}` : ''}`
+    ).join('\n\n');
+
+    const fullContent = `PROTOKOL O APLIKÁCII ESTETICKÝCH LIEČIV A VÝPLNÍ (FACE MAPPING)
+Dátum výkonu: ${formattedDateStr}
+Číslo protokolu: ${protocolRecordNo}
+Ošetrujúci lekár: MUDr. Ján Mráz (SAY CLINIC)
+
+SÚHRNNÝ PREHĽAD:
+• Celková dávka Botulotoxínu: ${totalBotoxIU} IU
+• Celkový objem výplní & biostimulátorov: ${totalFillerML.toFixed(1)} ml
+• Celkový počet aplikačných bodov: ${points.length}
+
+DETAILNÝ SÚPIS APLIKÁCIÍ A ŠARŽÍ (LOT TRACKING):
+${zonesSummary}
+
+POUČENIE PACIENTA & POOPERAČNÝ REŽIM:
+Pacient bol riadne poučený o poaplikačnom režime (neľahať si 4 hodiny po aplikácii botulotoxínu, vyhnúť sa zvýšenej fyzickej námahe, saune a soláriu na 48 hodín). V prípade opuchu chladiť cez čistú textíliu. Kontrola o 14 dní.`;
+
+    const newRecord: MedicalRecord = {
+      id: `rec-aes-${Date.now()}`,
+      type: 'Estetický protokol',
+      typeColor: 'bg-[#C5A059]',
+      title: `Face Mapping & Aplikácia (${points.length} vpichov)`,
+      doctor: 'MUDr. Ján Mráz',
+      diagnosis: 'Z41.1 (Estetický výkon)',
+      date: todayDate,
+      content: fullContent
+    };
+
+    // Načítanie a zápis do localStorage pre kartotéku
+    try {
+      const existingRaw = localStorage.getItem('say_clinic_patient_records') || '{}';
+      const existing = JSON.parse(existingRaw);
+      const patientList = existing[currentPatient.id] || [];
+      const updatedList = [newRecord, ...patientList];
+      existing[currentPatient.id] = updatedList;
+
+      localStorage.setItem('say_clinic_patient_records', JSON.stringify(existing));
+      setPatientHistoryRecords(updatedList);
+
+      setSavedStatusMsg(`✅ Protokol bol úspešne uložený do zložky pacienta: ${currentPatient.name}`);
+      setTimeout(() => setSavedStatusMsg(null), 5000);
+    } catch (e) {
+      console.error('Chyba ukladania záznamu do zložky pacienta:', e);
+      setSavedStatusMsg('❌ Chyba pri ukladaní protokolu.');
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* HEADER: LIQUID GLASS AMBIENT CARD */}
-      <div className="relative rounded-3xl p-6 backdrop-blur-3xl bg-white/70 border border-white/80 shadow-[0_8px_32px_0_rgba(197,160,89,0.08)] overflow-hidden">
-        {/* Glow ambient orbs */}
+      {/* OZNÁMENIE O ÚSPEŠNOM ULOŽENÍ DO ZLOŽKY PACIENTA */}
+      {savedStatusMsg && (
+        <div className="fixed top-20 right-6 z-50 bg-[#2C2A29] text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-[#C5A059] flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 print:hidden">
+          <CheckCircle2 className="w-5 h-5 text-[#C5A059]" />
+          <div className="text-xs">
+            <p className="font-bold">{savedStatusMsg}</p>
+            <p className="text-[10px] text-gray-300">Záznam je ihneď prístupný v sekcii Kartotéka Pacientov → Dokumenty.</p>
+          </div>
+          {onOpenPatientFolder && (
+            <button
+              onClick={() => onOpenPatientFolder(currentPatient)}
+              className="ml-3 px-3 py-1 bg-[#C5A059] hover:bg-[#B38F46] text-white text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1"
+            >
+              <span>Zobraziť v karte</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* HEADER: LIQUID GLASS AMBIENT KARTA */}
+      <div className="relative rounded-3xl p-6 backdrop-blur-3xl bg-white/70 border border-white/80 shadow-[0_8px_32px_0_rgba(197,160,89,0.08)] overflow-hidden print:hidden">
+        {/* Ambient svetelné efekty */}
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-gradient-to-br from-[#C5A059]/20 to-[#EAD8CA]/30 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-10 left-20 w-44 h-44 rounded-full bg-gradient-to-tr from-[#E8E2D9]/40 to-white/60 blur-2xl pointer-events-none" />
 
@@ -229,31 +371,48 @@ export function AestheticsModule({
                   Estetická medicína & Face Mapping
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#C5A059]/15 text-[#9C7D2B] border border-[#C5A059]/30">
-                  Liquid Glass OS
+                  Sculpture Edition
                 </span>
               </div>
               <p className="text-xs text-[#8C857B] mt-0.5">
-                Presná anatomická navigácia vpichov, sledovanie šarží (LOT) a automatický odpis materiálu
+                Klasická sochárska busta tváre, presná anatomická navigácia vpichov a trvalé ukladanie do karty pacienta
               </p>
             </div>
           </div>
 
-          {/* VOLIČ PACIENTA & AKCIE */}
+          {/* VOLIČ PACIENTA Z KARTOTÉKY & AKCIE */}
           <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
-            {patients && patients.length > 0 && (
-              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#E8E2D9] shadow-xs">
-                <User className="w-4 h-4 text-[#C5A059]" />
+            {/* VOLIČ PACIENTA S MENOM A RČ */}
+            <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#C5A059]/40 shadow-xs">
+              <User className="w-4 h-4 text-[#C5A059]" />
+              <div className="flex flex-col">
+                <span className="text-[9px] uppercase font-bold text-[#8C857B] leading-none">Klient z kartotéky:</span>
                 <select
                   value={currentPatient.id}
                   onChange={(e) => onSelectPatient && onSelectPatient(e.target.value)}
-                  className="bg-transparent text-xs font-semibold text-[#2C2A29] focus:outline-hidden cursor-pointer"
+                  className="bg-transparent text-xs font-bold text-[#2C2A29] focus:outline-hidden cursor-pointer"
                 >
-                  {patients.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.birthNumber || p.dob})</option>
+                  {localPatients.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.birthNumber || p.dob})
+                    </option>
                   ))}
                 </select>
               </div>
-            )}
+            </div>
+
+            {/* PREPÍNAČ HISTÓRIE OŠETRENÍ */}
+            <button
+              onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-xs font-medium text-[#2C2A29] transition-all shadow-xs"
+              title="História aplikácií tohto pacienta"
+            >
+              <History className="w-4 h-4 text-[#C5A059]" />
+              <span className="hidden sm:inline">História pacienta</span>
+              <span className="w-5 h-5 rounded-full bg-[#FAF8F5] border border-[#E8E2D9] text-[10px] font-bold flex items-center justify-center">
+                {patientHistoryRecords.length}
+              </span>
+            </button>
 
             {/* PREPÍNAČ POHĽADOV */}
             <div className="flex items-center bg-[#FAF8F5]/80 p-1 rounded-2xl border border-[#E8E2D9]">
@@ -275,30 +434,72 @@ export function AestheticsModule({
               </button>
             </div>
 
+            {/* TLAČIDLO ULOŽIŤ DO KARTY PACIENTA */}
             <button
-              onClick={handleSaveProtocol}
+              onClick={handleSaveProtocolToPatientFolder}
               className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-[#C5A059] to-[#B38F46] hover:from-[#B38F46] hover:to-[#9E7B35] text-white text-xs font-semibold shadow-md shadow-[#C5A059]/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Save className="w-4 h-4" />
-              <span>{isSavedSuccess ? 'Uložené!' : 'Uložiť záznam'}</span>
+              <span>Uložiť do zložky pacienta</span>
             </button>
           </div>
         </div>
       </div>
 
+      {/* DRAWER / HISTÓRIA PACIENTA */}
+      {showHistoryDrawer && (
+        <div className="rounded-3xl p-5 bg-[#FAF8F5] border border-[#E8E2D9] shadow-inner space-y-3 print:hidden animate-in fade-in duration-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-[#C5A059]" />
+              <h3 className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
+                Predchádzajúce estetické ošetrenia & dekurzy klienta: {currentPatient.name}
+              </h3>
+            </div>
+            <button 
+              onClick={() => setShowHistoryDrawer(false)}
+              className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-bold"
+            >
+              ✕ Zavrieť
+            </button>
+          </div>
+
+          {patientHistoryRecords.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {patientHistoryRecords.map(rec => (
+                <div key={rec.id} className="bg-white p-3.5 rounded-2xl border border-[#E8E2D9] shadow-2xs space-y-1.5">
+                  <div className="flex justify-between items-start">
+                    <span className="px-2 py-0.5 rounded text-[9px] font-bold text-white bg-[#C5A059]">
+                      {rec.type}
+                    </span>
+                    <span className="text-[10px] font-mono text-[#8C857B]">{rec.date}</span>
+                  </div>
+                  <p className="text-xs font-bold text-[#2C2A29]">{rec.title}</p>
+                  <p className="text-[10px] text-[#8C857B] line-clamp-3 whitespace-pre-line">{rec.content}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-[#8C857B] text-center py-4 bg-white/60 rounded-xl border border-dashed border-[#E8E2D9]">
+              Pre tohto pacienta zatiaľ nie sú zaznamenané žiadne predchádzajúce ošetrenia.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* HLAVNÁ ČASŤ - MAPA A OVLÁDACÍ PANEL */}
       {viewMode === 'map' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* ĽAVÝ PANEL: RÝCHLY VÝBER ANATOMICKÝCH ZÓN & MATERIÁLOV (3 COLS) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 print:hidden">
+          {/* ĽAVÝ PANEL: VÝBER PRÍPRAVKU ZO SKLADU & ANATOMICKÉ ZÓNY (3 COLS) */}
           <div className="lg:col-span-3 space-y-4">
             {/* VÝBER AKTUÁLNEHO PRÍPRAVKU ZO SKLADU */}
-            <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/70 border border-white/80 shadow-sm space-y-3">
+            <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/80 border border-white/90 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-1.5">
                   <PackageCheck className="w-4 h-4 text-[#C5A059]" />
                   Aktívny prípravok
                 </span>
-                <span className="text-[10px] text-[#8C857B] font-mono">LOT Sync</span>
+                <span className="text-[10px] text-[#8C857B] font-mono">LOT Tracking</span>
               </div>
 
               <div className="space-y-2">
@@ -340,19 +541,30 @@ export function AestheticsModule({
                 </div>
               </div>
 
+              <div>
+                <label className="text-[10px] text-[#8C857B]">Popis zóny pri manuálnom kliknutí:</label>
+                <input
+                  type="text"
+                  value={inputZoneName}
+                  onChange={(e) => setInputZoneName(e.target.value)}
+                  placeholder="napr. Lícna oblasť vpravo"
+                  className="w-full text-xs p-2 mt-1 rounded-xl bg-white border border-[#E8E2D9] text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
+                />
+              </div>
+
               <p className="text-[10px] text-[#8C857B] bg-[#FAF8F5] p-2 rounded-xl border border-[#E8E2D9]/60">
-                💡 Kliknite priamo do tvárovej mapy pre umiestnenie bodu s týmto materiálom.
+                💡 Kliknite priamo do mramorovej sochy tváre pre umiestnenie bodu.
               </p>
             </div>
 
             {/* ANATOMICKÉ RÝCHLE PREDVOĽBY */}
-            <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/70 border border-white/80 shadow-sm space-y-3">
+            <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/80 border border-white/90 shadow-sm space-y-3">
               <span className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-1.5">
                 <MapPin className="w-4 h-4 text-[#C5A059]" />
                 Rýchle anatomické zóny
               </span>
 
-              <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+              <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
                 {PRESET_ZONES.map((zone) => (
                   <button
                     key={zone.id}
@@ -377,11 +589,12 @@ export function AestheticsModule({
             </div>
           </div>
 
-          {/* STREDNÝ PANEL: INTERAKTÍVNA 2D/3D VEKTOROVÁ MAPA TVÁRE (6 COLS) */}
+          {/* STREDNÝ PANEL: KLASICKÁ SOCHA TVÁRE - FACE MAPPING BUSTA (6 COLS) */}
           <div className="lg:col-span-6 flex flex-col items-center">
-            <div className="w-full rounded-3xl p-6 backdrop-blur-3xl bg-white/80 border border-white shadow-[0_12px_40px_0_rgba(197,160,89,0.12)] relative flex flex-col items-center">
-              {/* HORNÝ ŠTATISTICKÝ SUMÁR */}
-              <div className="w-full flex items-center justify-between pb-4 border-b border-[#E8E2D9]/70 mb-4 z-10">
+            <div className="w-full rounded-3xl p-6 backdrop-blur-3xl bg-white/85 border border-white shadow-[0_12px_40px_0_rgba(197,160,89,0.12)] relative flex flex-col items-center">
+              
+              {/* HORNÝ ŠTATISTICKÝ SUMÁR & FILTRE */}
+              <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-[#E8E2D9]/70 mb-4 gap-3 z-10">
                 <div className="flex items-center gap-4">
                   <div>
                     <span className="text-[10px] uppercase font-bold text-[#8C857B]">Botulotoxín:</span>
@@ -399,10 +612,39 @@ export function AestheticsModule({
                   </div>
                 </div>
 
+                {/* FILTRE TYPU LÁTOK & MRÍŽKA */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-[#8C857B]">
-                    Počet vpichov: <strong className="text-[#2C2A29]">{points.length}</strong>
-                  </span>
+                  <button
+                    onClick={() => setShowGrid(!showGrid)}
+                    className={`p-1.5 rounded-xl border text-xs flex items-center gap-1 transition-colors ${
+                      showGrid ? 'bg-[#2C2A29] text-white border-[#2C2A29]' : 'bg-white text-[#8C857B] border-[#E8E2D9]'
+                    }`}
+                    title="Prepnúť anatomickú mriežku"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                  </button>
+
+                  <div className="flex bg-[#FAF8F5] p-0.5 rounded-xl border border-[#E8E2D9] text-[10px] font-semibold">
+                    <button
+                      onClick={() => setFilterType('all')}
+                      className={`px-2 py-1 rounded-lg ${filterType === 'all' ? 'bg-[#2C2A29] text-white' : 'text-[#8C857B]'}`}
+                    >
+                      Všetko
+                    </button>
+                    <button
+                      onClick={() => setFilterType('botox')}
+                      className={`px-2 py-1 rounded-lg ${filterType === 'botox' ? 'bg-blue-600 text-white' : 'text-[#8C857B]'}`}
+                    >
+                      Botox
+                    </button>
+                    <button
+                      onClick={() => setFilterType('filler')}
+                      className={`px-2 py-1 rounded-lg ${filterType === 'filler' ? 'bg-pink-600 text-white' : 'text-[#8C857B]'}`}
+                    >
+                      Výplne
+                    </button>
+                  </div>
+
                   <button
                     onClick={() => setPoints([])}
                     title="Vymazať všetky body"
@@ -413,75 +655,45 @@ export function AestheticsModule({
                 </div>
               </div>
 
-              {/* INTERAKTÍVNE PLÁTNO TVÁRE */}
+              {/* INTERAKTÍVNE PLÁTNO: KLASICKÁ SOCHÁRSKA BUSTA TVÁRE */}
               <div
                 onClick={handleMapClick}
-                className="relative w-full max-w-[420px] aspect-[1/1.18] rounded-3xl bg-gradient-to-b from-[#F5EFE6]/60 via-[#FDFBF7]/90 to-[#EFE8DC]/80 border border-[#E8E2D9] shadow-inner cursor-crosshair overflow-hidden group select-none"
+                className="relative w-full max-w-[430px] aspect-[3/4] rounded-3xl overflow-hidden border border-[#E8E2D9] shadow-xl cursor-crosshair select-none group bg-gradient-to-b from-[#FAF8F5] to-[#EFEAE2]"
               >
-                {/* Jemná mriežka pre medicínsku presnosť */}
-                <div className="absolute inset-0 bg-[radial-gradient(#C5A059_1px,transparent_1px)] [background-size:16px_16px] opacity-15 pointer-events-none" />
+                {/* 1. ESTETICKÁ MRAMOROVÁ SOCHA TVÁRE AKO BUSTA */}
+                <img
+                  src="/face_bust.jpg?v=1"
+                  alt="Anatomická socha tváre pre Face Mapping"
+                  className="w-full h-full object-cover pointer-events-none filter contrast-[1.02] brightness-[0.98]"
+                />
 
-                {/* VEKTOROVÁ ANATOMICKÁ TVÁR */}
-                <svg
-                  viewBox="0 0 400 480"
-                  className="w-full h-full object-contain pointer-events-none opacity-85"
-                >
-                  <defs>
-                    <linearGradient id="face-skin" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#FFFFFF" />
-                      <stop offset="100%" stopColor="#F5ECE1" />
-                    </linearGradient>
-                  </defs>
+                {/* Jemná anatomická radiálna mriežka pre dokonalé polohovanie */}
+                {showGrid && (
+                  <div className="absolute inset-0 bg-[radial-gradient(#C5A059_1px,transparent_1px)] [background-size:18px_18px] opacity-25 pointer-events-none" />
+                )}
 
-                  {/* Obrys hlavy & krku */}
-                  <path
-                    d="M130 460 C130 380, 140 360, 150 340 C100 310, 70 240, 70 170 C70 80, 128 30, 200 30 C272 30, 330 80, 330 170 C330 240, 300 310, 250 340 C260 360, 270 380, 270 460"
-                    fill="url(#face-skin)"
-                    stroke="#D4C9BD"
-                    strokeWidth="2.5"
-                  />
+                {/* Jemné symetrické osi tváre */}
+                {showGrid && (
+                  <div className="absolute inset-0 pointer-events-none opacity-30 flex items-center justify-center">
+                    <div className="w-full h-px border-t border-dashed border-[#C5A059]" />
+                    <div className="h-full w-px border-l border-dashed border-[#C5A059] absolute" />
+                  </div>
+                )}
 
-                  {/* Kľúčne kosti */}
-                  <path d="M120 460 Q 200 440 280 460" stroke="#D4C9BD" strokeWidth="1.5" strokeDasharray="3 3" fill="none" />
-
-                  {/* Uši */}
-                  <ellipse cx="68" cy="190" rx="12" ry="32" fill="#F5ECE1" stroke="#D4C9BD" strokeWidth="2" />
-                  <ellipse cx="332" cy="190" rx="12" ry="32" fill="#F5ECE1" stroke="#D4C9BD" strokeWidth="2" />
-
-                  {/* Obočie */}
-                  <path d="M120 140 Q 155 125 180 135" stroke="#8C857B" strokeWidth="3" strokeLinecap="round" fill="none" />
-                  <path d="M220 135 Q 245 125 280 140" stroke="#8C857B" strokeWidth="3" strokeLinecap="round" fill="none" />
-
-                  {/* Oči */}
-                  <path d="M130 160 Q 155 145 175 160 Q 155 172 130 160 Z" fill="#FFFFFF" stroke="#8C857B" strokeWidth="1.5" />
-                  <circle cx="152" cy="159" r="6" fill="#4A4543" />
-                  <path d="M225 160 Q 245 145 270 160 Q 245 172 225 160 Z" fill="#FFFFFF" stroke="#8C857B" strokeWidth="1.5" />
-                  <circle cx="248" cy="159" r="6" fill="#4A4543" />
-
-                  {/* Nos & nozdry */}
-                  <path d="M200 135 L198 215 Q 185 225 200 230 Q 215 225 202 215" stroke="#8C857B" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-                  <ellipse cx="192" cy="227" rx="3" ry="1.5" fill="#8C857B" opacity="0.4" />
-                  <ellipse cx="208" cy="227" rx="3" ry="1.5" fill="#8C857B" opacity="0.4" />
-
-                  {/* Pery */}
-                  <path d="M165 265 Q 185 252 200 257 Q 215 252 235 265 Q 200 280 165 265 Z" fill="#F2D6D3" stroke="#C5A059" strokeWidth="1.5" />
-                  <path d="M168 266 Q 200 274 232 266 Q 200 292 168 266 Z" fill="#E8BDBA" stroke="#C5A059" strokeWidth="1.5" />
-                </svg>
-
-                {/* VYKRESLENÉ BODY VPICHU (INJECTION PINS) */}
-                {points.map((pt) => {
+                {/* 2. INTERAKTÍVNE ZOBRAZENÉ BODY VPICHU (INJECTION PINS) */}
+                {filteredPoints.map((pt) => {
                   const isSelected = pt.id === selectedPointId;
                   const isBotox = pt.productType === 'botox';
                   const isFiller = pt.productType === 'filler';
                   const isBio = pt.productType === 'biostimulator';
 
                   const badgeColor = isBotox 
-                    ? 'from-blue-500 to-indigo-600 border-blue-200 text-white' 
+                    ? 'from-blue-600 to-indigo-700 border-blue-200 text-white shadow-blue-500/30' 
                     : isFiller 
-                    ? 'from-pink-500 to-rose-600 border-pink-200 text-white'
+                    ? 'from-pink-500 to-rose-600 border-pink-200 text-white shadow-pink-500/30'
                     : isBio 
-                    ? 'from-amber-500 to-yellow-600 border-amber-200 text-white'
-                    : 'from-emerald-500 to-teal-600 border-emerald-200 text-white';
+                    ? 'from-amber-500 to-yellow-600 border-amber-200 text-white shadow-amber-500/30'
+                    : 'from-emerald-500 to-teal-600 border-emerald-200 text-white shadow-emerald-500/30';
 
                   return (
                     <div
@@ -496,17 +708,19 @@ export function AestheticsModule({
                       }`}
                     >
                       {isSelected && (
-                        <div className="absolute -inset-2 rounded-full bg-[#C5A059]/40 animate-ping" />
+                        <div className="absolute -inset-2 rounded-full bg-[#C5A059]/50 animate-ping" />
                       )}
 
-                      <div className={`relative px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-gradient-to-br ${badgeColor} border shadow-lg flex items-center gap-1`}>
+                      <div className={`relative px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-gradient-to-br ${badgeColor} border shadow-lg flex items-center gap-1`}>
                         <span>{pt.unitsOrVolume}{pt.unitLabel}</span>
                       </div>
 
+                      {/* Tooltip pri prejdení myšou */}
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/pin:flex flex-col items-center pointer-events-none z-40">
-                        <div className="bg-[#2C2A29]/95 backdrop-blur-md text-white text-[10px] px-2.5 py-1 rounded-xl shadow-xl whitespace-nowrap border border-white/20">
+                        <div className="bg-[#2C2A29]/95 backdrop-blur-md text-white text-[10px] px-2.5 py-1.5 rounded-xl shadow-xl whitespace-nowrap border border-white/20">
                           <p className="font-bold text-[#C5A059]">{pt.zone}</p>
                           <p className="text-gray-300">{pt.productName} ({pt.unitsOrVolume} {pt.unitLabel})</p>
+                          <p className="text-[9px] text-gray-400 font-mono">LOT: {pt.lotNumber}</p>
                         </div>
                         <div className="w-1.5 h-1.5 bg-[#2C2A29] rotate-45 -mt-0.5" />
                       </div>
@@ -515,19 +729,20 @@ export function AestheticsModule({
                 })}
               </div>
 
+              {/* LEGENDA POD SOCHOU */}
               <div className="w-full flex items-center justify-between text-[11px] text-[#8C857B] mt-4 pt-3 border-t border-[#E8E2D9]/70">
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-blue-500" /> Botox
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Botox
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-pink-500" /> Kyselina hyalurónová
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="w-2.5 h-2.5 rounded-full bg-pink-500" /> Kys. hyalurónová
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" /> Biostimulátory
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Biostimulátory
                   </span>
                 </div>
-                <span>SAY CLINIC Anatomical Atlas v2.6</span>
+                <span className="font-serif italic text-xs">SAY CLINIC Aesthetic Sculpture Map</span>
               </div>
             </div>
           </div>
@@ -535,7 +750,7 @@ export function AestheticsModule({
           {/* PRAVÝ PANEL: DETAIL ZVOLENÉHO VPICHU & ZOZNAM (3 COLS) */}
           <div className="lg:col-span-3 space-y-4">
             {activePoint ? (
-              <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/75 border border-white/80 shadow-md space-y-3 relative overflow-hidden">
+              <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/80 border border-white/90 shadow-md space-y-3 relative overflow-hidden">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
                     Detail vpichu
@@ -618,12 +833,12 @@ export function AestheticsModule({
               </div>
             ) : (
               <div className="rounded-3xl p-6 backdrop-blur-2xl bg-white/50 border border-white/60 text-center text-xs text-[#8C857B]">
-                Kliknite na ktorýkoľvek bod na mape pre úpravu jeho parametrov.
+                Kliknite na ktorýkoľvek bod na soche tváre pre úpravu jeho parametrov.
               </div>
             )}
 
             {/* ZOZNAM VŠETKÝCH APLIKOVANÝCH BODOV */}
-            <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/70 border border-white/80 shadow-sm space-y-3">
+            <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/80 border border-white/90 shadow-sm space-y-3">
               <span className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-1.5">
                 <Layers className="w-4 h-4 text-[#C5A059]" />
                 Zoznam aplikácií ({points.length})
@@ -643,7 +858,7 @@ export function AestheticsModule({
                     <div className="truncate pr-2">
                       <p className="font-semibold truncate">{pt.zone}</p>
                       <p className={`text-[10px] truncate ${pt.id === selectedPointId ? 'text-gray-300' : 'text-[#8C857B]'}`}>
-                        {pt.productName.split(' ')[0]}
+                        {pt.productName.split(' ')[0]} ({pt.lotNumber})
                       </p>
                     </div>
                     <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg ${
@@ -659,91 +874,135 @@ export function AestheticsModule({
         </div>
       )}
 
-      {/* POHĽAD: LEKÁRSKY PROTOKOL */}
+      {/* POHĽAD: LEKÁRSKY PROTOKOL (PRE NÁHĽAD & OFICIÁLNU TLAČ A4) */}
       {viewMode === 'protocol' && (
-        <div className="max-w-4xl mx-auto rounded-3xl p-8 backdrop-blur-3xl bg-white/85 border border-white shadow-xl space-y-6">
-          <div className="flex items-center justify-between border-b border-[#E8E2D9] pb-6">
-            <div>
-              <div className="text-lg font-serif font-bold tracking-widest text-[#2C2A29]">
-                SAY CLINIC
+        <div className="max-w-4xl mx-auto rounded-3xl p-8 backdrop-blur-3xl bg-white/90 border border-white shadow-xl space-y-6 print:p-0 print:border-none print:shadow-none print:bg-white">
+          
+          <div id="printable-a4" className="printable-document bg-white p-8 sm:p-10 border border-[#E8E2D9] rounded-2xl shadow-sm text-xs leading-relaxed space-y-6 print:border-none print:shadow-none print:p-0">
+            {/* HLAVIČKA PROTOKOLU */}
+            <div className="flex items-center justify-between border-b border-[#E8E2D9] pb-6">
+              <div>
+                <div className="text-2xl font-serif font-bold tracking-widest text-[#2C2A29]">
+                  SAY CLINIC
+                </div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mt-0.5">
+                  PLASTICKÁ CHIRURGIA & DERMATOLÓGIA
+                </div>
+                <p className="text-[10px] text-[#8C857B] mt-1">Lazovná 43, 974 01 Banská Bystrica • www.sayclinic.sk</p>
               </div>
-              <div className="text-[10px] uppercase tracking-widest text-[#8C857B] font-semibold">
-                Protokol o aplikácii estetických liečiv a výplní
+              <div className="text-right">
+                <div className="text-xs font-bold text-[#2C2A29]">Dátum: {new Date().toLocaleDateString('sk-SK')}</div>
+                <div className="text-[10px] text-[#8C857B] font-mono">Číslo záznamu: {protocolRecordNo}</div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-xs font-bold text-[#2C2A29]">Dátum: {currentDateStr}</div>
-              <div className="text-[10px] text-[#8C857B]">Číslo záznamu: {protocolRecordNo}</div>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] text-xs">
-            <div>
-              <p className="text-[10px] text-[#8C857B] uppercase font-bold">Pacient:</p>
-              <p className="font-bold text-[#2C2A29] text-sm">{currentPatient.name}</p>
-              <p className="text-[#8C857B]">Rodné číslo: {currentPatient.birthNumber || currentPatient.dob}</p>
+            {/* INFORMÁCIE O PACIENTOVI & LEKÁROVI */}
+            <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] text-xs">
+              <div>
+                <p className="text-[10px] text-[#8C857B] uppercase font-bold">Pacient / Klient:</p>
+                <p className="font-bold text-[#2C2A29] text-sm">{currentPatient.name}</p>
+                <p className="text-[#8C857B]">Rodné číslo: {currentPatient.birthNumber || currentPatient.dob}</p>
+                <p className="text-[#8C857B]">Poisťovňa: {currentPatient.insurance}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-[#8C857B] uppercase font-bold">Ošetrujúci lekár & pracovisko:</p>
+                <p className="font-bold text-[#2C2A29] text-sm">MUDr. Ján Mráz</p>
+                <p className="text-[#8C857B]">SAY CLINIC Banská Bystrica</p>
+                <p className="text-[#8C857B]">Výkon: Aplikácia estetických liečiv a výplní</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] text-[#8C857B] uppercase font-bold">Ošetrujúci lekár:</p>
-              <p className="font-bold text-[#2C2A29] text-sm">MUDr. Ján Mráz / MUDr. Zuzana Sroková</p>
-              <p className="text-[#8C857B]">SAY CLINIC Bratislava</p>
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#2C2A29] flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
-              Evidencia použitých šarží a liečiv (LOT Tracking):
-            </h3>
-            <div className="border border-[#E8E2D9] rounded-2xl overflow-hidden shadow-xs">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#FAF8F5] text-[#8C857B] font-bold border-b border-[#E8E2D9]">
-                  <tr>
-                    <th className="p-3">Zóna vpichu</th>
-                    <th className="p-3">Použitý prípravok</th>
-                    <th className="p-3">Šarža (LOT)</th>
-                    <th className="p-3">Hĺbka</th>
-                    <th className="p-3 text-right">Dávka</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E8E2D9]/60">
-                  {points.map((pt, idx) => (
-                    <tr key={idx} className="hover:bg-white/60">
-                      <td className="p-3 font-semibold text-[#2C2A29]">{pt.zone}</td>
-                      <td className="p-3 text-[#2C2A29]">{pt.productName}</td>
-                      <td className="p-3 font-mono font-medium text-[#C5A059]">{pt.lotNumber}</td>
-                      <td className="p-3 text-[#8C857B]">{pt.depth}</td>
-                      <td className="p-3 text-right font-mono font-bold text-[#2C2A29]">
-                        {pt.unitsOrVolume} {pt.unitLabel}
-                      </td>
+            {/* SÚHRNNÉ DÁVKOVANIE */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] text-center">
+                <span className="text-[10px] text-[#8C857B] uppercase font-bold">Botulotoxín:</span>
+                <p className="text-sm font-bold font-mono text-blue-600">{totalBotoxIU} IU</p>
+              </div>
+              <div className="p-3 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] text-center">
+                <span className="text-[10px] text-[#8C857B] uppercase font-bold">Výplne / Kys. hyalurónová:</span>
+                <p className="text-sm font-bold font-mono text-pink-600">{totalFillerML.toFixed(1)} ml</p>
+              </div>
+              <div className="p-3 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] text-center">
+                <span className="text-[10px] text-[#8C857B] uppercase font-bold">Počet vpichov:</span>
+                <p className="text-sm font-bold font-mono text-[#2C2A29]">{points.length} bodov</p>
+              </div>
+            </div>
+
+            {/* TABUĽKA ŠARŽÍ & APLIKOVANÝCH BODOV */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#2C2A29] flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
+                Evidencia použitých šarží a liečiv (LOT Tracking):
+              </h3>
+              <div className="border border-[#E8E2D9] rounded-2xl overflow-hidden shadow-xs">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#FAF8F5] text-[#8C857B] font-bold border-b border-[#E8E2D9]">
+                    <tr>
+                      <th className="p-3">Zóna vpichu</th>
+                      <th className="p-3">Použitý prípravok</th>
+                      <th className="p-3">Šarža (LOT)</th>
+                      <th className="p-3">Hĺbka</th>
+                      <th className="p-3 text-right">Dávka</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[#E8E2D9]/60">
+                    {points.map((pt, idx) => (
+                      <tr key={idx} className="hover:bg-white/60">
+                        <td className="p-3 font-semibold text-[#2C2A29]">{pt.zone}</td>
+                        <td className="p-3 text-[#2C2A29]">{pt.productName}</td>
+                        <td className="p-3 font-mono font-medium text-[#C5A059]">{pt.lotNumber}</td>
+                        <td className="p-3 text-[#8C857B]">{pt.depth}</td>
+                        <td className="p-3 text-right font-mono font-bold text-[#2C2A29]">
+                          {pt.unitsOrVolume} {pt.unitLabel}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* PODPISOVÁ ČASŤ & POUČENIE */}
+            <div className="mt-12 pt-8 border-t border-[#E8E2D9] flex justify-between items-end text-[10px] text-[#8C857B]">
+              <div>
+                <p className="font-bold text-[#C5A059] mb-0.5">SAY CLINIC Medical Record</p>
+                <p>Protokol vygenerovaný elektronickým systémom SAY CLINIC</p>
+              </div>
+              <div className="text-center">
+                <div className="w-44 border-b border-[#2C2A29] mb-2" />
+                <span className="font-bold text-[#2C2A29]">MUDr. Ján Mráz</span><br />
+                Pečiatka a podpis lekára
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-[#E8E2D9]">
-            <div className="text-xs text-[#8C857B]">
-              Informovaný súhlas podpísaný elektronicky dňa: {currentDateStr}
-            </div>
+          {/* OVLÁDACIA LIŠTA PRE PROTOKOL */}
+          <div className="flex items-center justify-between pt-2 border-t border-[#E8E2D9] print:hidden">
+            <button
+              type="button"
+              onClick={() => setViewMode('map')}
+              className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-medium"
+            >
+              ← Späť na mapu tváre
+            </button>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-xs font-semibold text-[#2C2A29] shadow-xs"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-xs font-semibold text-[#2C2A29] shadow-xs cursor-pointer"
               >
-                <Printer className="w-4 h-4" /> Tlačiť protokol
+                <Printer className="w-4 h-4" /> Tlačiť čistý protokol (A4)
               </button>
               <button
                 type="button"
-                onClick={handleSaveProtocol}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-[#2C2A29] text-white text-xs font-semibold shadow-md"
+                onClick={handleSaveProtocolToPatientFolder}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-semibold shadow-md transition-colors cursor-pointer"
               >
-                <Save className="w-4 h-4" /> Uložiť do karty pacienta
+                <Save className="w-4 h-4" /> Uložiť do zložky pacienta
               </button>
             </div>
           </div>
+
         </div>
       )}
     </div>

@@ -22,3 +22,44 @@
     letter-spacing: 0.12em;
   }
 }
+
+/* Comprehensive Print Optimization - Hide all navigation, top bars, buttons */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 15mm;
+  }
+
+  header, 
+  nav, 
+  footer, 
+  button, 
+  .print\:hidden,
+  [class*="print:hidden"] {
+    display: none !important;
+  }
+
+  html, body, main {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    min-height: auto !important;
+  }
+
+  #printable-a4,
+  .printable-document {
+    visibility: visible !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+}

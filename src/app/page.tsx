@@ -190,7 +190,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-[#FBF9F6]">
       {/* HLAVIČKA A PRECHOD NA HOMESCREEN CEZ LOGO */}
-      <header className="bg-white border-b border-[#E8E2D9] sticky top-0 z-40 shadow-sm">
+      <header className="bg-white border-b border-[#E8E2D9] sticky top-0 z-40 shadow-sm print:hidden">
         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
           
           {/* LOGO (KLIKNUTIE PRESMERUJE NA HOMESCREEN) */}
@@ -529,6 +529,10 @@ export default function Home() {
             {activeTab === 'patients' && (
               <PatientDatabase 
                 onNavigateToGenerator={handleNavigateToGenerator} 
+                onNavigateToAesthetics={(patient) => {
+                  setSelectedPatientForFolder(patient);
+                  changeTab('aesthetics');
+                }}
                 initialPatient={selectedPatientForFolder}
                 onPatientsUpdated={(updatedList) => setPatients(updatedList)}
               />
@@ -542,6 +546,10 @@ export default function Home() {
                 onSelectPatient={(id) => {
                   const p = patients.find(pat => pat.id === id);
                   if (p) setSelectedPatientForFolder(p);
+                }}
+                onOpenPatientFolder={(patient) => {
+                  setSelectedPatientForFolder(patient);
+                  changeTab('patients');
                 }}
               />
             )}

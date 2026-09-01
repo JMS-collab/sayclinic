@@ -41,11 +41,12 @@ interface UploadedPhoto {
 
 interface PatientDatabaseProps {
   onNavigateToGenerator?: (patient: Patient) => void;
+  onNavigateToAesthetics?: (patient: Patient) => void;
   initialPatient?: Patient | null;
   onPatientsUpdated?: (patients: Patient[]) => void;
 }
 
-export default function PatientDatabase({ onNavigateToGenerator, initialPatient, onPatientsUpdated }: PatientDatabaseProps) {
+export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAesthetics, initialPatient, onPatientsUpdated }: PatientDatabaseProps) {
   const { data: session } = useSession();
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || null);
@@ -94,6 +95,30 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
       setSelectedPatient(initialPatient);
     }
   }, [initialPatient]);
+
+  // Načítanie zdravotných záznamov z localStorage
+  useEffect(() => {
+    const savedRecs = localStorage.getItem('say_clinic_patient_records');
+    if (savedRecs) {
+      try {
+        const parsed = JSON.parse(savedRecs);
+        if (parsed && typeof parsed === 'object') {
+          setPatientRecords(prev => ({ ...prev, ...parsed }));
+        }
+      } catch (e) {
+        console.error('Chyba pri načítaní záznamov pacientov z localStorage:', e);
+      }
+    }
+  }, []);
+
+  // Uloženie záznamov do localStorage pri zmene
+  useEffect(() => {
+    try {
+      localStorage.setItem('say_clinic_patient_records', JSON.stringify(patientRecords));
+    } catch (e) {
+      console.error('Chyba pri ukladaní záznamov do localStorage:', e);
+    }
+  }, [patientRecords]);
 
   // 1. Načítanie kešovaných pacientov z localStorage pri štarte
   useEffect(() => {
@@ -622,16 +647,30 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
                     <p className="text-xs text-[#8C857B]">Tel: {patient.phone}</p>
                   </div>
 
-                  <div className="mt-3 pt-3 border-t border-[#E8E2D9] flex justify-between items-center text-[10px]">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingPatient(patient);
-                      }}
-                      className="text-[#8C857B] hover:text-[#C5A059] font-bold uppercase tracking-wider transition-colors flex items-center gap-1"
-                    >
-                      ✏️ Upraviť kartu
-                    </button>
+                  <div className="mt-3 pt-3 border-t border-[#E8E2D9] flex justify-between items-center text-[10px] gap-1">
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingPatient(patient);
+                        }}
+                        className="text-[#8C857B] hover:text-[#C5A059] font-bold uppercase tracking-wider transition-colors flex items-center gap-1"
+                      >
+                        ✏️ Upraviť
+                      </button>
+
+                      {onNavigateToAesthetics && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigateToAesthetics(patient);
+                          }}
+                          className="text-[#C5A059] hover:text-[#9C7D2B] font-bold uppercase tracking-wider transition-colors flex items-center gap-1 border-l border-[#E8E2D9] pl-2"
+                        >
+                          💉 Výplne & Botox
+                        </button>
+                      )}
+                    </div>
 
                     <button 
                       onClick={() => handlePatientSelect(patient)}
@@ -654,7 +693,7 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
 
             <div className="bg-[#FBF9F6] border border-[#E8E2D9] p-5 rounded-xl flex flex-col md:flex-row justify-between gap-4">
               <div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">{selectedPatient.name}</h2>
                   <button 
                     onClick={() => setEditingPatient(selectedPatient)}
@@ -662,6 +701,14 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
                   >
                     ✏️ Upraviť
                   </button>
+                  {onNavigateToAesthetics && (
+                    <button
+                      onClick={() => onNavigateToAesthetics(selectedPatient)}
+                      className="text-xs bg-gradient-to-r from-[#C5A059] to-[#B38F46] text-white px-3 py-1 rounded-lg font-bold shadow-sm hover:opacity-95 transition-all flex items-center gap-1.5"
+                    >
+                      💉 Aplikovať výplne / Botox (Face Mapping)
+                    </button>
+                  )}
                 </div>
                 <p className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold mt-1">Karta pacienta</p>
               </div>
@@ -679,7 +726,7 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
             <PatientDriveFiles patientName={selectedPatient.name} />
 
             <div className="flex gap-2 border-b border-[#E8E2D9]">
-              <button onClick={() => { setActiveFolder('dokumenty'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'dokumenty' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📄 Dokumenty</button>
+              <button onClick={() => { setActiveFolder('dokumenty'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'dokumenty' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📄 Dokumenty & Záznamy</button>
               <button onClick={() => setActiveFolder('fotodokumentacia')} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'fotodokumentacia' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📸 Fotodokumentácia</button>
               <button onClick={() => { setActiveFolder('predoperacne'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'predoperacne' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>🩸 Výsledky & Vyšetrenia</button>
             </div>
@@ -689,11 +736,21 @@ export default function PatientDatabase({ onNavigateToGenerator, initialPatient,
               {/* ZÁLOŽKA DOKUMENTY */}
               {activeFolder === 'dokumenty' && (
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center mb-4">
-                    <p className="text-[10px] uppercase text-[#8C857B] font-bold">História zdravotných záznamov</p>
-                    <button onClick={() => onNavigateToGenerator && onNavigateToGenerator(selectedPatient)} className="text-[11px] bg-[#C5A059] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#b38d45]">
-                      + Vytvoriť nový záznam
-                    </button>
+                  <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                    <p className="text-[10px] uppercase text-[#8C857B] font-bold">História zdravotných záznamov & Protokolov</p>
+                    <div className="flex items-center gap-2">
+                      {onNavigateToAesthetics && (
+                        <button 
+                          onClick={() => onNavigateToAesthetics(selectedPatient)} 
+                          className="text-[11px] bg-[#2C2A29] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#C5A059] transition-colors flex items-center gap-1"
+                        >
+                          💉 + Face Mapping
+                        </button>
+                      )}
+                      <button onClick={() => onNavigateToGenerator && onNavigateToGenerator(selectedPatient)} className="text-[11px] bg-[#C5A059] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#b38d45]">
+                        + Vytvoriť nový záznam
+                      </button>
+                    </div>
                   </div>
                   
                   {patientRecords[selectedPatient.id] && patientRecords[selectedPatient.id].length > 0 ? (
