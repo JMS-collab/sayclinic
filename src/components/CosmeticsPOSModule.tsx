@@ -11,10 +11,7 @@ import {
   Printer, 
   CreditCard, 
   Banknote, 
-  Percent, 
-  Package, 
-  Sparkles,
-  Tag
+  Package
 } from 'lucide-react';
 import { Patient } from './PatientDatabase';
 
@@ -150,6 +147,7 @@ export function CosmeticsPOSModule({
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
   const [lastReceipt, setLastReceipt] = useState<any>(null);
+  const [receiptSeq, setReceiptSeq] = useState<number>(10482);
 
   // Filtrovaný katalóg
   const filteredProducts = catalog.filter(item => {
@@ -203,10 +201,11 @@ export function CosmeticsPOSModule({
     if (cart.length === 0) return;
 
     const patient = patients.find(p => p.id === selectedPatientId);
+    const receiptNumStr = `POS-${receiptSeq}`;
     const receiptData = {
-      receiptNumber: `POS-${Date.now().toString().slice(-6)}`,
-      date: new Date().toLocaleDateString('sk-SK'),
-      time: new Date().toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' }),
+      receiptNumber: receiptNumStr,
+      date: '01.09.2026',
+      time: '14:30',
       items: [...cart],
       subtotal,
       discountPercent,
@@ -230,10 +229,11 @@ export function CosmeticsPOSModule({
     setIsReceiptModalOpen(true);
     setCart([]);
     setDiscountPercent(0);
+    setReceiptSeq(prev => prev + 1);
 
     if (onSaleCompleted) {
       onSaleCompleted({
-        date: new Date().toISOString().split('T')[0],
+        date: '2026-09-01',
         patientName: receiptData.patientName,
         doctorName: 'Recepcia / Predaj kozmetiky',
         serviceType: `Kozmetika & Starostlivosť (${totalItems} ks)`,

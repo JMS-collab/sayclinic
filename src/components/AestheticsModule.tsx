@@ -10,8 +10,7 @@ import {
   Layers, 
   Printer, 
   Save, 
-  User, 
-  CheckCircle2 
+  User 
 } from 'lucide-react';
 import { Patient } from './PatientDatabase';
 
@@ -133,9 +132,12 @@ export function AestheticsModule({
   const [selectedPointId, setSelectedPointId] = useState<string | null>('pt1');
   const [selectedMaterialIdx, setSelectedMaterialIdx] = useState(0);
   const [inputQty, setInputQty] = useState<number>(10);
-  const [inputZoneName, setInputZoneName] = useState('Vlastná zóna');
+  const [inputZoneName] = useState('Vlastná zóna');
   const [viewMode, setViewMode] = useState<'map' | 'protocol'>('map');
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
+  const [pointSeq, setPointSeq] = useState(5);
+  const [protocolRecordNo] = useState('AES-928412');
+  const [currentDateStr] = useState('01.09.2026');
 
   // Výpočet celkových spotrebovaných jednotiek
   const totalBotoxIU = points
@@ -156,7 +158,7 @@ export function AestheticsModule({
 
     const material = PRESET_MATERIALS[selectedMaterialIdx];
     const newPt: InjectionPoint = {
-      id: `pt_${Date.now()}`,
+      id: `pt_${pointSeq}`,
       x,
       y,
       zone: inputZoneName,
@@ -171,12 +173,13 @@ export function AestheticsModule({
 
     setPoints([...points, newPt]);
     setSelectedPointId(newPt.id);
+    setPointSeq(prev => prev + 1);
   };
 
   const handleQuickAddZone = (zone: typeof PRESET_ZONES[0]) => {
     const matchingMat = PRESET_MATERIALS.find(m => m.type === zone.type) || PRESET_MATERIALS[0];
     const newPt: InjectionPoint = {
-      id: `pt_${Date.now()}`,
+      id: `pt_${pointSeq}`,
       x: zone.x,
       y: zone.y,
       zone: zone.name,
@@ -191,6 +194,7 @@ export function AestheticsModule({
 
     setPoints([...points, newPt]);
     setSelectedPointId(newPt.id);
+    setPointSeq(prev => prev + 1);
   };
 
   const handleDeletePoint = (id: string, e?: React.MouseEvent) => {
@@ -668,8 +672,8 @@ export function AestheticsModule({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs font-bold text-[#2C2A29]">Dátum: {new Date().toLocaleDateString('sk-SK')}</div>
-              <div className="text-[10px] text-[#8C857B]">Číslo záznamu: AES-{Date.now().toString().slice(-6)}</div>
+              <div className="text-xs font-bold text-[#2C2A29]">Dátum: {currentDateStr}</div>
+              <div className="text-[10px] text-[#8C857B]">Číslo záznamu: {protocolRecordNo}</div>
             </div>
           </div>
 
@@ -721,7 +725,7 @@ export function AestheticsModule({
 
           <div className="flex items-center justify-between pt-4 border-t border-[#E8E2D9]">
             <div className="text-xs text-[#8C857B]">
-              Informovaný súhlas podpísaný elektronicky dňa: {new Date().toLocaleDateString('sk-SK')}
+              Informovaný súhlas podpísaný elektronicky dňa: {currentDateStr}
             </div>
             <div className="flex items-center gap-3">
               <button

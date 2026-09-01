@@ -8,7 +8,11 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "SAY CLINIC",
-  description: "Plastická chirurgia & Dermatológia",
+  description: "Plastická chirurgia & Dermatológia - SAY CLINIC IS",
+  openGraph: {
+    title: "SAY CLINIC",
+    description: "Plastická chirurgia & Dermatológia - SAY CLINIC IS",
+  },
 };
 
 export default function RootLayout({
