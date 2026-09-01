@@ -10,7 +10,7 @@ interface AvatarProps {
 }
 
 const MEMOJI_MAP: Record<string, string> = {
-  u1: '/avatars/mraz.jpg?v=2',
+  u1: '/avatars/mraz.jpg?v=4',
   u2: '/avatars/srokova.jpg?v=2',
   u3: '/avatars/tran.jpg?v=2',
   u4: '/avatars/mecerodova.jpg?v=2',
