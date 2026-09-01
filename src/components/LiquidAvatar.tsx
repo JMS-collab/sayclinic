@@ -10,13 +10,13 @@ interface AvatarProps {
 }
 
 const MEMOJI_MAP: Record<string, string> = {
-  u1: '/avatars/mraz.jpg',
-  u2: '/avatars/srokova.jpg',
-  u3: '/avatars/tran.jpg',
-  u4: '/avatars/mecerodova.jpg',
-  u5: '/avatars/solivajsova.jpg',
-  u6: '/avatars/foltani.jpg',
-  u7: '/avatars/lenhartova.jpg',
+  u1: '/avatars/mraz.jpg?v=2',
+  u2: '/avatars/srokova.jpg?v=2',
+  u3: '/avatars/tran.jpg?v=2',
+  u4: '/avatars/mecerodova.jpg?v=2',
+  u5: '/avatars/solivajsova.jpg?v=2',
+  u6: '/avatars/foltani.jpg?v=2',
+  u7: '/avatars/lenhartova.jpg?v=2',
 };
 
 export function LiquidAvatar({ id, name, role, className = "w-full h-full" }: AvatarProps) {

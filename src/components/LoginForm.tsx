@@ -81,12 +81,12 @@ export const SAY_CLINIC_USERS: UserAccount[] = [
 ];
 
 const PRESET_PORTRAITS = [
-  { label: 'iOS Memoji Mraz (Chirurg)', url: '/avatars/mraz.jpg' },
-  { label: 'iOS Memoji Srokova (Lekár)', url: '/avatars/srokova.jpg' },
-  { label: 'iOS Memoji Tran (Chirurg)', url: '/avatars/tran.jpg' },
-  { label: 'iOS Memoji Mecerodova (Manažment)', url: '/avatars/mecerodova.jpg' },
-  { label: 'iOS Memoji Solivajsova (Recepcia)', url: '/avatars/solivajsova.jpg' },
-  { label: 'iOS Memoji Sestra (Operačná sála)', url: '/avatars/foltani.jpg' },
+  { label: 'iOS Memoji Mraz (Chirurg)', url: '/avatars/mraz.jpg?v=2' },
+  { label: 'iOS Memoji Srokova (Lekár - Blond)', url: '/avatars/srokova.jpg?v=2' },
+  { label: 'iOS Memoji Tran (Chirurg)', url: '/avatars/tran.jpg?v=2' },
+  { label: 'iOS Memoji Mecerodova (Manažment - Blond)', url: '/avatars/mecerodova.jpg?v=2' },
+  { label: 'iOS Memoji Solivajsova (Recepcia - Blond)', url: '/avatars/solivajsova.jpg?v=2' },
+  { label: 'iOS Memoji Sestra (Operačná sála)', url: '/avatars/foltani.jpg?v=2' },
   { label: 'Klinický portrét Lekár', url: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=400&auto=format&fit=crop' },
   { label: 'Klinický portrét Lekárka', url: 'https://images.unsplash.com/photo-1594824813689-c4391694d4d8?q=80&w=400&auto=format&fit=crop' },
 ];
