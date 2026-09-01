@@ -262,6 +262,154 @@ export const DEFAULT_CHECKUP_MACROS: Record<string, {
   }
 };
 
+// PREDDEFINOVANÝ PERSONÁL PRE OPERAČNÝ TÍM
+export const SURGICAL_TEAM_PRESETS = {
+  operators: [
+    'MUDr. Ján Mráz',
+    'MUDr. Zuzana Sroková, MPH',
+    'MUDr. Minh Tuong Tran'
+  ],
+  assistants: [
+    'Bez asistencie',
+    'MUDr. Zuzana Sroková, MPH',
+    'MUDr. Minh Tuong Tran',
+    'MUDr. Ján Mráz',
+    'Sabina Lenhartová',
+    'Ema Foltáni',
+    'Bc. Katarína Ondrušová'
+  ],
+  anesthesiologists: [
+    'MUDr. Peter Kováč',
+    'MUDr. Ivan Bella',
+    'MUDr. Martin Hraško',
+    'MUDr. Elena Vargová',
+    'Lokálna anestézia (bez anesteziológa)'
+  ],
+  instrumentalists: [
+    'Sabina Lenhartová',
+    'Ema Foltáni',
+    'Bc. Katarína Ondrušová',
+    'Mgr. Elena Solivajsová'
+  ],
+  anestNurses: [
+    'Ema Foltáni',
+    'Sabina Lenhartová',
+    'Bc. Andrea Kmeťová',
+    'Bez anest. sestry (Lokálna anestézia)'
+  ]
+};
+
+export interface SurgeryImplantItem {
+  id: string;
+  vyrobca: string;
+  model: string;
+  kat: string;
+  objem: string;
+  strana: string;
+  lot: string;
+  sn: string;
+}
+
+// AUTOMATICKÉ ODPORÚČANIA PO OPERÁCII PRE OŠETRUJÚCI PERSONÁL PODĽA TYPU OPERÁCIE
+export const DEFAULT_POSTOP_STAFF_RECOMMENDATIONS: Record<string, string[]> = {
+  breast: [
+    "Polohovanie pacienta: Fowlerova poloha (elevácia trupu 30° – 45°), nezaťažovať horné končatiny.",
+    "Monitorovanie vitálnych funkcií (TK, P, SpO2, vedomie) každých 30 min. prvé 2 hodiny, následne á 1 hod.",
+    "Kontrola kompresívnej podprsenky a stabilizačného pásu – prádlo nesmie tlačiť v axilách a nesmie sa uvoľňovať.",
+    "Lokálne chladenie: Suchý chlad (gélové vankúšiky cez sterilné krytie na horný pól dekoltu) á 20 min.",
+    "Sledovanie symetrie prsníkov, tenzie tkanív a prípadného krvácania/hematómu (náhly asymetrický opuch ihneď hlásiť lekárovi).",
+    "Kontrola a zaznamenávanie odpadu z Redonových drénov (množstvo v ml, farba, podtlak).",
+    "Analgézia: Aplikácia ordinovaných analgetík (i.v. / p.o.) pri VAS > 3, zákaz podávania kyseliny acetylsalicylovej.",
+    "Mobilizácia: Prvá vertikalizácia výhradne za asistencie sestry s kontrolou tlaku krvi, zákaz dvíhania rúk nad úroveň ramien."
+  ],
+  abdomen: [
+    "Polohovanie: Fowlerova poloha s podloženými/ohnutými kolenami (zníženie tenzie na sutúru brušnej steny).",
+    "Monitorovanie vitálnych funkcií a diurézy, sledovanie celkového pooperačného stavu.",
+    "Kontrola a správne nastavenie kompresívneho brušného pásu / body (rovnomerný tlak bez záhybov).",
+    "Kontrola funkčnosti a odpadu z Redonových drénov (záznam množstva sekrétu v ml a charakteru).",
+    "Prevencia tromboembolizmu (TEN): Bandáž / kompresívne pančuchy DK, aplikácia nízkomolekulárneho heparínu (LMWH) podľa ordinácie, precvičovanie distálnych končatín na lôžku.",
+    "Mobilizácia: Vstávanie výhradne s doprovodom sestry v miernom predklone trupu (šetriaci režim sutúry).",
+    "Analgézia a antiemetická terapia podľa lekárskej preskripcie."
+  ],
+  liposuction: [
+    "Kontrola kompresívneho prádla (presné priliehanie, nesmie vytvárať zárezy a kompresiu ciev).",
+    "Sledovanie a pravidelná výmena absorpčných sterilných podložiek pri presakovaní tumescentného roztoku.",
+    "Hydratácia: Postupný príjem tekutín po vymiznutí poanestetickej nauzey, parenterálna hydratácia podľa ordinácie.",
+    "Monitorovanie TK a pulzu – pozor na ortostatickú hypotenziu pri prvej vertikalizácii.",
+    "Prvá mobilizácia s asistenciou personálu po stabilizácii vitálnych parametrov.",
+    "Analgézia podľa ordinácie operatéra."
+  ],
+  face: [
+    "Polohovanie: Zvýšená poloha hlavy a trupu (30° – 45°), zákaz predkláňania a prudkých rotácií hlavy.",
+    "Lokálne chladenie: Suché chladivé gélové obklady cez gázu na líca a submandibulárnu oblasť.",
+    "Sledovanie prekrvenia kožných lalokov (kapilárny návrat, farba, teplota, vylúčenie cyanózy alebo hematómu).",
+    "Kontrola fixačnej ohlávky / kompresívneho obväzu (tlak nesmie spôsobovať ischémiu ušníc).",
+    "Kontrola hemostatic netu a drenáže (sledovanie sekrécie a presakovania).",
+    "Prísny kľudový režim, zákaz mimického prepínania a žuvania tuhej stravy (tekutá/kašovitá strava)."
+  ],
+  eyelids: [
+    "Polohovanie vo zvýšenej polohe (Fowler 30°), zákaz predkláňania a tlaku na oči.",
+    "Aplikácia suchých chladivých gélových obkladov na viečka (á 15-20 minút) na prevenciu edému a sufúzií.",
+    "Kontrola krytia a prípadného presakovania krvi z operačných rán na viečkach.",
+    "Sledovanie zrakových funkcií, reakcie zreníc a bulbomotoriky (prípadnú bolesť za okom alebo poruchu zraku ihneď hlásiť!).",
+    "Aplikácia očných kvapiek / masti podľa ordinácie lekára."
+  ],
+  nose: [
+    "Polohovanie hlavy v elevácii (30° – 45°), dýchanie ústami.",
+    "Kontrola a pravidelná výmena sterilného praku (absorpčnej gázy) pod nosom, kontrola tamponády/dlahy.",
+    "Lokálne chladenie periorbitálnej oblasti (ľadové obklady na oči a líca, NIE priamo na nos).",
+    "Zákaz smrkania, vyfukovania nosa a predkláňania, kýchanie len s otvorenými ústami.",
+    "Starostlivosť o pery a ústnu dutinu (zvlhčovanie z dôvodu dýchania ústami)."
+  ],
+  labia: [
+    "Kľudový režim na lôžku v horizontálnej polohe s mierne podloženými dolnými končatinami.",
+    "Pravidelné lokálne chladenie cez sterilné krytie (suchý chlad).",
+    "Sledovanie operačnej rany: kontrola krvácania, opuchu a hematómu.",
+    "Intímna hygiena: po každej mikcii oplach vlažnou vodou / dezinfekčným roztokom, jemné sušenie bez trenia.",
+    "Použitie priedušnej bavlnenej bielizne a sterilných vložiek bez parfumácie."
+  ],
+  extremity: [
+    "Polohovanie operovanej končatiny v elevácii (šatka / podloženie vankúšom) na zníženie edému a pulzácie.",
+    "Pravidelná kontrola prekrvenia, citlivosti a teploty prstov (kapilárny návrat < 2s).",
+    "Kontrola sterilného obväzu, nesmie škrtiť ani byť presiaknutý krvou.",
+    "Šetrné pasívne/aktívne precvičovanie voľných prstov.",
+    "Analgézia per os pri nástupe bolesti po odznení lokálneho anestetika."
+  ],
+  default: [
+    "Polohovanie pacienta vo Fowlerovej polohe s eleváciou trupu 30°.",
+    "Monitorovanie vitálnych funkcií (TK, P, SpO2, vedomie) v pravidelných intervaloch.",
+    "Pravidelná kontrola operačnej rany a sterilného krytia na známky krvácania.",
+    "Aplikácia ordinovanej analgetickej a antiemetickej terapie.",
+    "Dohľad nad hydratáciou a postupným príjmom tekutín.",
+    "Mobilizácia pacienta výhradne za asistencie ošetrujúceho personálu."
+  ]
+};
+
+export const getStaffRecommendationsForProcedure = (procedureName: string): string => {
+  const norm = (procedureName || '').toLowerCase();
+  let list: string[] = DEFAULT_POSTOP_STAFF_RECOMMENDATIONS.default;
+
+  if (norm.includes('prs') || norm.includes('augmen') || norm.includes('mastopex') || norm.includes('redukc') || norm.includes('implantát')) {
+    list = DEFAULT_POSTOP_STAFF_RECOMMENDATIONS.breast;
+  } else if (norm.includes('abdomin') || norm.includes('brucho') || norm.includes('diastáz') || norm.includes('miniabdo') || norm.includes('bodylift')) {
+    list = DEFAULT_POSTOP_STAFF_RECOMMENDATIONS.abdomen;
+  } else if (norm.includes('lipo')) {
+    list = DEFAULT_POSTOP_STAFF_RECOMMENDATIONS.liposuction;
+  } else if (norm.includes('face') || norm.includes('smas') || norm.includes('neck') || norm.includes('krk') || norm.includes('deep plane') || norm.includes('lift')) {
+    list = DEFAULT_POSTOP_STAFF_RECOMMENDATIONS.face;
+  } else if (norm.includes('blefaro') || norm.includes('vieč') || norm.includes('brow')) {
+    list = DEFAULT_POSTOP_STAFF_RECOMMENDATIONS.eyelids;
+  } else if (norm.includes('rhino') || norm.includes('nos') || norm.includes('septo')) {
+    list = DEFAULT_POSTOP_STAFF_RECOMMENDATIONS.nose;
+  } else if (norm.includes('labio') || norm.includes('intím')) {
+    list = DEFAULT_POSTOP_STAFF_RECOMMENDATIONS.labia;
+  } else if (norm.includes('karpál') || norm.includes('prst') || norm.includes('dupuytren') || norm.includes('ruka') || norm.includes('znamien')) {
+    list = DEFAULT_POSTOP_STAFF_RECOMMENDATIONS.extremity;
+  }
+
+  return list.map(item => `• ${item}`).join('\n');
+};
+
 const calculateAgeFromRC = (rc: string) => {
   if (!rc || rc.length < 9) return '';
   const cleanRc = rc.replace(/\D/g, '');
@@ -457,10 +605,28 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   // OPERAČNÉ ÚDAJE
   const [surgeryDetails, setSurgeryDetails] = useState({
     opDate: new Date().toISOString().split('T')[0],
-    opStart: '09:00', opEnd: '10:30',
-    anesStart: '08:45', anesEnd: '10:45',
-    assistant: '', anesthesiologist: '', anestNurse: '', instrumentalist: '', checkup: '1 týždeň'
+    opStart: '09:00', 
+    opEnd: '10:30',
+    anesStart: '08:45', 
+    anesEnd: '10:45',
+    operator: 'MUDr. Ján Mráz',
+    assistant: 'Bez asistencie', 
+    anesthesiologist: 'MUDr. Peter Kováč', 
+    anestNurse: 'Ema Foltáni', 
+    instrumentalist: 'Sabina Lenhartová', 
+    checkup: '1 týždeň'
   });
+
+  // OPERAČNÉ IMPLANTÁTY A ŠPECIÁLNY MATERIÁL
+  const [surgeryImplants, setSurgeryImplants] = useState<SurgeryImplantItem[]>([
+    { id: '1', vyrobca: 'Motiva', model: 'Ergonomix Full', kat: 'MOT-350-F', objem: '350 cc', strana: 'Obojstranne (Bilat.)', lot: 'LOT-2026-08', sn: 'SN-998412' }
+  ]);
+  const [surgeryMaterials, setSurgeryMaterials] = useState(
+    'Šijací materiál: PDS 4-0 (vnútorná sutúra), Monocryl 4-0 (podkožie), Glycolon 4-0 (intrakutánny steh), Steri-stripp\nHemostatiká & Roztok: Tumescenčný roztok (adrenalín 1:200 000 + levobupivacain), Surgicel\nDrenáž: 2x Redonov podtlakový drén CH10\nKrytie: Sterilné krytie, kompresívna pooperačná bielizeň'
+  );
+
+  // AUTOMATICKÉ ODPORÚČANIA PO OPERÁCII PRE OŠETRUJÚCI PERSONÁL
+  const [postopStaffCare, setPostopStaffCare] = useState(getStaffRecommendationsForProcedure('Augmentácia'));
 
   // LIEKY PRE PREPÚŠŤACIU SPRÁVU
   const [rxAntibiotics, setRxAntibiotics] = useState('');
@@ -2171,7 +2337,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
             {/* OPERAČNÉ ÚDAJE (PRE PROTOKOL A PREPÚŠŤACIU SPRÁVU) */}
             {showSurgeryDetails && (
-              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-3">
+              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-4">
                 <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
                   <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">Operačné údaje & Voľba výkonu</p>
                   <span className="text-[9px] text-[#8C857B] font-mono">42+ chirurgických výkonov</span>
@@ -2188,6 +2354,8 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                           setManualProcedure(found.name);
                           setCheckupData(prev => ({ ...prev, operationName: found.name }));
                           handleAddItemFromDropdown(found.id, true);
+                          // Automatické nastavenie odporúčaní pre personál
+                          setPostopStaffCare(getStaffRecommendationsForProcedure(found.name));
                         }
                       }} 
                       value="" 
@@ -2204,7 +2372,10 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                       <input 
                         type="text" 
                         value={manualProcedure} 
-                        onChange={e => setManualProcedure(e.target.value)} 
+                        onChange={e => {
+                          setManualProcedure(e.target.value);
+                          setPostopStaffCare(getStaffRecommendationsForProcedure(e.target.value));
+                        }} 
                         placeholder="napr. Zväčšenie prsníkov silikónovými implantátmi..." 
                         className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white font-bold" 
                       />
@@ -2212,32 +2383,472 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3 text-xs pt-2">
+                {/* TERMÍNY A ČASY */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
                   {docType === 'operacny_protokol' && (
-                    <div className="col-span-2">
-                      <label className="block text-[9px] text-[#8C857B] mb-1">Termín zákroku</label>
-                      <input type="date" value={surgeryDetails.opDate} onChange={e => setSurgeryDetails({...surgeryDetails, opDate: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" />
+                    <div className="col-span-1 sm:col-span-2">
+                      <label className="block text-[9px] text-[#8C857B] uppercase font-bold mb-1">Termín zákroku</label>
+                      <input 
+                        type="date" 
+                        value={surgeryDetails.opDate} 
+                        onChange={e => setSurgeryDetails({...surgeryDetails, opDate: e.target.value})} 
+                        className="border border-[#E8E2D9] p-2 rounded-lg w-full bg-white text-xs font-medium" 
+                      />
                     </div>
                   )}
-                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Čas operácie (Od - Do)</label><div className="flex gap-1"><input type="time" value={surgeryDetails.opStart} onChange={e => setSurgeryDetails({...surgeryDetails, opStart: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /><input type="time" value={surgeryDetails.opEnd} onChange={e => setSurgeryDetails({...surgeryDetails, opEnd: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div></div>
-                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Čas anestézie (Od - Do)</label><div className="flex gap-1"><input type="time" value={surgeryDetails.anesStart} onChange={e => setSurgeryDetails({...surgeryDetails, anesStart: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /><input type="time" value={surgeryDetails.anesEnd} onChange={e => setSurgeryDetails({...surgeryDetails, anesEnd: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div></div>
-                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Asistent</label><input type="text" value={surgeryDetails.assistant} onChange={e => setSurgeryDetails({...surgeryDetails, assistant: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div>
-                  <div><label className="block text-[9px] text-[#8C857B] mb-1">Anesteziológ</label><input type="text" value={surgeryDetails.anesthesiologist} onChange={e => setSurgeryDetails({...surgeryDetails, anesthesiologist: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div>
-                  {docType === 'operacny_protokol' && (
-                    <>
-                      <div><label className="block text-[9px] text-[#8C857B] mb-1">Anest. sestra</label><input type="text" value={surgeryDetails.anestNurse} onChange={e => setSurgeryDetails({...surgeryDetails, anestNurse: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div>
-                      <div><label className="block text-[9px] text-[#8C857B] mb-1">Inštrumentárka</label><input type="text" value={surgeryDetails.instrumentalist} onChange={e => setSurgeryDetails({...surgeryDetails, instrumentalist: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full bg-white" /></div>
-                    </>
-                  )}
+                  <div>
+                    <label className="block text-[9px] text-[#8C857B] uppercase font-bold mb-1">Čas operácie (Od - Do)</label>
+                    <div className="flex gap-2">
+                      <input type="time" value={surgeryDetails.opStart} onChange={e => setSurgeryDetails({...surgeryDetails, opStart: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded-lg w-full bg-white text-xs" />
+                      <input type="time" value={surgeryDetails.opEnd} onChange={e => setSurgeryDetails({...surgeryDetails, opEnd: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded-lg w-full bg-white text-xs" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-[#8C857B] uppercase font-bold mb-1">Čas anestézie (Od - Do)</label>
+                    <div className="flex gap-2">
+                      <input type="time" value={surgeryDetails.anesStart} onChange={e => setSurgeryDetails({...surgeryDetails, anesStart: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded-lg w-full bg-white text-xs" />
+                      <input type="time" value={surgeryDetails.anesEnd} onChange={e => setSurgeryDetails({...surgeryDetails, anesEnd: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded-lg w-full bg-white text-xs" />
+                    </div>
+                  </div>
                 </div>
+
+                {/* VÝBER OPERAČNÉHO TÍMU S PREHĽADNÝMI DROPDOWNS */}
+                <div className="border-t border-[#E8E2D9] pt-3 space-y-3">
+                  <p className="text-[9px] text-[#C5A059] uppercase font-bold tracking-wider">Operačný tím (Výber personálu)</p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {/* Operatér */}
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">Operatér</label>
+                      <div className="space-y-1">
+                        <select
+                          value={SURGICAL_TEAM_PRESETS.operators.includes(doctor) ? doctor : '__custom__'}
+                          onChange={e => {
+                            if (e.target.value !== '__custom__') {
+                              setDoctor(e.target.value);
+                              setSurgeryDetails({ ...surgeryDetails, operator: e.target.value });
+                            }
+                          }}
+                          className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-semibold"
+                        >
+                          {SURGICAL_TEAM_PRESETS.operators.map(name => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                          <option value="__custom__">Iné / Vlastné meno...</option>
+                        </select>
+                        {(!SURGICAL_TEAM_PRESETS.operators.includes(doctor) || doctor === '') && (
+                          <input
+                            type="text"
+                            value={doctor}
+                            onChange={e => {
+                              setDoctor(e.target.value);
+                              setSurgeryDetails({ ...surgeryDetails, operator: e.target.value });
+                            }}
+                            placeholder="Zadajte meno operatéra..."
+                            className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Asistent */}
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">Asistent</label>
+                      <div className="space-y-1">
+                        <select
+                          value={SURGICAL_TEAM_PRESETS.assistants.includes(surgeryDetails.assistant) ? surgeryDetails.assistant : '__custom__'}
+                          onChange={e => {
+                            if (e.target.value !== '__custom__') {
+                              setSurgeryDetails({ ...surgeryDetails, assistant: e.target.value });
+                            }
+                          }}
+                          className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
+                        >
+                          {SURGICAL_TEAM_PRESETS.assistants.map(name => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                          <option value="__custom__">Iné / Vlastné meno...</option>
+                        </select>
+                        {!SURGICAL_TEAM_PRESETS.assistants.includes(surgeryDetails.assistant) && (
+                          <input
+                            type="text"
+                            value={surgeryDetails.assistant}
+                            onChange={e => setSurgeryDetails({ ...surgeryDetails, assistant: e.target.value })}
+                            placeholder="Zadajte meno asistenta..."
+                            className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Anesteziológ */}
+                    <div>
+                      <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">Anesteziológ</label>
+                      <div className="space-y-1">
+                        <select
+                          value={SURGICAL_TEAM_PRESETS.anesthesiologists.includes(surgeryDetails.anesthesiologist) ? surgeryDetails.anesthesiologist : '__custom__'}
+                          onChange={e => {
+                            if (e.target.value !== '__custom__') {
+                              setSurgeryDetails({ ...surgeryDetails, anesthesiologist: e.target.value });
+                            }
+                          }}
+                          className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
+                        >
+                          {SURGICAL_TEAM_PRESETS.anesthesiologists.map(name => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                          <option value="__custom__">Iné / Vlastné meno...</option>
+                        </select>
+                        {!SURGICAL_TEAM_PRESETS.anesthesiologists.includes(surgeryDetails.anesthesiologist) && (
+                          <input
+                            type="text"
+                            value={surgeryDetails.anesthesiologist}
+                            onChange={e => setSurgeryDetails({ ...surgeryDetails, anesthesiologist: e.target.value })}
+                            placeholder="Zadajte meno anesteziológa..."
+                            className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {docType === 'operacny_protokol' && (
+                      <>
+                        {/* Inštrumentárka */}
+                        <div>
+                          <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">Inštrumentárka</label>
+                          <div className="space-y-1">
+                            <select
+                              value={SURGICAL_TEAM_PRESETS.instrumentalists.includes(surgeryDetails.instrumentalist) ? surgeryDetails.instrumentalist : '__custom__'}
+                              onChange={e => {
+                                if (e.target.value !== '__custom__') {
+                                  setSurgeryDetails({ ...surgeryDetails, instrumentalist: e.target.value });
+                                }
+                              }}
+                              className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
+                            >
+                              {SURGICAL_TEAM_PRESETS.instrumentalists.map(name => (
+                                <option key={name} value={name}>{name}</option>
+                              ))}
+                              <option value="__custom__">Iné / Vlastné meno...</option>
+                            </select>
+                            {!SURGICAL_TEAM_PRESETS.instrumentalists.includes(surgeryDetails.instrumentalist) && (
+                              <input
+                                type="text"
+                                value={surgeryDetails.instrumentalist}
+                                onChange={e => setSurgeryDetails({ ...surgeryDetails, instrumentalist: e.target.value })}
+                                placeholder="Zadajte meno inštrumentárky..."
+                                className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
+                              />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Anesteziologická sestra */}
+                        <div className="col-span-1 sm:col-span-2">
+                          <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">Anestéziologická sestra</label>
+                          <div className="space-y-1">
+                            <select
+                              value={SURGICAL_TEAM_PRESETS.anestNurses.includes(surgeryDetails.anestNurse) ? surgeryDetails.anestNurse : '__custom__'}
+                              onChange={e => {
+                                if (e.target.value !== '__custom__') {
+                                  setSurgeryDetails({ ...surgeryDetails, anestNurse: e.target.value });
+                                }
+                              }}
+                              className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
+                            >
+                              {SURGICAL_TEAM_PRESETS.anestNurses.map(name => (
+                                <option key={name} value={name}>{name}</option>
+                              ))}
+                              <option value="__custom__">Iné / Vlastné meno...</option>
+                            </select>
+                            {!SURGICAL_TEAM_PRESETS.anestNurses.includes(surgeryDetails.anestNurse) && (
+                              <input
+                                type="text"
+                                value={surgeryDetails.anestNurse}
+                                onChange={e => setSurgeryDetails({ ...surgeryDetails, anestNurse: e.target.value })}
+                                placeholder="Zadajte meno anestéziologickej sestry..."
+                                className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
                 {docType === 'prepustacia_sprava' && (
                   <div>
-                    <label className="block text-[9px] text-[#8C857B] mb-1">Najbližšia kontrola</label>
-                    <select value={surgeryDetails.checkup} onChange={e => setSurgeryDetails({...surgeryDetails, checkup: e.target.value})} className="border border-[#E8E2D9] p-1.5 rounded w-full text-xs bg-white">
+                    <label className="block text-[9px] text-[#8C857B] mb-1 font-bold uppercase">Najbližšia kontrola</label>
+                    <select value={surgeryDetails.checkup} onChange={e => setSurgeryDetails({...surgeryDetails, checkup: e.target.value})} className="border border-[#E8E2D9] p-2 rounded-lg w-full text-xs bg-white">
                       <option value="1 deň">O 1 deň</option><option value="2 dni">O 2 dni</option><option value="1 týždeň">O 1 týždeň</option><option value="2 týždne">O 2 týždne</option>
                     </select>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* SEKCIA: POUŽITÉ IMPLANTÁTY A OPERAČNÝ MATERIÁL (PRE OPERAČNÝ PROTOKOL) */}
+            {docType === 'operacny_protokol' && (
+              <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] space-y-4">
+                <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">
+                    Použité implantáty & Operačný materiál
+                  </p>
+                  <span className="text-[9px] text-[#8C857B]">Implantáty, stehy, hemostatiká</span>
+                </div>
+
+                {/* Súpis implantátov */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-[9px] text-[#8C857B] uppercase font-bold">Použité implantáty:</label>
+                    <button
+                      type="button"
+                      onClick={() => setSurgeryImplants([
+                        ...surgeryImplants,
+                        { id: Date.now().toString(), vyrobca: 'Motiva', model: 'Ergonomix', kat: '', objem: '350 cc', strana: 'Vpravo (Dx.)', lot: '', sn: '' }
+                      ])}
+                      className="text-[10px] font-bold text-[#C5A059] hover:text-[#9c7d3d] bg-white border border-[#C5A059]/40 px-2.5 py-1 rounded-md shadow-xs transition-colors cursor-pointer"
+                    >
+                      + Pridať implantát
+                    </button>
+                  </div>
+
+                  {surgeryImplants.length === 0 ? (
+                    <div className="bg-white border border-dashed border-[#E8E2D9] p-3 rounded-lg text-center text-xs text-[#8C857B]">
+                      Bez použitia trvalých implantátov pri tomto výkone.
+                      <button
+                        type="button"
+                        onClick={() => setSurgeryImplants([
+                          { id: Date.now().toString(), vyrobca: 'Motiva', model: 'Ergonomix Full', kat: '', objem: '350 cc', strana: 'Obojstranne (Bilat.)', lot: '', sn: '' }
+                        ])}
+                        className="block mx-auto mt-1 text-[10px] font-bold text-[#C5A059] underline cursor-pointer"
+                      >
+                        Pridať implantát
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {surgeryImplants.map((impl, idx) => (
+                        <div key={impl.id || idx} className="bg-white border border-[#E8E2D9] rounded-xl p-3 shadow-xs space-y-2">
+                          <div className="flex justify-between items-center border-b border-[#E8E2D9]/60 pb-1.5">
+                            <span className="text-[10px] font-bold uppercase text-[#2C2A29]">
+                              Implantát #{idx + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSurgeryImplants(surgeryImplants.filter((_, i) => i !== idx))}
+                              className="text-[9px] font-bold text-rose-600 hover:text-rose-800 bg-rose-50 px-2 py-0.5 rounded cursor-pointer"
+                            >
+                              Odstrániť
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                            <div>
+                              <label className="block text-[8px] text-[#8C857B] uppercase font-bold mb-0.5">Výrobca / Značka</label>
+                              <input
+                                type="text"
+                                value={impl.vyrobca}
+                                onChange={e => {
+                                  const updated = [...surgeryImplants];
+                                  updated[idx].vyrobca = e.target.value;
+                                  setSurgeryImplants(updated);
+                                }}
+                                placeholder="Motiva, Mentor, Polytech, Su-por..."
+                                className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FAF8F5] font-semibold"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[8px] text-[#8C857B] uppercase font-bold mb-0.5">Model / Profil</label>
+                              <input
+                                type="text"
+                                value={impl.model}
+                                onChange={e => {
+                                  const updated = [...surgeryImplants];
+                                  updated[idx].model = e.target.value;
+                                  setSurgeryImplants(updated);
+                                }}
+                                placeholder="Ergonomix Full, Round SilkSurface..."
+                                className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FAF8F5]"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[8px] text-[#8C857B] uppercase font-bold mb-0.5">Objem / Veľkosť</label>
+                              <input
+                                type="text"
+                                value={impl.objem}
+                                onChange={e => {
+                                  const updated = [...surgeryImplants];
+                                  updated[idx].objem = e.target.value;
+                                  setSurgeryImplants(updated);
+                                }}
+                                placeholder="350 cc, 400 cc, 4.5 mm..."
+                                className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FAF8F5] font-semibold text-[#C5A059]"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[8px] text-[#8C857B] uppercase font-bold mb-0.5">Lokalizácia / Strana</label>
+                              <select
+                                value={impl.strana}
+                                onChange={e => {
+                                  const updated = [...surgeryImplants];
+                                  updated[idx].strana = e.target.value;
+                                  setSurgeryImplants(updated);
+                                }}
+                                className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FAF8F5]"
+                              >
+                                <option value="Obojstranne (Bilat.)">Obojstranne (Bilat.)</option>
+                                <option value="Vľavo (Sin.)">Vľavo (Sin.)</option>
+                                <option value="Vpravo (Dx.)">Vpravo (Dx.)</option>
+                                <option value="Bradový (Mani.)">Bradový (Mani.)</option>
+                                <option value="Iná pozícia">Iná pozícia</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-[8px] text-[#8C857B] uppercase font-bold mb-0.5">Katalógové číslo / LOT</label>
+                              <input
+                                type="text"
+                                value={impl.lot}
+                                onChange={e => {
+                                  const updated = [...surgeryImplants];
+                                  updated[idx].lot = e.target.value;
+                                  setSurgeryImplants(updated);
+                                }}
+                                placeholder="LOT-2026-X..."
+                                className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FAF8F5] font-mono text-[11px]"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[8px] text-[#8C857B] uppercase font-bold mb-0.5">Sériové číslo (SN)</label>
+                              <input
+                                type="text"
+                                value={impl.sn}
+                                onChange={e => {
+                                  const updated = [...surgeryImplants];
+                                  updated[idx].sn = e.target.value;
+                                  setSurgeryImplants(updated);
+                                }}
+                                placeholder="SN-XXXXXX..."
+                                className="w-full border border-[#E8E2D9] p-1.5 rounded text-xs bg-[#FAF8F5] font-mono text-[11px]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Rozpis použitého materiálu */}
+                <div className="space-y-2 pt-2 border-t border-[#E8E2D9]">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-[9px] text-[#8C857B] uppercase font-bold">
+                      Použitý šijací materiál, hemostatiká, drény a krytie:
+                    </label>
+                  </div>
+
+                  {/* Rýchle čipy materiálov */}
+                  <div className="flex flex-wrap gap-1.5 text-[9px]">
+                    {[
+                      'PDS 4-0',
+                      'Monocryl 4-0',
+                      'Glycolon 4-0',
+                      'Prolene 5-0',
+                      'Vicryl 3-0',
+                      'Surgicel',
+                      'Floseal',
+                      'TachoSil',
+                      'Redon CH10 2x',
+                      'Kompresívna podprsenka',
+                      'Brušný pás',
+                      'Fixačná dlaha'
+                    ].map(mat => (
+                      <button
+                        key={mat}
+                        type="button"
+                        onClick={() => {
+                          setSurgeryMaterials(prev => prev ? `${prev}, ${mat}` : mat);
+                        }}
+                        className="bg-white hover:bg-[#FAF8F5] border border-[#E8E2D9] text-[#2C2A29] px-2 py-0.5 rounded-full transition-colors cursor-pointer"
+                      >
+                        + {mat}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    rows={3}
+                    value={surgeryMaterials}
+                    onChange={e => setSurgeryMaterials(e.target.value)}
+                    placeholder="Zadajte použitý šijací materiál, drenáž, bandáže..."
+                    className="w-full border border-[#E8E2D9] p-2.5 rounded-xl text-xs bg-white leading-relaxed"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* SEKCIA: AUTOMATICKÉ ODPORÚČANIA PO OPERÁCII PRE OŠETRUJÚCI PERSONÁL */}
+            {docType === 'operacny_protokol' && (
+              <div className="border border-[#C5A059]/40 rounded-xl p-4 bg-[#FAF7F2] space-y-3">
+                <div className="flex flex-wrap justify-between items-center gap-2 border-b border-[#C5A059]/20 pb-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">
+                      Automatické odporúčania po operácii pre ošetrujúci personál
+                    </p>
+                    <p className="text-[9px] text-[#8C857B]">
+                      Generované automaticky podľa zvoleného typu operácie (Nursing Care Protocol)
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPostopStaffCare(getStaffRecommendationsForProcedure(manualProcedure));
+                    }}
+                    className="text-[9px] font-bold bg-[#C5A059] text-white px-2.5 py-1 rounded-md shadow-xs hover:bg-[#9c7d3d] transition-colors cursor-pointer"
+                  >
+                    🔄 Obnoviť podľa operácie
+                  </button>
+                </div>
+
+                {/* Kategórie odporúčaní pre personál */}
+                <div className="flex flex-wrap gap-1.5 text-[9px]">
+                  {[
+                    { label: '🌸 Prsníky', key: 'breast' },
+                    { label: '✨ Brucho / Telo', key: 'abdomen' },
+                    { label: '⚡ Liposukcia', key: 'liposuction' },
+                    { label: '🧏‍♀️ Tvár & Krk', key: 'face' },
+                    { label: '👁️ Viečka', key: 'eyelids' },
+                    { label: '👃 Nos', key: 'nose' },
+                    { label: '🩺 Intímna chirurgia', key: 'labia' },
+                    { label: '✋ Ruka & Končatiny', key: 'extremity' }
+                  ].map(cat => (
+                    <button
+                      key={cat.key}
+                      type="button"
+                      onClick={() => {
+                        const items = DEFAULT_POSTOP_STAFF_RECOMMENDATIONS[cat.key] || DEFAULT_POSTOP_STAFF_RECOMMENDATIONS.default;
+                        setPostopStaffCare(items.map(i => `• ${i}`).join('\n'));
+                      }}
+                      className="bg-white hover:bg-[#FAF8F5] border border-[#C5A059]/30 text-[#2C2A29] px-2 py-1 rounded-md font-medium transition-colors cursor-pointer shadow-2xs"
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                <textarea
+                  rows={5}
+                  value={postopStaffCare}
+                  onChange={e => setPostopStaffCare(e.target.value)}
+                  placeholder="Inštrukcie a odporúčania pre ošetrujúci personál na pooperačnej izbe..."
+                  className="w-full border border-[#C5A059]/30 p-2.5 rounded-xl text-xs bg-white leading-relaxed text-[#2C2A29]"
+                />
               </div>
             )}
 
@@ -2279,15 +2890,23 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            {/* SEKCIA: POZNÁMKY A NÁLEZ PRE PROTOKOL */}
+            {/* SEKCIA: PODROBNÝ POPIS OPERÁCIE A NÁLEZ */}
             {showNotes && (
-              <div className="space-y-2">
-                <div className="flex justify-between items-end mb-1">
-                  <label className="block text-[10px] uppercase text-[#8C857B]">Lekársky nález / Operačný protokol</label>
+              <div className="space-y-3 border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6]">
+                <div className="flex flex-wrap justify-between items-end gap-2 border-b border-[#E8E2D9] pb-2">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider font-bold text-[#C5A059]">
+                      {docType === 'operacny_protokol' ? 'Podrobný popis operácie' : 'Lekársky nález / Správa'}
+                    </label>
+                    <span className="text-[9px] text-[#8C857B]">
+                      {docType === 'operacny_protokol' ? 'Chirurgický postup, nález a priebeh výkonu' : 'Text lekárskej správy'}
+                    </span>
+                  </div>
+
                   <select 
                     value="" 
                     onChange={(e) => handleMacroInsert(e.target.value, 'notes')}
-                    className="border border-[#E8E2D9] p-1.5 rounded-lg text-[10px] bg-[#FBF9F6] text-[#8C857B] font-bold shadow-sm cursor-pointer"
+                    className="border border-[#C5A059] p-1.5 rounded-lg text-[10px] bg-white text-[#2C2A29] font-bold shadow-xs cursor-pointer"
                   >
                     <option value="" disabled>+ Vložiť operačné makro...</option>
                     <optgroup label="Tvár">
@@ -2338,7 +2957,39 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     </optgroup>
                   </select>
                 </div>
-                <textarea rows={10} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tu vpíšte text správy..." className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29]" />
+
+                {/* Rýchle kroky pre podrobný operačný protokol */}
+                {docType === 'operacny_protokol' && (
+                  <div className="flex flex-wrap gap-1 text-[9px] pb-1">
+                    {[
+                      { label: '+ Tumescencia & Príprava', text: 'V celkovej/lokálnej anestézii vykonaná dezinfekcia operačného poľa a sterilné zarúškovanie. Vykonaná tumescenčná infiltrácia roztokom Kleinovho typu s adrenalínom.' },
+                      { label: '+ Incízia & Disekcia', text: 'Vedená cielená incízia v predkreslených líniách. Disekcia tkanív ostrým a tupým spôsobom s dôslednou ochranou neurovaskulárnych štruktúr.' },
+                      { label: '+ Insercia implantátu', text: 'Vytvorené presné anatomické lôžko. Po laváži antibiotickým roztokom vykonaná aseptická insercia vybraného implantátu.' },
+                      { label: '+ Dôsledná hemostáza', text: 'Prevedená dôkladná elektrokoagulačná a tlaková hemostáza, kontrola suchosti lôžka.' },
+                      { label: '+ Sutúra vo vrstvách', text: 'Rekonštrukcia a adaptácia tkanív vo vrstvách vstrebateľným materiálom (PDS/Monocryl), intrakutánny steh kože (Glycolon).' },
+                      { label: '+ Drenáž & Bandáž', text: 'Zavedená podtlaková Redonova drenáž, priložené sterilné absorpčné krytie a kompresívna elastická bandáž.' }
+                    ].map(step => (
+                      <button
+                        key={step.label}
+                        type="button"
+                        onClick={() => {
+                          setNotes(prev => prev ? `${prev}\n\n${step.text}` : step.text);
+                        }}
+                        className="bg-white hover:bg-[#FAF8F5] border border-[#E8E2D9] text-[#2C2A29] px-2 py-0.5 rounded text-[9px] transition-colors cursor-pointer"
+                      >
+                        {step.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <textarea 
+                  rows={12} 
+                  value={notes} 
+                  onChange={(e) => setNotes(e.target.value)} 
+                  placeholder="Podrobný popis operačného postupu, anatomických pomerov, preparácie, implantácie, hemostázy a sutúry..." 
+                  className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29] leading-relaxed font-normal" 
+                />
               </div>
             )}
 
@@ -2957,18 +3608,25 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
             {docType === 'operacny_protokol' && (
               <div className="space-y-4 mb-6">
                 <div className="border border-[#E8E2D9] rounded-xl p-4 bg-[#FBF9F6] text-xs">
+                  <div className="border-b border-[#E8E2D9] pb-2 mb-3">
+                    <p className="text-[10px] uppercase font-bold text-[#C5A059] tracking-wider">Operačný výkon & Tím</p>
+                    <p className="text-sm font-bold text-[#2C2A29] pt-1">
+                      {manualProcedure || selectedItems.map(i => i.name).join(' + ') || 'Operačný zákrok'}
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                     <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Termín zákroku:</strong> {surgeryDetails.opDate ? new Date(surgeryDetails.opDate).toLocaleDateString('sk-SK') : '---'}</div>
-                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Operatér:</strong> {doctor}</div>
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Operatér:</strong> <span className="font-bold text-[#2C2A29]">{doctor || surgeryDetails.operator || '---'}</span></div>
                     
-                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Čas anestézie:</strong> začiatok: {surgeryDetails.anesStart} koniec: {surgeryDetails.anesEnd}</div>
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Čas operácie:</strong> {surgeryDetails.opStart ? `${surgeryDetails.opStart} - ${surgeryDetails.opEnd}` : '---'}</div>
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Asistent:</strong> {surgeryDetails.assistant || '---'}</div>
+
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Čas anestézie:</strong> {surgeryDetails.anesStart ? `${surgeryDetails.anesStart} - ${surgeryDetails.anesEnd}` : '---'}</div>
                     <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Anesteziológ:</strong> {surgeryDetails.anesthesiologist || '---'}</div>
                     
-                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Čas zákroku:</strong> začiatok: {surgeryDetails.opStart} koniec: {surgeryDetails.opEnd}</div>
-                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Anest. sestra:</strong> {surgeryDetails.anestNurse || '---'}</div>
-                    
-                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Asistent:</strong> {surgeryDetails.assistant || '---'}</div>
                     <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Inštrumentárka:</strong> {surgeryDetails.instrumentalist || '---'}</div>
+                    <div><strong className="text-[#8C857B] uppercase text-[9px] mr-2">Anest. sestra:</strong> {surgeryDetails.anestNurse || '---'}</div>
                   </div>
                 </div>
               </div>
@@ -3487,26 +4145,58 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
             )}
 
             {/* --- Použitý materiál a implantáty tlačené v Operačnom protokole --- */}
-            {docType === 'operacny_protokol' && (vvImplants.some(impl => impl.vyrobca || impl.kat || impl.objem) || vvMaterial) && (
-              <div className="space-y-4 mb-8">
-                <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">Použitý materiál a implantáty:</p>
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    {vvImplants.some(impl => impl.vyrobca || impl.kat || impl.objem) ? (
-                       vvImplants.map((impl, idx) => (
-                        <div key={idx} className="mb-2">
-                          <p className="text-xs"><strong>Implantát {idx + 1}:</strong> {impl.vyrobca || '---'}</p>
-                          <p className="text-xs">Kat. č.: {impl.kat || '---'} | Objem: {impl.objem || '---'}</p>
+            {docType === 'operacny_protokol' && (
+              <div className="space-y-4 mb-6">
+                {/* Implantáty a materiál */}
+                {((surgeryImplants && surgeryImplants.length > 0) || vvImplants.some(impl => impl.vyrobca || impl.kat || impl.objem) || surgeryMaterials || vvMaterial) && (
+                  <div className="border border-[#E8E2D9] rounded-xl p-3.5 bg-[#FBF9F6] space-y-2">
+                    <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#E8E2D9] pb-1">
+                      Použitý materiál a implantáty:
+                    </p>
+                    
+                    {/* Implantáty */}
+                    {(surgeryImplants.length > 0 || vvImplants.some(impl => impl.vyrobca || impl.kat || impl.objem)) && (
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-[9px] uppercase font-bold text-[#8C857B]">Implantáty:</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {(surgeryImplants.length > 0 ? surgeryImplants : vvImplants).map((impl: any, idx) => (
+                            <div key={idx} className="bg-white border border-[#E8E2D9] p-2 rounded-lg text-xs">
+                              <p className="font-bold text-[#2C2A29]">
+                                {impl.vyrobca || 'Implantát'} {impl.model ? `- ${impl.model}` : ''}
+                              </p>
+                              <div className="text-[10px] text-[#8C857B] mt-0.5 space-y-0.5">
+                                {impl.objem && <p>Objem / Veľkosť: <strong className="text-[#2C2A29]">{impl.objem}</strong></p>}
+                                {impl.strana && <p>Lokalizácia: <strong>{impl.strana}</strong></p>}
+                                {(impl.lot || impl.kat) && <p className="font-mono text-[9px]">LOT / Kat: {impl.lot || impl.kat}</p>}
+                                {impl.sn && <p className="font-mono text-[9px]">SN: {impl.sn}</p>}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-[#8C857B]">Žiadne implantáty</p>
+                      </div>
+                    )}
+
+                    {/* Šijací materiál a pomôcky */}
+                    {(surgeryMaterials || vvMaterial) && (
+                      <div className="pt-2 border-t border-[#E8E2D9]/60 text-xs">
+                        <p className="text-[9px] uppercase font-bold text-[#8C857B] mb-0.5">Šijací materiál, drenáž a bandáže:</p>
+                        <p className="whitespace-pre-line text-[#2C2A29]">{surgeryMaterials || vvMaterial}</p>
+                      </div>
                     )}
                   </div>
-                  <div>
-                    <p className="text-xs whitespace-pre-line">{vvMaterial || 'Žiadny iný materiál'}</p>
+                )}
+
+                {/* Automatické odporúčania pre ošetrujúci personál na pooperačnej izbe */}
+                {postopStaffCare && (
+                  <div className="border border-[#C5A059]/40 rounded-xl p-3.5 bg-[#FAF7F2] space-y-1.5">
+                    <p className="font-bold text-[10px] uppercase text-[#C5A059] border-b border-[#C5A059]/30 pb-1">
+                      Pooperačné odporúčania pre ošetrujúci personál:
+                    </p>
+                    <div className="whitespace-pre-line text-xs text-[#2C2A29] leading-relaxed pt-1">
+                      {postopStaffCare}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
