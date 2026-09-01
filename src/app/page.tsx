@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient } from '../components/PatientDatabase';
-import LoginForm, { UserAccount } from '../components/LoginForm';
+import LoginForm, { UserAccount, SAY_CLINIC_USERS } from '../components/LoginForm';
 import { LiquidAvatar } from '../components/LiquidAvatar';
 import FinanceCRM from '../components/FinanceCRM';
 import Calendar, { CalendarEvent } from '../components/Calendar';
@@ -30,7 +30,19 @@ type TabType = 'home' | 'generator' | 'patients' | 'aesthetics' | 'cosmetics' | 
 export default function Home() {
   const { data: session, status } = useSession();
 
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('say_clinic_user');
+      if (savedUser) {
+        try {
+          return JSON.parse(savedUser);
+        } catch (e) {
+          console.error('Chyba načítania používateľa:', e);
+        }
+      }
+    }
+    return SAY_CLINIC_USERS[0];
+  });
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
 

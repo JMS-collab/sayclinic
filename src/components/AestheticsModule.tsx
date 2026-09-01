@@ -9,26 +9,29 @@ import {
   Layers, 
   Printer, 
   Save, 
-  User,
-  History,
-  CheckCircle2,
-  ExternalLink,
-  Box
+  User, 
+  History, 
+  CheckCircle2, 
+  ExternalLink, 
+  Box,
+  Clock,
+  PlusCircle,
+  Eye,
+  Calendar
 } from 'lucide-react';
 import { Patient, MedicalRecord } from './PatientDatabase';
 import { Sculpture3DViewer, VectorItem, DrawingToolType } from './Sculpture3DViewer';
 
-export interface InjectionPoint {
+export interface Aesthetic3DSession {
   id: string;
-  x: number; // % from left (0 - 100)
-  y: number; // % from top (0 - 100)
-  zone: string;
-  productType: 'botox' | 'filler' | 'threads' | 'biostimulator' | 'meso';
-  productName: string;
-  lotNumber: string;
-  unitsOrVolume: number; // IU or ml or ks
-  unitLabel: string;
-  depth: 'intradermal' | 'subcutaneous' | 'supraperiosteal' | 'intramuscular';
+  patientId: string;
+  date: string;
+  formattedDate: string;
+  title: string;
+  doctor: string;
+  protocolNumber: string;
+  vectors: VectorItem[];
+  snapshotUrl?: string;
   notes?: string;
 }
 
@@ -47,54 +50,52 @@ const PRESET_MATERIALS = [
 const PRESET_PROCEDURES = [
   {
     id: 'sculptra_midface',
-    title: 'Sculptra Fanning (Líca & Spánky)',
+    title: 'Sculptra Fanning (Líca & Zygoma)',
     productName: 'Sculptra 10ml (PLLA Biostimulátor)',
     lot: 'SCL-2026-881A',
     type: 'fanning' as const,
     color: '#C5A059',
-    description: 'Vejárovitá aplikácia kanylou 25G/50mm do subkutánnej vrstvy líca a temporálnej fassy',
+    description: 'Vejárovitá aplikácia kanylou 25G do subkutánnej vrstvy líc a temporálnej fassy pre neokolagenézu',
     vectors: [
       {
-        id: 'scl_l',
+        id: 'scl_3d_l',
         type: 'fanning' as const,
         color: '#C5A059',
-        startX: 170,
-        startY: 250,
-        endX: 130,
-        endY: 340,
-        fanningLines: [
-          { x: 105, y: 310 },
-          { x: 120, y: 335 },
-          { x: 140, y: 350 },
-          { x: 165, y: 355 },
-          { x: 190, y: 345 }
+        start3D: { x: -0.42, y: 0.52, z: 0.88 },
+        end3D: { x: -0.22, y: 0.28, z: 0.94 },
+        fanningLines3D: [
+          { x: -0.38, y: 0.24, z: 0.92 },
+          { x: -0.30, y: 0.26, z: 0.94 },
+          { x: -0.22, y: 0.28, z: 0.94 },
+          { x: -0.16, y: 0.32, z: 0.92 },
+          { x: -0.14, y: 0.38, z: 0.89 }
         ],
-        zoneName: 'Sculptra - Líce Ľ (Vejár)',
+        zoneName: 'Zygomatická oblasť / Líce Ľ (Vejár)',
         productName: 'Sculptra 10ml (PLLA Biostimulátor)',
         lotNumber: 'SCL-2026-881A',
         details: 'Kanyla 25G • 5 lúčov • 2.5ml roztoku',
-        rotationY: 0
+        rotationY: 0,
+        createdAt: '10:00'
       },
       {
-        id: 'scl_r',
+        id: 'scl_3d_r',
         type: 'fanning' as const,
         color: '#C5A059',
-        startX: 270,
-        startY: 250,
-        endX: 310,
-        endY: 340,
-        fanningLines: [
-          { x: 250, y: 345 },
-          { x: 275, y: 355 },
-          { x: 300, y: 350 },
-          { x: 320, y: 335 },
-          { x: 335, y: 310 }
+        start3D: { x: 0.42, y: 0.52, z: 0.88 },
+        end3D: { x: 0.22, y: 0.28, z: 0.94 },
+        fanningLines3D: [
+          { x: 0.14, y: 0.38, z: 0.89 },
+          { x: 0.16, y: 0.32, z: 0.92 },
+          { x: 0.22, y: 0.28, z: 0.94 },
+          { x: 0.30, y: 0.26, z: 0.94 },
+          { x: 0.38, y: 0.24, z: 0.92 }
         ],
-        zoneName: 'Sculptra - Líce P (Vejár)',
+        zoneName: 'Zygomatická oblasť / Líce P (Vejár)',
         productName: 'Sculptra 10ml (PLLA Biostimulátor)',
         lotNumber: 'SCL-2026-881A',
         details: 'Kanyla 25G • 5 lúčov • 2.5ml roztoku',
-        rotationY: 0
+        rotationY: 0,
+        createdAt: '10:00'
       }
     ]
   },
@@ -108,107 +109,103 @@ const PRESET_PROCEDURES = [
     description: 'Obojsmerné ostnaté nite s kotvením v temporálnej fascii a trakciou nasolabiálnych a marioneťových línií',
     vectors: [
       {
-        id: 'apt_1',
+        id: 'apt_3d_1',
         type: 'threads' as const,
         color: '#8B5CF6',
-        startX: 140,
-        startY: 190,
-        endX: 195,
-        endY: 305,
+        start3D: { x: -0.58, y: 0.72, z: 0.62 },
+        end3D: { x: -0.24, y: 0.32, z: 0.92 },
         zoneName: 'Aptos niť 1 - Nasolabiálna línia Ľ',
         productName: 'Aptos Excellence Visage',
         lotNumber: 'APT-EXC-091',
         details: 'Liftingový vektor 15cm • Trakcia k fascia temporalis',
-        rotationY: 0
+        rotationY: 0,
+        createdAt: '10:15'
       },
       {
-        id: 'apt_2',
+        id: 'apt_3d_2',
         type: 'threads' as const,
         color: '#8B5CF6',
-        startX: 135,
-        startY: 215,
-        endX: 190,
-        endY: 355,
-        zoneName: 'Aptos niť 2 - Marionetová ryha Ľ',
+        start3D: { x: -0.62, y: 0.65, z: 0.58 },
+        end3D: { x: -0.28, y: 0.08, z: 0.85 },
+        zoneName: 'Aptos niť 2 - Marionetová ryha / Čeľusť Ľ',
         productName: 'Aptos Excellence Visage',
         lotNumber: 'APT-EXC-091',
-        details: 'Liftingový vektor 15cm • Trakcia čeľuste',
-        rotationY: 0
+        details: 'Liftingový vektor 15cm • Trakcia mandibulárneho oblúka',
+        rotationY: 0,
+        createdAt: '10:18'
       },
       {
-        id: 'apt_3',
+        id: 'apt_3d_3',
         type: 'threads' as const,
         color: '#8B5CF6',
-        startX: 300,
-        startY: 190,
-        endX: 245,
-        endY: 305,
+        start3D: { x: 0.58, y: 0.72, z: 0.62 },
+        end3D: { x: 0.24, y: 0.32, z: 0.92 },
         zoneName: 'Aptos niť 3 - Nasolabiálna línia P',
         productName: 'Aptos Excellence Visage',
         lotNumber: 'APT-EXC-091',
         details: 'Liftingový vektor 15cm • Trakcia k fascia temporalis',
-        rotationY: 0
+        rotationY: 0,
+        createdAt: '10:20'
       },
       {
-        id: 'apt_4',
+        id: 'apt_3d_4',
         type: 'threads' as const,
         color: '#8B5CF6',
-        startX: 305,
-        startY: 215,
-        endX: 250,
-        endY: 355,
-        zoneName: 'Aptos niť 4 - Marionetová ryha P',
+        start3D: { x: 0.62, y: 0.65, z: 0.58 },
+        end3D: { x: 0.28, y: 0.08, z: 0.85 },
+        zoneName: 'Aptos niť 4 - Marionetová ryha / Čeľusť P',
         productName: 'Aptos Excellence Visage',
         lotNumber: 'APT-EXC-091',
-        details: 'Liftingový vektor 15cm • Trakcia čeľuste',
-        rotationY: 0
+        details: 'Liftingový vektor 15cm • Trakcia mandibulárneho oblúka',
+        rotationY: 0,
+        createdAt: '10:22'
       }
     ]
   },
   {
-    id: 'botox_full_upper',
-    title: 'Botox Kompletná Horná Tretina (32 IU)',
+    id: 'botox_glabella',
+    title: 'Botox Glabela & Čelo (18 IU)',
     productName: 'Botox Allergan 100IU',
     lot: 'BTX-2026-991A',
     type: 'point' as const,
     color: '#3B82F6',
-    description: 'Glabela (vráska hnevu), frontalis (čelo) a periorbitálne vejáriky',
+    description: 'Glabela (m. procerus, m. corrugator) a frontálne mikroinjekcie',
     vectors: [
       {
-        id: 'btx_g1',
+        id: 'btx_3d_1',
         type: 'point' as const,
         color: '#3B82F6',
-        startX: 220,
-        startY: 180,
+        start3D: { x: 0.0, y: 0.75, z: 0.98 },
         zoneName: 'Glabela - m. procerus',
         productName: 'Botox Allergan 100IU',
         lotNumber: 'BTX-2026-991A',
         details: '4 IU intramuskulárne',
-        rotationY: 0
+        rotationY: 0,
+        createdAt: '10:30'
       },
       {
-        id: 'btx_g2',
+        id: 'btx_3d_2',
         type: 'point' as const,
         color: '#3B82F6',
-        startX: 200,
-        startY: 175,
+        start3D: { x: -0.14, y: 0.78, z: 0.96 },
         zoneName: 'Glabela - m. corrugator Ľ',
         productName: 'Botox Allergan 100IU',
         lotNumber: 'BTX-2026-991A',
         details: '4 IU intramuskulárne',
-        rotationY: 0
+        rotationY: 0,
+        createdAt: '10:31'
       },
       {
-        id: 'btx_g3',
+        id: 'btx_3d_3',
         type: 'point' as const,
         color: '#3B82F6',
-        startX: 240,
-        startY: 175,
+        start3D: { x: 0.14, y: 0.78, z: 0.96 },
         zoneName: 'Glabela - m. corrugator P',
         productName: 'Botox Allergan 100IU',
         lotNumber: 'BTX-2026-991A',
         details: '4 IU intramuskulárne',
-        rotationY: 0
+        rotationY: 0,
+        createdAt: '10:32'
       }
     ]
   }
@@ -225,7 +222,6 @@ export function AestheticsModule({
   onSelectPatient?: (id: string) => void;
   onOpenPatientFolder?: (patient: Patient) => void;
 }) {
-  // Synchronizácia pacientov
   const [localPatients, setLocalPatients] = useState<Patient[]>(patients);
 
   useEffect(() => {
@@ -258,9 +254,9 @@ export function AestheticsModule({
     insurance: '24 (Dôvera)'
   };
 
-  // 3D VECTORS & DRAWINGS
+  // 3D VECTORS & DRAWINGS STATE
   const [vectors, setVectors] = useState<VectorItem[]>([
-    ...PRESET_PROCEDURES[0].vectors // Default Sculptra Fanning
+    ...PRESET_PROCEDURES[0].vectors // Default Sculptra
   ]);
   const [activeTool, setActiveTool] = useState<DrawingToolType>('rotate');
   const [activeColor, setActiveColor] = useState<string>('#C5A059');
@@ -269,13 +265,63 @@ export function AestheticsModule({
   const [selectedMaterialIdx, setSelectedMaterialIdx] = useState(0);
   const [viewMode, setViewMode] = useState<'3d' | 'protocol'>('3d');
   const [savedStatusMsg, setSavedStatusMsg] = useState<string | null>(null);
-  const [protocolRecordNo] = useState('AES-928412');
+  const [protocolRecordNo] = useState(`AES-${Math.floor(100000 + Math.random() * 900000)}`);
+  
+  // HISTORICAL 3D SESSIONS
+  const [patient3DSessions, setPatient3DSessions] = useState<Aesthetic3DSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>('current');
   const [patientHistoryRecords, setPatientHistoryRecords] = useState<MedicalRecord[]>([]);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
 
-  // Načítanie histórie pacienta
+  // Načítanie histórie 3D máp a záznamov pacienta
   useEffect(() => {
     if (!currentPatient?.id) return;
+    
+    // 1. 3D Sessions
+    const saved3D = localStorage.getItem('say_clinic_3d_sessions');
+    if (saved3D) {
+      try {
+        const parsed = JSON.parse(saved3D);
+        if (parsed && parsed[currentPatient.id]) {
+          setPatient3DSessions(parsed[currentPatient.id]);
+        } else {
+          // Default mock past session if none exists
+          const initialPast: Aesthetic3DSession[] = [
+            {
+              id: `sess_${currentPatient.id}_past1`,
+              patientId: currentPatient.id,
+              date: '2026-04-12',
+              formattedDate: '12.04.2026',
+              title: 'Aptos Visage (Niťový lifting 4 nite)',
+              doctor: 'MUDr. Ján Mráz',
+              protocolNumber: 'AES-884120',
+              vectors: PRESET_PROCEDURES[1].vectors,
+              notes: 'Výborná adaptácia, bez hematómov. Trakcia nasolabiálnych vrások.'
+            }
+          ];
+          setPatient3DSessions(initialPast);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      const initialPast: Aesthetic3DSession[] = [
+        {
+          id: `sess_${currentPatient.id}_past1`,
+          patientId: currentPatient.id,
+          date: '2026-04-12',
+          formattedDate: '12.04.2026',
+          title: 'Aptos Visage (Niťový lifting 4 nite)',
+          doctor: 'MUDr. Ján Mráz',
+          protocolNumber: 'AES-884120',
+          vectors: PRESET_PROCEDURES[1].vectors,
+          notes: 'Výborná adaptácia, bez hematómov. Trakcia nasolabiálnych vrások.'
+        }
+      ];
+      setPatient3DSessions(initialPast);
+    }
+
+    // 2. Medical Records
     const savedRecs = localStorage.getItem('say_clinic_patient_records');
     if (savedRecs) {
       try {
@@ -301,7 +347,28 @@ export function AestheticsModule({
 
   const activeVector = vectors.find(v => v.id === selectedVectorId);
 
-  // Rýchle aplikovanie predlohy procedúry
+  // Prepnutie na historické sedenie
+  const handleSelectSession = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    if (sessionId === 'current') {
+      // Keep or reset current
+      setVectors([...PRESET_PROCEDURES[0].vectors]);
+    } else {
+      const past = patient3DSessions.find(s => s.id === sessionId);
+      if (past) {
+        setVectors([...past.vectors]);
+      }
+    }
+  };
+
+  // Vytvorenie nového sedenia
+  const handleStartNewSession = () => {
+    setActiveSessionId('current');
+    setVectors([]);
+    setSelectedVectorId(null);
+  };
+
+  // Aplikovanie predlohy procedúry
   const handleApplyPreset = (preset: typeof PRESET_PROCEDURES[0]) => {
     setVectors(prev => [...prev, ...preset.vectors]);
     setActiveColor(preset.color);
@@ -310,7 +377,7 @@ export function AestheticsModule({
     else setActiveTool('point');
   };
 
-  // Uloženie do zložky pacienta v Kartotéke
+  // Uloženie 3D protokolu do zložky pacienta a do 3D histórie
   const handleSaveProtocolToPatientFolder = () => {
     if (!currentPatient) return;
 
@@ -321,8 +388,7 @@ export function AestheticsModule({
       `${idx + 1}. [${v.type.toUpperCase()}] ${v.zoneName}
    • Prípravok: ${v.productName}
    • Šarža (LOT): ${v.lotNumber}
-   • Špecifikácia: ${v.details}
-   • Uhol modelu: ${Math.round((v.rotationY * 180) / Math.PI)}°`
+   • Špecifikácia: ${v.details}`
     ).join('\n\n');
 
     const fullContent = `PROTOKOL O APLIKÁCII ESTETICKÝCH LIEČIV, BIOMATERIÁLOV A LIFTINGOVÝCH NITÍ (3D SCULPTURE MAPPING)
@@ -334,9 +400,9 @@ SÚHRNNÝ PREHĽAD VÝKONU:
 • Počet aplikovaných liftingových nití (Aptos/PDO): ${countThreads} ks
 • Počet vejárovitých kanylových aplikácií (Sculptra/Radiesse): ${countFanning} zón
 • Počet bodových mikroinjekcií (Botox/Výplne): ${countPoints}
-• Počet zameriavacích chirurgických rezov/kresieb: ${countDrawings}
+• Počet predoperačných zameriavacích rezov/kresieb: ${countDrawings}
 
-DETAILNÝ SÚPIS APLIKOVANÝCH VEKTOROV A ŠARŽÍ (LOT TRACKING):
+DETAILNÝ SÚPIS APLIKOVANÝCH 3D VEKTOROV A ŠARŽÍ (LOT TRACKING):
 ${vectorsList || 'Neboli zaznamenané žiadne vektory.'}
 
 POUČENIE PACIENTA & POOPERAČNÝ REŽIM:
@@ -353,7 +419,30 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
       content: fullContent
     };
 
+    const new3DSession: Aesthetic3DSession = {
+      id: `sess_${Date.now()}`,
+      patientId: currentPatient.id,
+      date: todayDate,
+      formattedDate: formattedDateStr,
+      title: `${countThreads > 0 ? 'Niťový lifting Aptos' : countFanning > 0 ? 'Sculptra Biostimulácia' : 'Estetická aplikácia'} (${vectors.length} vektorov)`,
+      doctor: 'MUDr. Ján Mráz',
+      protocolNumber: protocolRecordNo,
+      vectors: [...vectors],
+      notes: `Aplikácia vykonaná v plnom rozsahu bez komplikácií.`
+    };
+
     try {
+      // 1. Save to 3D sessions history
+      const existing3DRaw = localStorage.getItem('say_clinic_3d_sessions') || '{}';
+      const existing3D = JSON.parse(existing3DRaw);
+      const patient3DList = existing3D[currentPatient.id] || [];
+      const updated3DList = [new3DSession, ...patient3DList];
+      existing3D[currentPatient.id] = updated3DList;
+      localStorage.setItem('say_clinic_3d_sessions', JSON.stringify(existing3D));
+      setPatient3DSessions(updated3DList);
+      setActiveSessionId(new3DSession.id);
+
+      // 2. Save to medical records for cards & printing
       const existingRaw = localStorage.getItem('say_clinic_patient_records') || '{}';
       const existing = JSON.parse(existingRaw);
       const patientList = existing[currentPatient.id] || [];
@@ -363,7 +452,7 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
       localStorage.setItem('say_clinic_patient_records', JSON.stringify(existing));
       setPatientHistoryRecords(updatedList);
 
-      setSavedStatusMsg(`✅ 3D Protokol bol úspešne uložený do zložky pacienta: ${currentPatient.name}`);
+      setSavedStatusMsg(`✅ 3D Protokol a model boli úspešne uložené do histórie pacienta: ${currentPatient.name}`);
       setTimeout(() => setSavedStatusMsg(null), 5000);
     } catch (e) {
       console.error('Chyba ukladania protokolu:', e);
@@ -379,7 +468,7 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
           <CheckCircle2 className="w-5 h-5 text-[#C5A059]" />
           <div className="text-xs">
             <p className="font-bold">{savedStatusMsg}</p>
-            <p className="text-[10px] text-gray-300">Záznam je ihneď dostupný v Kartotéke Pacientov → Dokumenty.</p>
+            <p className="text-[10px] text-gray-300">3D model aj protokol sú ihneď dostupné v histórii aj v Kartotéke.</p>
           </div>
           {onOpenPatientFolder && (
             <button
@@ -394,7 +483,7 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
         </div>
       )}
 
-      {/* HEADER: AMBIENT GLASS S VÝBEROM PACIENTA */}
+      {/* HEADER: AMBIENT GLASS S VÝBEROM PACIENTA & HISTÓRIOU */}
       <div className="relative rounded-3xl p-6 backdrop-blur-3xl bg-white/70 border border-white/80 shadow-[0_8px_32px_0_rgba(197,160,89,0.08)] overflow-hidden print:hidden">
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-gradient-to-br from-[#C5A059]/20 to-[#EAD8CA]/30 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-10 left-20 w-44 h-44 rounded-full bg-gradient-to-tr from-[#E8E2D9]/40 to-white/60 blur-2xl pointer-events-none" />
@@ -407,14 +496,14 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-serif font-bold text-[#2C2A29] tracking-wide">
-                  3D Face Mapping & Kreslenie na Sochu
+                  3D Face Mapping & Kreslenie na Ženskú Sochu
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#C5A059]/15 text-[#9C7D2B] border border-[#C5A059]/30">
-                  3D Interactive & Vectoring
+                  3D Spatial Tracking
                 </span>
               </div>
               <p className="text-xs text-[#8C857B] mt-0.5">
-                Otočná 3D anatomická socha, kreslenie vektorov pre nite (Aptos), kanylové vejáre (Sculptra) a mikrovpichy
+                Harmonická anatomická busta, plne otočné 3D vektory pre nite (Aptos), kanyly (Sculptra) a historický archív
               </p>
             </div>
           </div>
@@ -440,17 +529,17 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
               </div>
             </div>
 
-            {/* HISTÓRIA */}
+            {/* HISTÓRIA ZÁKROKOV */}
             <button
               type="button"
               onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-xs font-medium text-[#2C2A29] transition-all shadow-xs cursor-pointer"
-              title="História aplikácií pacienta"
+              title="História 3D máp a ošetrení pacienta"
             >
               <History className="w-4 h-4 text-[#C5A059]" />
-              <span className="hidden sm:inline">História</span>
+              <span className="hidden sm:inline">3D História</span>
               <span className="w-5 h-5 rounded-full bg-[#FAF8F5] border border-[#E8E2D9] text-[10px] font-bold flex items-center justify-center">
-                {patientHistoryRecords.length}
+                {patient3DSessions.length}
               </span>
             </button>
 
@@ -463,7 +552,7 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
                   viewMode === '3d' ? 'bg-[#2C2A29] text-white shadow-xs' : 'text-[#8C857B] hover:text-[#2C2A29]'
                 }`}
               >
-                3D Socha & Kreslenie
+                3D Socha
               </button>
               <button
                 type="button"
@@ -472,7 +561,7 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
                   viewMode === 'protocol' ? 'bg-[#2C2A29] text-white shadow-xs' : 'text-[#8C857B] hover:text-[#2C2A29]'
                 }`}
               >
-                Lekársky protokol (A4)
+                Protokol (A4)
               </button>
             </div>
 
@@ -487,16 +576,70 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
             </button>
           </div>
         </div>
+
+        {/* TIMELINE / LIŠTA HISTORICKÝCH 3D SEDENÍ PACIENTA */}
+        <div className="mt-4 pt-3 border-t border-[#E8E2D9]/70 flex items-center justify-between gap-2 overflow-x-auto">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-[#8C857B] flex items-center gap-1 uppercase tracking-wider shrink-0">
+              <Clock className="w-3.5 h-3.5 text-[#C5A059]" />
+              Zákrok:
+            </span>
+
+            {/* AKTUÁLNE SEDENIE */}
+            <button
+              type="button"
+              onClick={() => handleSelectSession('current')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                activeSessionId === 'current'
+                  ? 'bg-[#2C2A29] text-white shadow-sm ring-2 ring-[#C5A059]'
+                  : 'bg-white/90 text-[#2C2A29] border border-[#E8E2D9] hover:border-[#C5A059]'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Dnešné sedenie (Aktuálna mapa)</span>
+            </button>
+
+            {/* MINULÉ 3D SEDENIA PACIENTA */}
+            {patient3DSessions.map((sess) => (
+              <button
+                key={sess.id}
+                type="button"
+                onClick={() => handleSelectSession(sess.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  activeSessionId === sess.id
+                    ? 'bg-[#C5A059] text-white shadow-sm ring-2 ring-[#2C2A29]'
+                    : 'bg-white/80 text-[#2C2A29] border border-[#E8E2D9] hover:bg-white'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>{sess.formattedDate} - {sess.title}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-black/10">
+                  {sess.vectors.length}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleStartNewSession}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/90 border border-[#E8E2D9] hover:border-[#C5A059] text-[11px] font-bold text-[#2C2A29] shrink-0 transition-colors cursor-pointer"
+            title="Vyčistiť a začať novú 3D mapu"
+          >
+            <PlusCircle className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Nová mapa</span>
+          </button>
+        </div>
       </div>
 
-      {/* HISTÓRIA PACIENTA */}
+      {/* HISTÓRIA PACIENTA DRAWER */}
       {showHistoryDrawer && (
         <div className="rounded-3xl p-5 bg-[#FAF8F5] border border-[#E8E2D9] shadow-inner space-y-3 print:hidden animate-in fade-in duration-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <History className="w-4 h-4 text-[#C5A059]" />
               <h3 className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
-                Predchádzajúce estetické ošetrenia: {currentPatient.name}
+                Archív 3D máp & aplikácií: {currentPatient.name}
               </h3>
             </div>
             <button 
@@ -508,18 +651,34 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
             </button>
           </div>
 
-          {patientHistoryRecords.length > 0 ? (
+          {patient3DSessions.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {patientHistoryRecords.map(rec => (
-                <div key={rec.id} className="bg-white p-3.5 rounded-2xl border border-[#E8E2D9] shadow-2xs space-y-1.5">
+              {patient3DSessions.map(sess => (
+                <div 
+                  key={sess.id} 
+                  onClick={() => handleSelectSession(sess.id)}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2 ${
+                    activeSessionId === sess.id 
+                      ? 'bg-white border-[#C5A059] shadow-md ring-2 ring-[#C5A059]/30' 
+                      : 'bg-white/80 border-[#E8E2D9] hover:border-[#C5A059] shadow-2xs'
+                  }`}
+                >
                   <div className="flex justify-between items-start">
                     <span className="px-2 py-0.5 rounded text-[9px] font-bold text-white bg-[#C5A059]">
-                      {rec.type}
+                      {sess.formattedDate}
                     </span>
-                    <span className="text-[10px] font-mono text-[#8C857B]">{rec.date}</span>
+                    <span className="text-[10px] font-mono text-[#8C857B]">{sess.protocolNumber}</span>
                   </div>
-                  <p className="text-xs font-bold text-[#2C2A29]">{rec.title}</p>
-                  <p className="text-[10px] text-[#8C857B] line-clamp-3 whitespace-pre-line">{rec.content}</p>
+                  <p className="text-xs font-bold text-[#2C2A29]">{sess.title}</p>
+                  <p className="text-[10px] text-[#8C857B]">{sess.notes || `${sess.vectors.length} aplikovaných vektorov/nití`}</p>
+                  <div className="pt-2 flex items-center justify-between border-t border-[#E8E2D9]/60">
+                    <span className="text-[10px] text-[#C5A059] font-semibold flex items-center gap-1">
+                      <Eye className="w-3 h-3" /> Načítať do 3D modelu
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-[#2C2A29]">
+                      {sess.vectors.length} vektorov
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -596,9 +755,9 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
               </div>
 
               <div className="p-3 rounded-2xl bg-white border border-[#E8E2D9]/80 text-[11px] text-[#8C857B] space-y-1">
-                <p className="font-bold text-[#2C2A29]">💡 Ako pracovať s 3D sochou:</p>
-                <p>1. Zvoľte <strong className="text-[#2C2A29]">Otočiť 3D</strong> a ťahaním myšou/prstom otočte sochu do požadovaného uhla.</p>
-                <p>2. Prepnite na <strong className="text-[#8B5CF6]">Nite</strong> alebo <strong className="text-[#C5A059]">Sculptra vejár</strong> a kliknutím a ťahaním nakreslite aplikačný vektor priamo na sochu!</p>
+                <p className="font-bold text-[#2C2A29]">💡 3D Vektoring & Priestorová rotácia:</p>
+                <p>1. Zvoľte <strong className="text-[#8B5CF6]">Nite (Aptos)</strong> alebo <strong className="text-[#C5A059]">Vejár</strong> a kliknutím a ťahaním nakreslite vektor priamo na tvár.</p>
+                <p>2. Všetky nite a vejáre sú <strong className="text-[#2C2A29]">plne 3D ukotvené</strong> – pri otáčaní sochy sa plynule otáčajú s tvárou!</p>
               </div>
             </div>
 
@@ -606,7 +765,7 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
             <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/80 border border-white/90 shadow-sm space-y-3">
               <span className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-[#C5A059]" />
-                Rýchle šablóny procedúr
+                Rýchle anatomické šablóny
               </span>
 
               <div className="space-y-2">
@@ -659,11 +818,11 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
                 </div>
 
                 <span className="text-[10px] uppercase font-bold text-[#C5A059] bg-[#C5A059]/10 px-2.5 py-1 rounded-xl">
-                  3D Studio Live
+                  3D Spatial Mode
                 </span>
               </div>
 
-              {/* THREE.JS 3D SCULPTURE VIEWER & DRAWING CANVAS */}
+              {/* THREE.JS 3D SCULPTURE VIEWER */}
               <Sculpture3DViewer
                 vectors={vectors}
                 onVectorsChange={setVectors}
@@ -689,7 +848,7 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
                     <span className="w-2 h-2 rounded-full bg-[#3B82F6]" /> Botox
                   </span>
                 </div>
-                <span className="font-serif italic text-xs">SAY CLINIC 3D Sculpture Suite</span>
+                <span className="font-serif italic text-xs">SAY CLINIC 3D Feminine Bust</span>
               </div>
             </div>
           </div>
@@ -885,7 +1044,7 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
             <div className="space-y-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#2C2A29] flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
-                Zoznam aplikovaných vektorov a evidencia šarží (LOT Tracking):
+                Zoznam aplikovaných 3D vektorov a evidencia šarží (LOT Tracking):
               </h3>
               <div className="border border-[#E8E2D9] rounded-2xl overflow-hidden shadow-xs">
                 <table className="w-full text-xs text-left">
@@ -960,4 +1119,3 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
     </div>
   );
 }
-
