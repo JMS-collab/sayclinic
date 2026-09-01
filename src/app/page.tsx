@@ -5,6 +5,7 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient } from '../components/PatientDatabase';
 import LoginForm, { UserAccount } from '../components/LoginForm';
+import { LiquidAvatar } from '../components/LiquidAvatar';
 import FinanceCRM from '../components/FinanceCRM';
 import Calendar, { CalendarEvent } from '../components/Calendar';
 import InventoryCRM from '../components/InventoryCRM';
@@ -259,7 +260,7 @@ export default function Home() {
 
           {/* PROFIL */}
           <div className="border-l border-[#E8E2D9] pl-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full border border-[#C5A059] p-0.5 shadow-sm bg-[#FAF8F5] flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-full border border-[#C5A059] p-0.5 shadow-sm bg-white flex items-center justify-center flex-shrink-0 overflow-hidden">
               {currentUser.avatarUrl ? (
                 <img
                   src={currentUser.avatarUrl}
@@ -267,8 +268,8 @@ export default function Home() {
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : (
-                <div className={`w-full h-full rounded-full ${currentUser.avatarBg || 'bg-[#2C2A29]'} text-white flex items-center justify-center font-bold text-xs`}>
-                  {currentUser.name.replace(/(MUDr\.|Ing\.|Mgr\.|, MBA)/g, '').trim().split(' ').map(n => n[0]).join('')}
+                <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white">
+                  <LiquidAvatar id={currentUser.id} name={currentUser.name} role={currentUser.role} />
                 </div>
               )}
             </div>
