@@ -398,8 +398,37 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   <span className="mt-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-medium backdrop-blur-md bg-white/60 border border-white/80 text-[#8C857B] group-hover:text-[#2C2A29] group-hover:bg-white/90 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
                     {u.title}
                   </span>
+
+                  {/* PRIAME TLAČIDLO VSTÚPIŤ */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLoginSuccess(u);
+                    }}
+                    className="mt-2.5 w-full py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1"
+                  >
+                    <span>Vstúpiť</span>
+                    <span className="text-[#C5A059] group-hover:text-white">→</span>
+                  </button>
                 </div>
               ))}
+            </div>
+
+            {/* SPODNÁ LIŠTA S RÝCHLYM DEMO VSTUPOM */}
+            <div className="mt-8 pt-6 border-t border-white/60 flex flex-wrap items-center justify-between gap-3 text-xs text-[#8C857B]">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="font-medium">Klinický systém je online (SAY OS v2.6 Liquid Glass)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onLoginSuccess(users[0])}
+                className="px-4 py-2 rounded-xl bg-white/80 hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
+              >
+                <span>⚡ Rýchly vstup ako MUDr. Ján Mráz</span>
+                <span className="text-[#C5A059]">→</span>
+              </button>
             </div>
 
           </div>
@@ -467,15 +496,22 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               <button
                 type="button"
                 onClick={() => setStep('select_user')}
-                className="flex-1 backdrop-blur-md bg-white/60 hover:bg-white/90 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] py-3 rounded-2xl text-xs font-semibold transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
+                className="backdrop-blur-md bg-white/60 hover:bg-white/90 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] px-4 py-3 rounded-2xl text-xs font-semibold transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
               >
                 Späť
               </button>
               <button
-                type="submit"
-                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white py-3 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] hover:shadow-[0_12px_28px_-5px_rgba(197,160,89,0.35)]"
+                type="button"
+                onClick={() => onLoginSuccess(selectedUser!)}
+                className="flex-1 bg-[#C5A059] hover:bg-[#9C7D3D] text-white py-3 rounded-2xl text-xs font-semibold transition-all shadow-md"
               >
-                Pokračovať →
+                ⚡ Rýchly vstup
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white py-3 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)]"
+              >
+                2FA Overenie →
               </button>
             </div>
           </form>

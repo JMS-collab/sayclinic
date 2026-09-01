@@ -9,6 +9,8 @@ import { LiquidAvatar } from '../components/LiquidAvatar';
 import FinanceCRM from '../components/FinanceCRM';
 import Calendar, { CalendarEvent } from '../components/Calendar';
 import InventoryCRM from '../components/InventoryCRM';
+import { AestheticsModule } from '../components/AestheticsModule';
+import { CosmeticsPOSModule } from '../components/CosmeticsPOSModule';
 
 export interface SaleItem {
   id: string;
@@ -23,7 +25,7 @@ const INITIAL_SALES: SaleItem[] = [
   { id: 'S1', date: '2026-08-14', patientName: 'Ján Novák', doctorName: 'MUDr. Ján Mráz', serviceType: 'Augmentácia prsníkov', amount: 4100 },
 ];
 
-type TabType = 'home' | 'generator' | 'patients' | 'finance' | 'calendar' | 'inventory';
+type TabType = 'home' | 'generator' | 'patients' | 'aesthetics' | 'cosmetics' | 'calendar' | 'inventory' | 'finance';
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -66,7 +68,7 @@ export default function Home() {
   useEffect(() => {
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '') as TabType;
-      if (['home', 'generator', 'patients', 'finance', 'calendar', 'inventory'].includes(hash)) {
+      if (['home', 'generator', 'patients', 'aesthetics', 'cosmetics', 'finance', 'calendar', 'inventory'].includes(hash)) {
         setActiveTab(hash);
       } else {
         setActiveTab('home');
@@ -231,6 +233,22 @@ export default function Home() {
               }`}
             >
               🗂️ Kartotéka Pacientov
+            </button>
+            <button
+              onClick={() => changeTab('aesthetics')}
+              className={`px-3 py-2 transition-all ${
+                activeTab === 'aesthetics' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+              }`}
+            >
+              💉 Botox & Výplne
+            </button>
+            <button
+              onClick={() => changeTab('cosmetics')}
+              className={`px-3 py-2 transition-all ${
+                activeTab === 'cosmetics' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+              }`}
+            >
+              🛍️ Predaj & Kozmetika
             </button>
             <button
               onClick={() => changeTab('calendar')}
@@ -429,6 +447,20 @@ export default function Home() {
                       </h3>
                       <div className="grid grid-cols-1 gap-2 text-xs">
                         <button 
+                          onClick={() => changeTab('aesthetics')}
+                          className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                        >
+                          <span>💉 Nová aplikácia Botoxu / Výplne</span>
+                          <span className="text-[#C5A059]">+</span>
+                        </button>
+                        <button 
+                          onClick={() => changeTab('cosmetics')}
+                          className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                        >
+                          <span>🛍️ Pultový predaj dermokozmetiky</span>
+                          <span className="text-[#C5A059]">+</span>
+                        </button>
+                        <button 
                           onClick={() => { setSelectedPatient(null); changeTab('generator'); }}
                           className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
                         >
@@ -499,6 +531,26 @@ export default function Home() {
                 onNavigateToGenerator={handleNavigateToGenerator} 
                 initialPatient={selectedPatientForFolder}
                 onPatientsUpdated={(updatedList) => setPatients(updatedList)}
+              />
+            )}
+
+            {/* ESTETICKÁ MEDICÍNA & FACE MAPPING */}
+            {activeTab === 'aesthetics' && (
+              <AestheticsModule 
+                patients={patients}
+                selectedPatientId={selectedPatientForFolder?.id || (patients.length > 0 ? patients[0].id : undefined)}
+                onSelectPatient={(id) => {
+                  const p = patients.find(pat => pat.id === id);
+                  if (p) setSelectedPatientForFolder(p);
+                }}
+              />
+            )}
+
+            {/* PREDAJ KOZMETIKY & POS */}
+            {activeTab === 'cosmetics' && (
+              <CosmeticsPOSModule 
+                patients={patients}
+                onSaleCompleted={handleAddSale}
               />
             )}
 
