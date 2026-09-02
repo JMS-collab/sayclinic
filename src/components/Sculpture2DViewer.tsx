@@ -141,42 +141,42 @@ export function Sculpture2DViewer({
     const { x, y } = p;
     if (view === 'front') {
       if (y < 235) {
-        if (x > 240 && x < 360) return 'Čelo (m. frontalis – Dysport/Alluzience)';
+        if (x > 230 && x < 370) return 'Čelo (m. frontalis – Dysport/Alluzience)';
         return x < 300 ? 'Čelo Ľavé (Temporálna oblasť)' : 'Čelo Pravé (Temporálna oblasť)';
       }
-      if (y >= 235 && y < 285) {
-        if (x > 265 && x < 335) return 'Glabela (m. procerus / corrugator – Dysport/Alluzience)';
+      if (y >= 235 && y < 275) {
+        if (x > 260 && x < 340) return 'Glabela (m. procerus / corrugator – Dysport/Alluzience)';
         return x < 300 ? 'Obočie Ľavé' : 'Obočie Pravé';
       }
-      if (y >= 285 && y < 345) {
+      if (y >= 275 && y < 330) {
         if (x > 275 && x < 325) return 'Koreň a chrbát nosa (Dorsum nasi)';
         if (x <= 235) return 'Periorbitálna zóna Ľ (Očné vejáriky – Dysport/Alluzience)';
         if (x >= 365) return 'Periorbitálna zóna P (Očné vejáriky – Dysport/Alluzience)';
         return x < 300 ? 'Infraorbitálna zóna Ľ (Kruhy pod očami)' : 'Infraorbitálna zóna P (Kruhy pod očami)';
       }
-      if (y >= 345 && y < 425) {
+      if (y >= 330 && y < 385) {
         if (x > 275 && x < 325) return 'Hrot nosa & Columella';
         if (x <= 235) return 'Zygoma Ľavá (Lícna kosť / BAP bod 1 / Radiesse)';
         if (x >= 365) return 'Zygoma Pravá (Lícna kosť / BAP bod 1 / Radiesse)';
-        if (x < 260 && y > 400) return 'Nosová báza Ľ (Alar base / BAP bod 2)';
-        if (x > 340 && y > 400) return 'Nosová báza P (Alar base / BAP bod 2)';
+        if (x < 265 && y > 355) return 'Nosová báza Ľ (Alar base / BAP bod 2)';
+        if (x > 335 && y > 355) return 'Nosová báza P (Alar base / BAP bod 2)';
         return x < 300 ? 'Líce Ľ (Malar fat pad / Sculptra / Radiesse)' : 'Líce P (Malar fat pad / Sculptra / Radiesse)';
       }
-      if (y >= 425 && y < 495) {
+      if (y >= 385 && y < 435) {
         if (x >= 255 && x <= 345) {
-          if (y < 455) return 'Pery – Horná pera & Amorov luk (Restylane Kysse)';
+          if (y < 408) return 'Pery – Horná pera & Amorov luk (Restylane Kysse)';
           return 'Pery – Dolná pera & Kútiky (Restylane Kysse)';
         }
         return x < 300 ? 'Nasolabiálna ryha Ľavá' : 'Nasolabiálna ryha Pravá';
       }
-      if (y >= 495 && y < 560) {
-        if (x > 260 && x < 340) return 'Brada (Mentum / m. mentalis – BAP bod 4 / Restylane)';
-        return x < 300 ? 'Sánka Ľavá (Jawline / Radiesse)' : 'Sánka Pravá (Jawline / Radiesse)';
+      if (y >= 435 && y < 490) {
+        if (x > 255 && x < 345) return 'Brada (Mentum / m. mentalis – BAP bod 4 / Restylane)';
+        return x < 300 ? 'Sánka Ľavá (Jawline / Radiesse / Gonion)' : 'Sánka Pravá (Jawline / Radiesse / Gonion)';
       }
-      if (y >= 560 && y < 650) {
+      if (y >= 490 && y < 650) {
         if (x < 235) return 'Mandibulárny uhol Ľ (Gonion – BAP bod 5 / Radiesse)';
         if (x > 365) return 'Mandibulárny uhol P (Gonion – BAP bod 5 / Radiesse)';
-        return 'Submentálna zóna & Podbradok (Platysma / Profhilo)';
+        return 'Submentálna zóna & Krk (Platysma / Profhilo)';
       }
       return 'Krk & Klavikulárna zóna (Kľúčne kosti)';
     }
