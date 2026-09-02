@@ -27,30 +27,35 @@ export function generatePdfFilename(docTypeTitle: string, patientName?: string, 
 }
 
 /**
- * Export an HTML DOM element to a crisp multi-page or single-page A4 PDF
+ * Export an HTML DOM element to a crisp multi-page or single-page A4 or A6 PDF
  */
-export async function exportElementToPdf(element: HTMLElement, filename: string): Promise<void> {
+export async function exportElementToPdf(
+  element: HTMLElement, 
+  filename: string,
+  format: 'a4' | 'a6' = 'a4'
+): Promise<void> {
   // Store original styles to restore later if needed
   const canvas = await html2canvas(element, {
-    scale: 2.5, // High resolution capture
+    scale: 3.0, // High resolution capture
     useCORS: true,
     logging: false,
     backgroundColor: '#ffffff',
     windowWidth: element.scrollWidth || 800,
   });
 
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const pageWidth = 210; // A4 width in mm
-  const pageHeight = 297; // A4 height in mm
+  const isA6 = format === 'a6';
+  const pdf = new jsPDF('p', 'mm', isA6 ? 'a6' : 'a4');
+  const pageWidth = isA6 ? 105 : 210; // A6: 105mm, A4: 210mm
+  const pageHeight = isA6 ? 148 : 297; // A6: 148mm, A4: 297mm
   const margin = 0; // border-to-border layout matching preview
   
   const contentWidth = pageWidth - (margin * 2);
   const contentHeight = (canvas.height * contentWidth) / canvas.width;
 
   // If content fits on one page (with slight tolerance)
-  if (contentHeight <= pageHeight) {
+  if (contentHeight <= pageHeight + 2) {
     const imgData = canvas.toDataURL('image/png');
-    pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight, undefined, 'FAST');
+    pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, Math.min(pageHeight, contentHeight), undefined, 'FAST');
   } else {
     // Multi-page slicing
     const totalPages = Math.ceil(contentHeight / pageHeight);

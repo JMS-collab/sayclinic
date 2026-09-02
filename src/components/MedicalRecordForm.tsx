@@ -10,6 +10,7 @@ import {
   SurgeryConsentProfile 
 } from '../data/surgeryConsentCatalog';
 import { SurgeryConsentTemplateManager } from './SurgeryConsentTemplateManager';
+import PrescriptionModule from './PrescriptionModule';
 import { Sliders, Save, RotateCcw, Check } from './Icons';
 
 export interface ServiceCategory {
@@ -522,7 +523,8 @@ export type DocumentType =
   | 'suhlas_operacia'
   | 'suhlas_aplikacia'
   | 'ziadanka_predoperacne'
-  | 'lekarske_potvrdenie';
+  | 'lekarske_potvrdenie'
+  | 'lekarsky_recept';
 
 export const DOC_TITLES: Record<DocumentType, string> = {
   vstupne_vysetrenie: 'Vstupné vyšetrenie',
@@ -535,16 +537,27 @@ export const DOC_TITLES: Record<DocumentType, string> = {
   suhlas_operacia: 'Informovaný súhlas s operáciou',
   suhlas_aplikacia: 'Informovaný súhlas s aplikáciou výplní & botoxu',
   ziadanka_predoperacne: 'Žiadanka na predoperačné vyšetrenia',
-  lekarske_potvrdenie: 'Lekárske potvrdenie / Posudok o spôsobilosti'
+  lekarske_potvrdenie: 'Lekárske potvrdenie / Posudok o spôsobilosti',
+  lekarsky_recept: '💊 Lekársky recept (A6) / Predpis liekov'
 };
 
 interface FormProps {
   onRecordCreated?: (sale: { date: string; patientName: string; doctorName: string; serviceType: string; amount: number; }) => void;
-  initialPatient?: { name: string; birthNumber: string; phone?: string; email?: string; address?: string; lastSurgery?: string; lastSurgeryDate?: string } | null;
+  initialPatient?: { 
+    name: string; 
+    birthNumber: string; 
+    phone?: string; 
+    email?: string; 
+    address?: string; 
+    lastSurgery?: string; 
+    lastSurgeryDate?: string;
+    initialDocType?: DocumentType;
+    insurance?: string;
+  } | null;
 }
 
 export default function MedicalRecordForm({ onRecordCreated, initialPatient }: FormProps) {
-  const [docType, setDocType] = useState<DocumentType>('vstupne_vysetrenie');
+  const [docType, setDocType] = useState<DocumentType>(initialPatient?.initialDocType || 'vstupne_vysetrenie');
   
   // ZÁKLADNÉ ÚDAJE
   const [patientName, setPatientName] = useState(initialPatient?.name || '');
@@ -578,6 +591,19 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
   // PDF Export stav
   const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  // Synchronizácia údajov pri zmene initialPatient
+  useEffect(() => {
+    if (initialPatient) {
+      if (initialPatient.name) setPatientName(initialPatient.name);
+      if (initialPatient.birthNumber) setBirthNumber(initialPatient.birthNumber);
+      if (initialPatient.phone) setPatientPhone(initialPatient.phone);
+      if (initialPatient.email) setPatientEmail(initialPatient.email);
+      if (initialPatient.address) setPatientAddress(initialPatient.address);
+      if (initialPatient.insurance) setPatientInsurance(initialPatient.insurance);
+      if (initialPatient.initialDocType) setDocType(initialPatient.initialDocType);
+    }
+  }, [initialPatient]);
 
   // SPRÁVA ŠABLÓN INFORMOVANÉHO SÚHLASU
   const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
@@ -1337,49 +1363,73 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 print:block print:gap-0">
-        
-        {/* ======================================================= */}
-        {/* ĽAVÁ ČASŤ - FORMULÁR LEKÁRA                             */}
-        {/* ======================================================= */}
-        <div className="lg:col-span-6 bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-5 print:hidden">
-          
-          <div className="border-b border-[#E8E2D9] pb-4">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="font-brand text-xl font-light text-[#2C2A29] uppercase font-bold">Generátor Dokumentov</h2>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setIsTemplateManagerOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#C5A059]/10 hover:bg-[#C5A059]/20 border border-[#C5A059]/30 rounded-xl text-[10px] font-bold text-[#C5A059] transition-all cursor-pointer shadow-2xs"
-                  title="Otvoriť správcu šablón informovaných súhlasov pre všetky operácie"
-                >
-                  <Sliders className="w-3.5 h-3.5" />
-                  <span>Šablóny súhlasov</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsTemplateEditorOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#FBF9F6] hover:bg-[#F4EFEA] border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl text-[10px] font-bold text-[#2C2A29] transition-all cursor-pointer shadow-2xs"
-                  title="Upraviť makrá kontrolných vyšetrení"
-                >
-                  <span>Šablóny kontrol</span>
-                </button>
-              </div>
-            </div>
-            
-            <select 
-              value={docType} 
-              onChange={(e) => setDocType(e.target.value as DocumentType)}
-              className="w-full bg-[#2C2A29] hover:bg-black text-white p-3 rounded-xl text-xs uppercase font-bold tracking-wider outline-none shadow-md cursor-pointer transition-colors"
-            >
-              {Object.entries(DOC_TITLES).map(([key, title]) => (
-                <option key={key} value={key}>{title}</option>
-              ))}
-            </select>
+      {/* HORNÝ PREPÍNAČ DOKUMENTOV */}
+      <div className="bg-white p-4 rounded-2xl border border-[#E8E2D9] shadow-xs mb-6 print:hidden">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex items-center gap-3">
+            <h2 className="font-brand text-lg font-bold text-[#2C2A29] uppercase">
+              Generátor Zdravotníckych Dokumentov
+            </h2>
+            {docType === 'lekarsky_recept' && (
+              <span className="bg-[#047857]/10 text-[#047857] text-[10px] uppercase font-bold px-2.5 py-1 rounded-md border border-[#047857]/20">
+                A6 Lekársky Recept
+              </span>
+            )}
           </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsTemplateManagerOpen(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#C5A059]/10 hover:bg-[#C5A059]/20 border border-[#C5A059]/30 rounded-xl text-[10px] font-bold text-[#C5A059] transition-all cursor-pointer shadow-2xs"
+              title="Otvoriť správcu šablón informovaných súhlasov pre všetky operácie"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Šablóny súhlasov</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsTemplateEditorOpen(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#FBF9F6] hover:bg-[#F4EFEA] border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl text-[10px] font-bold text-[#2C2A29] transition-all cursor-pointer shadow-2xs"
+              title="Upraviť makrá kontrolných vyšetrení"
+            >
+              <span>Šablóny kontrol</span>
+            </button>
+          </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="mt-3">
+          <select 
+            value={docType} 
+            onChange={(e) => setDocType(e.target.value as DocumentType)}
+            className="w-full bg-[#2C2A29] hover:bg-black text-white p-3 rounded-xl text-xs uppercase font-bold tracking-wider outline-none shadow-md cursor-pointer transition-colors"
+          >
+            {Object.entries(DOC_TITLES).map(([key, title]) => (
+              <option key={key} value={key}>{title}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {docType === 'lekarsky_recept' ? (
+        <PrescriptionModule
+          initialPatient={{
+            name: patientName,
+            birthNumber: birthNumber,
+            address: patientAddress,
+            insurance: patientInsurance,
+            phone: patientPhone,
+            email: patientEmail
+          }}
+        />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 print:block print:gap-0">
+          
+          {/* ======================================================= */}
+          {/* ĽAVÁ ČASŤ - FORMULÁR LEKÁRA                             */}
+          {/* ======================================================= */}
+          <div className="lg:col-span-6 bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-5 print:hidden">
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
             {/* ZÁKLADNÉ ÚDAJE */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -4247,6 +4297,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
         </div>
       </div>
+      )}
 
       {/* MODÁLNE OKNO SPRÁVY ŠABLÓN INFORMOVANÝCH SÚHLASOV */}
       <SurgeryConsentTemplateManager

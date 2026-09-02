@@ -265,7 +265,7 @@ export function AestheticsModule({
   const [selectedMaterialIdx, setSelectedMaterialIdx] = useState(0);
   const [viewMode, setViewMode] = useState<'3d' | 'protocol'>('3d');
   const [savedStatusMsg, setSavedStatusMsg] = useState<string | null>(null);
-  const [protocolRecordNo] = useState(`AES-${Math.floor(100000 + Math.random() * 900000)}`);
+  const [protocolRecordNo] = useState(() => 'AES-884920');
   
   // HISTORICAL 3D SESSIONS
   const [patient3DSessions, setPatient3DSessions] = useState<Aesthetic3DSession[]>([]);

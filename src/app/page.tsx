@@ -149,7 +149,15 @@ export default function Home() {
     setSales((prev) => [item, ...prev]);
   };
 
-  const handleNavigateToGenerator = (patient: { name: string; birthNumber: string }) => {
+  const handleNavigateToGenerator = (patient: { 
+    name: string; 
+    birthNumber: string; 
+    phone?: string; 
+    email?: string; 
+    address?: string; 
+    insurance?: string; 
+    initialDocType?: any;
+  }) => {
     setSelectedPatient(patient);
     changeTab('generator');
   };

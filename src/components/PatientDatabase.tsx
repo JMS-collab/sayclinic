@@ -40,7 +40,7 @@ interface UploadedPhoto {
 }
 
 interface PatientDatabaseProps {
-  onNavigateToGenerator?: (patient: Patient) => void;
+  onNavigateToGenerator?: (patient: Patient & { initialDocType?: any }) => void;
   onNavigateToAesthetics?: (patient: Patient) => void;
   initialPatient?: Patient | null;
   onPatientsUpdated?: (patients: Patient[]) => void;
@@ -747,7 +747,13 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
                           💉 + Face Mapping
                         </button>
                       )}
-                      <button onClick={() => onNavigateToGenerator && onNavigateToGenerator(selectedPatient)} className="text-[11px] bg-[#C5A059] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#b38d45]">
+                      <button 
+                        onClick={() => onNavigateToGenerator && onNavigateToGenerator({ ...selectedPatient, initialDocType: 'lekarsky_recept' })} 
+                        className="text-[11px] bg-[#047857] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#065f46] transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        💊 + Vystaviť recept (A6)
+                      </button>
+                      <button onClick={() => onNavigateToGenerator && onNavigateToGenerator(selectedPatient)} className="text-[11px] bg-[#C5A059] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#b38d45] cursor-pointer">
                         + Vytvoriť nový záznam
                       </button>
                     </div>
