@@ -33,12 +33,11 @@ export default function PrescriptionModule({
   const [doctorCode, setDoctorCode] = useState(CLINIC_PRESCRIPTION_DEFAULTS.doctorCode);
   const [pzsCode, setPzsCode] = useState(CLINIC_PRESCRIPTION_DEFAULTS.clinicPzsCode);
 
-  
   // Pacient
-  const [patientName, setPatientName] = useState(initialPatient?.name || '');
-  const [birthNumber, setBirthNumber] = useState(initialPatient?.birthNumber || '');
-  const [address, setAddress] = useState(initialPatient?.address || 'Lazovná 43, 974 01 Banská Bystrica');
-  const [insuranceCode, setInsuranceCode] = useState(initialPatient?.insurance || '24');
+  const [patientName, setPatientName] = useState(initialPatient?.name || 'MICHAELA KRIGOVSKÁ');
+  const [birthNumber, setBirthNumber] = useState(initialPatient?.birthNumber || '935225/9664');
+  const [address, setAddress] = useState(initialPatient?.address || 'FRANCISCIHO 18, LEVOČA');
+  const [insuranceCode, setInsuranceCode] = useState(initialPatient?.insurance || '2500');
   const [diagnosisCode, setDiagnosisCode] = useState('Z411'); // 4-znakové MKCH bez bodky pre okienka
 
   // Parametre receptu
@@ -65,27 +64,15 @@ export default function PrescriptionModule({
   const [items, setItems] = useState<PrescribedMedication[]>([
     {
       id: 'item-1',
-      latinName: 'Amoxicillinum et acidum clavulanicum tbl flm 1 g',
-      commercialName: 'Augmentin 1 g (14 tbl)',
-      activeSubstance: 'Amoxicilín + Kyselina klavulánová',
-      suklCode: '096431',
-      packaging: 'Exp. orig. No. I (unam)',
-      dosage: 'D.S. 1 tableta každých 12 hodín po jedle (7 dní)',
-      category: 'atb',
-      paymentType: 'Hradí pacient',
-      notes: 'Užívať s jedlom, zapiť vodou'
-    },
-    {
-      id: 'item-2',
-      latinName: 'Nimesulidum por gra sus 100 mg',
-      commercialName: 'Aulin 100 mg (30 vreciek)',
-      activeSubstance: 'Nimesulid',
-      suklCode: '016947',
-      packaging: 'Exp. orig. No. I (unam)',
-      dosage: 'D.S. 1 vrecko 2x denne po jedle pri bolesti',
+      substance: 'metamizol, sodná soľ',
+      formAndStrength: 'tbl flm 20x500 mg (blis.Al/PVC)',
+      packaging: 'Exp. orig. No I (unam)',
+      dosage: 'D.S. DOP pp.',
+      commercialName: 'Novalgin 500 mg',
+      latinName: 'Metamizolum natricum monohydricum tbl flm 500 mg',
+      suklCode: '007981',
       category: 'analgetik',
-      paymentType: 'Hradí pacient',
-      notes: 'Rozpustiť v pol pohári vody'
+      paymentType: 'Hradí pacient'
     }
   ]);
 
@@ -118,8 +105,9 @@ export default function PrescriptionModule({
       if (initialPatient.birthNumber) setBirthNumber(initialPatient.birthNumber);
       if (initialPatient.address) setAddress(initialPatient.address);
       if (initialPatient.insurance) {
-        const cleanIns = initialPatient.insurance.replace(/\D/g, '').slice(0, 2);
-        setInsuranceCode(cleanIns || '24');
+        let cleanIns = initialPatient.insurance.replace(/\D/g, '');
+        if (cleanIns.length === 2) cleanIns = `${cleanIns}00`;
+        setInsuranceCode(cleanIns || '2500');
       }
     }
   }, [initialPatient]);
@@ -155,7 +143,7 @@ export default function PrescriptionModule({
     }
   };
 
-  // Pridanie lieku z katalógu - automaticky nastaví latinský názov (INN)
+  // Pridanie lieku z katalógu
   const handleAddFromCatalog = (med: PrescribedMedication) => {
     if (items.length >= 2) {
       alert('Tlačivo lekárskeho receptu ŠEVT 14 282 2s (A6) pojme maximálne 2 lieky. Odstráňte jeden liek alebo ho nahraďte.');
@@ -182,7 +170,7 @@ export default function PrescriptionModule({
     setItems(items.filter((_, i) => i !== index));
   };
 
-  // Pridanie vlastného prázdneho lieku
+  // Pridanie prázdneho lieku
   const handleAddEmptyItem = () => {
     if (items.length >= 2) {
       alert('Tlačivo receptu A6 obsahuje maximálne 2 lieky.');
@@ -192,12 +180,35 @@ export default function PrescriptionModule({
       ...items,
       {
         id: `item-${Date.now()}`,
-        latinName: '',
-        commercialName: 'Vlastný liek / Magistraliter',
-        suklCode: '',
-        packaging: 'Exp. orig. No. I (unam)',
+        substance: '',
+        formAndStrength: '',
+        packaging: 'Exp. orig. No I (unam)',
         dosage: 'D.S. ',
+        commercialName: '',
         category: 'other',
+        paymentType: 'Hradí pacient'
+      }
+    ]);
+  };
+
+  // Vloženie vzorového príkladu (z predlohy)
+  const handleLoadSampleData = () => {
+    setPatientName('MICHAELA KRIGOVSKÁ');
+    setBirthNumber('935225/9664');
+    setAddress('FRANCISCIHO 18, LEVOČA');
+    setInsuranceCode('2500');
+    setDiagnosisCode('Z411');
+    setDoctorCode('A57687038');
+    setItems([
+      {
+        id: 'item-sample-1',
+        substance: 'metamizol, sodná soľ',
+        formAndStrength: 'tbl flm 20x500 mg (blis.Al/PVC)',
+        packaging: 'Exp. orig. No I (unam)',
+        dosage: 'D.S. DOP pp.',
+        commercialName: 'Novalgin 500 mg',
+        suklCode: '007981',
+        category: 'analgetik',
         paymentType: 'Hradí pacient'
       }
     ]);
@@ -248,11 +259,11 @@ export default function PrescriptionModule({
       id: `rx-${Date.now()}`,
       type: 'Lekársky recept (A6)',
       typeColor: 'bg-[#047857]',
-      title: `Recept: ${items.map(i => i.latinName || i.commercialName).filter(Boolean).join(', ') || 'Predpis liekov'}`,
+      title: `Recept: ${items.map(i => i.substance || i.commercialName || i.latinName).filter(Boolean).join(', ') || 'Predpis liekov'}`,
       doctor: doctorName,
       diagnosis: diagnosisCode,
       date: prescriptionDate,
-      content: `LEKÁRSKY PREDPIS (ŠEVT 14 282 2s - A6) - SAY CLINIC\n\nPoskytovateľ: ${CLINIC_PRESCRIPTION_DEFAULTS.clinicName}\nPZS: ${pzsCode} | Lekár: ${doctorName} (${doctorCode})\nPoistenec: ${patientName} (RČ: ${birthNumber})\nBydlisko: ${address}\nPoisťovňa: ${insuranceCode}\nDiagnóza: ${diagnosisCode}\nDátum: ${prescriptionDate}\n\nPREDPÍSANÉ LIEČIVÁ (Rp. - LATINSKÁ ÚČINNÁ LÁTKA):\n${items.map((it, idx) => `Rp. ${idx + 1}:\n   ${it.latinName}\n   ${it.packaging}\n   ${it.dosage}${it.commercialName ? `\n   (Orientačne: ${it.commercialName})` : ''}${it.suklCode ? `\n   Kód ŠÚKL: ${it.suklCode}` : ''}`).join('\n\n')}`
+      content: `LEKÁRSKY PREDPIS (ŠEVT 14 282 2s - A6) - SAY CLINIC\n\nPoskytovateľ: ${CLINIC_PRESCRIPTION_DEFAULTS.clinicName}\nPZS: ${pzsCode} | Lekár: ${doctorName} (${doctorCode})\nPoistenec: ${patientName} (RČ: ${birthNumber})\nBydlisko: ${address}\nPoisťovňa: ${insuranceCode}\nDiagnóza: ${diagnosisCode}\nDátum: ${prescriptionDate}\n\nPREDPÍSANÉ LIEČIVÁ (Rp.):\n${items.map((it, idx) => `Rp. ${idx + 1}:\n   ${it.substance || it.latinName}\n   ${it.formAndStrength || ''}\n   ${it.packaging}\n   ${it.dosage}${it.commercialName ? `\n   (${it.commercialName})` : ''}`).join('\n\n')}`
     };
 
     try {
@@ -289,18 +300,16 @@ export default function PrescriptionModule({
   const filteredCatalog = MEDICATION_CATALOG.filter(med => {
     const matchesCategory = catalogFilter === 'all' || med.category === catalogFilter;
     const matchesSearch = !catalogSearch || 
-      med.latinName.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+      (med.substance && med.substance.toLowerCase().includes(catalogSearch.toLowerCase())) ||
       med.commercialName.toLowerCase().includes(catalogSearch.toLowerCase()) ||
-      (med.activeSubstance && med.activeSubstance.toLowerCase().includes(catalogSearch.toLowerCase()));
+      (med.latinName && med.latinName.toLowerCase().includes(catalogSearch.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
 
   // Rozbité znaky pre okienka
   const insBoxes = getBoxChars(insuranceCode, 4);
   const dgBoxes1 = getBoxChars(diagnosisCode, 4);
-  const suklBoxes1 = getBoxChars(items[0]?.suklCode || '', 8);
   const dgBoxes2 = getBoxChars(diagnosisCode, 4);
-  const suklBoxes2 = getBoxChars(items[1]?.suklCode || '', 8);
 
   return (
     <div className="space-y-6">
@@ -322,13 +331,20 @@ export default function PrescriptionModule({
         </div>
       )}
 
-      {/* TLAČOVÝ ŠTÝL PRE A6 FORMÁT (105mm x 148mm) S MOŽNOSŤOU PREPRINTED (IBA TEXT) */}
+      {/* TLAČOVÝ ŠTÝL PRE A6 FORMÁT (105mm x 148mm) */}
       <style jsx global>{`
         @page {
-          size: 105mm 148mm;
+          size: 105mm 148mm portrait;
           margin: 0mm;
         }
         @media print {
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           body * {
             visibility: hidden;
           }
@@ -343,37 +359,41 @@ export default function PrescriptionModule({
             width: 105mm !important;
             height: 148mm !important;
             margin: 0 !important;
-            padding: 4mm 5mm 3mm 5mm !important;
+            padding: 0 !important;
             box-shadow: none !important;
             border: none !important;
             background: transparent !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
           }
 
           /* V REŽIME TLAČE DO ZAKÚPENÉHO TLAČIVA SKRYJEME RÁMČEKY A PREDRYTÉ NÁPISY */
           ${printMode === 'preprinted' ? `
+            .sevt-guide-grid {
+              display: none !important;
+            }
             .sevt-border {
               border-color: transparent !important;
             }
             .sevt-preprinted-text {
-              color: transparent !important;
-              opacity: 0 !important;
+              display: none !important;
               visibility: hidden !important;
             }
             .sevt-bg {
-              background-color: transparent !important;
+              background: transparent !important;
             }
             .sevt-dynamic-value {
               color: #000000 !important;
               visibility: visible !important;
-              font-weight: bold !important;
             }
           ` : `
+            .sevt-guide-grid {
+              display: block !important;
+            }
             .sevt-border {
               border-color: #000000 !important;
             }
             .sevt-preprinted-text {
+              display: block !important;
+              visibility: visible !important;
               color: #000000 !important;
             }
             .sevt-dynamic-value {
@@ -392,11 +412,11 @@ export default function PrescriptionModule({
               Lekársky recept ŠEVT 14 282 2s (A6)
             </h3>
             <span className="bg-[#047857]/10 text-[#047857] text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-[#047857]/20">
-              Generická preskripcia v latinčine
+              Generická preskripcia
             </span>
           </div>
           <p className="text-xs text-[#8C857B] mt-0.5">
-            Podľa § 119 zákona č. 362/2011 Z. z. o liekoch (latinský názov liečiva INN, lieková forma a sila)
+            Presné rozloženie textu podľa predlohy pre tlač do predtlačeného tlačiva ŠEVT (105 × 148 mm)
           </p>
         </div>
 
@@ -427,9 +447,19 @@ export default function PrescriptionModule({
               title="Tlačí kompletné tlačivo vrátane všetkých mriežok a textov ŠEVT (na čistý biely papier)"
             >
               <span>🖨️</span>
-              <span>Tlač celého tlačiva (vrátane mriežky)</span>
+              <span>Tlač celého tlačiva (s mriežkou)</span>
             </button>
           </div>
+
+          {/* Vzorové dáta */}
+          <button
+            type="button"
+            onClick={handleLoadSampleData}
+            className="px-3 py-2 bg-[#FBF9F6] hover:bg-[#E8E2D9] border border-[#E8E2D9] rounded-xl text-xs font-semibold text-[#2C2A29] transition-colors cursor-pointer"
+            title="Načítať ukážku z predlohy (Novalgin / Metamizol, Michaela Krigovská, Z411)"
+          >
+            📋 Vzor
+          </button>
 
           {/* Tlačidlo kalibrácie */}
           <button
@@ -439,7 +469,7 @@ export default function PrescriptionModule({
             title="Nastavenie posunu tlače v mm pre presné trafenie do okienok vašej tlačiarne"
           >
             <span>🎯</span>
-            <span>Kalibrácia tlače {offsetX !== 0 || offsetY !== 0 ? `(${offsetX > 0 ? '+' : ''}${offsetX}mm, ${offsetY > 0 ? '+' : ''}${offsetY}mm)` : ''}</span>
+            <span>Kalibrácia {offsetX !== 0 || offsetY !== 0 ? `(${offsetX > 0 ? '+' : ''}${offsetX}mm, ${offsetY > 0 ? '+' : ''}${offsetY}mm)` : ''}</span>
           </button>
         </div>
       </div>
@@ -450,27 +480,17 @@ export default function PrescriptionModule({
           <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
             <div className="flex items-center gap-2">
               <span className="text-base">🎯</span>
-              <h4 className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
-                Jemné doladenie pozície tlače pre zakúpené tlačivá ŠEVT (v mm)
-              </h4>
+              <span className="font-bold text-xs text-[#2C2A29] uppercase tracking-wider">
+                Jemné doladenie súradníc tlače (Offset X / Y v mm)
+              </span>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowCalibration(false)}
-              className="text-xs font-bold text-[#8C857B] hover:text-[#2C2A29]"
-            >
-              ✕ Zavrieť
-            </button>
+            <span className="text-[11px] text-[#8C857B]">Hodnoty sa automaticky ukladajú</span>
           </div>
 
-          <p className="text-xs text-[#8C857B]">
-            Každá tlačiareň podáva papier A6 s miernou odchýlkou. Ak vám text nesedí presne do okienok ŠEVT tlačiva, upravte posun tu. Nastavenie sa automaticky uloží.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
             <div>
               <label className="block text-[11px] font-bold text-[#2C2A29] mb-1">
-                Horizontálny posun X (Doľava - / Doprava +): <span className="font-mono text-[#047857]">{offsetX > 0 ? `+${offsetX}` : offsetX} mm</span>
+                Horizontálny posun X (Vľavo - / Vpravo +): <span className="font-mono text-[#047857]">{offsetX > 0 ? `+${offsetX}` : offsetX} mm</span>
               </label>
               <div className="flex items-center gap-2">
                 <button
@@ -593,7 +613,7 @@ export default function PrescriptionModule({
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Kód lekára (8-9 znakov)</label>
+                <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Kód lekára</label>
                 <input
                   type="text"
                   value={doctorCode}
@@ -639,8 +659,8 @@ export default function PrescriptionModule({
                   required
                   value={patientName}
                   onChange={e => setPatientName(e.target.value)}
-                  placeholder="napr. NOVÁKOVÁ MÁRIA"
-                  className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-bold text-sm text-[#2C2A29] uppercase"
+                  placeholder="MICHAELA KRIGOVSKÁ"
+                  className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-bold text-sm text-[#2C2A29] uppercase font-mono"
                 />
               </div>
 
@@ -650,58 +670,60 @@ export default function PrescriptionModule({
                   type="text"
                   value={birthNumber}
                   onChange={e => setBirthNumber(e.target.value)}
-                  placeholder="885512/6789"
+                  placeholder="935225/9664"
                   className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs font-bold"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Bydlisko poistenca (Ulica, PSČ, Mesto)</label>
+                <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Bydlisko poistenca (Ulica, Mesto)</label>
                 <input
                   type="text"
                   value={address}
                   onChange={e => setAddress(e.target.value)}
-                  placeholder="Lazovná 43, 974 01 Banská Bystrica"
-                  className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
+                  placeholder="FRANCISCIHO 18, LEVOČA"
+                  className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-mono uppercase"
                 />
               </div>
 
               <div>
                 <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Zdravotná poisťovňa (Kód)</label>
-                <select
+                <input
+                  type="text"
                   value={insuranceCode}
                   onChange={e => setInsuranceCode(e.target.value)}
-                  className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-bold text-[#2C2A29]"
-                >
-                  <option value="24">24 - Dôvera ZP</option>
-                  <option value="25">25 - VšZP</option>
-                  <option value="27">27 - Union ZP</option>
-                  <option value="99">99 - Samoplatca / Cudzinec</option>
-                </select>
+                  placeholder="2500"
+                  className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs font-bold"
+                />
+                <div className="flex gap-1 mt-1 text-[10px]">
+                  <button type="button" onClick={() => setInsuranceCode('2500')} className="text-[#8C857B] hover:text-[#047857] underline">2500 VšZP</button>
+                  <span>•</span>
+                  <button type="button" onClick={() => setInsuranceCode('2400')} className="text-[#8C857B] hover:text-[#047857] underline">2400 Dôvera</button>
+                  <span>•</span>
+                  <button type="button" onClick={() => setInsuranceCode('2700')} className="text-[#8C857B] hover:text-[#047857] underline">2700 Union</button>
+                </div>
               </div>
 
               <div className="sm:col-span-3">
                 <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">
-                  Diagnóza Dg. (4-miestny MKCH kód do okienok formulára)
+                  Diagnóza (MKCH-10 kód do 4 okienok, napr. Z411, T814)
                 </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     maxLength={5}
                     value={diagnosisCode}
-                    onChange={e => setDiagnosisCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
+                    onChange={e => setDiagnosisCode(e.target.value.toUpperCase())}
                     placeholder="Z411"
-                    className="w-24 border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-center text-sm font-bold tracking-widest uppercase"
+                    className="w-28 border-2 border-[#047857]/50 p-2 rounded-lg bg-white font-mono font-bold text-sm tracking-widest text-center"
                   />
-                  <div className="flex flex-wrap gap-1 text-[9px] flex-1">
+                  <div className="flex flex-wrap gap-1 text-[10px]">
                     {[
-                      { code: 'Z411', label: 'Z41.1 Estetická úprava' },
-                      { code: 'T814', label: 'T81.4 Infekcia rany' },
+                      { code: 'Z411', label: 'Z41.1 Plastická chirurgia' },
+                      { code: 'T814', label: 'T81.4 Infekcia po výkone' },
                       { code: 'M653', label: 'M65.3 Skákavý prst' },
                       { code: 'G560', label: 'G56.0 Karpálny tunel' },
-                      { code: 'L700', label: 'L70.0 Akné vulgaris' },
-                      { code: 'L910', label: 'L91.0 Hypertrofická jazva' },
-                      { code: 'R520', label: 'R52.0 Akútna bolesť' }
+                      { code: 'R520', label: 'R52.0 Bolesť' }
                     ].map(diag => (
                       <button
                         key={diag.code}
@@ -722,14 +744,14 @@ export default function PrescriptionModule({
             </div>
           </div>
 
-          {/* 3. PREDPÍSANÉ LIEKY V LATINČINE (Rp.) */}
+          {/* 3. PREDPÍSANÉ LIEKY (Rp.) */}
           <div className="bg-white border border-[#E8E2D9] rounded-2xl p-4 shadow-xs space-y-4">
             <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
               <div>
                 <span className="text-[10px] uppercase font-bold text-[#C5A059] tracking-wider">
-                  3. Predpisované liečivá (Latinská účinná látka - INN)
+                  3. Predpisované liečivá (Riadky predpisu)
                 </span>
-                <span className="text-[9px] text-[#8C857B] block">Max. 2 lieky na 1 tlačivo ŠEVT A6</span>
+                <span className="text-[9px] text-[#8C857B] block">Formát: Účinná látka, Forma/Sila, Balenie, D.S., (Komerčný názov)</span>
               </div>
               {items.length < 2 && (
                 <button
@@ -750,11 +772,11 @@ export default function PrescriptionModule({
               >
                 <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
                   <div className="flex items-center gap-2">
-                    <span className="bg-[#2C2A29] text-white font-serif font-bold text-xs px-2 py-0.5 rounded">
+                    <span className="bg-[#2C2A29] text-white font-mono font-bold text-xs px-2 py-0.5 rounded">
                       Rp. {index + 1}
                     </span>
                     <span className="text-[11px] font-semibold text-[#8C857B]">
-                      {item.commercialName ? `(Vzor: ${item.commercialName})` : 'Vlastný predpis'}
+                      {item.commercialName ? `(${item.commercialName})` : 'Vlastný predpis'}
                     </span>
                   </div>
                   <button
@@ -768,61 +790,75 @@ export default function PrescriptionModule({
                 </div>
 
                 <div className="space-y-2 text-xs">
-                  {/* LATINSKÝ NÁZOV ÚČINNEJ LÁTKY - ZÁKONNÁ POŽIADAVKA */}
+                  {/* RIADOK 1: ÚČINNÁ LÁTKA */}
                   <div>
                     <label className="block text-[10px] uppercase text-[#047857] mb-1 font-bold">
-                      ⚖️ Názov účinnej látky v latinčine (INN) + lieková forma + sila na recept:
+                      1. riadok: Účinná látka (napr. metamizol, sodná soľ / amoxicilín / kyselina klavulánová):
                     </label>
                     <input
                       type="text"
                       required
-                      value={item.latinName}
-                      onChange={e => handleUpdateItemField(index, 'latinName', e.target.value)}
-                      placeholder="napr. Amoxicillinum et acidum clavulanicum tbl flm 1 g"
-                      className="w-full border-2 border-[#047857]/40 focus:border-[#047857] p-2 rounded-lg bg-white font-serif font-bold text-sm text-[#2C2A29]"
+                      value={item.substance || item.latinName || ''}
+                      onChange={e => handleUpdateItemField(index, 'substance', e.target.value)}
+                      placeholder="metamizol, sodná soľ"
+                      className="w-full border-2 border-[#047857]/40 focus:border-[#047857] p-2 rounded-lg bg-white font-mono font-bold text-xs text-[#2C2A29]"
                     />
                   </div>
 
+                  {/* RIADOK 2: FORMA A SILA */}
+                  <div>
+                    <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">
+                      2. riadok: Lieková forma, sila a špecifikácia (napr. tbl flm 20x500 mg (blis.Al/PVC)):
+                    </label>
+                    <input
+                      type="text"
+                      value={item.formAndStrength || ''}
+                      onChange={e => handleUpdateItemField(index, 'formAndStrength', e.target.value)}
+                      placeholder="tbl flm 20x500 mg (blis.Al/PVC)"
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs text-[#2C2A29]"
+                    />
+                  </div>
+
+                  {/* RIADOK 3: BALENIE */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">
-                        Veľkosť a počet balení (Exp. orig. No.)
+                        3. riadok: Počet balení (Exp. orig. No.)
                       </label>
                       <input
                         type="text"
                         value={item.packaging}
                         onChange={e => handleUpdateItemField(index, 'packaging', e.target.value)}
-                        placeholder="Exp. orig. No. I (unam)"
-                        className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-serif font-bold text-xs"
+                        placeholder="Exp. orig. No I (unam)"
+                        className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono font-bold text-xs"
                       />
                     </div>
 
                     <div>
                       <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">
-                        Kód ŠÚKL liečiva (do okienok Kód)
+                        5. riadok: Obchodný názov v zátvorke
                       </label>
                       <input
                         type="text"
-                        maxLength={8}
-                        value={item.suklCode || ''}
-                        onChange={e => handleUpdateItemField(index, 'suklCode', e.target.value.replace(/[^0-9]/g, ''))}
-                        placeholder="096431"
-                        className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs font-bold"
+                        value={item.commercialName}
+                        onChange={e => handleUpdateItemField(index, 'commercialName', e.target.value)}
+                        placeholder="Novalgin 500 mg"
+                        className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs"
                       />
                     </div>
                   </div>
 
-                  {/* DÁVKOVANIE (D.S.) */}
+                  {/* RIADOK 4: DÁVKOVANIE (D.S.) */}
                   <div>
                     <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">
-                      Návod na použitie / Signatúra (D.S.)
+                      4. riadok: Dávkovanie / Signatúra (D.S.)
                     </label>
                     <input
                       type="text"
                       value={item.dosage}
                       onChange={e => handleUpdateItemField(index, 'dosage', e.target.value)}
-                      placeholder="D.S. 1 tableta každých 12 hodín po jedle (7 dní)"
-                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-serif italic text-[#2C2A29]"
+                      placeholder="D.S. DOP pp."
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-mono text-[#2C2A29]"
                     />
                   </div>
                 </div>
@@ -843,11 +879,11 @@ export default function PrescriptionModule({
             )}
           </div>
 
-          {/* 4. RÝCHLY KATALÓG S LATINSKÝMI ÚČINNÝMI LÁTKAMI (1-CLICK INSERT) */}
+          {/* 4. RÝCHLY KATALÓG S ÚČINNÝMI LÁTKAMI (1-CLICK INSERT) */}
           <div className="bg-white border border-[#E8E2D9] rounded-2xl p-4 shadow-xs space-y-3">
             <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-2">
               <span className="text-[10px] uppercase font-bold text-[#C5A059] tracking-wider">
-                4. Rýchly výber liekov s latinskými účinnými látkami
+                4. Rýchly výber liekov s účinnými látkami
               </span>
               <span className="text-[9px] text-[#8C857B]">1-klikom vložíte do receptu</span>
             </div>
@@ -886,7 +922,7 @@ export default function PrescriptionModule({
               type="text"
               value={catalogSearch}
               onChange={e => setCatalogSearch(e.target.value)}
-              placeholder="Hľadať podľa účinnej látky alebo značky (Amoxicillinum, Augmentin, Aulin, Clexane...)..."
+              placeholder="Hľadať podľa účinnej látky alebo značky (Novalgin, Aulin, Clexane, Augmentin, Framykoin...)..."
               className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-[#FBF9F6] outline-none focus:border-[#C5A059]"
             />
 
@@ -899,14 +935,14 @@ export default function PrescriptionModule({
                 >
                   <div>
                     <div className="flex justify-between items-start gap-1">
-                      <p className="font-serif font-bold text-[#047857] text-[11px] group-hover:text-[#065f46] leading-tight">
-                        {med.latinName}
+                      <p className="font-mono font-bold text-[#047857] text-[11px] group-hover:text-[#065f46] leading-tight">
+                        {med.substance || med.latinName}
                       </p>
                     </div>
                     <p className="text-[10px] text-[#8C857B] font-semibold mt-0.5">
-                      {med.commercialName} • ŠÚKL: {med.suklCode}
+                      {med.commercialName} • {med.formAndStrength || ''}
                     </p>
-                    <p className="text-[10px] text-[#2C2A29] mt-1 font-serif italic line-clamp-1">{med.dosage}</p>
+                    <p className="text-[10px] text-[#2C2A29] mt-1 font-mono italic line-clamp-1">{med.dosage}</p>
                   </div>
 
                   <div className="mt-2 pt-2 border-t border-[#E8E2D9]/60 flex items-center justify-between">
@@ -983,338 +1019,386 @@ export default function PrescriptionModule({
             </div>
           </div>
 
-          {/* DOKUMENT: OFICIÁLNE LEKÁRSKE TLAČIVO ŠEVT 14 282 2s */}
+          {/* DOKUMENT: OFICIÁLNE LEKÁRSKE TLAČIVO ŠEVT 14 282 2s (A6: 105mm x 148mm) */}
           <div 
             id="sevt-a6-prescription-document"
             ref={printRef}
-            className={`bg-[#FFFFFF] text-[#000000] p-2 relative select-text transition-all ${
+            className={`bg-[#FFFFFF] text-[#000000] relative select-text transition-all ${
               previewView === 'text_only' ? 'border border-dashed border-[#C5A059]' : 'border-2 border-[#000000] shadow-md'
             }`}
             style={{
-              width: '100%',
-              maxWidth: '397px', // zodpovedá 105mm pri štandardnom zobrazení
-              minHeight: '560px', // zodpovedá 148mm
-              fontFamily: '"Times New Roman", Times, "Liberation Serif", serif',
-              boxSizing: 'border-box'
+              width: '105mm',
+              height: '148mm',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
             }}
           >
-            
-            {/* 1. HORNÝ BLOK (Miesto pre nalep. čísla | Lekársky predpis + Poisťovňa | Kód lekára AA) */}
-            <div className={`grid grid-cols-12 border-b-2 sevt-border ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
+            {/* VODIDLÁ / MRIEŽKA ŠEVT (Zobrazuje sa pri previewView === 'full_preview' a tlači s mriežkou) */}
+            <div className={`sevt-guide-grid absolute inset-0 pointer-events-none ${previewView === 'text_only' ? 'hidden' : 'block'}`}>
               
-              {/* VĽAVO: Miesto pre nalep. čísla */}
-              <div className={`col-span-3 border-r-2 sevt-border p-1 flex flex-col justify-center items-center text-center ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-                <span className="text-[7.5px] leading-tight sevt-preprinted-text font-sans">
-                  Miesto<br />pre<br />nalep.<br />čísla
-                </span>
-              </div>
-
-              {/* V STREDE: Lekársky predpis + Zdravotná poisťovňa poistenca + 4 OKIENKA */}
-              <div className={`col-span-6 border-r-2 sevt-border p-1 flex flex-col justify-between items-center text-center ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-                <div className="font-sans font-bold text-[12px] tracking-wide uppercase sevt-preprinted-text">
-                  Lekársky predpis
-                </div>
-
-                <div className="w-full pt-1">
-                  <span className="text-[7px] block font-sans sevt-preprinted-text">
-                    Zdravotná poisťovňa poistenca
+              {/* Horný blok mriežky */}
+              <div className="absolute top-[4mm] left-[4mm] right-[4mm] h-[22mm] border-2 border-black">
+                {/* Ľavé okienko: Miesto pre nalep. čísla */}
+                <div className="absolute top-0 left-0 bottom-0 w-[24mm] border-r-2 border-black flex flex-col justify-center items-center text-center">
+                  <span className="text-[7.5px] font-sans leading-tight sevt-preprinted-text">
+                    Miesto<br />pre<br />nalep.<br />čísla
                   </span>
-                  {/* 4 štvorcové okienka na kód ZP */}
-                  <div className="flex justify-center items-center gap-[2px] mt-0.5">
-                    {insBoxes.map((char, i) => (
-                      <div 
-                        key={i} 
-                        className={`w-3.5 h-4 border sevt-border flex items-center justify-center font-mono font-bold text-[10px] sevt-dynamic-value ${
-                          previewView === 'text_only' ? 'border-transparent' : 'border-[#000000] bg-white'
-                        }`}
-                      >
-                        {char}
-                      </div>
-                    ))}
+                </div>
+                {/* Stredné okienko: Lekársky predpis + Zdravotná poisťovňa */}
+                <div className="absolute top-0 left-[24mm] bottom-0 right-[24mm] border-r-2 border-black flex flex-col justify-between items-center text-center p-1">
+                  <div className="font-sans font-bold text-[11px] tracking-widest uppercase sevt-preprinted-text">
+                    Lekársky predpis
+                  </div>
+                  <div className="w-full">
+                    <span className="text-[7px] block font-sans sevt-preprinted-text">
+                      Zdravotná poisťovňa poistenca
+                    </span>
+                    <div className="flex justify-center items-center gap-[2px] mt-0.5">
+                      {[0, 1, 2, 3].map(i => (
+                        <div key={i} className="w-[4mm] h-[4.5mm] border border-black bg-white"></div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* VPRAVO: Kód lekára + AA */}
-              <div className="col-span-3 p-1 flex flex-col justify-between">
-                <div>
+                {/* Pravé okienko: Kód lekára + AA */}
+                <div className="absolute top-0 right-0 bottom-0 w-[24mm] p-1 flex flex-col justify-between">
                   <span className="text-[7px] font-sans block sevt-preprinted-text">Kód lekára</span>
-                  <span className="font-mono font-bold text-[9px] sevt-dynamic-value block">
-                    {doctorCode}
-                  </span>
-                </div>
-                <div className="text-right font-sans font-bold text-sm leading-none sevt-preprinted-text">
-                  AA
+                  <div className="text-right font-sans font-bold text-sm leading-none sevt-preprinted-text">AA</div>
                 </div>
               </div>
 
-            </div>
-
-            {/* 2. RIADOK: Priezvisko a meno (vľavo) | Rodné číslo (vpravo) */}
-            <div className={`grid grid-cols-12 border-b sevt-border min-h-[30px] ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-              <div className={`col-span-8 border-r sevt-border p-1 ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-                <span className="text-[7px] font-sans block leading-none sevt-preprinted-text">Priezvisko a meno</span>
-                <span className="font-sans font-bold text-[11px] uppercase tracking-wide sevt-dynamic-value block mt-0.5">
-                  {patientName || ' '}
-                </span>
+              {/* Riadok 2 mriežky: Priezvisko a meno | Rodné číslo */}
+              <div className="absolute top-[26mm] left-[4mm] right-[4mm] h-[9mm] border-x-2 border-b border-black">
+                <div className="absolute top-0 left-0 bottom-0 w-[65mm] border-r border-black p-0.5">
+                  <span className="text-[6.5px] font-sans block leading-none sevt-preprinted-text">Priezvisko a meno</span>
+                </div>
+                <div className="absolute top-0 right-0 bottom-0 w-[32mm] p-0.5">
+                  <span className="text-[6.5px] font-sans block leading-none sevt-preprinted-text">Rodné číslo</span>
+                </div>
               </div>
-              <div className="col-span-4 p-1">
-                <span className="text-[7px] font-sans block leading-none sevt-preprinted-text">Rodné číslo</span>
-                <span className="font-mono font-bold text-[10px] sevt-dynamic-value block mt-0.5">
-                  {birthNumber || ' '}
-                </span>
+
+              {/* Riadok 3 mriežky: Bydlisko */}
+              <div className="absolute top-[35mm] left-[4mm] right-[4mm] h-[9mm] border-x-2 border-b-2 border-black p-0.5">
+                <span className="text-[6.5px] font-sans block leading-none sevt-preprinted-text">Bydlisko</span>
               </div>
-            </div>
 
-            {/* 3. RIADOK: Bydlisko */}
-            <div className={`border-b-2 sevt-border p-1 min-h-[26px] ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-              <span className="text-[7px] font-sans block leading-none sevt-preprinted-text">Bydlisko</span>
-              <span className="font-sans text-[9px] sevt-dynamic-value block mt-0.5">
-                {address || ' '}
-              </span>
-            </div>
-
-            {/* 4. HLAVNÁ SEKCIA: ĽAVÁ ČASŤ (Rp. 1 a Rp. 2) | PRAVÁ ČASŤ (Uhradí poisťovňa/pacient tabuľka) */}
-            <div className="grid grid-cols-12 min-h-[360px]">
-              
-              {/* ĽAVÝ STĹPEC (cca 68% šírky) - PREDPIS LIEKOV Rp. */}
-              <div className={`col-span-8 border-r-2 sevt-border flex flex-col justify-between p-1.5 ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
+              {/* Hlavná časť: Rp. 1 a Rp. 2 (vľavo) | Tabuľka Uhradí (vpravo) */}
+              <div className="absolute top-[44mm] left-[4mm] right-[4mm] h-[92mm] border-x-2 border-b-2 border-black">
                 
-                {/* LIEK 1 */}
-                <div className="space-y-1">
+                {/* Ľavá časť: Rp. predpis */}
+                <div className="absolute top-0 left-0 bottom-0 right-[31mm] border-r-2 border-black p-1">
                   
-                  {/* Riadok: Dg. [ ][ ][ ][ ] | Kód [ ][ ][ ][ ][ ][ ][ ][ ] */}
-                  <div className="flex items-center justify-between text-[7px] font-sans pt-0.5">
+                  {/* Dg 1 riadok mriežky */}
+                  <div className="flex items-center justify-between text-[7px] font-sans">
                     <div className="flex items-center gap-1">
                       <span className="sevt-preprinted-text font-bold">Dg.</span>
                       <div className="flex gap-[1px]">
-                        {dgBoxes1.map((c, i) => (
-                          <div 
-                            key={i} 
-                            className={`w-3 h-3.5 border sevt-border flex items-center justify-center font-mono font-bold text-[8.5px] sevt-dynamic-value ${
-                              previewView === 'text_only' ? 'border-transparent' : 'border-[#000000] bg-white'
-                            }`}
-                          >
-                            {c}
-                          </div>
+                        {[0, 1, 2, 3].map(i => (
+                          <div key={i} className="w-[3.2mm] h-[3.8mm] border border-black bg-white"></div>
                         ))}
                       </div>
                     </div>
-
                     <div className="flex items-center gap-1">
                       <span className="sevt-preprinted-text font-bold">Kód</span>
                       <div className="flex gap-[1px]">
-                        {suklBoxes1.map((c, i) => (
-                          <div 
-                            key={i} 
-                            className={`w-2.5 h-3.5 border sevt-border flex items-center justify-center font-mono font-bold text-[8px] sevt-dynamic-value ${
-                              previewView === 'text_only' ? 'border-transparent' : 'border-[#000000] bg-white'
-                            }`}
-                          >
-                            {c}
-                          </div>
+                        {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
+                          <div key={i} className="w-[2.2mm] h-[3.8mm] border border-black bg-white"></div>
                         ))}
                       </div>
                     </div>
                   </div>
 
-                  {/* Nápis Rp. a LATINSKÉ LIEČIVO 1 */}
-                  <div className="pt-0.5">
-                    <div className="font-serif font-bold text-base leading-none sevt-preprinted-text float-left mr-1.5">
-                      Rp.
-                    </div>
-                    {items[0] && (
-                      <div className="space-y-0.5">
-                        {/* ZÁKONNÁ LATINSKÁ ÚČINNÁ LÁTKA INN */}
-                        <div className="font-serif font-bold text-[11px] leading-tight text-[#000000] sevt-dynamic-value">
-                          {items[0].latinName}
-                        </div>
-                        {/* BALENIE */}
-                        <div className="font-serif font-bold text-[9.5px] text-[#000000] sevt-dynamic-value pl-2">
-                          {items[0].packaging}
-                        </div>
-                        {/* SIGNATÚRA D.S. */}
-                        <div className="font-serif italic text-[9.5px] text-[#000000] sevt-dynamic-value pl-2 leading-tight">
-                          {items[0].dosage}
-                        </div>
-                      </div>
-                    )}
+                  {/* Rp. nápis 1 */}
+                  <div className="font-serif font-bold text-base leading-none sevt-preprinted-text mt-1">
+                    Rp.
                   </div>
 
-                </div>
-
-                {/* LIEK 2 (V DOLNEJ POLOVICI) */}
-                <div className="space-y-1 pt-2">
-                  
-                  {/* Riadok 2: Dg. [ ][ ][ ][ ] | Kód [ ][ ][ ][ ][ ][ ][ ][ ] */}
-                  <div className="flex items-center justify-between text-[7px] font-sans border-t border-dashed sevt-border pt-1.5">
+                  {/* Dg 2 riadok mriežky */}
+                  <div className="absolute top-[46mm] left-1 right-1 border-t border-dashed border-black pt-1 flex items-center justify-between text-[7px] font-sans">
                     <div className="flex items-center gap-1">
                       <span className="sevt-preprinted-text font-bold">Dg.</span>
                       <div className="flex gap-[1px]">
-                        {dgBoxes2.map((c, i) => (
-                          <div 
-                            key={i} 
-                            className={`w-3 h-3.5 border sevt-border flex items-center justify-center font-mono font-bold text-[8.5px] sevt-dynamic-value ${
-                              previewView === 'text_only' ? 'border-transparent' : 'border-[#000000] bg-white'
-                            }`}
-                          >
-                            {items[1] ? c : ''}
-                          </div>
+                        {[0, 1, 2, 3].map(i => (
+                          <div key={i} className="w-[3.2mm] h-[3.8mm] border border-black bg-white"></div>
                         ))}
                       </div>
                     </div>
-
                     <div className="flex items-center gap-1">
                       <span className="sevt-preprinted-text font-bold">Kód</span>
                       <div className="flex gap-[1px]">
-                        {suklBoxes2.map((c, i) => (
-                          <div 
-                            key={i} 
-                            className={`w-2.5 h-3.5 border sevt-border flex items-center justify-center font-mono font-bold text-[8px] sevt-dynamic-value ${
-                              previewView === 'text_only' ? 'border-transparent' : 'border-[#000000] bg-white'
-                            }`}
-                          >
-                            {c}
-                          </div>
+                        {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
+                          <div key={i} className="w-[2.2mm] h-[3.8mm] border border-black bg-white"></div>
                         ))}
                       </div>
                     </div>
                   </div>
 
-                  {/* Nápis Rp. a LATINSKÉ LIEČIVO 2 */}
-                  <div className="pt-0.5 min-h-[60px]">
-                    {items[1] && (
-                      <div>
-                        <div className="font-serif font-bold text-base leading-none sevt-preprinted-text float-left mr-1.5">
-                          Rp.
-                        </div>
-                        <div className="space-y-0.5">
-                          <div className="font-serif font-bold text-[11px] leading-tight text-[#000000] sevt-dynamic-value">
-                            {items[1].latinName}
-                          </div>
-                          <div className="font-serif font-bold text-[9.5px] text-[#000000] sevt-dynamic-value pl-2">
-                            {items[1].packaging}
-                          </div>
-                          <div className="font-serif italic text-[9.5px] text-[#000000] sevt-dynamic-value pl-2 leading-tight">
-                            {items[1].dosage}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                  {/* Rp. nápis 2 */}
+                  <div className="absolute top-[53mm] left-1 font-serif font-bold text-base leading-none sevt-preprinted-text">
+                    Rp.
                   </div>
 
-                  {/* DŇA A PEČIATKA LEKÁRA */}
-                  <div className="pt-1">
+                  {/* Spodok ľavej strany: Dňa & Pečiatka */}
+                  <div className="absolute bottom-1 left-1 right-1">
                     <div className="flex justify-between items-baseline text-[7.5px] font-sans">
-                      <div>
-                        <span className="sevt-preprinted-text">Dňa: </span>
-                        <strong className="sevt-dynamic-value font-mono text-[8.5px]">{prescriptionDate}</strong>
-                      </div>
-                      <div className="sevt-preprinted-text">
-                        Spolu
-                      </div>
+                      <span className="sevt-preprinted-text">Dňa:</span>
+                      <span className="sevt-preprinted-text">Spolu</span>
                     </div>
-
-                    {/* PEČIATKA A PODPIS */}
                     <div className="mt-1 text-center">
-                      <div className="text-[6.5px] text-[#000000] sevt-preprinted-text leading-none">
-                        ...........................................................................
-                      </div>
-                      <div className="text-[6.5px] font-sans uppercase sevt-preprinted-text mt-0.5">
+                      <div className="text-[6.5px] font-sans uppercase sevt-preprinted-text">
+                        ...........................................................................<br />
                         odtlačok pečiatky a podpis lekára
                       </div>
-                      {/* Vizuálna pečiatka kliniky pri plnej tlači */}
-                      <div className="mt-0.5 font-sans text-[6.5px] leading-tight text-[#000000] sevt-dynamic-value">
-                        <strong>SAY CLINIC s.r.o.</strong> • Lazovná 43, BB<br />
-                        PZS: {pzsCode} • {doctorName} ({doctorCode})
-                      </div>
                     </div>
                   </div>
 
                 </div>
 
-              </div>
-
-              {/* PRAVÝ STĹPEC (cca 32% šírky) - TABUĽKA "U h r a d í" */}
-              <div className="col-span-4 flex flex-col justify-between">
-                
-                <div>
-                  {/* Hlavička: U h r a d í */}
-                  <div className={`border-b sevt-border text-center font-sans font-bold text-[8.5px] py-0.5 tracking-[3px] sevt-preprinted-text ${
-                    previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'
-                  }`}>
+                {/* Pravá časť: Tabuľka Uhradí */}
+                <div className="absolute top-0 right-0 bottom-0 w-[31mm]">
+                  <div className="border-b border-black text-center font-sans font-bold text-[8px] py-0.5 tracking-[2px] sevt-preprinted-text">
                     U h r a d í
                   </div>
-
-                  {/* Podhlavička: poisťovňa (euro | cent) | pacient (euro | cent) */}
-                  <div className={`grid grid-cols-2 border-b sevt-border text-center text-[6.5px] font-sans sevt-preprinted-text ${
-                    previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'
-                  }`}>
-                    <div className={`border-r sevt-border p-0.5 ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
+                  <div className="grid grid-cols-2 border-b border-black text-center text-[6px] font-sans sevt-preprinted-text">
+                    <div className="border-r border-black p-0.5">
                       <div>poisťovňa</div>
-                      <div className={`grid grid-cols-2 border-t sevt-border text-[5.5px] pt-0.5 ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-                        <span className={`border-r sevt-border ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>euro</span>
+                      <div className="grid grid-cols-2 border-t border-black text-[5px] pt-0.5">
+                        <span className="border-r border-black">euro</span>
                         <span>cent</span>
                       </div>
                     </div>
                     <div className="p-0.5">
                       <div>pacient</div>
-                      <div className={`grid grid-cols-2 border-t sevt-border text-[5.5px] pt-0.5 ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-                        <span className={`border-r sevt-border ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>euro</span>
+                      <div className="grid grid-cols-2 border-t border-black text-[5px] pt-0.5">
+                        <span className="border-r border-black">euro</span>
                         <span>cent</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Prázdne riadky mriežky pre lekáreň */}
-                  <div className={`h-44 grid grid-cols-4 sevt-border ${previewView === 'text_only' ? 'border-transparent' : ''}`}>
-                    <div className={`border-r sevt-border ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}></div>
-                    <div className={`border-r-2 sevt-border ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}></div>
-                    <div className={`border-r sevt-border ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}></div>
+                  {/* Riadky pre lekáreň */}
+                  <div className="h-[46mm] grid grid-cols-4 border-b border-black">
+                    <div className="border-r border-black"></div>
+                    <div className="border-r-2 border-black"></div>
+                    <div className="border-r border-black"></div>
                     <div></div>
+                  </div>
+
+                  {/* Por. číslo predpisu */}
+                  <div className="p-1">
+                    <span className="text-[6px] font-sans block leading-none sevt-preprinted-text">
+                      Por. číslo predpisu
+                    </span>
                   </div>
                 </div>
 
-                {/* Por. číslo predpisu */}
-                <div className={`border-t sevt-border p-1 ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-                  <span className="text-[6.5px] font-sans block leading-none sevt-preprinted-text">
-                    Por. číslo predpisu
-                  </span>
-                  <span className="font-mono text-[8px] font-bold sevt-dynamic-value block mt-0.5">
-                    {prescriptionOrderNumber || ' '}
-                  </span>
+              </div>
+
+              {/* Dolná pätička (5 buniek pre lekáreň) */}
+              <div className="absolute top-[136mm] left-[4mm] right-[4mm] h-[7mm] border-x-2 border-b-2 border-black grid grid-cols-5 text-center text-[6px] font-sans sevt-preprinted-text">
+                <div className="border-r border-black flex items-center justify-center">Prijal</div>
+                <div className="border-r border-black flex items-center justify-center">Pripravil</div>
+                <div className="border-r border-black flex items-center justify-center">Spolupracoval</div>
+                <div className="border-r border-black flex items-center justify-center">Expedoval</div>
+                <div className="flex items-center justify-center">Dátum</div>
+              </div>
+
+              {/* Päta ŠEVT */}
+              <div className="absolute top-[143.5mm] left-[4mm] right-[4mm] flex justify-between text-[5.5px] font-sans sevt-preprinted-text">
+                <span>14 282 2s Design © Ševt</span>
+                <span>SAY CLINIC BB</span>
+              </div>
+
+            </div>
+
+            {/* ========================================================================= */}
+            {/* DYNAMICKÝ TEXT TLAČENÝ PRESNE NA POZÍCIE FORMULÁRA (ZODPOVEDÁ PREDLOHE)  */}
+            {/* ========================================================================= */}
+            
+            {/* 1. KÓD LEKÁRA (Hore vpravo) */}
+            <div 
+              className="absolute sevt-dynamic-value text-right font-mono font-bold text-[10.5px] tracking-wider"
+              style={{
+                top: '9.5mm',
+                right: '7mm',
+                width: '30mm'
+              }}
+            >
+              {doctorCode}
+            </div>
+
+            {/* 2. ZDRAVOTNÁ POISŤOVŇA (4 okienka v strede hore: napr. "2 5 0 0") */}
+            <div 
+              className="absolute sevt-dynamic-value font-mono font-bold text-[10.5px] flex justify-center items-center"
+              style={{
+                top: '19.8mm',
+                left: '28mm',
+                width: '49mm',
+                letterSpacing: '0.45rem'
+              }}
+            >
+              {insBoxes.join(' ')}
+            </div>
+
+            {/* 3. PACIENT A RODNÉ ČÍSLO (Riadok pod hlavičkou) */}
+            <div 
+              className="absolute sevt-dynamic-value font-mono font-bold text-[10.5px] uppercase tracking-wide truncate"
+              style={{
+                top: '29.5mm',
+                left: '6mm',
+                width: '62mm'
+              }}
+            >
+              {patientName}
+            </div>
+
+            <div 
+              className="absolute sevt-dynamic-value font-mono font-bold text-[10.5px] tracking-wider text-right"
+              style={{
+                top: '29.5mm',
+                right: '7mm',
+                width: '30mm'
+              }}
+            >
+              {birthNumber}
+            </div>
+
+            {/* 4. BYDLISKO */}
+            <div 
+              className="absolute sevt-dynamic-value font-mono font-normal text-[10px] uppercase tracking-wide truncate"
+              style={{
+                top: '38.5mm',
+                left: '6mm',
+                width: '93mm'
+              }}
+            >
+              {address}
+            </div>
+
+            {/* 5. DIAGNÓZA 1 (MKCH-10 v 4 okienkach: napr. "Z  4  1  1") */}
+            <div 
+              className="absolute sevt-dynamic-value font-mono font-bold text-[10px] tracking-widest flex items-center"
+              style={{
+                top: '44.8mm',
+                left: '11.5mm',
+                letterSpacing: '0.35rem'
+              }}
+            >
+              {dgBoxes1.join(' ')}
+            </div>
+
+            {/* 6. LIEK 1 - PRESNÉ RIADKY PODĽA PREDLOHY */}
+            <div 
+              className="absolute sevt-dynamic-value font-mono text-[10px] leading-[1.3] text-black"
+              style={{
+                top: '55mm',
+                left: '6mm',
+                width: '65mm'
+              }}
+            >
+              {items[0] && (
+                <div className="space-y-[1px]">
+                  {/* Riadok 1: Účinná látka */}
+                  <div className="font-bold text-[10.5px]">
+                    {items[0].substance || items[0].latinName}
+                  </div>
+                  {/* Riadok 2: Forma a sila */}
+                  {items[0].formAndStrength && (
+                    <div className="text-[9.5px]">
+                      {items[0].formAndStrength}
+                    </div>
+                  )}
+                  {/* Riadok 3: Počet balení */}
+                  <div className="font-bold text-[9.5px]">
+                    {items[0].packaging}
+                  </div>
+                  {/* Riadok 4: Dávkovanie D.S. */}
+                  <div className="text-[9.5px]">
+                    {items[0].dosage}
+                  </div>
+                  {/* Riadok 5: Obchodný názov v zátvorke */}
+                  {items[0].commercialName && (
+                    <div className="text-[9.5px]">
+                      ({items[0].commercialName.replace(/^\(|\)$/g, '')})
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 7. LIEK 2 (AK JE PRÍTOMNÝ) */}
+            {items[1] && (
+              <>
+                {/* Dg 2 okienka */}
+                <div 
+                  className="absolute sevt-dynamic-value font-mono font-bold text-[10px] tracking-widest flex items-center"
+                  style={{
+                    top: '90.5mm',
+                    left: '11.5mm',
+                    letterSpacing: '0.35rem'
+                  }}
+                >
+                  {dgBoxes2.join(' ')}
                 </div>
 
-              </div>
+                <div 
+                  className="absolute sevt-dynamic-value font-mono text-[10px] leading-[1.3] text-black"
+                  style={{
+                    top: '97mm',
+                    left: '6mm',
+                    width: '65mm'
+                  }}
+                >
+                  <div className="space-y-[1px]">
+                    <div className="font-bold text-[10.5px]">
+                      {items[1].substance || items[1].latinName}
+                    </div>
+                    {items[1].formAndStrength && (
+                      <div className="text-[9.5px]">
+                        {items[1].formAndStrength}
+                      </div>
+                    )}
+                    <div className="font-bold text-[9.5px]">
+                      {items[1].packaging}
+                    </div>
+                    <div className="text-[9.5px]">
+                      {items[1].dosage}
+                    </div>
+                    {items[1].commercialName && (
+                      <div className="text-[9.5px]">
+                        ({items[1].commercialName.replace(/^\(|\)$/g, '')})
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
+            {/* 8. DÁTUM VYSTAVENIA (Dňa:) */}
+            <div 
+              className="absolute sevt-dynamic-value font-mono font-bold text-[10px] tracking-wider"
+              style={{
+                top: '127mm',
+                left: '6mm'
+              }}
+            >
+              {prescriptionDate}
             </div>
 
-            {/* 5. DOLNÁ PÄTIČKA (Tabuľka 5 buniek pre lekáreň: Prijal | Pripravil | Spolupracoval | Expedoval | Dátum) */}
-            <div className={`border-t-2 sevt-border grid grid-cols-5 text-center text-[6.5px] font-sans min-h-[22px] sevt-preprinted-text ${
-              previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'
-            }`}>
-              <div className={`border-r sevt-border p-0.5 flex items-center justify-center ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-                Prijal
+            {/* 9. PORADOVÉ ČÍSLO PREDPISU (vpravo dole) */}
+            {prescriptionOrderNumber && (
+              <div 
+                className="absolute sevt-dynamic-value font-mono font-bold text-[9px] text-center"
+                style={{
+                  top: '130mm',
+                  right: '6mm',
+                  width: '27mm'
+                }}
+              >
+                {prescriptionOrderNumber}
               </div>
-              <div className={`border-r sevt-border p-0.5 flex items-center justify-center ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-                Pripravil
-              </div>
-              <div className={`border-r sevt-border p-0.5 flex items-center justify-center ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-                Spolupracoval
-              </div>
-              <div className={`border-r sevt-border p-0.5 flex items-center justify-center ${previewView === 'text_only' ? 'border-transparent' : 'border-[#000000]'}`}>
-                Expedoval
-              </div>
-              <div className="p-0.5 flex items-center justify-center">
-                Dátum
-              </div>
-            </div>
-
-            {/* Mikrotext ŠEVT na spodku */}
-            <div className="text-[5.5px] text-[#000000] font-sans pt-0.5 flex justify-between items-center sevt-preprinted-text">
-              <span>14 282 2s Design © <strong>Ševt</strong> www.sevt.sk</span>
-              <span>SAY CLINIC BB</span>
-            </div>
+            )}
 
           </div>
 
