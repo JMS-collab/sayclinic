@@ -10,11 +10,10 @@ import {
   PenTool, 
   Sparkles, 
   Compass,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Camera,
-  Layers
+  ZoomIn, 
+  ZoomOut, 
+  Maximize2, 
+  Camera 
 } from 'lucide-react';
 
 export type DrawingToolType = 'threads' | 'fanning' | 'point' | 'freehand' | 'rotate';
@@ -105,159 +104,304 @@ export function Sculpture3DViewer({
   const drawStart3DRef = useRef<VectorPoint3D | null>(null);
   const currentPath3DRef = useRef<VectorPoint3D[]>([]);
 
-  // Smooth Gaussian bell helper for anatomical sculpting
-  const gaussian = (x: number, y: number, cx: number, cy: number, sx: number, sy: number) => {
-    const dx = (x - cx) / sx;
-    const dy = (y - cy) / sy;
-    return Math.exp(-(dx * dx + dy * dy));
-  };
-
-  // Helper to create a harmonious, realistic female face & bust
+  // Helper to create an anatomically proportioned, graceful female bust (Face, Neck, Clavicles, Décolleté)
   const createHarmoniousFemaleBust = (): THREE.Group => {
     const group = new THREE.Group();
 
-    // 1. High-Density Parametric Female Face & Head Mesh
-    const faceGeo = new THREE.SphereGeometry(1.2, 100, 100);
-    const pos = faceGeo.attributes.position;
-    const vertex = new THREE.Vector3();
+    // 1. UNIFIED CONTINUOUS PARAMETRIC BUST GEOMETRY
+    // Slices: Ny = 160 vertical rings (from y = -1.58 at decollete to y = 1.28 at crown), Ntheta = 128 circumferential steps
+    const Ny = 160;
+    const Ntheta = 128;
+    const vertices: number[] = [];
+    const indices: number[] = [];
+    const uvs: number[] = [];
 
-    for (let i = 0; i < pos.count; i++) {
-      vertex.fromBufferAttribute(pos, i);
+    const gaus2D = (x: number, y: number, cx: number, cy: number, sx: number, sy: number) => {
+      const dx = (x - cx) / sx;
+      const dy = (y - cy) / sy;
+      return Math.exp(-(dx * dx + dy * dy));
+    };
 
-      let x = vertex.x;
-      let y = vertex.y;
-      let z = vertex.z;
+    for (let iy = 0; iy <= Ny; iy++) {
+      const v = iy / Ny; // 0 (bottom) to 1 (top)
+      // Map v to y from -1.58 to 1.26
+      const y = -1.58 + v * 2.84;
 
-      // Base feminine oval ratio (slender, graceful proportions)
-      x *= 0.82;
-      z *= 0.88;
+      for (let it = 0; it <= Ntheta; it++) {
+        const u = it / Ntheta; // 0 to 1
+        const theta = u * Math.PI * 2 - Math.PI; // -PI (back) -> 0 (front) -> +PI (back)
+        const cosT = Math.cos(theta);
+        const sinT = Math.sin(theta);
+        const absT = Math.abs(theta);
 
-      // Forehead & Cranium: Soft feminine curve
-      if (y > 0.45) {
-        z += Math.sin((y - 0.45) * 2.2) * 0.06;
-      }
+        // BASE ELLIPSOIDAL RADII & OFFSETS
+        let rx = 0.50;
+        let rz = 0.50;
+        let zCenter = 0.0;
+        const xCenter = 0.0;
+        let deltaZ = 0.0;
+        let deltaX = 0.0;
+        let deltaY = 0.0;
 
-      // Temple softening
-      if (y > 0.25 && y < 0.65 && Math.abs(x) > 0.48 && z > 0.1) {
-        x *= 0.96;
-        z -= 0.04;
-      }
+        // --- REGION A: DÉCOLLETÉ & SHOULDERS (y: -1.58 -> -0.90) ---
+        if (y < -0.90) {
+          const t = (y - (-1.58)) / 0.68; // 0 (bottom) -> 1 (neck base)
+          const flare = Math.pow(1 - t, 1.35);
+          rx = 0.54 + flare * 0.95;
+          rz = 0.44 + flare * 0.42;
+          zCenter = -0.05 + 0.10 * Math.max(0, cosT) * flare;
 
-      // Supraorbital / Brow arch (delicate feminine arch, not prominent)
-      if (y > 0.28 && y < 0.44 && Math.abs(x) < 0.55 && z > 0.45) {
-        const browArch = gaussian(Math.abs(x), y, 0.32, 0.36, 0.22, 0.1) * 0.05;
-        z += browArch;
-      }
+          // Clavicles (Collarbone ridges) near y = -0.96
+          if (y > -1.15 && y < -0.85) {
+            const clavY = gaus2D(0, y, 0, -0.95, 1, 0.075);
+            // Suprasternal notch in center
+            if (absT < 0.22) {
+              deltaZ -= 0.045 * (1 - absT / 0.22) * clavY;
+            } else if (absT < 1.30) {
+              // S-curve clavicle bone ridge
+              const clavAngle = (absT - 0.22) / (1.30 - 0.22);
+              const ridge = Math.sin(clavAngle * Math.PI) * 0.048 * clavY;
+              deltaZ += ridge;
+              deltaY += ridge * 0.22;
+            }
+          }
+        }
+        // --- REGION B: SLENDER FEMININE NECK (y: -0.90 -> -0.15) ---
+        else if (y < -0.15) {
+          const t = (y - (-0.90)) / 0.75; // 0 -> 1
+          // Graceful waist in mid-neck
+          const waist = Math.sin(t * Math.PI);
+          rx = 0.43 - waist * 0.045 + t * 0.02;
+          rz = 0.44 - waist * 0.035;
+          zCenter = -0.04 + t * 0.08; // Natural cervical lordosis
 
-      // Feminine Eye Orbits (Almond shape recess)
-      if (y > 0.12 && y < 0.36 && Math.abs(x) > 0.18 && Math.abs(x) < 0.62 && z > 0.3) {
-        const eyeRecess = gaussian(Math.abs(x), y, 0.38, 0.24, 0.18, 0.12) * 0.22;
-        z -= eyeRecess;
-      }
+          // Sternocleidomastoid (SCM) paired muscles running from mastoid to medial clavicle
+          const targetSCMAngle = 0.32 + (1 - t) * 0.1 + t * 1.05;
+          const scmElevation = Math.exp(-Math.pow((absT - targetSCMAngle) / 0.22, 2)) * 0.038 * Math.sin(t * Math.PI);
+          deltaZ += scmElevation * Math.max(0, cosT);
+          deltaX += Math.sign(theta) * scmElevation * 0.02;
 
-      // Feminine High Cheekbones (Zygoma - elegant lift & soft taper)
-      if (y > -0.08 && y < 0.32 && Math.abs(x) > 0.32 && Math.abs(x) < 0.82 && z > 0.15) {
-        const cheekLift = gaussian(Math.abs(x), y, 0.48, 0.12, 0.22, 0.18) * 0.16;
-        z += cheekLift;
-        x += Math.sign(x) * cheekLift * 0.18;
-      }
+          // Soft feminine thyroid prominence (gentle throat contour)
+          if (y > -0.52 && y < -0.32 && absT < 0.35) {
+            deltaZ += 0.022 * gaus2D(theta, y, 0, -0.42, 0.25, 0.06);
+          }
+        }
+        // --- REGION C: HEAD & CRANIOFACIAL COMPLEX (y: -0.15 -> 1.26) ---
+        else {
+          const tHead = (y - (-0.15)) / 1.41; // 0 (chin/jaw base) -> 1 (vertex)
 
-      // Refined Feminine Nose (slender bridge, delicate upturned tip)
-      if (y > -0.22 && y < 0.38 && Math.abs(x) < 0.26 && z > 0.35) {
-        // Slender dorsal aesthetic line
-        const noseNorm = (y + 0.22) / 0.6;
-        const bridgeWidth = 0.11 + (1 - noseNorm) * 0.05;
-        if (Math.abs(x) < bridgeWidth * 2) {
-          const bridgeHeight = Math.cos((Math.abs(x) / (bridgeWidth * 2)) * (Math.PI / 2)) * (0.24 - noseNorm * 0.04);
-          z += bridgeHeight;
+          // Base craniofacial egg/oval
+          rx = 0.76 * Math.sin(Math.min(Math.PI, tHead * 0.88 + 0.25));
+          rz = 0.88 * Math.sin(Math.min(Math.PI, tHead * 0.85 + 0.28));
+          zCenter = 0.08 + Math.sin(tHead * Math.PI * 0.7) * 0.04;
+
+          // 1. SUBMENTAL & MANDIBULAR V-LINE CONTOUR (y: -0.15 -> 0.25)
+          if (y < 0.25) {
+            // Jawline angle (Gonion) at sides (absT ~ 1.35)
+            if (absT > 1.0 && absT < 1.6) {
+              const gonion = gaus2D(absT, y, 1.35, 0.18, 0.22, 0.12) * 0.06;
+              rx += gonion;
+              rz += gonion * 0.5;
+            }
+            // Under-chin submental transition
+            if (absT < 0.9 && y < 0.05) {
+              const submental = (1 - (0.05 - y) / 0.20);
+              deltaZ += 0.18 * Math.max(0, submental) * Math.cos(absT * 1.5);
+            }
+          }
+
+          // 2. FEMININE CHIN (Pogonion / Menton) (y: -0.05 -> 0.12)
+          if (y > -0.06 && y < 0.12 && absT < 0.45) {
+            const chinLift = gaus2D(theta, y, 0, 0.03, 0.24, 0.065) * 0.145;
+            deltaZ += chinLift;
+            deltaY -= chinLift * 0.15;
+          }
+
+          // 3. LABIOMENTAL SULCUS (Crease above chin) (y: 0.08 -> 0.16)
+          if (y > 0.07 && y < 0.16 && absT < 0.40) {
+            const labioIndent = gaus2D(theta, y, 0, 0.115, 0.28, 0.035) * 0.045;
+            deltaZ -= labioIndent;
+          }
+
+          // 4. LOWER LIP (Full, soft central division) (y: 0.14 -> 0.23)
+          if (y > 0.13 && y < 0.23 && absT < 0.38) {
+            const lipProf = gaus2D(0, y, 0, 0.178, 1, 0.032);
+            const lipAng = Math.max(0, Math.cos((theta / 0.32) * (Math.PI / 2)));
+            // Soft central groove division for natural lip anatomy
+            const centerGroove = 1 - 0.18 * Math.exp(-Math.pow(theta / 0.055, 2));
+            deltaZ += 0.105 * lipProf * lipAng * centerGroove;
+          }
+
+          // 5. UPPER LIP & CUPID'S BOW (y: 0.21 -> 0.30)
+          if (y > 0.21 && y < 0.30 && absT < 0.36) {
+            const upProf = gaus2D(0, y, 0, 0.252, 1, 0.030);
+            // Twin peaks of Cupid's bow at theta = +-0.075
+            const bowL = Math.exp(-Math.pow((theta - 0.075) / 0.08, 2));
+            const bowR = Math.exp(-Math.pow((theta + 0.075) / 0.08, 2));
+            const bowVal = (bowL + bowR) * 0.5;
+            const centerDip = Math.exp(-Math.pow(theta / 0.04, 2)) * 0.028;
+            deltaZ += 0.095 * upProf * bowVal - centerDip * upProf;
+          }
+
+          // 6. PHILTRUM & COLUMNS (y: 0.27 -> 0.36)
+          if (y > 0.27 && y < 0.36 && absT < 0.22) {
+            const philY = gaus2D(0, y, 0, 0.315, 1, 0.035);
+            // Philtral columns
+            const colL = Math.exp(-Math.pow((theta - 0.055) / 0.025, 2));
+            const colR = Math.exp(-Math.pow((theta + 0.055) / 0.025, 2));
+            deltaZ += 0.025 * (colL + colR) * philY;
+            // Central philtral trough
+            deltaZ -= 0.020 * Math.exp(-Math.pow(theta / 0.035, 2)) * philY;
+          }
+
+          // 7. ORAL COMMISSURES (Corners of the mouth) (y: 0.19 -> 0.25)
+          if (y > 0.19 && y < 0.25 && absT > 0.18 && absT < 0.36) {
+            const comm = gaus2D(absT, y, 0.27, 0.218, 0.06, 0.025) * 0.032;
+            deltaZ -= comm;
+          }
+
+          // 8. FEMININE NOSE (Lobule, alar wings, supratip break, slender bridge) (y: 0.32 -> 0.72)
+          if (y > 0.32 && y < 0.72 && absT < 0.42) {
+            // A. Nasal Tip Lobule (y ~ 0.41, theta = 0)
+            if (y > 0.34 && y < 0.48 && absT < 0.20) {
+              const tip = gaus2D(theta, y, 0, 0.41, 0.11, 0.05) * 0.21;
+              deltaZ += tip;
+              // slight feminine rotation / supratip break
+              if (y > 0.43 && y < 0.48 && absT < 0.12) {
+                deltaZ -= 0.025 * gaus2D(theta, y, 0, 0.455, 0.09, 0.02);
+              }
+            }
+            // B. Alar Lobules (Nostril wings) (y ~ 0.37, theta ~ +-0.14)
+            if (y > 0.33 && y < 0.44 && absT > 0.06 && absT < 0.26) {
+              const alar = gaus2D(absT, y, 0.14, 0.375, 0.065, 0.038) * 0.082;
+              deltaZ += alar;
+            }
+            // C. Nasal Dorsum / Bridge (y ~ 0.46 -> 0.70)
+            if (y > 0.46 && y < 0.70 && absT < 0.18) {
+              const normY = (y - 0.46) / 0.24; // 0 (supratip) to 1 (nasion)
+              const bridgeWidth = 0.085 + (1 - normY) * 0.03;
+              if (absT < bridgeWidth) {
+                const bridgeH = Math.cos((absT / bridgeWidth) * (Math.PI / 2)) * (0.165 - normY * 0.045);
+                deltaZ += bridgeH;
+              }
+            }
+            // D. Nasion depression (y ~ 0.69)
+            if (y > 0.66 && y < 0.73 && absT < 0.14) {
+              deltaZ -= 0.035 * gaus2D(theta, y, 0, 0.695, 0.10, 0.025);
+            }
+          }
+
+          // 9. HIGH FEMININE CHEEKBONES (Zygoma & Malar Fat Pad) (y: 0.36 -> 0.66)
+          if (y > 0.36 && y < 0.66 && absT > 0.35 && absT < 1.15) {
+            const cheek = gaus2D(absT, y, 0.68, 0.52, 0.26, 0.11) * 0.115;
+            rx += cheek * 0.6;
+            deltaZ += cheek * 0.85;
+          }
+
+          // 10. EYE SOCKETS & ALMOND EYELIDS (y: 0.58 -> 0.74)
+          if (y > 0.58 && y < 0.74 && absT > 0.20 && absT < 0.62) {
+            // Orbital socket recess
+            const orbit = gaus2D(absT, y, 0.39, 0.655, 0.16, 0.065) * 0.11;
+            deltaZ -= orbit;
+            // Almond eyeball & eyelid curvature
+            const eyeBall = gaus2D(absT, y, 0.39, 0.655, 0.11, 0.038) * 0.065;
+            deltaZ += eyeBall;
+            // Upper eyelid crease (supratarsal fold)
+            if (y > 0.68 && y < 0.72) {
+              const crease = gaus2D(absT, y, 0.39, 0.695, 0.14, 0.015) * 0.018;
+              deltaZ += crease;
+            }
+          }
+
+          // 11. BROW RIDGES (Arcus Superciliaris) (y: 0.72 -> 0.84)
+          if (y > 0.72 && y < 0.84 && absT > 0.12 && absT < 0.72) {
+            // Feminine arched eyebrow (highest laterally at theta ~ 0.44)
+            const brow = gaus2D(absT, y, 0.44, 0.775, 0.22, 0.045) * 0.055;
+            deltaZ += brow;
+          }
+
+          // 12. FOREHEAD & TEMPORAL CONTOUR (y: 0.80 -> 1.15)
+          if (y > 0.80 && y < 1.15) {
+            // Soft convex forehead curve forward
+            if (absT < 0.60) {
+              const foreY = Math.sin(((y - 0.80) / 0.35) * Math.PI);
+              deltaZ += 0.045 * foreY * Math.cos(absT * 1.6);
+            }
+            // Temporal hollows
+            if (absT > 0.65 && absT < 1.05 && y > 0.82 && y < 1.05) {
+              const temp = gaus2D(absT, y, 0.82, 0.92, 0.16, 0.08) * 0.035;
+              rx -= temp;
+              deltaZ -= temp * 0.5;
+            }
+          }
+
+          // 13. CRANIAL DOME (y: 1.12 -> 1.26)
+          if (y > 1.12) {
+            const crownT = (y - 1.12) / 0.14;
+            rx *= Math.cos(crownT * (Math.PI / 2) * 0.95);
+            rz *= Math.cos(crownT * (Math.PI / 2) * 0.95);
+          }
         }
 
-        // Delicate nasal tip definition (supratip break & rotation)
-        const tipBulb = gaussian(x, y, 0, -0.04, 0.09, 0.08) * 0.14;
-        z += tipBulb;
-        if (y > -0.06 && y < 0.02 && Math.abs(x) < 0.08) {
-          y += 0.02; // slight feminine nasal tip elevation
-        }
+        // COMPUTE FINAL 3D VERTEX POSITION
+        const x = (rx * sinT + xCenter + deltaX);
+        const z = (rz * cosT + zCenter + deltaZ);
+        const finalY = y + deltaY;
 
-        // Alar base (delicate nostrils)
-        const alar = gaussian(Math.abs(x), y, 0.12, -0.1, 0.07, 0.06) * 0.06;
-        z += alar;
+        vertices.push(x, finalY, z);
+        uvs.push(u, v);
       }
-
-      // Feminine Lips & Cupid's Bow
-      if (y > -0.48 && y < -0.12 && Math.abs(x) < 0.38 && z > 0.45) {
-        // Upper lip & Philtrum
-        if (y > -0.32) {
-          const upperLip = gaussian(Math.abs(x), y, 0.14, -0.23, 0.16, 0.08) * 0.12;
-          const cupidIndent = gaussian(x, y, 0, -0.21, 0.05, 0.06) * 0.04;
-          z += upperLip - cupidIndent;
-        }
-        // Lower lip (plump, central fullness)
-        if (y <= -0.26 && y > -0.44) {
-          const lowerLip = gaussian(Math.abs(x), y, 0.1, -0.34, 0.18, 0.09) * 0.13;
-          z += lowerLip;
-        }
-      }
-
-      // Labiomental sulcus (soft crease below lower lip)
-      if (y > -0.56 && y < -0.44 && Math.abs(x) < 0.28 && z > 0.45) {
-        z -= 0.06;
-      }
-
-      // Feminine Chin (delicate, slightly projected, rounded V-line)
-      if (y > -0.95 && y < -0.52 && Math.abs(x) < 0.42 && z > 0.15) {
-        const chin = gaussian(x, y, 0, -0.72, 0.24, 0.16) * 0.16;
-        z += chin;
-        y -= 0.04;
-      }
-
-      // Jawline Tapering (V-Shape / Slender jaw contour)
-      if (y < -0.1) {
-        const jawFactor = Math.max(0.55, 1.0 + (y + 0.1) * 0.45);
-        x *= jawFactor;
-      }
-
-      // Occipital back of head shaping
-      if (z < -0.2) {
-        z *= 0.94;
-      }
-
-      pos.setXYZ(i, x, y, z);
     }
 
-    faceGeo.computeVertexNormals();
+    // GENERATE TRIANGLE INDICES
+    for (let iy = 0; iy < Ny; iy++) {
+      for (let it = 0; it < Ntheta; it++) {
+        const a = iy * (Ntheta + 1) + it;
+        const b = (iy + 1) * (Ntheta + 1) + it;
+        const c = (iy + 1) * (Ntheta + 1) + (it + 1);
+        const d = iy * (Ntheta + 1) + (it + 1);
 
-    // High-end warm porcelain / skin aesthetic material
+        indices.push(a, b, d);
+        indices.push(b, c, d);
+      }
+    }
+
+    const bustGeo = new THREE.BufferGeometry();
+    bustGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    bustGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    bustGeo.setIndex(indices);
+    bustGeo.computeVertexNormals();
+
+    // High-End Alabaster Skin Material (Pearlescent Aesthetic Clinical Finish)
     const skinMaterial = new THREE.MeshStandardMaterial({
-      color: 0xFDF8F3,
-      roughness: 0.32,
-      metalness: 0.04,
+      color: 0xFAF5EF,
+      roughness: 0.34,
+      metalness: 0.03,
       wireframe: false,
     });
 
-    const faceMesh = new THREE.Mesh(faceGeo, skinMaterial);
-    faceMesh.position.y = 0.55;
-    faceMesh.name = 'female_face_mesh';
-    faceMeshRef.current = faceMesh;
-    group.add(faceMesh);
+    const bustMesh = new THREE.Mesh(bustGeo, skinMaterial);
+    bustMesh.name = 'female_face_mesh';
+    faceMeshRef.current = bustMesh;
+    group.add(bustMesh);
 
-    // 2. Sculpted Feminine Hair Updo (elegant classical frame)
-    const hairGeo = new THREE.SphereGeometry(1.26, 64, 48);
+    // 2. Sculpted Classical Hair Frame & Updo Chignon
+    const hairGeo = new THREE.SphereGeometry(0.85, 48, 36);
     const hairPos = hairGeo.attributes.position;
     const hVert = new THREE.Vector3();
     for (let i = 0; i < hairPos.count; i++) {
       hVert.fromBufferAttribute(hairPos, i);
-      let hx = hVert.x * 0.86;
-      let hy = hVert.y * 1.02;
-      let hz = hVert.z * 0.92;
+      let hx = hVert.x * 0.94;
+      let hy = hVert.y * 0.95;
+      let hz = hVert.z * 1.05;
 
-      // Hair bun / volume on crown and back
-      if (hy > 0.4 || hz < -0.1) {
-        hz -= 0.08;
-        hy += 0.06;
+      // Chignon / Hair volume at the posterior crown
+      if (hz < -0.1) {
+        hz *= 1.15;
+        hy += 0.05;
       }
-      // Hair strands waves
-      const wave = Math.sin(hy * 12 + hx * 8) * 0.015;
+      // Hair wave flow lines
+      const wave = Math.sin(hy * 14 + hx * 8) * 0.012;
       hx += wave;
       hz += wave;
 
@@ -266,60 +410,66 @@ export function Sculpture3DViewer({
     hairGeo.computeVertexNormals();
 
     const hairMaterial = new THREE.MeshStandardMaterial({
-      color: 0x4A3E39,
-      roughness: 0.72,
-      metalness: 0.12,
+      color: 0x3D322B,
+      roughness: 0.68,
+      metalness: 0.10,
     });
     const hairMesh = new THREE.Mesh(hairGeo, hairMaterial);
-    hairMesh.position.set(0, 0.62, -0.06);
-    hairMesh.scale.set(1.02, 1.02, 1.02);
+    hairMesh.position.set(0, 0.98, -0.18);
+    hairMesh.scale.set(0.96, 0.96, 0.96);
     group.add(hairMesh);
 
-    // 3. Delicate Ears (Left & Right)
-    const earGeo = new THREE.TorusGeometry(0.20, 0.06, 16, 32, Math.PI * 1.2);
-    const earL = new THREE.Mesh(earGeo, skinMaterial);
-    earL.position.set(-0.90, 0.45, -0.08);
-    earL.rotation.y = -Math.PI / 4.2;
-    earL.rotation.z = Math.PI / 9;
-    group.add(earL);
+    // Secondary Chignon Bun
+    const bunGeo = new THREE.SphereGeometry(0.38, 32, 24);
+    const bunMesh = new THREE.Mesh(bunGeo, hairMaterial);
+    bunMesh.position.set(0, 0.78, -0.82);
+    bunMesh.scale.set(1.15, 0.88, 0.75);
+    group.add(bunMesh);
 
-    const earR = new THREE.Mesh(earGeo, skinMaterial);
-    earR.position.set(0.90, 0.45, -0.08);
-    earR.rotation.y = Math.PI / 4.2;
-    earR.rotation.z = -Math.PI / 9;
-    group.add(earR);
+    // 3. Delicate Sculpted Ears (Left & Right)
+    const createEarMesh = (isLeft: boolean) => {
+      const earGroup = new THREE.Group();
+      // Outer Helix rim
+      const helixGeo = new THREE.TorusGeometry(0.16, 0.032, 16, 24, Math.PI * 1.35);
+      const helixMesh = new THREE.Mesh(helixGeo, skinMaterial);
+      earGroup.add(helixMesh);
 
-    // 4. Slender Feminine Neck & Sternocleidomastoid
-    const neckGeo = new THREE.CylinderGeometry(0.46, 0.64, 1.35, 48);
-    const neckMesh = new THREE.Mesh(neckGeo, skinMaterial);
-    neckMesh.position.set(0, -0.65, -0.05);
-    group.add(neckMesh);
+      // Conchal bowl & Lobule
+      const lobeGeo = new THREE.SphereGeometry(0.065, 16, 12);
+      const lobeMesh = new THREE.Mesh(lobeGeo, skinMaterial);
+      lobeMesh.position.set(0.02, -0.16, 0);
+      lobeMesh.scale.set(1, 1.3, 0.6);
+      earGroup.add(lobeMesh);
 
-    // 5. Clavicles & Graceful Décolleté
-    const decolleteGeo = new THREE.CylinderGeometry(0.72, 1.65, 0.85, 64);
-    const decolleteMesh = new THREE.Mesh(decolleteGeo, skinMaterial);
-    decolleteMesh.position.set(0, -1.42, -0.06);
-    group.add(decolleteMesh);
+      const sign = isLeft ? -1 : 1;
+      earGroup.position.set(sign * 0.74, 0.54, -0.04);
+      earGroup.rotation.y = sign * (Math.PI / 4.5);
+      earGroup.rotation.z = sign * (Math.PI / 16);
+      return earGroup;
+    };
 
-    // 6. Classical Pedestal with Rose-Gold Trim
+    group.add(createEarMesh(true));
+    group.add(createEarMesh(false));
+
+    // 4. Classical Pedestal Plinth with Champagne Gold Trim Ring
     const pedestalMat = new THREE.MeshStandardMaterial({
-      color: 0xEEE7DF,
-      roughness: 0.45,
-      metalness: 0.08,
+      color: 0xECE5DC,
+      roughness: 0.42,
+      metalness: 0.06,
     });
-    const pedestalGeo = new THREE.CylinderGeometry(1.15, 1.30, 0.38, 64);
+    const pedestalGeo = new THREE.CylinderGeometry(0.85, 1.12, 0.32, 64);
     const pedestalMesh = new THREE.Mesh(pedestalGeo, pedestalMat);
-    pedestalMesh.position.set(0, -1.95, -0.06);
+    pedestalMesh.position.set(0, -1.72, -0.05);
     group.add(pedestalMesh);
 
     const goldMat = new THREE.MeshStandardMaterial({
       color: 0xC5A059,
-      roughness: 0.22,
-      metalness: 0.85,
+      roughness: 0.20,
+      metalness: 0.88,
     });
-    const goldRingGeo = new THREE.TorusGeometry(1.18, 0.035, 16, 64);
+    const goldRingGeo = new THREE.TorusGeometry(0.88, 0.025, 16, 64);
     const goldRingMesh = new THREE.Mesh(goldRingGeo, goldMat);
-    goldRingMesh.position.set(0, -1.76, -0.06);
+    goldRingMesh.position.set(0, -1.56, -0.05);
     goldRingMesh.rotation.x = Math.PI / 2;
     group.add(goldRingMesh);
 
@@ -334,17 +484,19 @@ export function Sculpture3DViewer({
     } else if (y > 0.65 && y <= 0.85) {
       if (Math.abs(x) < 0.18) return 'Glabela (Vráska hnevu - m. procerus / corrugator)';
       return x < 0 ? 'Periorbitálna zóna Ľ (Vejáriky)' : 'Periorbitálna zóna P (Vejáriky)';
-    } else if (y > 0.40 && y <= 0.65) {
-      if (Math.abs(x) < 0.15) return 'Nos - Chrbát a hrot nosa';
+    } else if (y > 0.38 && y <= 0.65) {
+      if (Math.abs(x) < 0.18) return 'Nos - Chrbát a hrot nosa';
       return x < 0 ? 'Zygomatická oblasť / Líce Ľ (Vektor)' : 'Zygomatická oblasť / Líce P (Vektor)';
-    } else if (y > 0.15 && y <= 0.40) {
+    } else if (y > 0.14 && y <= 0.38) {
       if (Math.abs(x) < 0.25) return 'Nasolabiálna ryha & Pery (Vermilion / Kontúra)';
       return x < 0 ? 'Bukálna / Lícna oblasť Ľ' : 'Bukálna / Lícna oblasť P';
-    } else if (y > -0.15 && y <= 0.15) {
+    } else if (y > -0.12 && y <= 0.14) {
       if (Math.abs(x) < 0.22) return 'Brada (m. mentalis) & Marionetové vrásky';
       return x < 0 ? 'Mandibulárna línia Ľ (Sánka)' : 'Mandibulárna línia P (Sánka)';
+    } else if (y > -0.85 && y <= -0.12) {
+      return Math.abs(x) < 0.25 ? 'Submentálna & Krčná zóna (Platysma)' : x < 0 ? 'Krk Ľavý (m. sternocleidomastoideus)' : 'Krk Pravý (m. sternocleidomastoideus)';
     } else {
-      return 'Submentálna & Krčná zóna (Platysma)';
+      return 'Dekolt & Klavikulárna zóna';
     }
   };
 
