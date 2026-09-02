@@ -11,8 +11,14 @@ import {
   ZoomIn, 
   ZoomOut, 
   Maximize2, 
-  Check
+  Check,
+  Eye,
+  EyeOff
 } from 'lucide-react';
+
+import femaleBustFront from '../assets/images/female_bust_front_1788378218673.jpg';
+import femaleBustProfile from '../assets/images/female_bust_profile_1788378254240.jpg';
+import femaleBustOblique from '../assets/images/female_bust_oblique_1788378267394.jpg';
 
 export type SculptureViewType = 'front' | 'profile_left' | 'profile_right' | 'three_quarter_left' | 'three_quarter_right';
 export type DrawingToolType = 'threads' | 'fanning' | 'point' | 'freehand' | 'select';
@@ -88,6 +94,9 @@ export function Sculpture2DViewer({
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Visual Guides toggle
+  const [showAnatomicalGuides, setShowAnatomicalGuides] = useState(false);
 
   // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
@@ -226,7 +235,6 @@ export function Sculpture2DViewer({
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const coords = getSVGCoordinates(e.clientX, e.clientY);
     if (coords) {
-      setMousePos(coords);
       setHoveredZone(detectAnatomicalZone(coords, currentView));
     }
 
@@ -354,6 +362,9 @@ export function Sculpture2DViewer({
     return vectors.filter(v => v.view === vType).length;
   };
 
+  // Helper for image src (StaticImageData | string)
+  const getImgSrc = (img: { src?: string } | string) => typeof img === 'string' ? img : (img?.src || '');
+
   return (
     <div className="w-full flex flex-col items-center select-none">
       
@@ -388,20 +399,33 @@ export function Sculpture2DViewer({
           })}
         </div>
 
-        {/* STATS PRE AKTUÁLNY POHĽAD */}
+        {/* STATS PRE AKTUÁLNY POHĽAD & ANATOMICKÉ VODIACE LÍNIE */}
         <div className="flex items-center gap-2 text-xs text-[#8C857B] px-2 font-medium">
+          <button
+            type="button"
+            onClick={() => setShowAnatomicalGuides(!showAnatomicalGuides)}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer ${
+              showAnatomicalGuides 
+                ? 'bg-[#C5A059] text-white' 
+                : 'bg-white text-[#2C2A29] border border-[#E8E2D9] hover:border-[#C5A059]'
+            }`}
+            title="Zapnúť / vypnúť anatomické vodiace línie a mriežku"
+          >
+            {showAnatomicalGuides ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+            <span>Anatomická mriežka</span>
+          </button>
           <span className="text-[#C5A059] font-bold">● {currentViewVectors.length}</span>
-          <span className="hidden sm:inline">vektorov v tomto pohľade</span>
+          <span className="hidden sm:inline">vektorov</span>
         </div>
       </div>
 
-      {/* 2. HLAVNÝ RÁM S 2D VÝTVARNOU SOCHOU A KRESLIACIMI NÁSTROJMI */}
+      {/* 2. HLAVNÝ RÁM S 2D REALISTICKOU SOCHOU A KRESLIACIMI NÁSTROJMI */}
       <div 
         ref={containerRef}
-        className="relative w-full aspect-[4/5] max-h-[620px] bg-gradient-to-b from-[#FAF8F5] via-[#F5EFE6] to-[#ECE5DC] rounded-3xl border border-[#E8E2D9] shadow-inner overflow-hidden flex items-center justify-center"
+        className="relative w-full aspect-[4/5] max-h-[620px] bg-gradient-to-b from-[#FAF8F5] via-[#F4EEE5] to-[#E9E0D4] rounded-3xl border border-[#E8E2D9] shadow-inner overflow-hidden flex items-center justify-center"
       >
         {/* NÁSTROJOVÁ LIŠTA (FLOATING TOOLBAR) */}
-        <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5 p-2 bg-white/90 backdrop-blur-md rounded-2xl border border-white/80 shadow-lg">
+        <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5 p-2 bg-white/92 backdrop-blur-md rounded-2xl border border-white/80 shadow-lg">
           
           {/* VÝBER / KURZOR */}
           <button
@@ -547,7 +571,7 @@ export function Sculpture2DViewer({
         </div>
 
         {/* OVLÁDANIE ZOOMU & RESET (PRAVÝ HORNÝ ROH) */}
-        <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-md rounded-2xl border border-white/80 shadow-md">
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 p-1.5 bg-white/92 backdrop-blur-md rounded-2xl border border-white/80 shadow-md">
           <button
             type="button"
             onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.25))}
@@ -588,7 +612,7 @@ export function Sculpture2DViewer({
           </div>
         )}
 
-        {/* 3. SVG KRESLIACE PLÁTNO SO SOCHOU */}
+        {/* 3. SVG KRESLIACE PLÁTNO S REALISTICKOU SOCHOU */}
         <div 
           className="w-full h-full flex items-center justify-center transition-transform duration-75"
           style={{
@@ -606,24 +630,12 @@ export function Sculpture2DViewer({
             onMouseUp={handleMouseUp}
           >
             <defs>
-              {/* Classical Porcelain Gradients & Lighting */}
-              <radialGradient id="sculptureSkinFront" cx="50%" cy="40%" r="55%">
-                <stop offset="0%" stopColor="#FFFFFF" />
-                <stop offset="45%" stopColor="#FAF5EE" />
-                <stop offset="80%" stopColor="#EFE6DA" />
-                <stop offset="100%" stopColor="#DFCDBE" />
+              {/* Soft Vignette and Marble Gradients */}
+              <radialGradient id="bustVignette" cx="50%" cy="45%" r="65%">
+                <stop offset="60%" stopColor="#000000" stopOpacity="0" />
+                <stop offset="90%" stopColor="#2C2A29" stopOpacity="0.08" />
+                <stop offset="100%" stopColor="#2C2A29" stopOpacity="0.25" />
               </radialGradient>
-
-              <linearGradient id="sculptureSkinProfile" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#FFFFFF" />
-                <stop offset="50%" stopColor="#FAF5EE" />
-                <stop offset="100%" stopColor="#DFCDBE" />
-              </linearGradient>
-
-              <linearGradient id="hairClassic" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#5A4E47" />
-                <stop offset="100%" stopColor="#332924" />
-              </linearGradient>
 
               <linearGradient id="pedestalGold" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#C5A059" />
@@ -631,324 +643,109 @@ export function Sculpture2DViewer({
                 <stop offset="100%" stopColor="#B38F46" />
               </linearGradient>
 
-              <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
+              {/* Clip path for bust shape */}
+              <clipPath id="bustRoundedClip">
+                <rect x="15" y="15" width="570" height="720" rx="28" ry="28" />
+              </clipPath>
             </defs>
 
-            {/* A. SCULPTURE BACKGROUND & PEDESTAL */}
-            {/* Pedestal Base */}
-            <g id="pedestal">
-              <ellipse cx="300" cy="710" rx="190" ry="32" fill="#D5C7B7" />
-              <path d="M 120 710 L 160 670 L 440 670 L 480 710 Z" fill="#EAE1D4" />
-              <ellipse cx="300" cy="670" rx="140" ry="18" fill="url(#pedestalGold)" />
+            {/* A. REALISTIC CLASSICAL FEMALE BUST STATUE IMAGE RENDERING */}
+            <g id="realistic_female_bust" clipPath="url(#bustRoundedClip)">
+              {/* 1. ČELNÝ POHĽAD (FRONT) */}
+              {currentView === 'front' && (
+                <image
+                  href={getImgSrc(femaleBustFront)}
+                  x="0"
+                  y="0"
+                  width="600"
+                  height="750"
+                  preserveAspectRatio="xMidYMid slice"
+                  className="pointer-events-none select-none transition-opacity duration-300"
+                />
+              )}
+
+              {/* 2. PROFIL ĽAVÝ (PROFILE LEFT) */}
+              {currentView === 'profile_left' && (
+                <image
+                  href={getImgSrc(femaleBustProfile)}
+                  x="0"
+                  y="0"
+                  width="600"
+                  height="750"
+                  preserveAspectRatio="xMidYMid slice"
+                  className="pointer-events-none select-none transition-opacity duration-300"
+                />
+              )}
+
+              {/* 3. PROFIL PRAVÝ (PROFILE RIGHT - FLIPPED) */}
+              {currentView === 'profile_right' && (
+                <g transform="translate(600, 0) scale(-1, 1)">
+                  <image
+                    href={getImgSrc(femaleBustProfile)}
+                    x="0"
+                    y="0"
+                    width="600"
+                    height="750"
+                    preserveAspectRatio="xMidYMid slice"
+                    className="pointer-events-none select-none transition-opacity duration-300"
+                  />
+                </g>
+              )}
+
+              {/* 4. 3/4 POHĽAD ĽAVÝ (THREE QUARTER LEFT) */}
+              {currentView === 'three_quarter_left' && (
+                <image
+                  href={getImgSrc(femaleBustOblique)}
+                  x="0"
+                  y="0"
+                  width="600"
+                  height="750"
+                  preserveAspectRatio="xMidYMid slice"
+                  className="pointer-events-none select-none transition-opacity duration-300"
+                />
+              )}
+
+              {/* 5. 3/4 POHĽAD PRAVÝ (THREE QUARTER RIGHT - FLIPPED) */}
+              {currentView === 'three_quarter_right' && (
+                <g transform="translate(600, 0) scale(-1, 1)">
+                  <image
+                    href={getImgSrc(femaleBustOblique)}
+                    x="0"
+                    y="0"
+                    width="600"
+                    height="750"
+                    preserveAspectRatio="xMidYMid slice"
+                    className="pointer-events-none select-none transition-opacity duration-300"
+                  />
+                </g>
+              )}
+
+              {/* Marble Atmosphere & Subtle Vignette */}
+              <rect x="0" y="0" width="600" height="750" fill="url(#bustVignette)" className="pointer-events-none" />
             </g>
 
-            {/* B. ANATOMICAL FEMALE SCULPTURE BY VIEW */}
-            {currentView === 'front' && (
-              <g id="sculpture_front">
-                {/* Décolleté & Clavicles & Shoulders */}
-                <path
-                  d="M 140 670 C 180 620, 230 600, 270 590 C 290 585, 310 585, 330 590 C 370 600, 420 620, 460 670 Z"
-                  fill="url(#sculptureSkinFront)"
-                  stroke="#D0BEAE"
-                  strokeWidth="1.5"
-                />
+            {/* B. VOLITEĽNÁ ANATOMICKÁ MRIEŽKA & VODIACE LÍNIE (OVERLAY) */}
+            {showAnatomicalGuides && (
+              <g id="anatomical_guidelines" opacity="0.6" strokeDasharray="3 3" className="pointer-events-none">
+                {/* Horizontal facial thirds */}
+                <line x1="120" y1="210" x2="480" y2="210" stroke="#C5A059" strokeWidth="1" />
+                <line x1="120" y1="350" x2="480" y2="350" stroke="#C5A059" strokeWidth="1" />
+                <line x1="120" y1="490" x2="480" y2="490" stroke="#C5A059" strokeWidth="1" />
+                <line x1="120" y1="580" x2="480" y2="580" stroke="#C5A059" strokeWidth="1" />
 
-                {/* Clavicle bones */}
-                <path d="M 180 635 Q 260 625, 290 610" stroke="#C5B2A1" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7" />
-                <path d="M 420 635 Q 340 625, 310 610" stroke="#C5B2A1" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7" />
-                <ellipse cx="300" cy="612" rx="12" ry="5" fill="#C5B2A1" opacity="0.4" /> {/* Suprasternal notch */}
+                {/* Central Symmetry Line (For front view) */}
+                {currentView === 'front' && (
+                  <line x1="300" y1="80" x2="300" y2="650" stroke="#3B82F6" strokeWidth="1.2" strokeDasharray="4 2" />
+                )}
 
-                {/* Neck & SCM muscles */}
-                <path
-                  d="M 245 490 C 240 540, 230 590, 270 610 L 330 610 C 370 590, 360 540, 355 490 Z"
-                  fill="url(#sculptureSkinFront)"
-                  stroke="#D0BEAE"
-                  strokeWidth="1.5"
-                />
-                {/* SCM muscle lines */}
-                <path d="M 255 495 Q 265 550, 288 608" stroke="#D0BEAE" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.5" />
-                <path d="M 345 495 Q 335 550, 312 608" stroke="#D0BEAE" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.5" />
-
-                {/* Classical Hair (Chignon frame) */}
-                <path
-                  d="M 170 260 C 145 150, 230 70, 300 70 C 370 70, 455 150, 430 260 C 450 340, 425 400, 410 410 C 395 310, 400 230, 370 160 C 330 110, 270 110, 230 160 C 200 230, 205 310, 190 410 C 175 400, 150 340, 170 260 Z"
-                  fill="url(#hairClassic)"
-                  opacity="0.95"
-                />
-                <ellipse cx="300" cy="80" rx="75" ry="35" fill="url(#hairClassic)" />
-
-                {/* Ears */}
-                <path d="M 192 310 C 178 320, 178 370, 195 390 C 190 365, 190 335, 192 310 Z" fill="#E8DDD0" stroke="#D0BEAE" strokeWidth="1.2" />
-                <path d="M 408 310 C 422 320, 422 370, 405 390 C 410 365, 410 335, 408 310 Z" fill="#E8DDD0" stroke="#D0BEAE" strokeWidth="1.2" />
-
-                {/* Face Contour (Harmonious Oval) */}
-                <path
-                  d="M 195 250 C 190 170, 235 125, 300 125 C 365 125, 410 170, 405 250 C 405 330, 400 410, 370 480 C 350 525, 325 545, 300 545 C 275 545, 250 525, 230 480 C 200 410, 195 330, 195 250 Z"
-                  fill="url(#sculptureSkinFront)"
-                  stroke="#C5B2A1"
-                  strokeWidth="2"
-                />
-
-                {/* Cheekbone Shading (Zygoma) */}
-                <path d="M 205 330 Q 240 370, 270 395" stroke="#DFCDBE" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.6" />
-                <path d="M 395 330 Q 360 370, 330 395" stroke="#DFCDBE" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.6" />
-
-                {/* Eyebrows */}
-                <path d="M 230 260 Q 255 242, 280 252" stroke="#68584F" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-                <path d="M 370 260 Q 345 242, 320 252" stroke="#68584F" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-
-                {/* Almond Eyes & Eyelids */}
-                <path d="M 235 285 Q 258 272, 280 285 Q 258 296, 235 285 Z" fill="#FFFFFF" stroke="#68584F" strokeWidth="1.8" />
-                <circle cx="258" cy="284" r="6.5" fill="#4B3F38" />
-                <circle cx="260" cy="282" r="2" fill="#FFFFFF" />
-                <path d="M 232 278 Q 258 268, 282 278" stroke="#D0BEAE" strokeWidth="1.2" fill="none" /> {/* Upper eyelid crease */}
-
-                <path d="M 365 285 Q 342 272, 320 285 Q 342 296, 365 285 Z" fill="#FFFFFF" stroke="#68584F" strokeWidth="1.8" />
-                <circle cx="342" cy="284" r="6.5" fill="#4B3F38" />
-                <circle cx="340" cy="282" r="2" fill="#FFFFFF" />
-                <path d="M 368 278 Q 342 268, 318 278" stroke="#D0BEAE" strokeWidth="1.2" fill="none" />
-
-                {/* Slender Nose & Tip */}
-                <path d="M 292 260 L 292 370 Q 284 380, 278 385" stroke="#C5B2A1" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-                <path d="M 308 260 L 308 370 Q 316 380, 322 385" stroke="#C5B2A1" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-                <path d="M 282 385 Q 300 398, 318 385" stroke="#9C8979" strokeWidth="2.2" strokeLinecap="round" fill="none" /> {/* Tip */}
-                <ellipse cx="288" cy="386" rx="4" ry="2" fill="#9C8979" opacity="0.6" /> {/* Left nostril */}
-                <ellipse cx="312" cy="386" rx="4" ry="2" fill="#9C8979" opacity="0.6" /> {/* Right nostril */}
-
-                {/* Philtrum */}
-                <path d="M 295 400 L 294 425" stroke="#D0BEAE" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-                <path d="M 305 400 L 306 425" stroke="#D0BEAE" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-
-                {/* Feminine Lips & Cupid's Bow */}
-                {/* Upper Lip */}
-                <path
-                  d="M 262 438 Q 285 435, 294 428 Q 300 433, 306 428 Q 315 435, 338 438 Q 300 448, 262 438 Z"
-                  fill="#D9A89A"
-                  stroke="#A87568"
-                  strokeWidth="1.5"
-                />
-                {/* Lower Lip */}
-                <path
-                  d="M 264 439 Q 300 447, 336 439 Q 300 472, 264 439 Z"
-                  fill="#E2B2A4"
-                  stroke="#A87568"
-                  strokeWidth="1.5"
-                />
-
-                {/* Labiomental crease & Chin */}
-                <path d="M 285 488 Q 300 493, 315 488" stroke="#C5B2A1" strokeWidth="2" strokeLinecap="round" fill="none" />
-                <ellipse cx="300" cy="518" rx="24" ry="14" fill="#FFFFFF" opacity="0.3" /> {/* Chin highlight */}
-
-                {/* Nasolabial Fold Soft Indication */}
-                <path d="M 276 390 Q 262 425, 252 460" stroke="#DFCDBE" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.6" />
-                <path d="M 324 390 Q 338 425, 348 460" stroke="#DFCDBE" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.6" />
+                {/* Aesthetic annotations */}
+                <text x="50" y="206" fill="#8C857B" fontSize="10" fontFamily="sans-serif">Horná tretina (Frontalis)</text>
+                <text x="50" y="346" fill="#8C857B" fontSize="10" fontFamily="sans-serif">Stredná tretina (Zygoma)</text>
+                <text x="50" y="486" fill="#8C857B" fontSize="10" fontFamily="sans-serif">Dolná tretina (Pery & Jawline)</text>
               </g>
             )}
 
-            {/* C. PROFILE LEFT VIEW (90°) */}
-            {currentView === 'profile_left' && (
-              <g id="sculpture_profile_left">
-                {/* Neck & Shoulder */}
-                <path
-                  d="M 360 670 C 370 590, 360 520, 350 480 L 290 540 C 280 580, 240 620, 180 670 Z"
-                  fill="url(#sculptureSkinProfile)"
-                  stroke="#D0BEAE"
-                  strokeWidth="1.5"
-                />
-                <path d="M 240 635 Q 310 610, 350 625" stroke="#C5B2A1" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7" />
-
-                {/* Classical Hair Updo (Chignon in back) */}
-                <path
-                  d="M 340 180 C 440 160, 480 260, 440 360 C 410 420, 360 440, 350 480 C 370 410, 380 340, 360 270 C 350 220, 320 180, 290 150 Z"
-                  fill="url(#hairClassic)"
-                />
-                <circle cx="430" cy="280" r="55" fill="url(#hairClassic)" />
-
-                {/* Profile Silhouette Contour (Forehead, Nose, Lips, Chin, Jawline) */}
-                <path
-                  d="M 290 130 C 340 130, 380 180, 380 250 C 380 330, 360 410, 335 480 C 290 530, 240 540, 210 530 C 200 525, 195 510, 205 500 C 220 485, 215 470, 190 460 C 175 450, 185 435, 205 430 C 215 425, 210 410, 180 395 C 160 380, 150 350, 190 320 C 205 305, 205 285, 200 270 C 190 230, 220 160, 290 130 Z"
-                  fill="url(#sculptureSkinProfile)"
-                  stroke="#C5B2A1"
-                  strokeWidth="2"
-                />
-
-                {/* Ear in Profile */}
-                <g transform="translate(320, 290)">
-                  <path d="M 0 0 C 25 -15, 30 35, 10 55 C -5 45, -5 15, 0 0 Z" fill="#E8DDD0" stroke="#C5B2A1" strokeWidth="1.5" />
-                  <path d="M 8 10 C 18 5, 20 25, 10 35" stroke="#C5B2A1" strokeWidth="1.2" fill="none" />
-                </g>
-
-                {/* Eye in Profile */}
-                <path d="M 225 275 L 245 270 L 240 285 Z" fill="#FFFFFF" stroke="#68584F" strokeWidth="1.5" />
-                <circle cx="232" cy="277" r="4.5" fill="#4B3F38" />
-                <path d="M 215 255 Q 235 245, 255 252" stroke="#68584F" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-
-                {/* Mandibular / Jawline Ridge */}
-                <path d="M 210 530 Q 280 520, 335 480" stroke="#C5B2A1" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-                {/* Zygomatic Arch Line */}
-                <path d="M 235 340 Q 285 330, 325 310" stroke="#DFCDBE" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.7" />
-              </g>
-            )}
-
-            {/* D. PROFILE RIGHT VIEW (90°) */}
-            {currentView === 'profile_right' && (
-              <g id="sculpture_profile_right" transform="translate(600, 0) scale(-1, 1)">
-                {/* Neck & Shoulder */}
-                <path
-                  d="M 360 670 C 370 590, 360 520, 350 480 L 290 540 C 280 580, 240 620, 180 670 Z"
-                  fill="url(#sculptureSkinProfile)"
-                  stroke="#D0BEAE"
-                  strokeWidth="1.5"
-                />
-                <path d="M 240 635 Q 310 610, 350 625" stroke="#C5B2A1" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7" />
-
-                {/* Classical Hair Updo */}
-                <path
-                  d="M 340 180 C 440 160, 480 260, 440 360 C 410 420, 360 440, 350 480 C 370 410, 380 340, 360 270 C 350 220, 320 180, 290 150 Z"
-                  fill="url(#hairClassic)"
-                />
-                <circle cx="430" cy="280" r="55" fill="url(#hairClassic)" />
-
-                {/* Profile Silhouette Contour */}
-                <path
-                  d="M 290 130 C 340 130, 380 180, 380 250 C 380 330, 360 410, 335 480 C 290 530, 240 540, 210 530 C 200 525, 195 510, 205 500 C 220 485, 215 470, 190 460 C 175 450, 185 435, 205 430 C 215 425, 210 410, 180 395 C 160 380, 150 350, 190 320 C 205 305, 205 285, 200 270 C 190 230, 220 160, 290 130 Z"
-                  fill="url(#sculptureSkinProfile)"
-                  stroke="#C5B2A1"
-                  strokeWidth="2"
-                />
-
-                {/* Ear */}
-                <g transform="translate(320, 290)">
-                  <path d="M 0 0 C 25 -15, 30 35, 10 55 C -5 45, -5 15, 0 0 Z" fill="#E8DDD0" stroke="#C5B2A1" strokeWidth="1.5" />
-                  <path d="M 8 10 C 18 5, 20 25, 10 35" stroke="#C5B2A1" strokeWidth="1.2" fill="none" />
-                </g>
-
-                {/* Eye */}
-                <path d="M 225 275 L 245 270 L 240 285 Z" fill="#FFFFFF" stroke="#68584F" strokeWidth="1.5" />
-                <circle cx="232" cy="277" r="4.5" fill="#4B3F38" />
-                <path d="M 215 255 Q 235 245, 255 252" stroke="#68584F" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-
-                {/* Mandibular Ridge */}
-                <path d="M 210 530 Q 280 520, 335 480" stroke="#C5B2A1" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-                {/* Zygomatic Arch Line */}
-                <path d="M 235 340 Q 285 330, 325 310" stroke="#DFCDBE" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.7" />
-              </g>
-            )}
-
-            {/* E. 3/4 VIEW LEFT (OBLIQUE) */}
-            {currentView === 'three_quarter_left' && (
-              <g id="sculpture_34_left">
-                {/* Neck & Shoulders */}
-                <path
-                  d="M 160 670 C 210 610, 280 580, 360 570 C 400 590, 440 630, 460 670 Z"
-                  fill="url(#sculptureSkinProfile)"
-                  stroke="#D0BEAE"
-                  strokeWidth="1.5"
-                />
-                <path d="M 200 635 Q 290 610, 340 600" stroke="#C5B2A1" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7" />
-
-                {/* Hair Frame */}
-                <path
-                  d="M 200 240 C 180 140, 270 70, 340 70 C 420 70, 470 170, 440 300 C 410 400, 380 440, 370 480 C 400 370, 400 240, 360 160 C 330 110, 280 120, 240 180 Z"
-                  fill="url(#hairClassic)"
-                />
-                <ellipse cx="400" cy="180" rx="55" ry="40" fill="url(#hairClassic)" />
-
-                {/* 3/4 Face Contour */}
-                <path
-                  d="M 220 220 C 210 160, 260 120, 330 120 C 390 120, 420 180, 410 260 C 410 330, 395 410, 360 480 C 320 535, 270 540, 240 530 C 225 500, 210 460, 230 435 C 240 425, 230 410, 210 395 C 190 380, 195 345, 225 320 C 235 305, 230 270, 220 220 Z"
-                  fill="url(#sculptureSkinProfile)"
-                  stroke="#C5B2A1"
-                  strokeWidth="2"
-                />
-
-                {/* Ear */}
-                <path d="M 388 295 C 405 305, 405 345, 390 365 C 385 345, 385 315, 388 295 Z" fill="#E8DDD0" stroke="#D0BEAE" strokeWidth="1.2" />
-
-                {/* Left Eye (Larger) */}
-                <path d="M 245 282 Q 268 270, 290 282 Q 268 293, 245 282 Z" fill="#FFFFFF" stroke="#68584F" strokeWidth="1.8" />
-                <circle cx="268" cy="281" r="6" fill="#4B3F38" />
-                <path d="M 240 258 Q 265 242, 290 252" stroke="#68584F" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-
-                {/* Right Eye (Perspective Oblique) */}
-                <path d="M 335 282 Q 352 272, 368 282 Q 352 291, 335 282 Z" fill="#FFFFFF" stroke="#68584F" strokeWidth="1.6" />
-                <circle cx="352" cy="281" r="5" fill="#4B3F38" />
-                <path d="M 335 258 Q 355 248, 372 258" stroke="#68584F" strokeWidth="3" strokeLinecap="round" fill="none" />
-
-                {/* Nose in 3/4 Projection */}
-                <path d="M 296 260 L 290 365 Q 280 375, 268 380" stroke="#C5B2A1" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-                <path d="M 272 380 Q 290 392, 305 382" stroke="#9C8979" strokeWidth="2" strokeLinecap="round" fill="none" />
-
-                {/* Lips 3/4 */}
-                <path d="M 252 435 Q 275 428, 290 432 Q 312 435, 325 438 Q 290 448, 252 435 Z" fill="#D9A89A" stroke="#A87568" strokeWidth="1.4" />
-                <path d="M 255 437 Q 290 446, 320 439 Q 290 468, 255 437 Z" fill="#E2B2A4" stroke="#A87568" strokeWidth="1.4" />
-
-                {/* Zygoma High Cheek Curve */}
-                <path d="M 230 330 Q 270 360, 310 380" stroke="#DFCDBE" strokeWidth="3.5" strokeLinecap="round" fill="none" opacity="0.7" />
-                {/* Mandibular line */}
-                <path d="M 240 530 Q 300 520, 360 480" stroke="#C5B2A1" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-              </g>
-            )}
-
-            {/* F. 3/4 VIEW RIGHT (OBLIQUE) */}
-            {currentView === 'three_quarter_right' && (
-              <g id="sculpture_34_right" transform="translate(600, 0) scale(-1, 1)">
-                {/* Neck & Shoulders */}
-                <path
-                  d="M 160 670 C 210 610, 280 580, 360 570 C 400 590, 440 630, 460 670 Z"
-                  fill="url(#sculptureSkinProfile)"
-                  stroke="#D0BEAE"
-                  strokeWidth="1.5"
-                />
-                <path d="M 200 635 Q 290 610, 340 600" stroke="#C5B2A1" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7" />
-
-                {/* Hair Frame */}
-                <path
-                  d="M 200 240 C 180 140, 270 70, 340 70 C 420 70, 470 170, 440 300 C 410 400, 380 440, 370 480 C 400 370, 400 240, 360 160 C 330 110, 280 120, 240 180 Z"
-                  fill="url(#hairClassic)"
-                />
-                <ellipse cx="400" cy="180" rx="55" ry="40" fill="url(#hairClassic)" />
-
-                {/* 3/4 Face Contour */}
-                <path
-                  d="M 220 220 C 210 160, 260 120, 330 120 C 390 120, 420 180, 410 260 C 410 330, 395 410, 360 480 C 320 535, 270 540, 240 530 C 225 500, 210 460, 230 435 C 240 425, 230 410, 210 395 C 190 380, 195 345, 225 320 C 235 305, 230 270, 220 220 Z"
-                  fill="url(#sculptureSkinProfile)"
-                  stroke="#C5B2A1"
-                  strokeWidth="2"
-                />
-
-                {/* Ear */}
-                <path d="M 388 295 C 405 305, 405 345, 390 365 C 385 345, 385 315, 388 295 Z" fill="#E8DDD0" stroke="#D0BEAE" strokeWidth="1.2" />
-
-                {/* Eye Left */}
-                <path d="M 245 282 Q 268 270, 290 282 Q 268 293, 245 282 Z" fill="#FFFFFF" stroke="#68584F" strokeWidth="1.8" />
-                <circle cx="268" cy="281" r="6" fill="#4B3F38" />
-                <path d="M 240 258 Q 265 242, 290 252" stroke="#68584F" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-
-                {/* Eye Right */}
-                <path d="M 335 282 Q 352 272, 368 282 Q 352 291, 335 282 Z" fill="#FFFFFF" stroke="#68584F" strokeWidth="1.6" />
-                <circle cx="352" cy="281" r="5" fill="#4B3F38" />
-                <path d="M 335 258 Q 355 248, 372 258" stroke="#68584F" strokeWidth="3" strokeLinecap="round" fill="none" />
-
-                {/* Nose in 3/4 Projection */}
-                <path d="M 296 260 L 290 365 Q 280 375, 268 380" stroke="#C5B2A1" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-                <path d="M 272 380 Q 290 392, 305 382" stroke="#9C8979" strokeWidth="2" strokeLinecap="round" fill="none" />
-
-                {/* Lips 3/4 */}
-                <path d="M 252 435 Q 275 428, 290 432 Q 312 435, 325 438 Q 290 448, 252 435 Z" fill="#D9A89A" stroke="#A87568" strokeWidth="1.4" />
-                <path d="M 255 437 Q 290 446, 320 439 Q 290 468, 255 437 Z" fill="#E2B2A4" stroke="#A87568" strokeWidth="1.4" />
-
-                {/* Zygoma */}
-                <path d="M 230 330 Q 270 360, 310 380" stroke="#DFCDBE" strokeWidth="3.5" strokeLinecap="round" fill="none" opacity="0.7" />
-                {/* Mandibular line */}
-                <path d="M 240 530 Q 300 520, 360 480" stroke="#C5B2A1" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-              </g>
-            )}
-
-            {/* G. PERSISTED VECTOR DRAWINGS FOR CURRENT VIEW */}
+            {/* C. PERSISTED VECTOR DRAWINGS FOR CURRENT VIEW */}
             {currentViewVectors.map((vec) => {
               const isSelected = vec.id === selectedVectorId;
 
@@ -1148,7 +945,7 @@ export function Sculpture2DViewer({
               return null;
             })}
 
-            {/* H. ACTIVE REALTIME DRAWING PREVIEW */}
+            {/* D. ACTIVE REALTIME DRAWING PREVIEW */}
             {isDrawing && currentDrawStart && currentDrawCurrent && (
               <g id="active_drawing_preview">
                 {activeTool === 'threads' && (
