@@ -18,9 +18,9 @@ import {
   CircleDot
 } from 'lucide-react';
 
-import femaleBustFront from '../assets/images/female_bust_front_1788378218673.jpg';
-import femaleBustProfile from '../assets/images/female_bust_profile_1788378254240.jpg';
-import femaleBustOblique from '../assets/images/female_bust_oblique_1788378267394.jpg';
+import femaleBustFront from '../assets/images/sculpture_front_perfect_1788381191502.jpg';
+import femaleBustProfile from '../assets/images/sculpture_profile_perfect_1788381207260.jpg';
+import femaleBustOblique from '../assets/images/sculpture_oblique_perfect_1788381223031.jpg';
 
 export type SculptureViewType = 'front' | 'profile_left' | 'profile_right' | 'three_quarter_left' | 'three_quarter_right';
 export type DrawingToolType = 'select' | 'move' | 'vector' | 'fanning' | 'point' | 'freehand' | 'threads';
@@ -124,15 +124,15 @@ export function Sculpture2DViewer({
     onVectorsChange(previous);
   };
 
-  // Convert client coordinates to SVG coordinate system (0 to 600 x 0 to 750)
+  // Convert client coordinates to SVG coordinate system (0 to 600 x 0 to 800)
   const getSVGCoordinates = (clientX: number, clientY: number): Point2D | null => {
     if (!svgRef.current) return null;
     const rect = svgRef.current.getBoundingClientRect();
     const x = ((clientX - rect.left) / rect.width) * 600;
-    const y = ((clientY - rect.top) / rect.height) * 750;
+    const y = ((clientY - rect.top) / rect.height) * 800;
     return { 
       x: Math.max(0, Math.min(600, x)), 
-      y: Math.max(0, Math.min(750, y)) 
+      y: Math.max(0, Math.min(800, y)) 
     };
   };
 
@@ -140,42 +140,42 @@ export function Sculpture2DViewer({
   const detectAnatomicalZone = (p: Point2D, view: SculptureViewType): string => {
     const { x, y } = p;
     if (view === 'front') {
-      if (y < 235) {
-        if (x > 230 && x < 370) return 'Čelo (m. frontalis – Dysport/Alluzience)';
+      if (y < 260) {
+        if (x > 220 && x < 380) return 'Čelo (m. frontalis – Dysport/Alluzience)';
         return x < 300 ? 'Čelo Ľavé (Temporálna oblasť)' : 'Čelo Pravé (Temporálna oblasť)';
       }
-      if (y >= 235 && y < 275) {
-        if (x > 260 && x < 340) return 'Glabela (m. procerus / corrugator – Dysport/Alluzience)';
+      if (y >= 260 && y < 290) {
+        if (x > 270 && x < 330) return 'Glabela (m. procerus / corrugator – Dysport/Alluzience)';
         return x < 300 ? 'Obočie Ľavé' : 'Obočie Pravé';
       }
-      if (y >= 275 && y < 330) {
+      if (y >= 290 && y < 340) {
         if (x > 275 && x < 325) return 'Koreň a chrbát nosa (Dorsum nasi)';
-        if (x <= 235) return 'Periorbitálna zóna Ľ (Očné vejáriky – Dysport/Alluzience)';
-        if (x >= 365) return 'Periorbitálna zóna P (Očné vejáriky – Dysport/Alluzience)';
+        if (x <= 220) return 'Periorbitálna zóna Ľ (Očné vejáriky – Dysport/Alluzience)';
+        if (x >= 380) return 'Periorbitálna zóna P (Očné vejáriky – Dysport/Alluzience)';
         return x < 300 ? 'Infraorbitálna zóna Ľ (Kruhy pod očami)' : 'Infraorbitálna zóna P (Kruhy pod očami)';
       }
-      if (y >= 330 && y < 385) {
+      if (y >= 340 && y < 420) {
         if (x > 275 && x < 325) return 'Hrot nosa & Columella';
-        if (x <= 235) return 'Zygoma Ľavá (Lícna kosť / BAP bod 1 / Radiesse)';
-        if (x >= 365) return 'Zygoma Pravá (Lícna kosť / BAP bod 1 / Radiesse)';
-        if (x < 265 && y > 355) return 'Nosová báza Ľ (Alar base / BAP bod 2)';
-        if (x > 335 && y > 355) return 'Nosová báza P (Alar base / BAP bod 2)';
+        if (x <= 235) return 'Zygoma Ľavá (Lícna kosť / BAP bod 1 / Radiesse / Sculptra)';
+        if (x >= 365) return 'Zygoma Pravá (Lícna kosť / BAP bod 1 / Radiesse / Sculptra)';
+        if (x < 275 && y > 380) return 'Nosová báza Ľ (Alar base / BAP bod 2)';
+        if (x > 325 && y > 380) return 'Nosová báza P (Alar base / BAP bod 2)';
         return x < 300 ? 'Líce Ľ (Malar fat pad / Sculptra / Radiesse)' : 'Líce P (Malar fat pad / Sculptra / Radiesse)';
       }
-      if (y >= 385 && y < 435) {
+      if (y >= 420 && y < 480) {
         if (x >= 255 && x <= 345) {
-          if (y < 408) return 'Pery – Horná pera & Amorov luk (Restylane Kysse)';
+          if (y < 450) return 'Pery – Horná pera & Amorov luk (Restylane Kysse)';
           return 'Pery – Dolná pera & Kútiky (Restylane Kysse)';
         }
         return x < 300 ? 'Nasolabiálna ryha Ľavá' : 'Nasolabiálna ryha Pravá';
       }
-      if (y >= 435 && y < 490) {
+      if (y >= 480 && y < 540) {
         if (x > 255 && x < 345) return 'Brada (Mentum / m. mentalis – BAP bod 4 / Restylane)';
         return x < 300 ? 'Sánka Ľavá (Jawline / Radiesse / Gonion)' : 'Sánka Pravá (Jawline / Radiesse / Gonion)';
       }
-      if (y >= 490 && y < 650) {
-        if (x < 235) return 'Mandibulárny uhol Ľ (Gonion – BAP bod 5 / Radiesse)';
-        if (x > 365) return 'Mandibulárny uhol P (Gonion – BAP bod 5 / Radiesse)';
+      if (y >= 540 && y < 660) {
+        if (x < 225) return 'Mandibulárny uhol Ľ (Gonion – BAP bod 5 / Radiesse)';
+        if (x > 375) return 'Mandibulárny uhol P (Gonion – BAP bod 5 / Radiesse)';
         return 'Submentálna zóna & Krk (Platysma / Profhilo)';
       }
       return 'Krk & Klavikulárna zóna (Kľúčne kosti)';
@@ -184,13 +184,13 @@ export function Sculpture2DViewer({
     if (view === 'profile_left' || view === 'profile_right') {
       const isLeft = view === 'profile_left';
       const side = isLeft ? 'Ľavý' : 'Pravý';
-      if (y < 235) return `Čelo a spánok (${side} profil – Dysport)`;
-      if (y >= 235 && y < 285) return `Glabela a obočie (${side})`;
-      if (y >= 285 && y < 350) return `Orbitálny okraj & Periorbitálne vejáriky (${side})`;
+      if (y < 260) return `Čelo a spánok (${side} profil – Dysport)`;
+      if (y >= 260 && y < 290) return `Glabela a obočie (${side})`;
+      if (y >= 290 && y < 350) return `Orbitálny okraj & Periorbitálne vejáriky (${side})`;
       if (y >= 350 && y < 430) return `Zygoma & Líce (${side} – Radiesse / Sculptra / Profhilo)`;
       if (y >= 430 && y < 495) return `Pery (Restylane Kysse) & Nasolabiál (${side})`;
       if (y >= 495 && y < 565) return `Mandibulárna kontúra & Brada (${side} – Radiesse Jawline)`;
-      if (y >= 565 && y < 650) return `Cervikomentálny uhol & Platysma (${side})`;
+      if (y >= 565 && y < 660) return `Cervikomentálny uhol & Platysma (${side})`;
       return `Krk & Dekolt (${side})`;
     }
 
@@ -679,8 +679,8 @@ export function Sculpture2DViewer({
         >
           <svg
             ref={svgRef}
-            viewBox="0 0 600 750"
-            className="w-full h-full max-h-[620px] max-w-[500px] overflow-visible drop-shadow-2xl"
+            viewBox="0 0 600 800"
+            className="w-full h-full max-h-[660px] max-w-[500px] overflow-visible drop-shadow-2xl"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -709,7 +709,7 @@ export function Sculpture2DViewer({
 
               {/* Clip path for bust shape */}
               <clipPath id="bustRoundedClip">
-                <rect x="15" y="15" width="570" height="720" rx="28" ry="28" />
+                <rect x="15" y="15" width="570" height="770" rx="28" ry="28" />
               </clipPath>
             </defs>
 
@@ -722,8 +722,8 @@ export function Sculpture2DViewer({
                   x="0"
                   y="0"
                   width="600"
-                  height="750"
-                  preserveAspectRatio="xMidYMid slice"
+                  height="800"
+                  preserveAspectRatio="none"
                   className="pointer-events-none select-none transition-opacity duration-300"
                 />
               )}
@@ -735,8 +735,8 @@ export function Sculpture2DViewer({
                   x="0"
                   y="0"
                   width="600"
-                  height="750"
-                  preserveAspectRatio="xMidYMid slice"
+                  height="800"
+                  preserveAspectRatio="none"
                   className="pointer-events-none select-none transition-opacity duration-300"
                 />
               )}
@@ -749,8 +749,8 @@ export function Sculpture2DViewer({
                     x="0"
                     y="0"
                     width="600"
-                    height="750"
-                    preserveAspectRatio="xMidYMid slice"
+                    height="800"
+                    preserveAspectRatio="none"
                     className="pointer-events-none select-none transition-opacity duration-300"
                   />
                 </g>
@@ -763,8 +763,8 @@ export function Sculpture2DViewer({
                   x="0"
                   y="0"
                   width="600"
-                  height="750"
-                  preserveAspectRatio="xMidYMid slice"
+                  height="800"
+                  preserveAspectRatio="none"
                   className="pointer-events-none select-none transition-opacity duration-300"
                 />
               )}
@@ -777,38 +777,38 @@ export function Sculpture2DViewer({
                     x="0"
                     y="0"
                     width="600"
-                    height="750"
-                    preserveAspectRatio="xMidYMid slice"
+                    height="800"
+                    preserveAspectRatio="none"
                     className="pointer-events-none select-none transition-opacity duration-300"
                   />
                 </g>
               )}
 
               {/* Marble Atmosphere & Subtle Vignette */}
-              <rect x="0" y="0" width="600" height="750" fill="url(#bustVignette)" className="pointer-events-none" />
+              <rect x="0" y="0" width="600" height="800" fill="url(#bustVignette)" className="pointer-events-none" />
             </g>
 
             {/* B. ANATOMICKÁ MRIEŽKA & VODIACE LÍNIE (OVERLAY) */}
             {showAnatomicalGuides && (
               <g id="anatomical_guidelines" opacity="0.65" strokeDasharray="3 3" className="pointer-events-none">
                 {/* Horizontal facial thirds aligned with neoclassical proportions */}
-                <line x1="80" y1="205" x2="520" y2="205" stroke="#C5A059" strokeWidth="1" />
-                <line x1="80" y1="268" x2="520" y2="268" stroke="#C5A059" strokeWidth="1" />
-                <line x1="80" y1="415" x2="520" y2="415" stroke="#C5A059" strokeWidth="1" />
-                <line x1="80" y1="455" x2="520" y2="455" stroke="#EC4899" strokeWidth="1" />
-                <line x1="80" y1="545" x2="520" y2="545" stroke="#C5A059" strokeWidth="1" />
+                <line x1="80" y1="210" x2="520" y2="210" stroke="#C5A059" strokeWidth="1" />
+                <line x1="80" y1="280" x2="520" y2="280" stroke="#C5A059" strokeWidth="1" />
+                <line x1="80" y1="440" x2="520" y2="440" stroke="#C5A059" strokeWidth="1" />
+                <line x1="80" y1="465" x2="520" y2="465" stroke="#EC4899" strokeWidth="1" />
+                <line x1="80" y1="515" x2="520" y2="515" stroke="#C5A059" strokeWidth="1" />
 
                 {/* Central Symmetry Line (For front view) */}
                 {currentView === 'front' && (
-                  <line x1="300" y1="80" x2="300" y2="670" stroke="#3B82F6" strokeWidth="1.2" strokeDasharray="4 2" />
+                  <line x1="300" y1="80" x2="300" y2="720" stroke="#3B82F6" strokeWidth="1.2" strokeDasharray="4 2" />
                 )}
 
                 {/* Aesthetic annotations */}
-                <text x="35" y="201" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Horná tretina (Čelo)</text>
-                <text x="35" y="264" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Glabela / Obočie</text>
-                <text x="35" y="411" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Báza nosa (Subnasale)</text>
-                <text x="35" y="451" fill="#EC4899" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Pery (Vermilion)</text>
-                <text x="35" y="541" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Dolná tretina (Brada / Mentum)</text>
+                <text x="35" y="206" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Horná tretina (Čelo)</text>
+                <text x="35" y="276" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Glabela / Obočie</text>
+                <text x="35" y="436" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Báza nosa & Pery</text>
+                <text x="35" y="461" fill="#EC4899" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Pery (Vermilion)</text>
+                <text x="35" y="511" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Dolná tretina (Brada / Mentum)</text>
               </g>
             )}
 
