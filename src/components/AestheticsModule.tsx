@@ -58,18 +58,16 @@ export interface AestheticSession {
 }
 
 const PRESET_MATERIALS = [
-  { name: 'Sculptra 10ml (PLLA Biostimulátor)', type: 'biostimulator', lot: 'SCL-2026-881A', expiry: '09/2028', unit: 'ml', pricePerUnit: 480 },
-  { name: 'Aptos Excellence Visage (Niťový lifting)', type: 'threads', lot: 'APT-EXC-091', expiry: '03/2028', unit: 'ks', pricePerUnit: 750 },
-  { name: 'Radiesse (+) 1.5ml (CaHA Vektoring)', type: 'biostimulator', lot: 'RAD-150-332', expiry: '01/2028', unit: 'ml', pricePerUnit: 420 },
-  { name: 'Botox Allergan 100IU', type: 'botox', lot: 'BTX-2026-991A', expiry: '02/2028', unit: 'IU', pricePerUnit: 6 },
-  { name: 'Dysport 300IU', type: 'botox', lot: 'DYSP-4412B', expiry: '05/2027', unit: 'IU', pricePerUnit: 3 },
+  { name: 'Dysport 300IU (Botulotoxín A)', type: 'botox', lot: 'DYSP-4412B', expiry: '05/2027', unit: 'Speywood U', pricePerUnit: 3.5 },
+  { name: 'Alluzience 200U (Ready-to-use tekutý neurotoxín)', type: 'botox', lot: 'ALL-2026-771', expiry: '08/2027', unit: 'Speywood U', pricePerUnit: 4.2 },
+  { name: 'Restylane Kysse 1ml s Lidokaínom (Výplň pier)', type: 'filler', lot: 'RST-KYS-993A', expiry: '11/2027', unit: 'ml', pricePerUnit: 340 },
+  { name: 'Profhilo H+L 2ml (32mg H-HA + 32mg L-HA Bioremodelácia)', type: 'meso', lot: 'PRO-2ML-881', expiry: '06/2027', unit: 'ml', pricePerUnit: 290 },
+  { name: 'Radiesse (+) 1.5ml s Lidokaínom (CaHA Vektoring & Lifting)', type: 'biostimulator', lot: 'RAD-150-332', expiry: '01/2028', unit: 'ml', pricePerUnit: 420 },
+  { name: 'Sculptra 10ml (PLLA Biostimulátor neokolagenéza)', type: 'biostimulator', lot: 'SCL-2026-881A', expiry: '09/2028', unit: 'ml', pricePerUnit: 480 },
   { name: 'Juvederm Voluma with Lidocaine 1ml', type: 'filler', lot: 'JUV-VOL-8812', expiry: '08/2027', unit: 'ml', pricePerUnit: 340 },
   { name: 'Juvederm Volift 1ml', type: 'filler', lot: 'JUV-VFT-1102', expiry: '11/2027', unit: 'ml', pricePerUnit: 320 },
-  { name: 'Juvederm Volbella 1ml (Pery)', type: 'filler', lot: 'JUV-VBL-7740', expiry: '04/2028', unit: 'ml', pricePerUnit: 310 },
-  { name: 'Profhilo H+L 2ml (Bioremodelácia)', type: 'meso', lot: 'PRO-2ML-881', expiry: '06/2027', unit: 'ml', pricePerUnit: 290 },
   { name: 'Lemon Bottle Lipolysis 10ml', type: 'lipolysis', lot: 'LMN-9921-A', expiry: '12/2027', unit: 'ml', pricePerUnit: 120 },
-  { name: 'Profhilo Body 3ml Kit', type: 'body', lot: 'PRO-BDY-441', expiry: '07/2027', unit: 'kit', pricePerUnit: 390 },
-  { name: 'Aptos Body Threads (4x20cm)', type: 'threads', lot: 'APT-BDY-119', expiry: '04/2028', unit: 'balenie', pricePerUnit: 890 }
+  { name: 'Profhilo Body 3ml Kit', type: 'body', lot: 'PRO-BDY-441', expiry: '07/2027', unit: 'kit', pricePerUnit: 390 }
 ];
 
 // Presets for Face (2D vectors)
@@ -84,137 +82,610 @@ const PRESET_PROCEDURES: {
   vectors: Vector2DItem[];
 }[] = [
   {
+    id: 'dysport_full_upper',
+    title: 'Dysport / Alluzience – Čelo, Glabela & Oči',
+    productName: 'Dysport 300IU (Botulotoxín A)',
+    lot: 'DYSP-4412B',
+    type: 'point',
+    color: '#3B82F6',
+    description: 'Kompletná horná tretina tváre: frontálne vrásky čela, glabela (vráska hnevu) a periorbitálne vejáriky',
+    vectors: [
+      // ČELO (m. frontalis)
+      {
+        id: 'dys_f1',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 235, y: 195 },
+        zoneName: 'Čelo Ľ (m. frontalis lateralis)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '10 Speywood U (intramuskulárne)',
+        createdAt: '10:00'
+      },
+      {
+        id: 'dys_f2',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 275, y: 190 },
+        zoneName: 'Čelo Ľ (m. frontalis medialis)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '10 Speywood U (intramuskulárne)',
+        createdAt: '10:00'
+      },
+      {
+        id: 'dys_f3',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 325, y: 190 },
+        zoneName: 'Čelo P (m. frontalis medialis)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '10 Speywood U (intramuskulárne)',
+        createdAt: '10:00'
+      },
+      {
+        id: 'dys_f4',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 365, y: 195 },
+        zoneName: 'Čelo P (m. frontalis lateralis)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '10 Speywood U (intramuskulárne)',
+        createdAt: '10:00'
+      },
+      {
+        id: 'dys_f5',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 255, y: 220 },
+        zoneName: 'Čelo Ľ (dolný bezpečnostný rad)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '5 Speywood U',
+        createdAt: '10:01'
+      },
+      {
+        id: 'dys_f6',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 345, y: 220 },
+        zoneName: 'Čelo P (dolný bezpečnostný rad)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '5 Speywood U',
+        createdAt: '10:01'
+      },
+      // GLABELA (Procerus + Corrugator)
+      {
+        id: 'dys_g1',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 300, y: 268 },
+        zoneName: 'Glabela – m. procerus',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '15 Speywood U (intramuskulárne)',
+        createdAt: '10:02'
+      },
+      {
+        id: 'dys_g2',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 282, y: 260 },
+        zoneName: 'Glabela – m. corrugator Ľ (mediálny)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '10 Speywood U (hlboko na periost)',
+        createdAt: '10:02'
+      },
+      {
+        id: 'dys_g3',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 318, y: 260 },
+        zoneName: 'Glabela – m. corrugator P (mediálny)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '10 Speywood U (hlboko na periost)',
+        createdAt: '10:02'
+      },
+      {
+        id: 'dys_g4',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 262, y: 254 },
+        zoneName: 'Glabela – m. corrugator Ľ (laterálny chvost)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '5 Speywood U (povrchovo)',
+        createdAt: '10:03'
+      },
+      {
+        id: 'dys_g5',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 338, y: 254 },
+        zoneName: 'Glabela – m. corrugator P (laterálny chvost)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '5 Speywood U (povrchovo)',
+        createdAt: '10:03'
+      },
+      // OČNÉ VEJÁRIKY (m. orbicularis oculi)
+      {
+        id: 'dys_e1',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 216, y: 295 },
+        zoneName: 'Očné vejáriky Ľ (horný bod m. orbicularis)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '8 Speywood U (subkutánny pľuzgierik)',
+        createdAt: '10:04'
+      },
+      {
+        id: 'dys_e2',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 206, y: 312 },
+        zoneName: 'Očné vejáriky Ľ (stredný laterálny bod)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '8 Speywood U (subkutánny pľuzgierik)',
+        createdAt: '10:04'
+      },
+      {
+        id: 'dys_e3',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 216, y: 330 },
+        zoneName: 'Očné vejáriky Ľ (dolný laterálny bod)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '8 Speywood U (subkutánny pľuzgierik)',
+        createdAt: '10:04'
+      },
+      {
+        id: 'dys_e4',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 384, y: 295 },
+        zoneName: 'Očné vejáriky P (horný bod m. orbicularis)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '8 Speywood U (subkutánny pľuzgierik)',
+        createdAt: '10:05'
+      },
+      {
+        id: 'dys_e5',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 394, y: 312 },
+        zoneName: 'Očné vejáriky P (stredný laterálny bod)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '8 Speywood U (subkutánny pľuzgierik)',
+        createdAt: '10:05'
+      },
+      {
+        id: 'dys_e6',
+        type: 'point',
+        view: 'front',
+        color: '#3B82F6',
+        startPoint: { x: 384, y: 330 },
+        zoneName: 'Očné vejáriky P (dolný laterálny bod)',
+        productName: 'Dysport 300IU',
+        lotNumber: 'DYSP-4412B',
+        details: '8 Speywood U (subkutánny pľuzgierik)',
+        createdAt: '10:05'
+      }
+    ]
+  },
+  {
+    id: 'restylane_kysse_lips',
+    title: 'Restylane Kysse – Modelácia a výplň pier',
+    productName: 'Restylane Kysse 1ml s Lidokaínom',
+    lot: 'RST-KYS-993A',
+    type: 'point',
+    color: '#EC4899',
+    description: 'Prirodzená definícia kontúr, Amorovho luku, filtrálnych stĺpcov a zväčšenie objemu tela pier (OBT technológia)',
+    vectors: [
+      {
+        id: 'kysse_1',
+        type: 'point',
+        view: 'front',
+        color: '#EC4899',
+        startPoint: { x: 292, y: 438 },
+        zoneName: 'Amorov vrchol Ľ (Cupid\'s peak)',
+        productName: 'Restylane Kysse 1ml',
+        lotNumber: 'RST-KYS-993A',
+        details: '0.05ml OBT mikrodávka na kontúru',
+        createdAt: '10:10'
+      },
+      {
+        id: 'kysse_2',
+        type: 'point',
+        view: 'front',
+        color: '#EC4899',
+        startPoint: { x: 308, y: 438 },
+        zoneName: 'Amorov vrchol P (Cupid\'s peak)',
+        productName: 'Restylane Kysse 1ml',
+        lotNumber: 'RST-KYS-993A',
+        details: '0.05ml OBT mikrodávka na kontúru',
+        createdAt: '10:10'
+      },
+      {
+        id: 'kysse_3',
+        type: 'point',
+        view: 'front',
+        color: '#EC4899',
+        startPoint: { x: 300, y: 442 },
+        zoneName: 'Amorov stredový zárez (Notch)',
+        productName: 'Restylane Kysse 1ml',
+        lotNumber: 'RST-KYS-993A',
+        details: '0.05ml definícia kontúry',
+        createdAt: '10:11'
+      },
+      {
+        id: 'kysse_4',
+        type: 'point',
+        view: 'front',
+        color: '#EC4899',
+        startPoint: { x: 274, y: 444 },
+        zoneName: 'Kontúra hornej pery Ľ (Vermilion border)',
+        productName: 'Restylane Kysse 1ml',
+        lotNumber: 'RST-KYS-993A',
+        details: '0.1ml retrográdna lineárna výplň',
+        createdAt: '10:11'
+      },
+      {
+        id: 'kysse_5',
+        type: 'point',
+        view: 'front',
+        color: '#EC4899',
+        startPoint: { x: 326, y: 444 },
+        zoneName: 'Kontúra hornej pery P (Vermilion border)',
+        productName: 'Restylane Kysse 1ml',
+        lotNumber: 'RST-KYS-993A',
+        details: '0.1ml retrográdna lineárna výplň',
+        createdAt: '10:11'
+      },
+      {
+        id: 'kysse_6',
+        type: 'point',
+        view: 'front',
+        color: '#EC4899',
+        startPoint: { x: 258, y: 452 },
+        zoneName: 'Ústny kútik Ľ (Oral commissure)',
+        productName: 'Restylane Kysse 1ml',
+        lotNumber: 'RST-KYS-993A',
+        details: '0.05ml podpora kútika',
+        createdAt: '10:12'
+      },
+      {
+        id: 'kysse_7',
+        type: 'point',
+        view: 'front',
+        color: '#EC4899',
+        startPoint: { x: 342, y: 452 },
+        zoneName: 'Ústny kútik P (Oral commissure)',
+        productName: 'Restylane Kysse 1ml',
+        lotNumber: 'RST-KYS-993A',
+        details: '0.05ml podpora kútika',
+        createdAt: '10:12'
+      },
+      {
+        id: 'kysse_8',
+        type: 'point',
+        view: 'front',
+        color: '#EC4899',
+        startPoint: { x: 300, y: 449 },
+        zoneName: 'Stredový tuberkulus hornej pery',
+        productName: 'Restylane Kysse 1ml',
+        lotNumber: 'RST-KYS-993A',
+        details: '0.15ml objem tela pery',
+        createdAt: '10:13'
+      },
+      {
+        id: 'kysse_9',
+        type: 'point',
+        view: 'front',
+        color: '#EC4899',
+        startPoint: { x: 286, y: 466 },
+        zoneName: 'Dolný tuberkulus Ľ (Objem dolnej pery)',
+        productName: 'Restylane Kysse 1ml',
+        lotNumber: 'RST-KYS-993A',
+        details: '0.2ml hĺbkový bolus tela pery',
+        createdAt: '10:14'
+      },
+      {
+        id: 'kysse_10',
+        type: 'point',
+        view: 'front',
+        color: '#EC4899',
+        startPoint: { x: 314, y: 466 },
+        zoneName: 'Dolný tuberkulus P (Objem dolnej pery)',
+        productName: 'Restylane Kysse 1ml',
+        lotNumber: 'RST-KYS-993A',
+        details: '0.2ml hĺbkový bolus tela pery',
+        createdAt: '10:14'
+      }
+    ]
+  },
+  {
+    id: 'profhilo_5bap',
+    title: 'Profhilo – 5 BAP bodov (Bioremodelácia tváre)',
+    productName: 'Profhilo H+L 2ml',
+    lot: 'PRO-2ML-881',
+    type: 'point',
+    color: '#06B6D4',
+    description: '5 bioestetických bodov (BAP technika) pre hĺbkovú hydratáciu, stimuláciu elastínu a lifting tkanív',
+    vectors: [
+      // ĽAVÁ STRANA (5 BAP bodov)
+      {
+        id: 'pro_bap_1l',
+        type: 'point',
+        view: 'front',
+        color: '#06B6D4',
+        startPoint: { x: 225, y: 360 },
+        zoneName: 'BAP 1: Zygomatická prominencia Ľ',
+        productName: 'Profhilo H+L 2ml',
+        lotNumber: 'PRO-2ML-881',
+        details: '0.2ml subkutánny bolus Ihla 29G',
+        createdAt: '10:20'
+      },
+      {
+        id: 'pro_bap_2l',
+        type: 'point',
+        view: 'front',
+        color: '#06B6D4',
+        startPoint: { x: 252, y: 415 },
+        zoneName: 'BAP 2: Nazálna báza / Alar base Ľ',
+        productName: 'Profhilo H+L 2ml',
+        lotNumber: 'PRO-2ML-881',
+        details: '0.2ml subkutánny bolus Ihla 29G',
+        createdAt: '10:21'
+      },
+      {
+        id: 'pro_bap_3l',
+        type: 'point',
+        view: 'front',
+        color: '#06B6D4',
+        startPoint: { x: 188, y: 365 },
+        zoneName: 'BAP 3: Tragus / Preaurikulárne Ľ',
+        productName: 'Profhilo H+L 2ml',
+        lotNumber: 'PRO-2ML-881',
+        details: '0.2ml subkutánny bolus Ihla 29G',
+        createdAt: '10:22'
+      },
+      {
+        id: 'pro_bap_4l',
+        type: 'point',
+        view: 'front',
+        color: '#06B6D4',
+        startPoint: { x: 275, y: 528 },
+        zoneName: 'BAP 4: Mentum / Brada Ľ',
+        productName: 'Profhilo H+L 2ml',
+        lotNumber: 'PRO-2ML-881',
+        details: '0.2ml subkutánny bolus Ihla 29G',
+        createdAt: '10:23'
+      },
+      {
+        id: 'pro_bap_5l',
+        type: 'point',
+        view: 'front',
+        color: '#06B6D4',
+        startPoint: { x: 205, y: 485 },
+        zoneName: 'BAP 5: Mandibulárny uhol (Gonion) Ľ',
+        productName: 'Profhilo H+L 2ml',
+        lotNumber: 'PRO-2ML-881',
+        details: '0.2ml subkutánny bolus Ihla 29G',
+        createdAt: '10:24'
+      },
+      // PRAVÁ STRANA (5 BAP bodov)
+      {
+        id: 'pro_bap_1r',
+        type: 'point',
+        view: 'front',
+        color: '#06B6D4',
+        startPoint: { x: 375, y: 360 },
+        zoneName: 'BAP 1: Zygomatická prominencia P',
+        productName: 'Profhilo H+L 2ml',
+        lotNumber: 'PRO-2ML-881',
+        details: '0.2ml subkutánny bolus Ihla 29G',
+        createdAt: '10:20'
+      },
+      {
+        id: 'pro_bap_2r',
+        type: 'point',
+        view: 'front',
+        color: '#06B6D4',
+        startPoint: { x: 348, y: 415 },
+        zoneName: 'BAP 2: Nazálna báza / Alar base P',
+        productName: 'Profhilo H+L 2ml',
+        lotNumber: 'PRO-2ML-881',
+        details: '0.2ml subkutánny bolus Ihla 29G',
+        createdAt: '10:21'
+      },
+      {
+        id: 'pro_bap_3r',
+        type: 'point',
+        view: 'front',
+        color: '#06B6D4',
+        startPoint: { x: 412, y: 365 },
+        zoneName: 'BAP 3: Tragus / Preaurikulárne P',
+        productName: 'Profhilo H+L 2ml',
+        lotNumber: 'PRO-2ML-881',
+        details: '0.2ml subkutánny bolus Ihla 29G',
+        createdAt: '10:22'
+      },
+      {
+        id: 'pro_bap_4r',
+        type: 'point',
+        view: 'front',
+        color: '#06B6D4',
+        startPoint: { x: 325, y: 528 },
+        zoneName: 'BAP 4: Mentum / Brada P',
+        productName: 'Profhilo H+L 2ml',
+        lotNumber: 'PRO-2ML-881',
+        details: '0.2ml subkutánny bolus Ihla 29G',
+        createdAt: '10:23'
+      },
+      {
+        id: 'pro_bap_5r',
+        type: 'point',
+        view: 'front',
+        color: '#06B6D4',
+        startPoint: { x: 395, y: 485 },
+        zoneName: 'BAP 5: Mandibulárny uhol (Gonion) P',
+        productName: 'Profhilo H+L 2ml',
+        lotNumber: 'PRO-2ML-881',
+        details: '0.2ml subkutánny bolus Ihla 29G',
+        createdAt: '10:24'
+      }
+    ]
+  },
+  {
+    id: 'radiesse_jawline_lift',
+    title: 'Radiesse (+) – Vektoring sánky & Líca',
+    productName: 'Radiesse (+) 1.5ml s Lidokaínom',
+    lot: 'RAD-150-332',
+    type: 'fanning',
+    color: '#D97706',
+    description: 'Kanylový lifting kontúr dolnej sánky (Jawline) a malárny fanning pre spevnenie väzivového aparátu',
+    vectors: [
+      {
+        id: 'rad_jaw_l',
+        type: 'threads',
+        view: 'front',
+        color: '#D97706',
+        startPoint: { x: 205, y: 485 },
+        endPoint: { x: 275, y: 535 },
+        zoneName: 'Jawline kontúra sánky Ľ (Lineárny vektor)',
+        productName: 'Radiesse (+) 1.5ml',
+        lotNumber: 'RAD-150-332',
+        details: 'Kanyla 25G/50mm • 0.4ml retrográdna línia na kosť',
+        createdAt: '10:30'
+      },
+      {
+        id: 'rad_jaw_r',
+        type: 'threads',
+        view: 'front',
+        color: '#D97706',
+        startPoint: { x: 395, y: 485 },
+        endPoint: { x: 325, y: 535 },
+        zoneName: 'Jawline kontúra sánky P (Lineárny vektor)',
+        productName: 'Radiesse (+) 1.5ml',
+        lotNumber: 'RAD-150-332',
+        details: 'Kanyla 25G/50mm • 0.4ml retrográdna línia na kosť',
+        createdAt: '10:30'
+      },
+      {
+        id: 'rad_fan_l',
+        type: 'fanning',
+        view: 'front',
+        color: '#D97706',
+        startPoint: { x: 195, y: 365 },
+        endPoint: { x: 265, y: 390 },
+        fanningRays: [
+          { x: 265, y: 365 },
+          { x: 275, y: 390 },
+          { x: 270, y: 420 },
+          { x: 245, y: 435 }
+        ],
+        zoneName: 'Malárny fanning Ľ (Subkutánna kolagenéza)',
+        productName: 'Radiesse (+) 1.5ml',
+        lotNumber: 'RAD-150-332',
+        details: 'Kanyla 25G • 4 lúče • 0.35ml',
+        createdAt: '10:32'
+      },
+      {
+        id: 'rad_fan_r',
+        type: 'fanning',
+        view: 'front',
+        color: '#D97706',
+        startPoint: { x: 405, y: 365 },
+        endPoint: { x: 335, y: 390 },
+        fanningRays: [
+          { x: 335, y: 365 },
+          { x: 325, y: 390 },
+          { x: 330, y: 420 },
+          { x: 355, y: 435 }
+        ],
+        zoneName: 'Malárny fanning P (Subkutánna kolagenéza)',
+        productName: 'Radiesse (+) 1.5ml',
+        lotNumber: 'RAD-150-332',
+        details: 'Kanyla 25G • 4 lúče • 0.35ml',
+        createdAt: '10:32'
+      }
+    ]
+  },
+  {
     id: 'sculptra_midface',
-    title: 'Sculptra Fanning (Líca & Zygoma)',
+    title: 'Sculptra – Biostimulačný fanning (Líca & Zygoma)',
     productName: 'Sculptra 10ml (PLLA Biostimulátor)',
     lot: 'SCL-2026-881A',
     type: 'fanning',
     color: '#C5A059',
-    description: 'Vejárovitá aplikácia kanylou 25G do subkutánnej vrstvy líc a temporálnej fassy pre neokolagenézu',
+    description: 'Vejárovitá aplikácia kanylou 25G do subkutánnej vrstvy líc a temporálnej fassie pre masívnu novotvorbu kolagénu',
     vectors: [
       {
         id: 'scl_front_l',
         type: 'fanning',
         view: 'front',
         color: '#C5A059',
-        startPoint: { x: 210, y: 340 },
-        endPoint: { x: 280, y: 440 },
+        startPoint: { x: 200, y: 350 },
+        endPoint: { x: 275, y: 430 },
         fanningRays: [
-          { x: 285, y: 390 },
-          { x: 285, y: 415 },
-          { x: 275, y: 440 },
-          { x: 250, y: 455 },
-          { x: 230, y: 460 }
+          { x: 280, y: 380 },
+          { x: 285, y: 410 },
+          { x: 275, y: 435 },
+          { x: 250, y: 450 },
+          { x: 225, y: 455 }
         ],
         zoneName: 'Zygomatická oblasť / Líce Ľ (Vejár)',
         productName: 'Sculptra 10ml (PLLA Biostimulátor)',
         lotNumber: 'SCL-2026-881A',
-        details: 'Kanyla 25G • 5 lúčov • 2.5ml roztoku',
-        createdAt: '10:00'
+        details: 'Kanyla 25G/50mm • 5 lúčov • 2.5ml roztoku',
+        createdAt: '10:40'
       },
       {
         id: 'scl_front_r',
         type: 'fanning',
         view: 'front',
         color: '#C5A059',
-        startPoint: { x: 390, y: 340 },
-        endPoint: { x: 320, y: 440 },
+        startPoint: { x: 400, y: 350 },
+        endPoint: { x: 325, y: 430 },
         fanningRays: [
-          { x: 315, y: 390 },
-          { x: 315, y: 415 },
-          { x: 325, y: 440 },
-          { x: 350, y: 455 },
-          { x: 370, y: 460 }
+          { x: 320, y: 380 },
+          { x: 315, y: 410 },
+          { x: 325, y: 435 },
+          { x: 350, y: 450 },
+          { x: 375, y: 455 }
         ],
         zoneName: 'Zygomatická oblasť / Líce P (Vejár)',
         productName: 'Sculptra 10ml (PLLA Biostimulátor)',
         lotNumber: 'SCL-2026-881A',
-        details: 'Kanyla 25G • 5 lúčov • 2.5ml roztoku',
-        createdAt: '10:00'
-      }
-    ]
-  },
-  {
-    id: 'aptos_profile_lift',
-    title: 'Aptos Visage (Niťový lifting profilu 4+4)',
-    productName: 'Aptos Excellence Visage (Niťový lifting)',
-    lot: 'APT-EXC-091',
-    type: 'threads',
-    color: '#8B5CF6',
-    description: 'Obojsmerné ostnaté nite s kotvením v temporálnej fascii a trakciou mandibulárneho uhla a nasolabiálu',
-    vectors: [
-      {
-        id: 'apt_pl_1',
-        type: 'threads',
-        view: 'profile_left',
-        color: '#8B5CF6',
-        startPoint: { x: 340, y: 220 },
-        endPoint: { x: 210, y: 440 },
-        zoneName: 'Aptos niť 1 - Nasolabiálna trakcia (Ľavý profil)',
-        productName: 'Aptos Excellence Visage',
-        lotNumber: 'APT-EXC-091',
-        details: 'Liftingový vektor 15cm • Trakcia k fascia temporalis',
-        createdAt: '10:15'
-      },
-      {
-        id: 'apt_pl_2',
-        type: 'threads',
-        view: 'profile_left',
-        color: '#8B5CF6',
-        startPoint: { x: 335, y: 270 },
-        endPoint: { x: 210, y: 530 },
-        zoneName: 'Aptos niť 2 - Jawline & Marionetová línia (Ľavý profil)',
-        productName: 'Aptos Excellence Visage',
-        lotNumber: 'APT-EXC-091',
-        details: 'Liftingový vektor 15cm • Trakcia sánky a podbradku',
-        createdAt: '10:18'
-      }
-    ]
-  },
-  {
-    id: 'botox_glabella',
-    title: 'Botox Glabela & Čelo (18 IU)',
-    productName: 'Botox Allergan 100IU',
-    lot: 'BTX-2026-991A',
-    type: 'point',
-    color: '#3B82F6',
-    description: 'Glabela (m. procerus, m. corrugator) a frontálne mikroinjekcie',
-    vectors: [
-      {
-        id: 'btx_pt_1',
-        type: 'point',
-        view: 'front',
-        color: '#3B82F6',
-        startPoint: { x: 300, y: 245 },
-        zoneName: 'Glabela - m. procerus',
-        productName: 'Botox Allergan 100IU',
-        lotNumber: 'BTX-2026-991A',
-        details: '4 IU intramuskulárne',
-        createdAt: '10:30'
-      },
-      {
-        id: 'btx_pt_2',
-        type: 'point',
-        view: 'front',
-        color: '#3B82F6',
-        startPoint: { x: 270, y: 242 },
-        zoneName: 'Glabela - m. corrugator Ľ',
-        productName: 'Botox Allergan 100IU',
-        lotNumber: 'BTX-2026-991A',
-        details: '4 IU intramuskulárne',
-        createdAt: '10:31'
-      },
-      {
-        id: 'btx_pt_3',
-        type: 'point',
-        view: 'front',
-        color: '#3B82F6',
-        startPoint: { x: 330, y: 242 },
-        zoneName: 'Glabela - m. corrugator P',
-        productName: 'Botox Allergan 100IU',
-        lotNumber: 'BTX-2026-991A',
-        details: '4 IU intramuskulárne',
-        createdAt: '10:32'
+        details: 'Kanyla 25G/50mm • 5 lúčov • 2.5ml roztoku',
+        createdAt: '10:40'
       }
     ]
   }
@@ -236,11 +707,11 @@ const BODY_ZONES = [
 
 const BODY_PROCEDURES = [
   { name: 'Sculptra Body (PLLA Biostimulácia)', defaultProduct: 'Sculptra 10ml (PLLA Biostimulátor)', defaultTechnique: 'Kanyla 18G/70mm vějířovitě', color: '#C5A059' },
-  { name: 'Radiesse Body Hyperdiluted (CaHA)', defaultProduct: 'Radiesse (+) 1.5ml (CaHA Vektoring)', defaultTechnique: 'Kanyla 22G riedenie 1:2', color: '#B38F46' },
+  { name: 'Radiesse Body Hyperdiluted (CaHA)', defaultProduct: 'Radiesse (+) 1.5ml (CaHA Vektoring)', defaultTechnique: 'Kanyla 22G riedenie 1:2', color: '#D97706' },
   { name: 'Injekčná lipolýza (Lemon Bottle)', defaultProduct: 'Lemon Bottle Lipolysis 10ml', defaultTechnique: 'Ihla 30G/13mm subkutánny depozit', color: '#10B981' },
   { name: 'Morpheus8 Body (Frakčná RF)', defaultProduct: 'Morpheus8 Body 24 Pin Tip', defaultTechnique: 'Hĺbka 4-7mm • Energia 45-60mJ', color: '#EF4444' },
-  { name: 'Profhilo Body (Bioremodelácia)', defaultProduct: 'Profhilo Body 3ml Kit', defaultTechnique: '10-bodová BAP technika', color: '#3B82F6' },
-  { name: 'Aptos Body Threads (Niťový lifting)', defaultProduct: 'Aptos Body Threads (4x20cm)', defaultTechnique: 'Kanylové zavedenie subkutánne', color: '#8B5CF6' }
+  { name: 'Profhilo Body (Bioremodelácia)', defaultProduct: 'Profhilo Body 3ml Kit', defaultTechnique: '10-bodová BAP technika', color: '#06B6D4' },
+  { name: 'PB Serum Medical (Enzýmová terapia)', defaultProduct: 'PB Serum High/Medium 1.5ml', defaultTechnique: 'Ihla 30G/13mm alebo kanyla 25G', color: '#8B5CF6' }
 ];
 
 export function AestheticsModule({ 
@@ -424,7 +895,7 @@ Dátum výkonu: ${formattedDateStr}
 Ošetrujúci lekár: MUDr. Ján Mráz (SAY CLINIC)
 
 SÚHRNNÝ PREHĽAD VÝKONU:
-• Tvár & Krk: ${countThreads} nití Aptos, ${countFanning} vejárov Sculptra, ${countPoints} bodových mikroinjekcií
+• Tvár & Krk: ${countPoints} bodových mikroinjekcií (Dysport / Restylane / Profhilo), ${countFanning} biostimulačných vejárov (Sculptra / Radiesse), ${countThreads} kanylových vektorov
 • Ošetrenie tela: ${bodyTreatments.length} telových procedúr
 
 1. OŠETRENIE TVÁRE, KRKU A DEKOLTU (2D SCULPTURE MAPPING):
@@ -837,7 +1308,8 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
               <div className="p-3 rounded-2xl bg-white border border-[#E8E2D9]/80 text-[11px] text-[#8C857B] space-y-1">
                 <p className="font-bold text-[#2C2A29]">💡 Viacpohľadová 2D socha:</p>
                 <p>1. Prepínajte hore medzi <strong className="text-[#2C2A29]">Čelným pohľadom, Profilom (Ľ/P)</strong> a <strong className="text-[#2C2A29]">3/4 pohľadom</strong>.</p>
-                <p>2. Každý pohľad má vlastné presné vrstvy pre nite (Aptos), vejáre (Sculptra) aj Botox.</p>
+                <p>2. Preťahovaním myšou (alebo nástrojom <strong>Posun / Ruka</strong>) môžete obraz posúvať a kolieskom / lupou zoomovať.</p>
+                <p>3. Každý pohľad má vrstvy pre Dysport, Restylane Kysse, Profhilo a Radiesse.</p>
               </div>
             </div>
 
@@ -884,16 +1356,16 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
               <div className="w-full flex items-center justify-between pb-4 border-b border-[#E8E2D9]/70 mb-4 gap-2">
                 <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6]" />
-                    <span className="text-[11px] font-bold text-[#2C2A29]">{countThreads} nití Aptos</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#C5A059]" />
-                    <span className="text-[11px] font-bold text-[#2C2A29]">{countFanning} Sculptra vejárov</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]" />
-                    <span className="text-[11px] font-bold text-[#2C2A29]">{countPoints} mikrovpichov</span>
+                    <span className="text-[11px] font-bold text-[#2C2A29]">{countPoints} mikrovpichov (Toxín/Pery/BAP)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" />
+                    <span className="text-[11px] font-bold text-[#2C2A29]">{countFanning} vejárov (Radiesse/Sculptra)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#EC4899]" />
+                    <span className="text-[11px] font-bold text-[#2C2A29]">{countThreads} lineárnych vektorov</span>
                   </div>
                 </div>
 
@@ -918,16 +1390,19 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
               />
 
               {/* LEGENDA */}
-              <div className="w-full flex items-center justify-between text-[11px] text-[#8C857B] mt-4 pt-3 border-t border-[#E8E2D9]/70">
-                <div className="flex items-center gap-3">
+              <div className="w-full flex items-center justify-between text-[11px] text-[#8C857B] mt-4 pt-3 border-t border-[#E8E2D9]/70 flex-wrap gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
                   <span className="flex items-center gap-1 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-[#8B5CF6]" /> Nite Aptos/PDO
+                    <span className="w-2 h-2 rounded-full bg-[#3B82F6]" /> Dysport / Alluzience
                   </span>
                   <span className="flex items-center gap-1 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-[#C5A059]" /> Sculptra / Radiesse
+                    <span className="w-2 h-2 rounded-full bg-[#EC4899]" /> Restylane Kysse
                   </span>
                   <span className="flex items-center gap-1 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-[#3B82F6]" /> Botox
+                    <span className="w-2 h-2 rounded-full bg-[#06B6D4]" /> Profhilo 5 BAP
+                  </span>
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-[#D97706]" /> Radiesse / Sculptra
                   </span>
                 </div>
                 <span className="font-serif italic text-xs">SAY CLINIC Aesthetic Sculpture</span>
@@ -1328,19 +1803,19 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
                 <p className="text-[10px] text-[#8C857B] uppercase font-bold">Ošetrujúci lekár & pracovisko:</p>
                 <p className="font-bold text-[#2C2A29] text-sm">MUDr. Ján Mráz</p>
                 <p className="text-[#8C857B]">SAY CLINIC Banská Bystrica</p>
-                <p className="text-[#8C857B]">Výkon: Estetická medicína, Niťový lifting & Telové procedúry</p>
+                <p className="text-[#8C857B]">Výkon: Aplikácia botulotoxínu, kyseliny hyalurónovej, biostimulátorov & telových procedúr</p>
               </div>
             </div>
 
             {/* SÚHRN */}
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] text-center">
-                <span className="text-[10px] text-[#8C857B] uppercase font-bold">Liftingové nite:</span>
-                <p className="text-sm font-bold font-mono text-[#8B5CF6]">{countThreads} ks</p>
+                <span className="text-[10px] text-[#8C857B] uppercase font-bold">Bodové mikroinjekcie:</span>
+                <p className="text-sm font-bold font-mono text-[#3B82F6]">{countPoints} bodov</p>
               </div>
               <div className="p-3 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] text-center">
-                <span className="text-[10px] text-[#8C857B] uppercase font-bold">Sculptra / Vejáre:</span>
-                <p className="text-sm font-bold font-mono text-[#C5A059]">{countFanning} zón</p>
+                <span className="text-[10px] text-[#8C857B] uppercase font-bold">Biostimulácia / Vejáre:</span>
+                <p className="text-sm font-bold font-mono text-[#D97706]">{countFanning} zón</p>
               </div>
               <div className="p-3 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] text-center">
                 <span className="text-[10px] text-[#8C857B] uppercase font-bold">Ošetrenia tela:</span>

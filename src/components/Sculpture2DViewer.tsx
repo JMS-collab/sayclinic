@@ -5,7 +5,7 @@ import {
   Undo, 
   Trash2, 
   MousePointer, 
-  Move, 
+  Hand, 
   PenTool, 
   Sparkles, 
   ZoomIn, 
@@ -13,7 +13,9 @@ import {
   Maximize2, 
   Check,
   Eye,
-  EyeOff
+  EyeOff,
+  MoveUpRight,
+  CircleDot
 } from 'lucide-react';
 
 import femaleBustFront from '../assets/images/female_bust_front_1788378218673.jpg';
@@ -21,7 +23,7 @@ import femaleBustProfile from '../assets/images/female_bust_profile_178837825424
 import femaleBustOblique from '../assets/images/female_bust_oblique_1788378267394.jpg';
 
 export type SculptureViewType = 'front' | 'profile_left' | 'profile_right' | 'three_quarter_left' | 'three_quarter_right';
-export type DrawingToolType = 'threads' | 'fanning' | 'point' | 'freehand' | 'select';
+export type DrawingToolType = 'select' | 'move' | 'vector' | 'fanning' | 'point' | 'freehand' | 'threads';
 
 export interface Point2D {
   x: number;
@@ -30,7 +32,7 @@ export interface Point2D {
 
 export interface Vector2DItem {
   id: string;
-  type: 'threads' | 'fanning' | 'point' | 'freehand';
+  type: 'vector' | 'threads' | 'fanning' | 'point' | 'freehand';
   view: SculptureViewType;
   color: string;
   startPoint?: Point2D;
@@ -73,7 +75,7 @@ export function Sculpture2DViewer({
   onSelectTool,
   activeColor,
   onSelectColor,
-  currentProduct = { name: 'Sculptra 10ml (PLLA)', lot: 'SCL-2026-881A', type: 'biostimulator' },
+  currentProduct = { name: 'Dysport 300IU', lot: 'DYSP-4412B', type: 'botox' },
   selectedVectorId = null,
   onSelectVector,
   activeView: externalView,
@@ -138,67 +140,84 @@ export function Sculpture2DViewer({
   const detectAnatomicalZone = (p: Point2D, view: SculptureViewType): string => {
     const { x, y } = p;
     if (view === 'front') {
-      if (y < 210) {
-        if (x > 240 && x < 360) return 'Čelo (Centrálna zóna - m. frontalis)';
+      if (y < 235) {
+        if (x > 240 && x < 360) return 'Čelo (m. frontalis – Dysport/Alluzience)';
         return x < 300 ? 'Čelo Ľavé (Temporálna oblasť)' : 'Čelo Pravé (Temporálna oblasť)';
       }
-      if (y >= 210 && y < 270) {
-        if (x > 260 && x < 340) return 'Glabela (Vráska hnevu - m. procerus / corrugator)';
-        return x < 300 ? 'Obočie & Spánok Ľavý' : 'Obočie & Spánok Pravý';
+      if (y >= 235 && y < 285) {
+        if (x > 265 && x < 335) return 'Glabela (m. procerus / corrugator – Dysport/Alluzience)';
+        return x < 300 ? 'Obočie Ľavé' : 'Obočie Pravé';
       }
-      if (y >= 270 && y < 350) {
-        if (x > 265 && x < 335) return 'Nos - Koreň a chrbát nosa (Dorsum nasi)';
-        return x < 300 ? 'Periorbitálna zóna Ľ (Vejáriky / Kruhy pod očami)' : 'Periorbitálna zóna P (Vejáriky / Kruhy pod očami)';
+      if (y >= 285 && y < 345) {
+        if (x > 275 && x < 325) return 'Koreň a chrbát nosa (Dorsum nasi)';
+        if (x <= 235) return 'Periorbitálna zóna Ľ (Očné vejáriky – Dysport/Alluzience)';
+        if (x >= 365) return 'Periorbitálna zóna P (Očné vejáriky – Dysport/Alluzience)';
+        return x < 300 ? 'Infraorbitálna zóna Ľ (Kruhy pod očami)' : 'Infraorbitálna zóna P (Kruhy pod očami)';
       }
-      if (y >= 350 && y < 440) {
-        if (x > 260 && x < 340) return 'Hrot nosa & Columella';
-        return x < 300 ? 'Zygomatická oblasť / Líce Ľ (Vektor)' : 'Zygomatická oblasť / Líce P (Vektor)';
+      if (y >= 345 && y < 425) {
+        if (x > 275 && x < 325) return 'Hrot nosa & Columella';
+        if (x <= 235) return 'Zygoma Ľavá (Lícna kosť / BAP bod 1 / Radiesse)';
+        if (x >= 365) return 'Zygoma Pravá (Lícna kosť / BAP bod 1 / Radiesse)';
+        if (x < 260 && y > 400) return 'Nosová báza Ľ (Alar base / BAP bod 2)';
+        if (x > 340 && y > 400) return 'Nosová báza P (Alar base / BAP bod 2)';
+        return x < 300 ? 'Líce Ľ (Malar fat pad / Sculptra / Radiesse)' : 'Líce P (Malar fat pad / Sculptra / Radiesse)';
       }
-      if (y >= 440 && y < 510) {
-        if (x > 240 && x < 360) return 'Nasolabiálna ryha & Pery (Vermilion / Amorov luk)';
-        return x < 300 ? 'Bukálna zóna / Líce Ľ' : 'Bukálna zóna / Líce P';
+      if (y >= 425 && y < 495) {
+        if (x >= 255 && x <= 345) {
+          if (y < 455) return 'Pery – Horná pera & Amorov luk (Restylane Kysse)';
+          return 'Pery – Dolná pera & Kútiky (Restylane Kysse)';
+        }
+        return x < 300 ? 'Nasolabiálna ryha Ľavá' : 'Nasolabiálna ryha Pravá';
       }
-      if (y >= 510 && y < 580) {
-        if (x > 250 && x < 350) return 'Brada (m. mentalis) & Marionetové línie';
-        return x < 300 ? 'Mandibulárna línia Ľ (Sánka - Jawline)' : 'Mandibulárna línia P (Sánka - Jawline)';
+      if (y >= 495 && y < 560) {
+        if (x > 260 && x < 340) return 'Brada (Mentum / m. mentalis – BAP bod 4 / Restylane)';
+        return x < 300 ? 'Sánka Ľavá (Jawline / Radiesse)' : 'Sánka Pravá (Jawline / Radiesse)';
       }
-      if (y >= 580 && y < 670) {
-        return x > 230 && x < 370 ? 'Submentálna zóna & Podbradok (Platysma)' : x < 300 ? 'Krk Ľavý (m. sternocleidomastoideus)' : 'Krk Pravý (m. sternocleidomastoideus)';
+      if (y >= 560 && y < 650) {
+        if (x < 235) return 'Mandibulárny uhol Ľ (Gonion – BAP bod 5 / Radiesse)';
+        if (x > 365) return 'Mandibulárny uhol P (Gonion – BAP bod 5 / Radiesse)';
+        return 'Submentálna zóna & Podbradok (Platysma / Profhilo)';
       }
-      return 'Dekolt & Klavikulárna zóna (Kľúčne kosti)';
+      return 'Krk & Klavikulárna zóna (Kľúčne kosti)';
     }
 
     if (view === 'profile_left' || view === 'profile_right') {
       const isLeft = view === 'profile_left';
       const side = isLeft ? 'Ľavý' : 'Pravý';
-      if (y < 230) return `Spánková & Čelová oblasť (${side} profil)`;
-      if (y >= 230 && y < 330) return `Zygomatický oblúk & Temporálna fascia (${side})`;
-      if (y >= 330 && y < 430) return `Lícna zóna & Profil nosa (${side})`;
-      if (y >= 430 && y < 510) return `Nasolabiálny uhol & Kútik úst (${side})`;
-      if (y >= 510 && y < 580) return `Mandibulárny uhol (Gonion) & Sánka (${side})`;
-      if (y >= 580 && y < 660) return `Cervikomentálny uhol & Platysma (${side})`;
-      return `Krk & Klavikula (${side})`;
+      if (y < 235) return `Čelo a spánok (${side} profil – Dysport)`;
+      if (y >= 235 && y < 285) return `Glabela a obočie (${side})`;
+      if (y >= 285 && y < 350) return `Orbitálny okraj & Periorbitálne vejáriky (${side})`;
+      if (y >= 350 && y < 430) return `Zygoma & Líce (${side} – Radiesse / Sculptra / Profhilo)`;
+      if (y >= 430 && y < 495) return `Pery (Restylane Kysse) & Nasolabiál (${side})`;
+      if (y >= 495 && y < 565) return `Mandibulárna kontúra & Brada (${side} – Radiesse Jawline)`;
+      if (y >= 565 && y < 650) return `Cervikomentálny uhol & Platysma (${side})`;
+      return `Krk & Dekolt (${side})`;
     }
 
     // 3/4 views
     const side34 = view === 'three_quarter_left' ? 'Ľavý' : 'Pravý';
-    if (y < 230) return `Čelo & Spánok (3/4 ${side34})`;
-    if (y >= 230 && y < 350) return `Zygomatická projekcia & Orbitálny okraj (3/4 ${side34})`;
-    if (y >= 350 && y < 450) return `Malar fat pad & Nasolabiálna ryha (3/4 ${side34})`;
-    if (y >= 450 && y < 540) return `Línia sánky & Marionetová ryha (3/4 ${side34})`;
+    if (y < 235) return `Čelo & Spánok (3/4 ${side34} – Dysport)`;
+    if (y >= 235 && y < 350) return `Zygomatická projekcia & Očný vejár (3/4 ${side34})`;
+    if (y >= 350 && y < 450) return `Malar fat pad & Líce (3/4 ${side34} – Radiesse / Sculptra)`;
+    if (y >= 450 && y < 540) return `Pery (Restylane Kysse) & Línia sánky (3/4 ${side34})`;
     if (y >= 540 && y < 640) return `Podbradok & Kontúra krku (3/4 ${side34})`;
     return `Krk a dekolt (3/4 ${side34})`;
   };
 
   // MOUSE DOWN: Start drawing or panning
   const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.button === 1 || activeTool === 'select' && e.altKey) {
+    // Left click on 'move' tool, or 'select' tool, or middle button (button 1), or holding Space/Alt/Shift -> PAN
+    if (
+      activeTool === 'move' || 
+      activeTool === 'select' || 
+      e.button === 1 || 
+      e.altKey || 
+      e.shiftKey
+    ) {
       setIsPanning(true);
       panStartRef.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
       return;
     }
-
-    if (activeTool === 'select') return;
 
     const coords = getSVGCoordinates(e.clientX, e.clientY);
     if (!coords) return;
@@ -212,6 +231,15 @@ export function Sculpture2DViewer({
     } else if (activeTool === 'point') {
       // Create single point immediately
       const zone = detectAnatomicalZone(coords, currentView);
+      const isBotox = currentProduct.type === 'botox';
+      const isProfhilo = currentProduct.name.toLowerCase().includes('profhilo');
+      const isKysse = currentProduct.name.toLowerCase().includes('kysse');
+      
+      let detailStr = '0.1ml intradermálne';
+      if (isBotox) detailStr = '10 Speywood U / 4 IU';
+      else if (isProfhilo) detailStr = '0.2ml BAP bolus subkutánne';
+      else if (isKysse) detailStr = '0.05-0.1ml výplň pier';
+
       const newVector: Vector2DItem = {
         id: `pt_${Date.now()}`,
         type: 'point',
@@ -221,7 +249,7 @@ export function Sculpture2DViewer({
         zoneName: zone,
         productName: currentProduct.name,
         lotNumber: currentProduct.lot,
-        details: currentProduct.type === 'botox' ? '4 IU mikrovpich' : '0.1ml intradermálne',
+        details: detailStr,
         createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       pushHistory([...vectors, newVector]);
@@ -255,7 +283,7 @@ export function Sculpture2DViewer({
     }
   };
 
-  // MOUSE UP: Finish drawing
+  // MOUSE UP: Finish drawing or panning
   const handleMouseUp = () => {
     if (isPanning) {
       setIsPanning(false);
@@ -274,7 +302,7 @@ export function Sculpture2DViewer({
       currentDrawCurrent.y - currentDrawStart.y
     );
 
-    // Minimum distance threshold
+    // Minimum distance threshold for lines/fanning
     if (dist < 10 && activeTool !== 'point' && activeTool !== 'freehand') {
       setIsDrawing(false);
       setCurrentDrawStart(null);
@@ -284,21 +312,22 @@ export function Sculpture2DViewer({
 
     const zone = detectAnatomicalZone(currentDrawStart, currentView);
 
-    if (activeTool === 'threads') {
-      const newThread: Vector2DItem = {
-        id: `thr_${Date.now()}`,
-        type: 'threads',
+    if (activeTool === 'vector' || activeTool === 'threads') {
+      const isRadiesse = currentProduct.name.toLowerCase().includes('radiesse');
+      const newVec: Vector2DItem = {
+        id: `vec_${Date.now()}`,
+        type: 'vector',
         view: currentView,
         color: activeColor,
         startPoint: currentDrawStart,
         endPoint: currentDrawCurrent,
-        zoneName: `Aptos niť (${zone})`,
+        zoneName: `Kanylový vektor (${zone})`,
         productName: currentProduct.name,
         lotNumber: currentProduct.lot,
-        details: `Dĺžka vektoru ~${Math.round(dist / 12)}cm • Trakcia s kotvením`,
+        details: isRadiesse ? 'Kanyla 25G • 0.25ml retrográdny vektor' : `Lineárna aplikácia kanylou ~${Math.round(dist / 12)}cm`,
         createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
-      pushHistory([...vectors, newThread]);
+      pushHistory([...vectors, newVec]);
     } else if (activeTool === 'fanning') {
       // Calculate 5 radiant fan rays from start to end with arc spread
       const dx = currentDrawCurrent.x - currentDrawStart.x;
@@ -328,7 +357,7 @@ export function Sculpture2DViewer({
         zoneName: `Vejár / Fanning (${zone})`,
         productName: currentProduct.name,
         lotNumber: currentProduct.lot,
-        details: 'Kanyla 25G • 5 lúčov subkutánne • Neokolagenéza',
+        details: 'Kanyla 25G • 5 lúčov subkutánne • Biostimulácia',
         createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       pushHistory([...vectors, newFanning]);
@@ -354,26 +383,27 @@ export function Sculpture2DViewer({
     setCurrentFreehandPoints([]);
   };
 
-  // Filter vectors belonging to current view
+  // Vectors filtered for the current view
   const currentViewVectors = vectors.filter(v => v.view === currentView);
 
-  // Vectors count by view
-  const getVectorsCountForView = (vType: SculptureViewType) => {
-    return vectors.filter(v => v.view === vType).length;
+  // Helper for image source
+  const getImgSrc = (img: unknown): string => {
+    if (typeof img === 'string') return img;
+    if (img && typeof img === 'object' && 'src' in img) {
+      return (img as { src: string }).src;
+    }
+    return '';
   };
 
-  // Helper for image src (StaticImageData | string)
-  const getImgSrc = (img: { src?: string } | string) => typeof img === 'string' ? img : (img?.src || '');
-
   return (
-    <div className="w-full flex flex-col items-center select-none">
+    <div className="w-full flex flex-col items-center gap-3 select-none">
       
-      {/* 1. HORNÝ VOLIČ POHĽADOV (TABS & THUMBNAILS) */}
-      <div className="w-full flex items-center justify-between gap-2 p-2 bg-[#FAF8F5] rounded-2xl border border-[#E8E2D9] mb-4 flex-wrap">
-        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+      {/* 1. PREPÍNAČ POHĽADOV (TABS) & OVLÁDANIE */}
+      <div className="w-full flex items-center justify-between gap-2 overflow-x-auto pb-1">
+        <div className="flex items-center gap-1.5 p-1 bg-white/90 backdrop-blur-md rounded-2xl border border-[#E8E2D9] shadow-xs">
           {VIEW_CONFIGS.map((v) => {
-            const count = getVectorsCountForView(v.id);
             const isActive = currentView === v.id;
+            const count = vectors.filter(vec => vec.view === v.id).length;
             return (
               <button
                 key={v.id}
@@ -399,7 +429,7 @@ export function Sculpture2DViewer({
           })}
         </div>
 
-        {/* STATS PRE AKTUÁLNY POHĽAD & ANATOMICKÉ VODIACE LÍNIE */}
+        {/* ANATOMICKÁ MRIEŽKA & POČET VEKTOROV */}
         <div className="flex items-center gap-2 text-xs text-[#8C857B] px-2 font-medium">
           <button
             type="button"
@@ -409,10 +439,10 @@ export function Sculpture2DViewer({
                 ? 'bg-[#C5A059] text-white' 
                 : 'bg-white text-[#2C2A29] border border-[#E8E2D9] hover:border-[#C5A059]'
             }`}
-            title="Zapnúť / vypnúť anatomické vodiace línie a mriežku"
+            title="Zapnúť / vypnúť anatomické vodiace línie a mriežku tváre"
           >
             {showAnatomicalGuides ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            <span>Anatomická mriežka</span>
+            <span>Mriežka tretín</span>
           </button>
           <span className="text-[#C5A059] font-bold">● {currentViewVectors.length}</span>
           <span className="hidden sm:inline">vektorov</span>
@@ -427,6 +457,21 @@ export function Sculpture2DViewer({
         {/* NÁSTROJOVÁ LIŠTA (FLOATING TOOLBAR) */}
         <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5 p-2 bg-white/92 backdrop-blur-md rounded-2xl border border-white/80 shadow-lg">
           
+          {/* POSUN / RUKA (PAN) */}
+          <button
+            type="button"
+            onClick={() => onSelectTool('move')}
+            className={`p-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer ${
+              activeTool === 'move'
+                ? 'bg-[#2C2A29] text-white shadow-xs'
+                : 'hover:bg-[#FAF8F5] text-[#2C2A29]'
+            }`}
+            title="Posun / Potiahnutie obrazu (Kliknite a ťahajte)"
+          >
+            <Hand className="w-4 h-4 text-[#C5A059]" />
+            <span className="hidden xl:inline font-bold">Posun (Ruka)</span>
+          </button>
+
           {/* VÝBER / KURZOR */}
           <button
             type="button"
@@ -436,31 +481,54 @@ export function Sculpture2DViewer({
                 ? 'bg-[#2C2A29] text-white shadow-xs'
                 : 'hover:bg-[#FAF8F5] text-[#2C2A29]'
             }`}
-            title="Výber a označenie objektov"
+            title="Výber a označenie objektov / Posun plátna"
           >
-            <MousePointer className="w-4 h-4 text-[#C5A059]" />
+            <MousePointer className="w-4 h-4 text-[#8C857B]" />
             <span className="hidden xl:inline font-bold">Výber</span>
           </button>
 
-          {/* APTOS NITE (THREADS) */}
+          <div className="h-px bg-[#E8E2D9] my-0.5" />
+
+          {/* BODOVÝ VPICH / TOXÍN / VÝPLŇ PIER (POINT) */}
           <button
             type="button"
             onClick={() => {
-              onSelectTool('threads');
-              onSelectColor('#8B5CF6');
+              onSelectTool('point');
+              if (currentProduct.type === 'botox') onSelectColor('#3B82F6');
+              else if (currentProduct.name.toLowerCase().includes('kysse')) onSelectColor('#EC4899');
+              else if (currentProduct.name.toLowerCase().includes('profhilo')) onSelectColor('#10B981');
+              else onSelectColor('#3B82F6');
             }}
             className={`p-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer ${
-              activeTool === 'threads'
-                ? 'bg-[#8B5CF6] text-white shadow-xs'
-                : 'hover:bg-purple-50 text-[#2C2A29]'
+              activeTool === 'point'
+                ? 'bg-[#3B82F6] text-white shadow-xs'
+                : 'hover:bg-blue-50 text-[#2C2A29]'
             }`}
-            title="Liftingové nite (Aptos/PDO) s ťahom"
+            title="Bodový mikrovpich (Dysport, Alluzience, Profhilo BAP, Restylane Kysse)"
           >
-            <Move className="w-4 h-4 text-purple-400" />
-            <span className="hidden xl:inline font-bold">Nite (Aptos)</span>
+            <CircleDot className="w-4 h-4 text-blue-400" />
+            <span className="hidden xl:inline font-bold">Bod (Toxín/BAP)</span>
           </button>
 
-          {/* SCULPTRA / RADIESSE VEJÁR (FANNING) */}
+          {/* KANYLOVÝ VEKTOR (RADIESSE / RESTYLANE JAWLINE) */}
+          <button
+            type="button"
+            onClick={() => {
+              onSelectTool('vector');
+              onSelectColor('#D97706');
+            }}
+            className={`p-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer ${
+              activeTool === 'vector' || activeTool === 'threads'
+                ? 'bg-[#D97706] text-white shadow-xs'
+                : 'hover:bg-amber-50 text-[#2C2A29]'
+            }`}
+            title="Lineárny vektor / Kanyla (Radiesse, konturácia sánky, výplň)"
+          >
+            <MoveUpRight className="w-4 h-4 text-amber-500" />
+            <span className="hidden xl:inline font-bold">Kanyla (Vektor)</span>
+          </button>
+
+          {/* VEJÁR / FANNING (SCULPTRA / RADIESSE) */}
           <button
             type="button"
             onClick={() => {
@@ -472,31 +540,13 @@ export function Sculpture2DViewer({
                 ? 'bg-[#C5A059] text-white shadow-xs'
                 : 'hover:bg-amber-50 text-[#2C2A29]'
             }`}
-            title="Vejárovitá aplikácia kanylou (Sculptra/Radiesse)"
+            title="Vejárovitá aplikácia kanylou (Radiesse / Sculptra biostimulácia)"
           >
             <Sparkles className="w-4 h-4 text-amber-500" />
-            <span className="hidden xl:inline font-bold">Vejár (Kanyla)</span>
+            <span className="hidden xl:inline font-bold">Vejár (Fanning)</span>
           </button>
 
-          {/* BOTOX / VÝPLŇ BOD (POINT) */}
-          <button
-            type="button"
-            onClick={() => {
-              onSelectTool('point');
-              onSelectColor('#3B82F6');
-            }}
-            className={`p-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer ${
-              activeTool === 'point'
-                ? 'bg-[#3B82F6] text-white shadow-xs'
-                : 'hover:bg-blue-50 text-[#2C2A29]'
-            }`}
-            title="Bodový mikrovpich (Botox / Výplne)"
-          >
-            <span className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[9px] font-bold text-white">●</span>
-            <span className="hidden xl:inline font-bold">Bod (Botox)</span>
-          </button>
-
-          {/* VOĽNÁ RUKA / MARKER (FREEHAND) */}
+          {/* VOĽNÁ RUKA / CHIRURGICKÝ MARKER (FREEHAND) */}
           <button
             type="button"
             onClick={() => {
@@ -511,19 +561,19 @@ export function Sculpture2DViewer({
             title="Voľná kresba / Chirurgický marker"
           >
             <PenTool className="w-4 h-4 text-pink-400" />
-            <span className="hidden xl:inline font-bold">Voľná ruka</span>
+            <span className="hidden xl:inline font-bold">Fixka (Kresba)</span>
           </button>
 
-          <div className="h-px bg-[#E8E2D9] my-1" />
+          <div className="h-px bg-[#E8E2D9] my-0.5" />
 
           {/* PALETA FARIEB */}
           <div className="flex items-center gap-1.5 p-1 justify-center">
             {[
-              { color: '#8B5CF6', name: 'Fialová (Nite)' },
-              { color: '#C5A059', name: 'Zlatá (Sculptra)' },
-              { color: '#3B82F6', name: 'Modrá (Botox)' },
-              { color: '#EC4899', name: 'Ružová (Výplň)' },
-              { color: '#10B981', name: 'Zelená (Mezoterapia)' },
+              { color: '#3B82F6', name: 'Modrá (Dysport / Alluzience)' },
+              { color: '#EC4899', name: 'Ružová (Restylane Kysse pery)' },
+              { color: '#10B981', name: 'Zelená (Profhilo BAP)' },
+              { color: '#D97706', name: 'Jantárová (Radiesse CaHA)' },
+              { color: '#C5A059', name: 'Zlatá (Sculptra PLLA)' },
               { color: '#2C2A29', name: 'Tmavá (Marker)' }
             ].map(c => (
               <button
@@ -541,7 +591,7 @@ export function Sculpture2DViewer({
             ))}
           </div>
 
-          <div className="h-px bg-[#E8E2D9] my-1" />
+          <div className="h-px bg-[#E8E2D9] my-0.5" />
 
           {/* UNDO & RESET */}
           <div className="flex items-center justify-between gap-1">
@@ -570,7 +620,7 @@ export function Sculpture2DViewer({
           </div>
         </div>
 
-        {/* OVLÁDANIE ZOOMU & RESET (PRAVÝ HORNÝ ROH) */}
+        {/* OVLÁDANIE ZOOMU & RESET & DRAG INFO (PRAVÝ HORNÝ ROH) */}
         <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 p-1.5 bg-white/92 backdrop-blur-md rounded-2xl border border-white/80 shadow-md">
           <button
             type="button"
@@ -604,6 +654,12 @@ export function Sculpture2DViewer({
           </button>
         </div>
 
+        {/* INŠTRUKCIA K POSUNU */}
+        <div className="absolute bottom-3 right-4 z-20 hidden md:flex items-center gap-1.5 bg-white/80 backdrop-blur-sm text-[10px] text-[#8C857B] px-3 py-1 rounded-full border border-white/90 shadow-2xs pointer-events-none">
+          <Hand className="w-3 h-3 text-[#C5A059]" />
+          <span>Posun: kliknite a ťahajte (alebo nástroj Ruka)</span>
+        </div>
+
         {/* DETAIL DETEKOVANEJ ZÓNY (DOLNÝ PLÁVAJÚCI BADGE) */}
         {hoveredZone && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-[#2C2A29]/90 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-medium border border-[#C5A059]/40 shadow-xl pointer-events-none flex items-center gap-2">
@@ -618,7 +674,7 @@ export function Sculpture2DViewer({
           style={{
             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
             transformOrigin: 'center center',
-            cursor: activeTool === 'select' ? 'default' : 'crosshair'
+            cursor: isPanning ? 'grabbing' : (activeTool === 'move' || activeTool === 'select') ? 'grab' : 'crosshair'
           }}
         >
           <svg
@@ -628,6 +684,14 @@ export function Sculpture2DViewer({
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
+            onMouseLeave={() => {
+              setIsPanning(false);
+              if (isDrawing) {
+                setIsDrawing(false);
+                setCurrentDrawStart(null);
+                setCurrentDrawCurrent(null);
+              }
+            }}
           >
             <defs>
               {/* Soft Vignette and Marble Gradients */}
@@ -649,9 +713,9 @@ export function Sculpture2DViewer({
               </clipPath>
             </defs>
 
-            {/* A. REALISTIC CLASSICAL FEMALE BUST STATUE IMAGE RENDERING */}
-            <g id="realistic_female_bust" clipPath="url(#bustRoundedClip)">
-              {/* 1. ČELNÝ POHĽAD (FRONT) */}
+            {/* A. FOTOREALISTICKÁ MRAMOROVÁ SOCHA PODĽA POHĽADU */}
+            <g clipPath="url(#bustRoundedClip)">
+              {/* 1. ČELNÝ POHĽAD (FRONT VIEW) */}
               {currentView === 'front' && (
                 <image
                   href={getImgSrc(femaleBustFront)}
@@ -664,7 +728,7 @@ export function Sculpture2DViewer({
                 />
               )}
 
-              {/* 2. PROFIL ĽAVÝ (PROFILE LEFT) */}
+              {/* 2. PROFIL ĽAVÝ (PROFILE LEFT - 90°) */}
               {currentView === 'profile_left' && (
                 <image
                   href={getImgSrc(femaleBustProfile)}
@@ -724,32 +788,36 @@ export function Sculpture2DViewer({
               <rect x="0" y="0" width="600" height="750" fill="url(#bustVignette)" className="pointer-events-none" />
             </g>
 
-            {/* B. VOLITEĽNÁ ANATOMICKÁ MRIEŽKA & VODIACE LÍNIE (OVERLAY) */}
+            {/* B. ANATOMICKÁ MRIEŽKA & VODIACE LÍNIE (OVERLAY) */}
             {showAnatomicalGuides && (
-              <g id="anatomical_guidelines" opacity="0.6" strokeDasharray="3 3" className="pointer-events-none">
-                {/* Horizontal facial thirds */}
-                <line x1="120" y1="210" x2="480" y2="210" stroke="#C5A059" strokeWidth="1" />
-                <line x1="120" y1="350" x2="480" y2="350" stroke="#C5A059" strokeWidth="1" />
-                <line x1="120" y1="490" x2="480" y2="490" stroke="#C5A059" strokeWidth="1" />
-                <line x1="120" y1="580" x2="480" y2="580" stroke="#C5A059" strokeWidth="1" />
+              <g id="anatomical_guidelines" opacity="0.65" strokeDasharray="3 3" className="pointer-events-none">
+                {/* Horizontal facial thirds aligned with neoclassical proportions */}
+                <line x1="80" y1="205" x2="520" y2="205" stroke="#C5A059" strokeWidth="1" />
+                <line x1="80" y1="268" x2="520" y2="268" stroke="#C5A059" strokeWidth="1" />
+                <line x1="80" y1="415" x2="520" y2="415" stroke="#C5A059" strokeWidth="1" />
+                <line x1="80" y1="455" x2="520" y2="455" stroke="#EC4899" strokeWidth="1" />
+                <line x1="80" y1="545" x2="520" y2="545" stroke="#C5A059" strokeWidth="1" />
 
                 {/* Central Symmetry Line (For front view) */}
                 {currentView === 'front' && (
-                  <line x1="300" y1="80" x2="300" y2="650" stroke="#3B82F6" strokeWidth="1.2" strokeDasharray="4 2" />
+                  <line x1="300" y1="80" x2="300" y2="670" stroke="#3B82F6" strokeWidth="1.2" strokeDasharray="4 2" />
                 )}
 
                 {/* Aesthetic annotations */}
-                <text x="50" y="206" fill="#8C857B" fontSize="10" fontFamily="sans-serif">Horná tretina (Frontalis)</text>
-                <text x="50" y="346" fill="#8C857B" fontSize="10" fontFamily="sans-serif">Stredná tretina (Zygoma)</text>
-                <text x="50" y="486" fill="#8C857B" fontSize="10" fontFamily="sans-serif">Dolná tretina (Pery & Jawline)</text>
+                <text x="35" y="201" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Horná tretina (Čelo)</text>
+                <text x="35" y="264" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Glabela / Obočie</text>
+                <text x="35" y="411" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Báza nosa (Subnasale)</text>
+                <text x="35" y="451" fill="#EC4899" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Pery (Vermilion)</text>
+                <text x="35" y="541" fill="#8C857B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Dolná tretina (Brada / Mentum)</text>
               </g>
             )}
 
             {/* C. PERSISTED VECTOR DRAWINGS FOR CURRENT VIEW */}
-            {currentViewVectors.map((vec) => {
+            {currentViewVectors.map((vec, vecIndex) => {
               const isSelected = vec.id === selectedVectorId;
 
-              if (vec.type === 'threads' && vec.startPoint && vec.endPoint) {
+              // 1. Kanylový lineárny vektor (alebo staršie threads)
+              if ((vec.type === 'vector' || vec.type === 'threads') && vec.startPoint && vec.endPoint) {
                 const sx = vec.startPoint.x;
                 const sy = vec.startPoint.y;
                 const ex = vec.endPoint.x;
@@ -759,37 +827,27 @@ export function Sculpture2DViewer({
                 const len = Math.hypot(dx, dy);
                 const angle = Math.atan2(dy, dx);
 
-                // Barbed chevrons along thread
-                const numBarbs = Math.max(3, Math.floor(len / 30));
-                const barbs: React.ReactNode[] = [];
-                for (let i = 1; i < numBarbs; i++) {
-                  const t = i / numBarbs;
+                // Small directional notches along the cannula vector
+                const numNotches = Math.max(2, Math.floor(len / 35));
+                const notches: React.ReactNode[] = [];
+                for (let i = 1; i < numNotches; i++) {
+                  const t = i / numNotches;
                   const bx = sx + dx * t;
                   const by = sy + dy * t;
-                  const barbAngle1 = angle + Math.PI * 0.75;
-                  const barbAngle2 = angle - Math.PI * 0.75;
-                  const bLen = 6;
-                  barbs.push(
-                    <g key={i}>
-                      <line
-                        x1={bx}
-                        y1={by}
-                        x2={bx + Math.cos(barbAngle1) * bLen}
-                        y2={by + Math.sin(barbAngle1) * bLen}
-                        stroke={vec.color}
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1={bx}
-                        y1={by}
-                        x2={bx + Math.cos(barbAngle2) * bLen}
-                        y2={by + Math.sin(barbAngle2) * bLen}
-                        stroke={vec.color}
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </g>
+                  const notchAngle1 = angle + Math.PI * 0.5;
+                  const notchAngle2 = angle - Math.PI * 0.5;
+                  const nLen = 4;
+                  notches.push(
+                    <line
+                      key={i}
+                      x1={bx + Math.cos(notchAngle1) * nLen}
+                      y1={by + Math.sin(notchAngle1) * nLen}
+                      x2={bx + Math.cos(notchAngle2) * nLen}
+                      y2={by + Math.sin(notchAngle2) * nLen}
+                      stroke={vec.color}
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
                   );
                 }
 
@@ -815,26 +873,28 @@ export function Sculpture2DViewer({
                         opacity="0.3"
                       />
                     )}
-                    {/* Main thread line */}
+                    {/* Main cannula vector line */}
                     <line
                       x1={sx}
                       y1={sy}
                       x2={ex}
                       y2={ey}
                       stroke={vec.color}
-                      strokeWidth={isSelected ? '4.5' : '3.5'}
+                      strokeWidth={isSelected ? '4' : '3'}
                       strokeLinecap="round"
                     />
-                    {/* Barbs */}
-                    {barbs}
-                    {/* Anchor point */}
-                    <circle cx={sx} cy={sy} r="6" fill="#2C2A29" stroke={vec.color} strokeWidth="2.5" />
-                    {/* Direction arrow */}
-                    <circle cx={ex} cy={ey} r="4" fill={vec.color} />
+                    {/* Directional calibration notches */}
+                    {notches}
+                    {/* Cannula puncture hub (entry point) */}
+                    <circle cx={sx} cy={sy} r="6" fill="#2C2A29" stroke={vec.color} strokeWidth="2" />
+                    <circle cx={sx} cy={sy} r="2" fill="#FFFFFF" />
+                    {/* Terminal tip */}
+                    <circle cx={ex} cy={ey} r="4" fill={vec.color} stroke="#FFFFFF" strokeWidth="1.5" />
                   </g>
                 );
               }
 
+              // 2. Vejárovitá aplikácia (Fanning)
               if (vec.type === 'fanning' && vec.startPoint && vec.fanningRays) {
                 const sx = vec.startPoint.x;
                 const sy = vec.startPoint.y;
@@ -876,10 +936,12 @@ export function Sculpture2DViewer({
                     ))}
                     {/* Insertion Point */}
                     <circle cx={sx} cy={sy} r="6.5" fill="#2C2A29" stroke={vec.color} strokeWidth="2.5" />
+                    <circle cx={sx} cy={sy} r="2" fill="#FFFFFF" />
                   </g>
                 );
               }
 
+              // 3. Bodový mikrovpich (Dysport, Alluzience, Profhilo BAP, Restylane Kysse)
               if (vec.type === 'point' && vec.startPoint) {
                 return (
                   <g
@@ -888,17 +950,19 @@ export function Sculpture2DViewer({
                       e.stopPropagation();
                       if (onSelectVector) onSelectVector(vec.id);
                     }}
-                    className="cursor-pointer"
+                    className="cursor-pointer group"
                   >
+                    {/* Selection halo */}
                     {isSelected && (
                       <circle
                         cx={vec.startPoint.x}
                         cy={vec.startPoint.y}
                         r="14"
                         fill={vec.color}
-                        opacity="0.3"
+                        opacity="0.35"
                       />
                     )}
+                    {/* Outer ring */}
                     <circle
                       cx={vec.startPoint.x}
                       cy={vec.startPoint.y}
@@ -907,16 +971,31 @@ export function Sculpture2DViewer({
                       stroke="#FFFFFF"
                       strokeWidth="2"
                     />
+                    {/* Center nucleus */}
                     <circle
                       cx={vec.startPoint.x}
                       cy={vec.startPoint.y}
                       r="2.5"
                       fill="#FFFFFF"
                     />
+                    {/* Subtle point number badge on hover/selection */}
+                    {isSelected && (
+                      <text
+                        x={vec.startPoint.x + 9}
+                        y={vec.startPoint.y - 7}
+                        fill="#2C2A29"
+                        fontSize="9"
+                        fontWeight="bold"
+                        className="pointer-events-none"
+                      >
+                        #{vecIndex + 1}
+                      </text>
+                    )}
                   </g>
                 );
               }
 
+              // 4. Voľná ruka / Chirurgická fixka
               if (vec.type === 'freehand' && vec.points && vec.points.length > 1) {
                 const pathStr = `M ${vec.points[0].x} ${vec.points[0].y} ` +
                   vec.points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
@@ -948,7 +1027,7 @@ export function Sculpture2DViewer({
             {/* D. ACTIVE REALTIME DRAWING PREVIEW */}
             {isDrawing && currentDrawStart && currentDrawCurrent && (
               <g id="active_drawing_preview">
-                {activeTool === 'threads' && (
+                {(activeTool === 'vector' || activeTool === 'threads') && (
                   <line
                     x1={currentDrawStart.x}
                     y1={currentDrawStart.y}
@@ -978,13 +1057,15 @@ export function Sculpture2DViewer({
                           y: currentDrawStart.y + Math.sin(angle) * dist
                         });
                       }
-                      const polyPoints = [
+
+                      const previewPoly = [
                         `${currentDrawStart.x},${currentDrawStart.y}`,
                         ...rays.map(r => `${r.x},${r.y}`)
                       ].join(' ');
+
                       return (
                         <>
-                          <polygon points={polyPoints} fill={activeColor} opacity="0.25" />
+                          <polygon points={previewPoly} fill={activeColor} opacity="0.25" />
                           {rays.map((r, idx) => (
                             <line
                               key={idx}
@@ -993,13 +1074,14 @@ export function Sculpture2DViewer({
                               x2={r.x}
                               y2={r.y}
                               stroke={activeColor}
-                              strokeWidth="2"
+                              strokeWidth="1.5"
                               strokeDasharray="4 2"
                             />
                           ))}
                         </>
                       );
                     })()}
+                    <circle cx={currentDrawStart.x} cy={currentDrawStart.y} r="5" fill={activeColor} />
                   </g>
                 )}
 
@@ -1008,21 +1090,12 @@ export function Sculpture2DViewer({
                     d={`M ${currentFreehandPoints[0].x} ${currentFreehandPoints[0].y} ` +
                       currentFreehandPoints.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')}
                     stroke={activeColor}
-                    strokeWidth="3"
+                    strokeWidth="2.5"
                     strokeLinecap="round"
+                    strokeLinejoin="round"
                     fill="none"
                   />
                 )}
-
-                {/* Drawing start anchor */}
-                <circle
-                  cx={currentDrawStart.x}
-                  cy={currentDrawStart.y}
-                  r="6"
-                  fill="#2C2A29"
-                  stroke={activeColor}
-                  strokeWidth="2"
-                />
               </g>
             )}
           </svg>
