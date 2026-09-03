@@ -21,7 +21,9 @@ import {
   Maximize,
   Pin,
   PinOff,
-  RotateCcw
+  RotateCcw,
+  Syringe,
+  X
 } from 'lucide-react';
 
 import femaleBustFront from '../assets/images/sculpture_front_perfect_1788381191502.jpg';
@@ -49,6 +51,8 @@ export interface Vector2DItem {
   productName: string;
   lotNumber: string;
   details: string;
+  units?: number;
+  unitsUnit?: string;
   createdAt: string;
 }
 
@@ -236,6 +240,165 @@ export function Sculpture2DViewer({
     onVectorsChange(previous);
   };
 
+  // DRAGGING EXISTING POINTS / VECTORS
+  interface DraggedPointState {
+    vectorId: string;
+    handle: 'point' | 'start' | 'end';
+    startClientX: number;
+    startClientY: number;
+    initPos: Point2D;
+    hasMoved: boolean;
+  }
+  const [draggedPoint, setDraggedPoint] = useState<DraggedPointState | null>(null);
+  const draggedPointRef = useRef<DraggedPointState | null>(null);
+
+  // QUICK UNITS CONTEXT MENU (RIGHT CLICK)
+  interface UnitsPopoverState {
+    vectorId: string;
+    x: number;
+    y: number;
+    units: number;
+    unitType: string;
+    note: string;
+  }
+  const [unitsPopover, setUnitsPopover] = useState<UnitsPopoverState | null>(null);
+
+  // TOAST FEEDBACK
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // KEYBOARD DELETE / BACKSPACE HANDLER
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          (activeEl as HTMLElement).isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedVectorId) {
+          e.preventDefault();
+          const target = vectors.find(v => v.id === selectedVectorId);
+          const updated = vectors.filter(v => v.id !== selectedVectorId);
+          pushHistory(updated);
+          if (onSelectVector) onSelectVector(null);
+          setUnitsPopover(null);
+          setToastMsg(`Bod "${target?.zoneName || 'Bod'}" bol vymazaný [Delete]`);
+          setTimeout(() => setToastMsg(null), 2500);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedVectorId, vectors, pushHistory, onSelectVector]);
+
+  // Global mouse release for dragged points (even if cursor leaves SVG)
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (draggedPointRef.current) {
+        if (draggedPointRef.current.hasMoved) {
+          pushHistory(vectors);
+          setToastMsg('Bod bol presunutý');
+          setTimeout(() => setToastMsg(null), 2000);
+        }
+        draggedPointRef.current = null;
+        setDraggedPoint(null);
+      }
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [vectors, pushHistory]);
+
+  // Drag start for existing point or cannula handle
+  const handlePointMouseDown = (
+    e: React.MouseEvent,
+    vectorId: string,
+    handle: 'point' | 'start' | 'end'
+  ) => {
+    if (e.button === 0) { // Left click
+      e.stopPropagation();
+      if (onSelectVector) onSelectVector(vectorId);
+
+      const vec = vectors.find(v => v.id === vectorId);
+      if (!vec) return;
+      const targetPoint = handle === 'end' ? vec.endPoint : vec.startPoint;
+      if (!targetPoint) return;
+
+      const dragInfo: DraggedPointState = {
+        vectorId,
+        handle,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        initPos: { ...targetPoint },
+        hasMoved: false
+      };
+      draggedPointRef.current = dragInfo;
+      setDraggedPoint(dragInfo);
+    }
+  };
+
+  // Right click context menu on point or vector
+  const handlePointContextMenu = (e: React.MouseEvent, vec: Vector2DItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onSelectVector) onSelectVector(vec.id);
+
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      const popWidth = 280;
+      const popHeight = 360;
+      const posX = Math.min(Math.max(12, clickX - 140), rect.width - popWidth - 12);
+      const posY = Math.min(Math.max(12, clickY - 20), rect.height - popHeight - 12);
+
+      let initialUnits = vec.units;
+      let initialUnitType = vec.unitsUnit;
+
+      if (initialUnits === undefined || initialUnits === null) {
+        const match = vec.details?.match(/([0-9]+(?:\.[0-9]+)?)\s*(Speywood|IU|U|ml)/i);
+        if (match) {
+          initialUnits = parseFloat(match[1]);
+          initialUnitType = match[2];
+        } else {
+          const isDysport = vec.productName.toLowerCase().includes('dysport');
+          const isBotox = vec.productName.toLowerCase().includes('botox') || vec.productName.toLowerCase().includes('alluzience');
+          const isFiller = vec.productName.toLowerCase().includes('kysse') || vec.productName.toLowerCase().includes('restylane') || vec.productName.toLowerCase().includes('radiesse') || vec.productName.toLowerCase().includes('juvederm');
+          if (isDysport) {
+            initialUnits = 10;
+            initialUnitType = 'Speywood';
+          } else if (isBotox) {
+            initialUnits = 4;
+            initialUnitType = 'IU';
+          } else if (isFiller) {
+            initialUnits = 0.1;
+            initialUnitType = 'ml';
+          } else {
+            initialUnits = 2;
+            initialUnitType = 'U';
+          }
+        }
+      }
+
+      if (!initialUnitType) initialUnitType = 'U';
+
+      setUnitsPopover({
+        vectorId: vec.id,
+        x: posX,
+        y: posY,
+        units: initialUnits,
+        unitType: initialUnitType,
+        note: vec.details || ''
+      });
+    }
+  };
+
   // Convert client coordinates to SVG coordinate system (0 to 600 x 0 to 800)
   const getSVGCoordinates = (clientX: number, clientY: number): Point2D | null => {
     if (!svgRef.current) return null;
@@ -318,6 +481,11 @@ export function Sculpture2DViewer({
 
   // MOUSE DOWN: Start drawing or panning
   const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    // Close units popover if clicking anywhere on canvas
+    if (unitsPopover) {
+      setUnitsPopover(null);
+    }
+
     // Left click on 'move' tool, or 'select' tool, or middle button (button 1), or holding Space/Alt/Shift -> PAN
     if (
       activeTool === 'move' || 
@@ -341,16 +509,38 @@ export function Sculpture2DViewer({
     if (activeTool === 'freehand') {
       setCurrentFreehandPoints([coords]);
     } else if (activeTool === 'point') {
-      // Create single point immediately
+      // Create single point immediately with smart default units
       const zone = detectAnatomicalZone(coords, currentView);
       const isBotox = currentProduct.type === 'botox';
       const isProfhilo = currentProduct.name.toLowerCase().includes('profhilo');
       const isKysse = currentProduct.name.toLowerCase().includes('kysse');
       
       let detailStr = '0.1ml intradermálne';
-      if (isBotox) detailStr = '10 Speywood U / 4 IU';
-      else if (isProfhilo) detailStr = '0.2ml BAP bolus subkutánne';
-      else if (isKysse) detailStr = '0.05-0.1ml výplň pier';
+      let defaultUnits = 4;
+      let defaultUnitsUnit = 'U';
+
+      if (isBotox) {
+        if (currentProduct.name.toLowerCase().includes('dysport')) {
+          detailStr = '10 Speywood U (intramuskulárne)';
+          defaultUnits = 10;
+          defaultUnitsUnit = 'Speywood';
+        } else {
+          detailStr = '4 IU (intramuskulárne)';
+          defaultUnits = 4;
+          defaultUnitsUnit = 'IU';
+        }
+      } else if (isProfhilo) {
+        detailStr = '0.2ml BAP bolus subkutánne';
+        defaultUnits = 0.2;
+        defaultUnitsUnit = 'ml';
+      } else if (isKysse) {
+        detailStr = '0.05ml výplň pier';
+        defaultUnits = 0.05;
+        defaultUnitsUnit = 'ml';
+      } else {
+        defaultUnits = 0.1;
+        defaultUnitsUnit = 'ml';
+      }
 
       const newVector: Vector2DItem = {
         id: `pt_${Date.now()}`,
@@ -362,20 +552,94 @@ export function Sculpture2DViewer({
         productName: currentProduct.name,
         lotNumber: currentProduct.lot,
         details: detailStr,
+        units: defaultUnits,
+        unitsUnit: defaultUnitsUnit,
         createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       pushHistory([...vectors, newVector]);
       setIsDrawing(false);
       setCurrentDrawStart(null);
       setCurrentDrawCurrent(null);
+      if (onSelectVector) onSelectVector(newVector.id);
     }
   };
 
-  // MOUSE MOVE: Update current drawing or panning
+  // MOUSE MOVE: Update current drawing or panning or point dragging
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const coords = getSVGCoordinates(e.clientX, e.clientY);
     if (coords) {
       setHoveredZone(detectAnatomicalZone(coords, currentView));
+    }
+
+    // 0. Dragging an existing point or vector handle
+    if (draggedPointRef.current && coords) {
+      const { vectorId, handle, startClientX, startClientY } = draggedPointRef.current;
+      const dragDist = Math.hypot(e.clientX - startClientX, e.clientY - startClientY);
+
+      if (dragDist > 2) {
+        draggedPointRef.current.hasMoved = true;
+        setDraggedPoint(prev => prev ? { ...prev, hasMoved: true } : null);
+
+        const updatedVectors = vectors.map(v => {
+          if (v.id !== vectorId) return v;
+
+          if (handle === 'point') {
+            const newZone = detectAnatomicalZone(coords, currentView);
+            return {
+              ...v,
+              startPoint: coords,
+              zoneName: v.type === 'point' ? newZone : v.zoneName
+            };
+          }
+
+          if (handle === 'start') {
+            if (v.type === 'fanning' && v.endPoint) {
+              const dx = v.endPoint.x - coords.x;
+              const dy = v.endPoint.y - coords.y;
+              const baseAngle = Math.atan2(dy, dx);
+              const dist = Math.hypot(dx, dy);
+              const fanSpread = Math.PI / 5;
+              const fanningRays: Point2D[] = [];
+              for (let i = 0; i < 5; i++) {
+                const offsetAngle = baseAngle - fanSpread / 2 + (fanSpread / 4) * i;
+                const rayLength = dist * (0.85 + 0.15 * Math.sin((i / 4) * Math.PI));
+                fanningRays.push({
+                  x: coords.x + Math.cos(offsetAngle) * rayLength,
+                  y: coords.y + Math.sin(offsetAngle) * rayLength
+                });
+              }
+              return { ...v, startPoint: coords, fanningRays };
+            }
+            return { ...v, startPoint: coords };
+          }
+
+          if (handle === 'end') {
+            if (v.type === 'fanning' && v.startPoint) {
+              const dx = coords.x - v.startPoint.x;
+              const dy = coords.y - v.startPoint.y;
+              const baseAngle = Math.atan2(dy, dx);
+              const dist = Math.hypot(dx, dy);
+              const fanSpread = Math.PI / 5;
+              const fanningRays: Point2D[] = [];
+              for (let i = 0; i < 5; i++) {
+                const offsetAngle = baseAngle - fanSpread / 2 + (fanSpread / 4) * i;
+                const rayLength = dist * (0.85 + 0.15 * Math.sin((i / 4) * Math.PI));
+                fanningRays.push({
+                  x: v.startPoint.x + Math.cos(offsetAngle) * rayLength,
+                  y: v.startPoint.y + Math.sin(offsetAngle) * rayLength
+                });
+              }
+              return { ...v, endPoint: coords, fanningRays };
+            }
+            return { ...v, endPoint: coords };
+          }
+
+          return v;
+        });
+
+        onVectorsChange(updatedVectors);
+      }
+      return;
     }
 
     if (isPanning) {
@@ -395,8 +659,19 @@ export function Sculpture2DViewer({
     }
   };
 
-  // MOUSE UP: Finish drawing or panning
+  // MOUSE UP: Finish drawing or panning or point dragging
   const handleMouseUp = () => {
+    if (draggedPointRef.current) {
+      if (draggedPointRef.current.hasMoved) {
+        pushHistory(vectors);
+        setToastMsg('Bod bol presunutý');
+        setTimeout(() => setToastMsg(null), 2000);
+      }
+      draggedPointRef.current = null;
+      setDraggedPoint(null);
+      return;
+    }
+
     if (isPanning) {
       setIsPanning(false);
       return;
@@ -1073,11 +1348,239 @@ export function Sculpture2DViewer({
           </div>
         )}
 
-        {/* INŠTRUKCIA K POSUNU */}
-        <div className="absolute bottom-3 right-4 z-20 hidden md:flex items-center gap-1.5 bg-white/80 backdrop-blur-sm text-[10px] text-[#8C857B] px-3 py-1 rounded-full border border-white/90 shadow-2xs pointer-events-none">
-          <Hand className="w-3 h-3 text-[#C5A059]" />
-          <span>Posun obrazu: potiahnutím myšou / Ruka</span>
+        {/* INŠTRUKCIA K OVLÁDANIU BODOV A VEKTOROV */}
+        <div className="absolute bottom-3 right-4 z-20 hidden md:flex items-center gap-2.5 bg-white/90 backdrop-blur-md text-[11px] text-[#2C2A29] px-3.5 py-1.5 rounded-full border border-[#E8E2D9] shadow-xs pointer-events-none">
+          <span className="flex items-center gap-1 font-semibold text-[#2C2A29]">
+            <MousePointer className="w-3.5 h-3.5 text-[#C5A059]" /> Ťahanie bodu: <span className="font-normal text-[#8C857B]">posun</span>
+          </span>
+          <span className="text-[#D8D2C9]">•</span>
+          <span className="flex items-center gap-1 font-semibold text-[#2C2A29]">
+            <Syringe className="w-3.5 h-3.5 text-[#3B82F6]" /> Pravý klik: <span className="font-normal text-[#8C857B]">jednotky / dávka</span>
+          </span>
+          <span className="text-[#D8D2C9]">•</span>
+          <span className="flex items-center gap-1 font-semibold text-[#2C2A29]">
+            <Trash2 className="w-3.5 h-3.5 text-red-500" /> Kláves Delete: <span className="font-normal text-[#8C857B]">vymazať</span>
+          </span>
         </div>
+
+        {/* TOAST NOTIFIKÁCIA (POTVRDENIE AKCIE) */}
+        {toastMsg && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#2C2A29] text-white px-4 py-2 rounded-2xl text-xs font-semibold shadow-2xl border border-[#C5A059]/40 flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
+            <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-pulse" />
+            <span>{toastMsg}</span>
+          </div>
+        )}
+
+        {/* QUICK UNITS / DÁVKOVANIE POPUP (PRAVÝ KLIK NA BOD) */}
+        {unitsPopover && (() => {
+          const popoverVector = vectors.find(v => v.id === unitsPopover.vectorId);
+          if (!popoverVector) return null;
+
+          return (
+            <div
+              style={{ left: unitsPopover.x, top: unitsPopover.y }}
+              className="absolute z-50 w-72 bg-white/95 backdrop-blur-2xl rounded-3xl border border-[#C5A059]/40 shadow-2xl p-4 space-y-3.5 animate-in zoom-in-95 duration-150 text-[#2C2A29]"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between pb-2.5 border-b border-[#E8E2D9]">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] text-[#C5A059]">
+                    <Syringe className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-[#2C2A29] leading-tight">Počet jednotiek / Dávka</h4>
+                    <p className="text-[10px] text-[#8C857B] line-clamp-1 max-w-[170px]">
+                      {popoverVector.zoneName || popoverVector.productName}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUnitsPopover(null)}
+                  className="p-1 rounded-lg text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5] cursor-pointer transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Rýchle predvoľby dávky */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] font-bold text-[#8C857B] uppercase tracking-wider">
+                    Rýchla predvoľba:
+                  </label>
+                  <span className="text-[10px] text-[#C5A059] font-medium">
+                    {unitsPopover.unitType}
+                  </span>
+                </div>
+                {unitsPopover.unitType === 'ml' ? (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[0.025, 0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 1.0].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setUnitsPopover(prev => prev ? { ...prev, units: val } : null)}
+                        className={`py-1 px-1 rounded-xl text-[11px] font-bold transition-all border cursor-pointer ${
+                          unitsPopover.units === val
+                            ? 'bg-[#C5A059] text-white border-[#C5A059] shadow-xs'
+                            : 'bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                        }`}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                ) : unitsPopover.unitType === 'Speywood' ? (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[2.5, 5, 8, 10, 15, 20, 25, 30].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setUnitsPopover(prev => prev ? { ...prev, units: val } : null)}
+                        className={`py-1 px-1 rounded-xl text-[11px] font-bold transition-all border cursor-pointer ${
+                          unitsPopover.units === val
+                            ? 'bg-[#C5A059] text-white border-[#C5A059] shadow-xs'
+                            : 'bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                        }`}
+                      >
+                        {val} Sp
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[1, 2, 3, 4, 5, 8, 10, 15].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setUnitsPopover(prev => prev ? { ...prev, units: val } : null)}
+                        className={`py-1 px-1 rounded-xl text-[11px] font-bold transition-all border cursor-pointer ${
+                          unitsPopover.units === val
+                            ? 'bg-[#C5A059] text-white border-[#C5A059] shadow-xs'
+                            : 'bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                        }`}
+                      >
+                        {val} U
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Krokovanie hodnoty a výber jednotky */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-[#8C857B] uppercase tracking-wider block">
+                  Vlastná hodnota & Jednotka:
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const step = unitsPopover.unitType === 'ml' ? 0.05 : 1;
+                      const nextVal = Math.max(0, Math.round((unitsPopover.units - step) * 100) / 100);
+                      setUnitsPopover(prev => prev ? { ...prev, units: nextVal } : null);
+                    }}
+                    className="w-8 h-8 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] hover:border-[#C5A059] flex items-center justify-center font-bold text-sm text-[#2C2A29] cursor-pointer"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    step={unitsPopover.unitType === 'ml' ? '0.01' : '1'}
+                    min="0"
+                    value={unitsPopover.units}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setUnitsPopover(prev => prev ? { ...prev, units: val } : null);
+                    }}
+                    className="flex-1 text-center font-bold text-sm py-1.5 rounded-xl border border-[#E8E2D9] bg-white text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const step = unitsPopover.unitType === 'ml' ? 0.05 : 1;
+                      const nextVal = Math.round((unitsPopover.units + step) * 100) / 100;
+                      setUnitsPopover(prev => prev ? { ...prev, units: nextVal } : null);
+                    }}
+                    className="w-8 h-8 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] hover:border-[#C5A059] flex items-center justify-center font-bold text-sm text-[#2C2A29] cursor-pointer"
+                  >
+                    +
+                  </button>
+                  <select
+                    value={unitsPopover.unitType}
+                    onChange={(e) => {
+                      const newType = e.target.value;
+                      setUnitsPopover(prev => {
+                        if (!prev) return null;
+                        let adj = prev.units;
+                        if (newType === 'ml' && prev.units > 5) adj = 0.1;
+                        if (newType !== 'ml' && prev.units < 1) adj = 4;
+                        return { ...prev, unitType: newType, units: adj };
+                      });
+                    }}
+                    className="py-1.5 px-2 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] text-xs font-bold text-[#2C2A29] focus:outline-hidden cursor-pointer"
+                  >
+                    <option value="U">U (jednotky)</option>
+                    <option value="IU">IU</option>
+                    <option value="Speywood">Speywood</option>
+                    <option value="ml">ml</option>
+                    <option value="nití">nití</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Tlačidlá akcie: Zmazať & Uložiť */}
+              <div className="flex items-center justify-between pt-2 border-t border-[#E8E2D9] gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updated = vectors.filter(v => v.id !== popoverVector.id);
+                    pushHistory(updated);
+                    if (onSelectVector) onSelectVector(null);
+                    setUnitsPopover(null);
+                    setToastMsg(`Bod "${popoverVector.zoneName || 'Bod'}" bol vymazaný`);
+                    setTimeout(() => setToastMsg(null), 2500);
+                  }}
+                  className="py-1.5 px-2.5 rounded-xl text-[11px] font-bold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Vymazať tento bod (Delete)"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Vymazať</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const u = unitsPopover.units;
+                    const ut = unitsPopover.unitType;
+                    const updated = vectors.map(v => {
+                      if (v.id === popoverVector.id) {
+                        return {
+                          ...v,
+                          units: u,
+                          unitsUnit: ut,
+                          details: `${u} ${ut} • ${v.zoneName}`
+                        };
+                      }
+                      return v;
+                    });
+                    pushHistory(updated);
+                    setUnitsPopover(null);
+                    setToastMsg(`Nastavené: ${u} ${ut}`);
+                    setTimeout(() => setToastMsg(null), 2500);
+                  }}
+                  className="py-1.5 px-3.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Uložiť dávku</span>
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* DETAIL DETEKOVANEJ ZÓNY (DOLNÝ PLÁVAJÚCI BADGE) */}
         {hoveredZone && (
@@ -1277,6 +1780,7 @@ export function Sculpture2DViewer({
                       e.stopPropagation();
                       if (onSelectVector) onSelectVector(vec.id);
                     }}
+                    onContextMenu={(e) => handlePointContextMenu(e, vec)}
                     className="cursor-pointer group"
                   >
                     {/* Glow outline if selected */}
@@ -1304,11 +1808,59 @@ export function Sculpture2DViewer({
                     />
                     {/* Directional calibration notches */}
                     {notches}
-                    {/* Cannula puncture hub (entry point) */}
+
+                    {/* Cannula puncture hub (entry point - draggable) */}
                     <circle cx={sx} cy={sy} r="6" fill="#2C2A29" stroke={vec.color} strokeWidth="2" />
                     <circle cx={sx} cy={sy} r="2" fill="#FFFFFF" />
-                    {/* Terminal tip */}
+                    <circle
+                      cx={sx}
+                      cy={sy}
+                      r="14"
+                      fill="transparent"
+                      className="cursor-move"
+                      onMouseDown={(e) => handlePointMouseDown(e, vec.id, 'start')}
+                    />
+
+                    {/* Terminal tip (draggable) */}
                     <circle cx={ex} cy={ey} r="4" fill={vec.color} stroke="#FFFFFF" strokeWidth="1.5" />
+                    <circle
+                      cx={ex}
+                      cy={ey}
+                      r="14"
+                      fill="transparent"
+                      className="cursor-move"
+                      onMouseDown={(e) => handlePointMouseDown(e, vec.id, 'end')}
+                    />
+
+                    {/* Dávkovanie / Jednotky badge */}
+                    {vec.units !== undefined && vec.units !== null && (
+                      <g
+                        transform={`translate(${(sx + ex) / 2}, ${(sy + ey) / 2 - 8})`}
+                        className="pointer-events-none select-none"
+                      >
+                        <rect
+                          x={String(vec.units).length > 2 ? -18 : -14}
+                          y="-9"
+                          width={String(vec.units).length > 2 ? 36 : 28}
+                          height="14"
+                          rx="5"
+                          fill="#2C2A29"
+                          stroke={vec.color}
+                          strokeWidth="1.2"
+                        />
+                        <text
+                          x="0"
+                          y="1"
+                          textAnchor="middle"
+                          fill="#FFFFFF"
+                          fontSize="8.5"
+                          fontWeight="bold"
+                          fontFamily="sans-serif"
+                        >
+                          {vec.units}{vec.unitsUnit === 'ml' ? 'ml' : vec.unitsUnit === 'Speywood' ? 'Sp' : 'U'}
+                        </text>
+                      </g>
+                    )}
                   </g>
                 );
               }
@@ -1331,6 +1883,7 @@ export function Sculpture2DViewer({
                       e.stopPropagation();
                       if (onSelectVector) onSelectVector(vec.id);
                     }}
+                    onContextMenu={(e) => handlePointContextMenu(e, vec)}
                     className="cursor-pointer"
                   >
                     {/* Semi-transparent fan coverage zone */}
@@ -1353,32 +1906,86 @@ export function Sculpture2DViewer({
                         strokeDasharray={rIdx % 2 === 0 ? 'none' : '3 2'}
                       />
                     ))}
-                    {/* Insertion Point */}
+                    {/* Insertion Point (draggable) */}
                     <circle cx={sx} cy={sy} r="6.5" fill="#2C2A29" stroke={vec.color} strokeWidth="2.5" />
                     <circle cx={sx} cy={sy} r="2" fill="#FFFFFF" />
+                    <circle
+                      cx={sx}
+                      cy={sy}
+                      r="14"
+                      fill="transparent"
+                      className="cursor-move"
+                      onMouseDown={(e) => handlePointMouseDown(e, vec.id, 'start')}
+                    />
+
+                    {/* Dávkovanie / Jednotky badge */}
+                    {vec.units !== undefined && vec.units !== null && (
+                      <g
+                        transform={`translate(${sx + 10}, ${sy - 8})`}
+                        className="pointer-events-none select-none"
+                      >
+                        <rect
+                          x="-2"
+                          y="-9"
+                          width={String(vec.units).length > 2 ? 36 : 28}
+                          height="14"
+                          rx="5"
+                          fill="#2C2A29"
+                          stroke={vec.color}
+                          strokeWidth="1.2"
+                        />
+                        <text
+                          x={String(vec.units).length > 2 ? 16 : 12}
+                          y="1"
+                          textAnchor="middle"
+                          fill="#FFFFFF"
+                          fontSize="8.5"
+                          fontWeight="bold"
+                          fontFamily="sans-serif"
+                        >
+                          {vec.units}{vec.unitsUnit === 'ml' ? 'ml' : vec.unitsUnit === 'Speywood' ? 'Sp' : 'U'}
+                        </text>
+                      </g>
+                    )}
                   </g>
                 );
               }
 
               // 3. Bodový mikrovpich (Dysport, Alluzience, Profhilo BAP, Restylane Kysse)
               if (vec.type === 'point' && vec.startPoint) {
+                const isDraggingThis = draggedPoint?.vectorId === vec.id;
+
                 return (
                   <g
                     key={vec.id}
+                    onMouseDown={(e) => handlePointMouseDown(e, vec.id, 'point')}
+                    onContextMenu={(e) => handlePointContextMenu(e, vec)}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (onSelectVector) onSelectVector(vec.id);
                     }}
-                    className="cursor-pointer group"
+                    className="cursor-move group"
                   >
-                    {/* Selection halo */}
-                    {isSelected && (
+                    {/* Invisible larger hit target for effortless drag & drop */}
+                    <circle
+                      cx={vec.startPoint.x}
+                      cy={vec.startPoint.y}
+                      r="18"
+                      fill="transparent"
+                      className="cursor-move"
+                    />
+
+                    {/* Active Dragging highlight or Selection halo */}
+                    {(isSelected || isDraggingThis) && (
                       <circle
                         cx={vec.startPoint.x}
                         cy={vec.startPoint.y}
-                        r="14"
+                        r={isDraggingThis ? "18" : "14"}
                         fill={vec.color}
-                        opacity="0.35"
+                        opacity={isDraggingThis ? "0.5" : "0.35"}
+                        stroke={isDraggingThis ? "#2C2A29" : "none"}
+                        strokeWidth="1.5"
+                        strokeDasharray={isDraggingThis ? "3 3" : "none"}
                       />
                     )}
                     {/* Outer ring */}
@@ -1397,18 +2004,49 @@ export function Sculpture2DViewer({
                       r="2.5"
                       fill="#FFFFFF"
                     />
-                    {/* Subtle point number badge on hover/selection */}
-                    {isSelected && (
-                      <text
-                        x={vec.startPoint.x + 9}
-                        y={vec.startPoint.y - 7}
-                        fill="#2C2A29"
-                        fontSize="9"
-                        fontWeight="bold"
-                        className="pointer-events-none"
+
+                    {/* DÁVKOVANIE / POČET JEDNOTIEK BADGE */}
+                    {vec.units !== undefined && vec.units !== null ? (
+                      <g
+                        transform={`translate(${vec.startPoint.x + 8}, ${vec.startPoint.y - 8})`}
+                        className="pointer-events-none select-none"
                       >
-                        #{vecIndex + 1}
-                      </text>
+                        <rect
+                          x="-2"
+                          y="-10"
+                          width={String(vec.units).length > 2 ? 36 : 28}
+                          height="14"
+                          rx="5"
+                          fill="#2C2A29"
+                          stroke={vec.color}
+                          strokeWidth="1.2"
+                        />
+                        <text
+                          x={String(vec.units).length > 2 ? 16 : 12}
+                          y="0.5"
+                          textAnchor="middle"
+                          fill="#FFFFFF"
+                          fontSize="8.5"
+                          fontWeight="bold"
+                          fontFamily="sans-serif"
+                        >
+                          {vec.units}{vec.unitsUnit === 'ml' ? 'ml' : vec.unitsUnit === 'Speywood' ? 'Sp' : 'U'}
+                        </text>
+                      </g>
+                    ) : (
+                      /* Ak jednotky nie sú zadané a bod je vybraný, ukáž index */
+                      isSelected && (
+                        <text
+                          x={vec.startPoint.x + 9}
+                          y={vec.startPoint.y - 7}
+                          fill="#2C2A29"
+                          fontSize="9"
+                          fontWeight="bold"
+                          className="pointer-events-none select-none"
+                        >
+                          #{vecIndex + 1}
+                        </text>
+                      )
                     )}
                   </g>
                 );
@@ -1426,6 +2064,7 @@ export function Sculpture2DViewer({
                       e.stopPropagation();
                       if (onSelectVector) onSelectVector(vec.id);
                     }}
+                    onContextMenu={(e) => handlePointContextMenu(e, vec)}
                     className="cursor-pointer"
                   >
                     <path
