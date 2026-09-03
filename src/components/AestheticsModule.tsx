@@ -18,7 +18,13 @@ import {
   Eye,
   Calendar,
   Activity,
-  Plus
+  Plus,
+  BookmarkPlus,
+  Bookmark,
+  Star,
+  X,
+  Check,
+  RotateCcw
 } from 'lucide-react';
 import { Patient, MedicalRecord } from './PatientDatabase';
 import { 
@@ -42,6 +48,19 @@ export interface BodyTreatmentItem {
   notes: string;
   createdAt: string;
   color: string;
+}
+
+export interface AestheticTemplate {
+  id: string;
+  title: string;
+  productName: string;
+  lot: string;
+  type: 'threads' | 'fanning' | 'point';
+  color: string;
+  description: string;
+  vectors: Vector2DItem[];
+  isCustom?: boolean;
+  createdAt?: string;
 }
 
 export interface AestheticSession {
@@ -844,17 +863,154 @@ export function AestheticsModule({
 
   const activeVector = vectors.find(v => v.id === selectedVectorId);
 
-  // Apply preset
-  const handleApplyPreset = (preset: typeof PRESET_PROCEDURES[0]) => {
-    setVectors(prev => [...prev, ...preset.vectors]);
-    setActiveColor(preset.color);
-    if (preset.type === 'threads') setActiveTool('threads');
-    else if (preset.type === 'fanning') setActiveTool('fanning');
-    else setActiveTool('point');
-    if (preset.vectors.length > 0) {
-      setActiveSculptureView(preset.vectors[0].view);
+  // VLASTNÉ ŠABLÓNY (CUSTOM TEMPLATES) STATE & PERSISTENCIA
+  const [customTemplates, setCustomTemplates] = useState<AestheticTemplate[]>([]);
+  const [templateFilter, setTemplateFilter] = useState<'all' | 'custom' | 'standard'>('all');
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [templateFormTitle, setTemplateFormTitle] = useState('');
+  const [templateFormDesc, setTemplateFormDesc] = useState('');
+  const [templateFormProduct, setTemplateFormProduct] = useState('');
+  const [templateFormLot, setTemplateFormLot] = useState('');
+  const [templateFormColor, setTemplateFormColor] = useState('#C5A059');
+  const [templateFormScope, setTemplateFormScope] = useState<'all' | 'current_view'>('all');
+  const [templateSuccessToast, setTemplateSuccessToast] = useState<string | null>(null);
+
+  // Load custom templates from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('say_clinic_custom_aesthetic_templates');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setCustomTemplates(parsed);
+        }
+      } catch (e) {
+        console.error('Error loading custom templates:', e);
+      }
+    }
+  }, []);
+
+  // Save custom templates to localStorage
+  const persistCustomTemplates = (tpls: AestheticTemplate[]) => {
+    setCustomTemplates(tpls);
+    try {
+      localStorage.setItem('say_clinic_custom_aesthetic_templates', JSON.stringify(tpls));
+    } catch (e) {
+      console.error('Error saving custom templates:', e);
     }
   };
+
+  // Open save template modal with smart defaults
+  const handleOpenSaveTemplateModal = () => {
+    if (vectors.length === 0) {
+      alert('Nemáte nakreslené žiadne vektory na uloženie do šablóny. Najskôr nakreslite aspoň jeden bod alebo vektor.');
+      return;
+    }
+    const currentViewVectors = vectors.filter(v => v.view === activeSculptureView);
+    setTemplateFormTitle(`Moja šablóna (${new Date().toLocaleDateString('sk-SK')})`);
+    setTemplateFormDesc(`Vlastná schéma procedúry obsahujúca ${vectors.length} vektorov/bodov`);
+    setTemplateFormProduct(currentMaterial?.name || 'Vlastný materiál');
+    setTemplateFormLot(currentMaterial?.lot || 'LOT-CUSTOM');
+    setTemplateFormColor(activeColor || '#C5A059');
+    setTemplateFormScope(currentViewVectors.length === vectors.length ? 'current_view' : 'all');
+    setShowTemplateModal(true);
+  };
+
+  // Save new custom template
+  const handleSaveCustomTemplate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!templateFormTitle.trim()) {
+      alert('Zadajte názov šablóny');
+      return;
+    }
+
+    const vectorsToSave = templateFormScope === 'current_view'
+      ? vectors.filter(v => v.view === activeSculptureView)
+      : vectors;
+
+    if (vectorsToSave.length === 0) {
+      alert('Vybraný pohľad neobsahuje žiadne vektory.');
+      return;
+    }
+
+    // Clone vectors with new clean IDs
+    const clonedVectors: Vector2DItem[] = vectorsToSave.map((v, idx) => ({
+      ...v,
+      id: `tpl_vec_${Date.now()}_${idx}`
+    }));
+
+    // Determine main type
+    const hasFanning = clonedVectors.some(v => v.type === 'fanning');
+    const hasThreads = clonedVectors.some(v => v.type === 'threads' || v.type === 'vector');
+    const type: 'threads' | 'fanning' | 'point' = hasFanning ? 'fanning' : hasThreads ? 'threads' : 'point';
+
+    const newTemplate: AestheticTemplate = {
+      id: `custom_tpl_${Date.now()}`,
+      title: templateFormTitle.trim(),
+      description: templateFormDesc.trim() || 'Vlastná schéma ošetrenia',
+      productName: templateFormProduct.trim() || 'Kombinovaný produkt',
+      lot: templateFormLot.trim() || 'LOT-CUSTOM',
+      type,
+      color: templateFormColor,
+      vectors: clonedVectors,
+      isCustom: true,
+      createdAt: new Date().toISOString()
+    };
+
+    const updated = [newTemplate, ...customTemplates];
+    persistCustomTemplates(updated);
+    setShowTemplateModal(false);
+    setTemplateSuccessToast(`Šablóna "${newTemplate.title}" bola úspešne uložená!`);
+    setTimeout(() => setTemplateSuccessToast(null), 4000);
+  };
+
+  // Delete custom template
+  const handleDeleteCustomTemplate = (templateId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Naozaj chcete vymazať túto vlastnú šablónu?')) {
+      const updated = customTemplates.filter(t => t.id !== templateId);
+      persistCustomTemplates(updated);
+    }
+  };
+
+  // Apply template (append or replace)
+  const handleApplyTemplate = (template: AestheticTemplate, mode: 'append' | 'replace' = 'append') => {
+    // Generate unique IDs for vectors when applying
+    const freshVectors: Vector2DItem[] = template.vectors.map((v, idx) => ({
+      ...v,
+      id: `vec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`
+    }));
+
+    if (mode === 'replace') {
+      setVectors(freshVectors);
+    } else {
+      setVectors(prev => [...prev, ...freshVectors]);
+    }
+
+    setActiveColor(template.color);
+    if (template.type === 'threads') setActiveTool('threads');
+    else if (template.type === 'fanning') setActiveTool('fanning');
+    else setActiveTool('point');
+
+    if (freshVectors.length > 0) {
+      setActiveSculptureView(freshVectors[0].view);
+    }
+
+    setTemplateSuccessToast(`Šablóna "${template.title}" bola aplikovaná (+${freshVectors.length} vektorov).`);
+    setTimeout(() => setTemplateSuccessToast(null), 3000);
+  };
+
+  // Combined list of templates
+  const allTemplates: AestheticTemplate[] = [
+    ...customTemplates,
+    ...PRESET_PROCEDURES.map(p => ({ ...p, isCustom: false }))
+  ];
+
+  const displayedTemplates = allTemplates.filter(t => {
+    if (templateFilter === 'custom') return t.isCustom;
+    if (templateFilter === 'standard') return !t.isCustom;
+    return true;
+  });
 
   // Add body treatment
   const handleAddBodyTreatment = () => {
@@ -1325,37 +1481,167 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
               </div>
             </div>
 
-            {/* RÝCHLE ŠABLÓNY PROCEDÚR */}
-            <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/80 border border-white/90 shadow-sm space-y-3">
-              <span className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-[#C5A059]" />
-                Anatomické šablóny
-              </span>
+            {/* ANATOMICKÉ & VLASTNÉ ŠABLÓNY PROCEDÚR */}
+            <div className="rounded-3xl p-5 backdrop-blur-2xl bg-white/80 border border-white/90 shadow-sm space-y-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-1.5">
+                  <Bookmark className="w-4 h-4 text-[#C5A059]" />
+                  Šablóny procedúr
+                </span>
+                <span className="text-[10px] font-bold text-[#8C857B] bg-[#FAF8F5] px-2 py-0.5 rounded-full border border-[#E8E2D9]">
+                  {allTemplates.length} celkom
+                </span>
+              </div>
 
-              <div className="space-y-2">
-                {PRESET_PROCEDURES.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => handleApplyPreset(preset)}
-                    className="w-full text-left p-3 rounded-2xl bg-white hover:bg-[#FAF8F5] border border-[#E8E2D9] hover:border-[#C5A059] transition-all group shadow-2xs cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">
-                        {preset.title}
-                      </span>
-                      <span
-                        style={{ backgroundColor: `${preset.color}20`, color: preset.color }}
-                        className="text-[10px] font-bold px-2 py-0.5 rounded-md"
+              {/* TLAČIDLO: ULOŽIŤ AKTUÁLNY NÁKRES AKO NOVÚ VLASTNÚ ŠABLÓNU */}
+              <button
+                type="button"
+                onClick={handleOpenSaveTemplateModal}
+                className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] hover:from-[#C5A059] hover:to-[#B38F48] text-white text-xs font-bold transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 cursor-pointer group"
+                title="Uložiť nakreslené body a vektory ako novú opakovateľnú šablónu"
+              >
+                <BookmarkPlus className="w-4 h-4 text-[#F5E4B8] group-hover:text-white transition-colors" />
+                <span>Uložiť nákres ako šablónu</span>
+              </button>
+
+              {/* FILTER PRE ŠABLÓNY */}
+              <div className="flex items-center p-1 bg-[#FAF8F5] rounded-xl border border-[#E8E2D9] gap-1 text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setTemplateFilter('all')}
+                  className={`flex-1 py-1 rounded-lg transition-all cursor-pointer text-center ${
+                    templateFilter === 'all'
+                      ? 'bg-white text-[#2C2A29] shadow-2xs'
+                      : 'text-[#8C857B] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  Všetky ({allTemplates.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplateFilter('custom')}
+                  className={`flex-1 py-1 rounded-lg transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                    templateFilter === 'custom'
+                      ? 'bg-[#C5A059] text-white shadow-2xs'
+                      : 'text-[#8C857B] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  <Star className="w-2.5 h-2.5" />
+                  <span>Vlastné ({customTemplates.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplateFilter('standard')}
+                  className={`flex-1 py-1 rounded-lg transition-all cursor-pointer text-center ${
+                    templateFilter === 'standard'
+                      ? 'bg-white text-[#2C2A29] shadow-2xs'
+                      : 'text-[#8C857B] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  Štandard ({PRESET_PROCEDURES.length})
+                </button>
+              </div>
+
+              {/* ZOZNAM ŠABLÓN */}
+              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                {displayedTemplates.length > 0 ? (
+                  displayedTemplates.map((template) => {
+                    const viewsUsed = Array.from(new Set(template.vectors.map(v => v.view)));
+                    return (
+                      <div
+                        key={template.id}
+                        className={`p-3 rounded-2xl bg-white hover:bg-[#FAF8F5] border transition-all shadow-2xs relative group ${
+                          template.isCustom 
+                            ? 'border-[#C5A059]/40 hover:border-[#C5A059]' 
+                            : 'border-[#E8E2D9] hover:border-[#C5A059]'
+                        }`}
                       >
-                        +{preset.vectors.length}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-[#8C857B] mt-1 line-clamp-2">
-                      {preset.description}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors line-clamp-1">
+                                {template.title}
+                              </span>
+                              {template.isCustom && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-[#F5E4B8] text-[#856404] border border-[#E8E2D9]">
+                                  ★ Vlastná
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-[#8C857B] mt-0.5 line-clamp-2">
+                              {template.description}
+                            </p>
+                          </div>
+
+                          <span
+                            style={{ backgroundColor: `${template.color}20`, color: template.color }}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 font-mono"
+                          >
+                            +{template.vectors.length}
+                          </span>
+                        </div>
+
+                        {/* ZOBRAZENÉ POHĽADY & AKČNÉ TLAČIDLÁ */}
+                        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-[#E8E2D9]/70 text-[9px]">
+                          <div className="flex items-center gap-1 text-[#8C857B] font-medium flex-wrap">
+                            <span>Pohľady:</span>
+                            {viewsUsed.map(v => (
+                              <span key={v} className="px-1.5 py-0.2 rounded bg-[#FAF8F5] border border-[#E8E2D9] uppercase font-mono text-[8px]">
+                                {v === 'front' ? 'Čelo' : v === 'profile_left' ? 'Ľ.Profil' : v === 'profile_right' ? 'P.Profil' : '3/4'}
+                              </span>
+                            ))}
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            {template.isCustom && (
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteCustomTemplate(template.id, e)}
+                                className="p-1 rounded-lg text-[#8C857B] hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                title="Vymazať túto vlastnú šablónu"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleApplyTemplate(template, 'append')}
+                              className="px-2 py-1 rounded-lg bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold transition-colors cursor-pointer flex items-center gap-1 text-[10px]"
+                              title="Pridať vektory šablóny k aktuálnemu nákresu"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Pridať</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (vectors.length === 0 || confirm('Nahradiť všetky aktuálne nákresy touto šablónou?')) {
+                                  handleApplyTemplate(template, 'replace');
+                                }
+                              }}
+                              className="px-2 py-1 rounded-lg bg-white hover:bg-[#F3EEE7] text-[#2C2A29] border border-[#E8E2D9] hover:border-[#C5A059] font-bold transition-colors cursor-pointer flex items-center gap-1 text-[10px]"
+                              title="Vyčistiť plátno a nahradiť touto šablónou"
+                            >
+                              <RotateCcw className="w-3 h-3 text-[#8C857B]" />
+                              <span>Nahradiť</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="py-6 text-center text-xs text-[#8C857B] bg-[#FAF8F5] rounded-2xl border border-dashed border-[#E8E2D9] space-y-1">
+                    <p className="font-bold text-[#2C2A29]">Žiadne šablóny v tejto kategórii</p>
+                    <p className="text-[10px]">
+                      {templateFilter === 'custom' 
+                        ? 'Nakreslite body na 2D sochu a kliknite na "Uložiť nákres ako šablónu".' 
+                        : 'Vyberte inú kategóriu hore.'}
                     </p>
-                  </button>
-                ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1953,6 +2239,195 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* MODAL: ULOŽIŤ NOVÚ VLASTNÚ ŠABLÓNU */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-[#E8E2D9] shadow-2xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150">
+            {/* HLAVIČKA MODALU */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D9]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] text-[#C5A059]">
+                  <BookmarkPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#2C2A29]">Uložiť vlastnú šablónu</h3>
+                  <p className="text-[11px] text-[#8C857B]">Vytvorte si opakovateľnú schému pre rýchlu aplikáciu</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTemplateModal(false)}
+                className="p-1.5 rounded-xl hover:bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* FORMULÁR */}
+            <form onSubmit={handleSaveCustomTemplate} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-[#2C2A29] mb-1">
+                  Názov šablóny <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={templateFormTitle}
+                  onChange={(e) => setTemplateFormTitle(e.target.value)}
+                  placeholder="napr. MUDr. Mráz – Full Face Lifting & Toxín"
+                  className="w-full p-2.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] focus:bg-white focus:outline-hidden focus:border-[#C5A059] font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#2C2A29] mb-1">
+                  Popis / Klinická indikácia
+                </label>
+                <textarea
+                  rows={2}
+                  value={templateFormDesc}
+                  onChange={(e) => setTemplateFormDesc(e.target.value)}
+                  placeholder="napr. Kombinovaný protokol: čelo a glabela toxín + kanyla jawline"
+                  className="w-full p-2.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] focus:bg-white focus:outline-hidden focus:border-[#C5A059] resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#2C2A29] mb-1">
+                    Predvolený produkt
+                  </label>
+                  <input
+                    type="text"
+                    value={templateFormProduct}
+                    onChange={(e) => setTemplateFormProduct(e.target.value)}
+                    placeholder="napr. Radiesse + Dysport"
+                    className="w-full p-2.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] focus:bg-white focus:outline-hidden focus:border-[#C5A059]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-[#2C2A29] mb-1">
+                    Číslo šarže (LOT)
+                  </label>
+                  <input
+                    type="text"
+                    value={templateFormLot}
+                    onChange={(e) => setTemplateFormLot(e.target.value)}
+                    placeholder="napr. LOT-CUSTOM-01"
+                    className="w-full p-2.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] focus:bg-white focus:outline-hidden focus:border-[#C5A059] font-mono text-[11px]"
+                  />
+                </div>
+              </div>
+
+              {/* ROZSAH ULOŽENIA */}
+              <div>
+                <label className="block text-[11px] font-bold text-[#2C2A29] mb-1.5">
+                  Rozsah ukladania vektorov:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`p-2.5 rounded-xl border cursor-pointer flex flex-col gap-0.5 transition-all ${
+                    templateFormScope === 'all' 
+                      ? 'bg-[#FAF8F5] border-[#C5A059] ring-1 ring-[#C5A059]' 
+                      : 'bg-white border-[#E8E2D9] hover:border-gray-300'
+                  }`}>
+                    <div className="flex items-center gap-1.5 font-bold text-[#2C2A29]">
+                      <input
+                        type="radio"
+                        name="templateScope"
+                        checked={templateFormScope === 'all'}
+                        onChange={() => setTemplateFormScope('all')}
+                        className="text-[#C5A059] focus:ring-[#C5A059]"
+                      />
+                      <span>Všetky pohľady</span>
+                    </div>
+                    <span className="text-[10px] text-[#8C857B] pl-5">
+                      Všetkých {vectors.length} vektorov
+                    </span>
+                  </label>
+
+                  <label className={`p-2.5 rounded-xl border cursor-pointer flex flex-col gap-0.5 transition-all ${
+                    templateFormScope === 'current_view' 
+                      ? 'bg-[#FAF8F5] border-[#C5A059] ring-1 ring-[#C5A059]' 
+                      : 'bg-white border-[#E8E2D9] hover:border-gray-300'
+                  }`}>
+                    <div className="flex items-center gap-1.5 font-bold text-[#2C2A29]">
+                      <input
+                        type="radio"
+                        name="templateScope"
+                        checked={templateFormScope === 'current_view'}
+                        onChange={() => setTemplateFormScope('current_view')}
+                        className="text-[#C5A059] focus:ring-[#C5A059]"
+                      />
+                      <span>Iba aktuálny pohľad</span>
+                    </div>
+                    <span className="text-[10px] text-[#8C857B] pl-5">
+                      {vectors.filter(v => v.view === activeSculptureView).length} vektorov ({activeSculptureView})
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* VÝBER FARBY PRE ŠABLÓNU */}
+              <div>
+                <label className="block text-[11px] font-bold text-[#2C2A29] mb-1.5">
+                  Farba štítku šablóny:
+                </label>
+                <div className="flex items-center gap-2">
+                  {[
+                    { color: '#C5A059', name: 'Zlatá' },
+                    { color: '#3B82F6', name: 'Modrá' },
+                    { color: '#EC4899', name: 'Ružová' },
+                    { color: '#10B981', name: 'Zelená' },
+                    { color: '#D97706', name: 'Jantárová' },
+                    { color: '#8B5CF6', name: 'Fialová' },
+                    { color: '#2C2A29', name: 'Tmavá' }
+                  ].map(c => (
+                    <button
+                      key={c.color}
+                      type="button"
+                      onClick={() => setTemplateFormColor(c.color)}
+                      style={{ backgroundColor: c.color }}
+                      className={`w-6 h-6 rounded-full transition-transform cursor-pointer flex items-center justify-center ${
+                        templateFormColor === c.color ? 'scale-125 ring-2 ring-[#2C2A29] ring-offset-1' : 'hover:scale-110'
+                      }`}
+                      title={c.name}
+                    >
+                      {templateFormColor === c.color && <Check className="w-3 h-3 text-white" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* TLAČIDLÁ MODALU */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E8E2D9]">
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-[#8C857B] hover:bg-[#FAF8F5] hover:text-[#2C2A29] transition-colors cursor-pointer"
+                >
+                  Zrušiť
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Uložiť šablónu</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TOAST FEEDBACK */}
+      {templateSuccessToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#2C2A29] text-white px-4 py-3 rounded-2xl border border-[#C5A059] shadow-2xl flex items-center gap-2.5 text-xs font-medium animate-in slide-in-from-bottom-5">
+          <CheckCircle2 className="w-4 h-4 text-[#C5A059]" />
+          <span>{templateSuccessToast}</span>
         </div>
       )}
     </div>
