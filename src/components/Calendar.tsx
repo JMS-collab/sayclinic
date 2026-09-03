@@ -1771,10 +1771,14 @@ export default function Calendar({
           }}
           getEventPhone={getEventPhone}
           getEventEmail={getEventEmail}
+          getEventTypeBadge={getEventTypeBadge}
           onPhoneChange={handlePhoneChange}
           onEmailChange={handleEmailChange}
           onSendWhatsApp={sendWhatsApp}
           onSendSMS={sendSMS}
+          onToggleEmailPanel={handleToggleEmailPanel}
+          openEmailEventId={openEmailEventId}
+          setOpenEmailEventId={setOpenEmailEventId}
           onSendEmailSubmit={handleSendEmailSubmit}
           isSendingEmail={isSendingEmail}
           emailSubject={emailSubject}

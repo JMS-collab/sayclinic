@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CalendarEvent, 
   EventType, 
@@ -14,19 +14,25 @@ import {
 interface EventFormModalProps {
   isOpen: boolean;
   isEditing?: boolean;
+  mode?: 'create' | 'edit';
   initialData: Partial<CalendarEvent>;
   onClose: () => void;
   onSave: (eventData: Partial<CalendarEvent>) => void;
+  isSaving?: boolean;
 }
 
 export default function EventFormModal({
   isOpen,
   isEditing = false,
+  mode,
   initialData,
   onClose,
-  onSave
+  onSave,
+  isSaving = false
 }: EventFormModalProps) {
-  const [formData, setFormData] = useState<Partial<CalendarEvent>>({
+  const isEditMode = isEditing || mode === 'edit' || Boolean(initialData?.id);
+
+  const getInitialState = (data: Partial<CalendarEvent>) => ({
     roomId: 'sala_say',
     assignedTo: 'MUDr. Ján Mráz',
     patientName: '',
@@ -38,8 +44,8 @@ export default function EventFormModal({
     startTime: '09:00',
     endTime: '10:00',
     isAllDay: false,
-    type: 'operacia',
-    freeformCategory: 'obed',
+    type: 'operacia' as EventType,
+    freeformCategory: 'obed' as const,
     operator: 'MUDr. Ján Mráz',
     anesthesiologist: 'MUDr. Peter Kováč',
     anesthesiaNurse: 'Bc. Jana Malá',
@@ -52,8 +58,16 @@ export default function EventFormModal({
     depositAmount: 500,
     isDepositPaid: false,
     notes: '',
-    ...initialData
+    ...data
   });
+
+  const [formData, setFormData] = useState<Partial<CalendarEvent>>(() => getInitialState(initialData));
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(getInitialState(initialData));
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
@@ -151,7 +165,7 @@ export default function EventFormModal({
         <div className="flex items-center justify-between border-b border-[#E8E2D9] pb-3 mb-4 shrink-0">
           <div>
             <h3 className="font-brand text-lg sm:text-xl font-bold text-[#2C2A29] uppercase">
-              {isEditing ? 'Upraviť udalosť / termín' : 'Naplánovať novú udalosť'}
+              {isEditMode ? 'Upraviť udalosť / termín' : 'Naplánovať novú udalosť'}
             </h3>
             <p className="text-[10px] uppercase tracking-wider text-[#8C857B]">
               Výber miestnosti, personálu, operačného tímu a materiálov
@@ -649,9 +663,10 @@ export default function EventFormModal({
             </button>
             <button 
               type="submit" 
-              className="px-6 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold text-[11px] uppercase tracking-wider rounded-xl shadow-sm transition-colors"
+              disabled={isSaving}
+              className="px-6 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold text-[11px] uppercase tracking-wider rounded-xl shadow-sm transition-colors disabled:opacity-50"
             >
-              {isEditing ? 'Uložiť zmeny' : 'Vytvoriť termín'}
+              {isSaving ? 'Ukladám...' : (isEditMode ? 'Uložiť zmeny' : 'Vytvoriť termín')}
             </button>
           </div>
 
