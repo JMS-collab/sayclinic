@@ -797,31 +797,14 @@ export function AestheticsModule({
 
   // 2D SCULPTURE VECTORS & TOOLS
   const [activeSculptureView, setActiveSculptureView] = useState<SculptureViewType>('front');
-  const [vectors, setVectors] = useState<Vector2DItem[]>([
-    ...PRESET_PROCEDURES[0].vectors
-  ]);
+  const [vectors, setVectors] = useState<Vector2DItem[]>([]);
   const [activeTool, setActiveTool] = useState<DrawingToolType>('select');
   const [activeColor, setActiveColor] = useState<string>('#C5A059');
   const [selectedVectorId, setSelectedVectorId] = useState<string | null>(null);
   const [selectedMaterialIdx, setSelectedMaterialIdx] = useState(0);
 
   // BODY TREATMENTS STATE
-  const [bodyTreatments, setBodyTreatments] = useState<BodyTreatmentItem[]>([
-    {
-      id: 'bdy_demo_1',
-      zone: 'Gluteálna oblasť / Zadok (Sculptra Butt Lift / Objem)',
-      procedureName: 'Sculptra Body (PLLA Biostimulácia)',
-      productName: 'Sculptra 10ml (PLLA Biostimulátor)',
-      lotNumber: 'SCL-2026-881A',
-      expiry: '09/2028',
-      dosage: '2 ampulky (40ml roztoku 1:4)',
-      technique: 'Kanyla 18G/70mm do subkutánneho tuku',
-      depthMm: '6-8 mm',
-      notes: 'Symetrická aplikácia 20ml vľavo a 20ml vpravo na horný vonkajší kvadrant.',
-      createdAt: '11:00',
-      color: '#C5A059'
-    }
-  ]);
+  const [bodyTreatments, setBodyTreatments] = useState<BodyTreatmentItem[]>([]);
 
   // Form for adding body treatment
   const [newBodyZone, setNewBodyZone] = useState(BODY_ZONES[0]);
@@ -854,6 +837,11 @@ export function AestheticsModule({
         console.error(e);
       }
     }
+    // Pri otvorení karty pacienta nepredvypĺňať žiadne body
+    setActiveSessionId('current');
+    setVectors([]);
+    setBodyTreatments([]);
+    setSelectedVectorId(null);
   }, [currentPatient?.id]);
 
   const currentMaterial = PRESET_MATERIALS[selectedMaterialIdx];
@@ -1259,7 +1247,7 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
   const handleSelectSession = (sessionId: string) => {
     setActiveSessionId(sessionId);
     if (sessionId === 'current') {
-      setVectors([...PRESET_PROCEDURES[0].vectors]);
+      setVectors([]);
       setBodyTreatments([]);
     } else {
       const past = sessions.find(s => s.id === sessionId);

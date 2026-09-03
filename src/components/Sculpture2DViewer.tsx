@@ -16,11 +16,6 @@ import {
   EyeOff,
   MoveUpRight,
   CircleDot,
-  GripHorizontal,
-  Minimize2,
-  Pin,
-  PinOff,
-  RotateCcw,
   Syringe,
   X,
   Package,
@@ -232,112 +227,6 @@ export function Sculpture2DViewer({
 
   // History for undo
   const [history, setHistory] = useState<Vector2DItem[][]>([]);
-
-  // Draggable Floating Panels & Docking State
-  const [isDocked, setIsDocked] = useState(false);
-  const [toolsMinimized, setToolsMinimized] = useState(false);
-  const [zoomMinimized, setZoomMinimized] = useState(false);
-  const [toolPos, setToolPos] = useState({ x: 16, y: 16 });
-  const [zoomPos, setZoomPos] = useState({ x: 370, y: 16 });
-
-  // Drag tracking refs
-  const toolDragRef = useRef<{ startX: number; startY: number; initX: number; initY: number } | null>(null);
-  const zoomDragRef = useRef<{ startX: number; startY: number; initX: number; initY: number } | null>(null);
-  const [isDraggingTools, setIsDraggingTools] = useState(false);
-  const [isDraggingZoom, setIsDraggingZoom] = useState(false);
-
-  // Ensure initial zoom position adapts if container width changes
-  useEffect(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      if (rect.width > 200) {
-        setZoomPos(prev => ({
-          x: Math.max(16, rect.width - 150),
-          y: prev.y
-        }));
-      }
-    }
-  }, []);
-
-  const handleToolDragStart = (e: React.PointerEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {}
-    toolDragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      initX: toolPos.x,
-      initY: toolPos.y
-    };
-    setIsDraggingTools(true);
-  };
-
-  const handleToolDragMove = (e: React.PointerEvent) => {
-    if (!toolDragRef.current || !containerRef.current) return;
-    e.stopPropagation();
-    const dx = e.clientX - toolDragRef.current.startX;
-    const dy = e.clientY - toolDragRef.current.startY;
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const maxX = Math.max(0, containerRect.width - 80);
-    const maxY = Math.max(0, containerRect.height - 60);
-
-    setToolPos({
-      x: Math.max(8, Math.min(maxX, toolDragRef.current.initX + dx)),
-      y: Math.max(8, Math.min(maxY, toolDragRef.current.initY + dy))
-    });
-  };
-
-  const handleToolDragEnd = (e: React.PointerEvent) => {
-    if (toolDragRef.current) {
-      try {
-        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch {}
-      toolDragRef.current = null;
-      setIsDraggingTools(false);
-    }
-  };
-
-  const handleZoomDragStart = (e: React.PointerEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {}
-    zoomDragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      initX: zoomPos.x,
-      initY: zoomPos.y
-    };
-    setIsDraggingZoom(true);
-  };
-
-  const handleZoomDragMove = (e: React.PointerEvent) => {
-    if (!zoomDragRef.current || !containerRef.current) return;
-    e.stopPropagation();
-    const dx = e.clientX - zoomDragRef.current.startX;
-    const dy = e.clientY - zoomDragRef.current.startY;
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const maxX = Math.max(0, containerRect.width - 80);
-    const maxY = Math.max(0, containerRect.height - 60);
-
-    setZoomPos({
-      x: Math.max(8, Math.min(maxX, zoomDragRef.current.initX + dx)),
-      y: Math.max(8, Math.min(maxY, zoomDragRef.current.initY + dy))
-    });
-  };
-
-  const handleZoomDragEnd = (e: React.PointerEvent) => {
-    if (zoomDragRef.current) {
-      try {
-        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch {}
-      zoomDragRef.current = null;
-      setIsDraggingZoom(false);
-    }
-  };
 
   const pushHistory = useCallback((newVectors: Vector2DItem[]) => {
     setHistory(prev => [...prev.slice(-15), vectors]);
@@ -960,39 +849,8 @@ export function Sculpture2DViewer({
           })}
         </div>
 
-        {/* ANATOMICKÁ MRIEŽKA, REŽIM OKIEN (DOCK/FLOAT) & POČET VEKTOROV */}
+        {/* ANATOMICKÁ MRIEŽKA & POČET VEKTOROV */}
         <div className="flex items-center gap-2 text-xs text-[#8C857B] px-1 font-medium flex-wrap">
-          {/* Prepínač: Ukotvené na boku / Plávajúce okná */}
-          <button
-            type="button"
-            onClick={() => setIsDocked(!isDocked)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer shadow-2xs ${
-              isDocked
-                ? 'bg-[#2C2A29] text-[#C5A059] border border-[#C5A059]/50'
-                : 'bg-white text-[#2C2A29] border border-[#E8E2D9] hover:border-[#C5A059]'
-            }`}
-            title={isDocked ? "Prepnúť na plávajúce okná (možnosť posúvať ťahaním)" : "Ukotviť panely na lištu mimo sochy"}
-          >
-            {isDocked ? <Pin className="w-3.5 h-3.5 text-[#C5A059]" /> : <PinOff className="w-3.5 h-3.5 text-[#8C857B]" />}
-            <span>{isDocked ? 'Panely: Ukotvené' : 'Panely: Plávajúce (Drag & Drop)'}</span>
-          </button>
-
-          {!isDocked && (
-            <button
-              type="button"
-              onClick={() => {
-                setToolPos({ x: 16, y: 16 });
-                setZoomPos({ x: 370, y: 16 });
-                setToolsMinimized(false);
-                setZoomMinimized(false);
-              }}
-              className="p-1.5 rounded-xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#8C857B] hover:text-[#2C2A29] transition-colors cursor-pointer"
-              title="Resetovať pozície plávajúcich okien"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          )}
-
           <button
             type="button"
             onClick={() => setShowAnatomicalGuides(!showAnatomicalGuides)}
@@ -1011,552 +869,190 @@ export function Sculpture2DViewer({
         </div>
       </div>
 
-      {/* DOCKED TOOLBAR (KEĎ SÚ PANELY UKOTVENÉ MIMO SOCHY) */}
-      {isDocked && (
-        <div className="w-full p-2.5 bg-white/95 backdrop-blur-md rounded-2xl border border-[#E8E2D9] shadow-sm flex items-center justify-between gap-3 flex-wrap">
-          {/* Nástroje kreslenia */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => onSelectTool('move')}
-              className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-                activeTool === 'move' ? 'bg-[#2C2A29] text-white' : 'hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9]'
-              }`}
-            >
-              <Hand className="w-3.5 h-3.5 text-[#C5A059]" />
-              <span>Ruka (Posun)</span>
-            </button>
+      {/* UKOTVENÝ PANEL NÁSTROJOV (PEVNE NAD SOCHOU) */}
+      <div className="w-full p-2.5 bg-white/95 backdrop-blur-md rounded-2xl border border-[#E8E2D9] shadow-sm flex items-center justify-between gap-3 flex-wrap">
+        {/* Nástroje kreslenia */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => onSelectTool('move')}
+            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+              activeTool === 'move' ? 'bg-[#2C2A29] text-white' : 'hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9]'
+            }`}
+          >
+            <Hand className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Ruka (Posun)</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => onSelectTool('select')}
-              className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-                activeTool === 'select' ? 'bg-[#2C2A29] text-white' : 'hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9]'
-              }`}
-            >
-              <MousePointer className="w-3.5 h-3.5 text-[#8C857B]" />
-              <span>Výber</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => onSelectTool('select')}
+            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+              activeTool === 'select' ? 'bg-[#2C2A29] text-white' : 'hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9]'
+            }`}
+          >
+            <MousePointer className="w-3.5 h-3.5 text-[#8C857B]" />
+            <span>Výber</span>
+          </button>
 
-            <div className="w-px h-6 bg-[#E8E2D9] mx-1" />
+          <div className="w-px h-6 bg-[#E8E2D9] mx-1" />
 
-            <button
-              type="button"
-              onClick={() => {
-                onSelectTool('point');
-                if (currentProduct.type === 'botox') onSelectColor('#3B82F6');
-                else if (currentProduct.name.toLowerCase().includes('kysse')) onSelectColor('#EC4899');
-                else if (currentProduct.name.toLowerCase().includes('profhilo')) onSelectColor('#10B981');
-                else onSelectColor('#3B82F6');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-                activeTool === 'point' ? 'bg-[#3B82F6] text-white' : 'hover:bg-blue-50 text-[#2C2A29] border border-[#E8E2D9]'
-              }`}
-            >
-              <CircleDot className="w-3.5 h-3.5 text-blue-400" />
-              <span>Bod (Toxín/BAP)</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => {
+              onSelectTool('point');
+              if (currentProduct.type === 'botox') onSelectColor('#3B82F6');
+              else if (currentProduct.name.toLowerCase().includes('kysse')) onSelectColor('#EC4899');
+              else if (currentProduct.name.toLowerCase().includes('profhilo')) onSelectColor('#10B981');
+              else onSelectColor('#3B82F6');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+              activeTool === 'point' ? 'bg-[#3B82F6] text-white' : 'hover:bg-blue-50 text-[#2C2A29] border border-[#E8E2D9]'
+            }`}
+          >
+            <CircleDot className="w-3.5 h-3.5 text-blue-400" />
+            <span>Bod (Toxín/BAP)</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                onSelectTool('vector');
-                onSelectColor('#D97706');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-                activeTool === 'vector' || activeTool === 'threads' ? 'bg-[#D97706] text-white' : 'hover:bg-amber-50 text-[#2C2A29] border border-[#E8E2D9]'
-              }`}
-            >
-              <MoveUpRight className="w-3.5 h-3.5 text-amber-500" />
-              <span>Kanyla (Vektor)</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => {
+              onSelectTool('vector');
+              onSelectColor('#D97706');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+              activeTool === 'vector' || activeTool === 'threads' ? 'bg-[#D97706] text-white' : 'hover:bg-amber-50 text-[#2C2A29] border border-[#E8E2D9]'
+            }`}
+          >
+            <MoveUpRight className="w-3.5 h-3.5 text-amber-500" />
+            <span>Kanyla (Vektor)</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                onSelectTool('fanning');
-                onSelectColor('#C5A059');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-                activeTool === 'fanning' ? 'bg-[#C5A059] text-white' : 'hover:bg-amber-50 text-[#2C2A29] border border-[#E8E2D9]'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Vejár (Fanning)</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => {
+              onSelectTool('fanning');
+              onSelectColor('#C5A059');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+              activeTool === 'fanning' ? 'bg-[#C5A059] text-white' : 'hover:bg-amber-50 text-[#2C2A29] border border-[#E8E2D9]'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>Vejár (Fanning)</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                onSelectTool('freehand');
-                onSelectColor('#EC4899');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-                activeTool === 'freehand' ? 'bg-[#EC4899] text-white' : 'hover:bg-pink-50 text-[#2C2A29] border border-[#E8E2D9]'
-              }`}
-            >
-              <PenTool className="w-3.5 h-3.5 text-pink-400" />
-              <span>Fixka</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => {
+              onSelectTool('freehand');
+              onSelectColor('#EC4899');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+              activeTool === 'freehand' ? 'bg-[#EC4899] text-white' : 'hover:bg-pink-50 text-[#2C2A29] border border-[#E8E2D9]'
+            }`}
+          >
+            <PenTool className="w-3.5 h-3.5 text-pink-400" />
+            <span>Fixka</span>
+          </button>
+        </div>
+
+        {/* Farby & Zoom & Akcie */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Farby */}
+          <div className="flex items-center gap-1.5 p-1 bg-[#FAF8F5] rounded-xl border border-[#E8E2D9]">
+            {[
+              { color: '#3B82F6', name: 'Modrá (Dysport)' },
+              { color: '#EC4899', name: 'Ružová (Restylane Kysse)' },
+              { color: '#10B981', name: 'Zelená (Profhilo)' },
+              { color: '#D97706', name: 'Jantárová (Radiesse)' },
+              { color: '#C5A059', name: 'Zlatá (Sculptra)' },
+              { color: '#2C2A29', name: 'Tmavá (Marker)' }
+            ].map(c => (
+              <button
+                key={c.color}
+                type="button"
+                onClick={() => onSelectColor(c.color)}
+                style={{ backgroundColor: c.color }}
+                className={`w-5 h-5 rounded-full transition-transform cursor-pointer flex items-center justify-center ${
+                  activeColor === c.color ? 'scale-125 ring-2 ring-[#2C2A29] ring-offset-1' : 'hover:scale-110'
+                }`}
+                title={c.name}
+              >
+                {activeColor === c.color && <Check className="w-3 h-3 text-white" />}
+              </button>
+            ))}
           </div>
 
-          {/* Farby & Zoom & Akcie */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Farby */}
-            <div className="flex items-center gap-1.5 p-1 bg-[#FAF8F5] rounded-xl border border-[#E8E2D9]">
-              {[
-                { color: '#3B82F6', name: 'Modrá (Dysport)' },
-                { color: '#EC4899', name: 'Ružová (Restylane Kysse)' },
-                { color: '#10B981', name: 'Zelená (Profhilo)' },
-                { color: '#D97706', name: 'Jantárová (Radiesse)' },
-                { color: '#C5A059', name: 'Zlatá (Sculptra)' },
-                { color: '#2C2A29', name: 'Tmavá (Marker)' }
-              ].map(c => (
-                <button
-                  key={c.color}
-                  type="button"
-                  onClick={() => onSelectColor(c.color)}
-                  style={{ backgroundColor: c.color }}
-                  className={`w-5 h-5 rounded-full transition-transform cursor-pointer flex items-center justify-center ${
-                    activeColor === c.color ? 'scale-125 ring-2 ring-[#2C2A29] ring-offset-1' : 'hover:scale-110'
-                  }`}
-                  title={c.name}
-                >
-                  {activeColor === c.color && <Check className="w-3 h-3 text-white" />}
-                </button>
-              ))}
-            </div>
+          <div className="w-px h-6 bg-[#E8E2D9] mx-0.5" />
 
-            <div className="w-px h-6 bg-[#E8E2D9] mx-0.5" />
+          {/* Undo & Trash */}
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={history.length === 0}
+            className="p-1.5 rounded-xl hover:bg-[#FAF8F5] text-[#8C857B] disabled:opacity-30 border border-[#E8E2D9] cursor-pointer"
+            title="Krok späť"
+          >
+            <Undo className="w-4 h-4" />
+          </button>
 
-            {/* Undo & Trash */}
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Naozaj chcete vyčistiť nákresy pre tento pohľad?')) {
+                pushHistory(vectors.filter(v => v.view !== currentView));
+              }
+            }}
+            className="p-1.5 rounded-xl hover:bg-red-50 text-red-500 border border-[#E8E2D9] cursor-pointer"
+            title="Vymazať nákresy aktuálneho pohľadu"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+
+          <div className="w-px h-6 bg-[#E8E2D9] mx-0.5" />
+
+          {/* Zoom */}
+          <div className="flex items-center gap-1 bg-[#FAF8F5] p-0.5 rounded-xl border border-[#E8E2D9]">
             <button
               type="button"
-              onClick={handleUndo}
-              disabled={history.length === 0}
-              className="p-1.5 rounded-xl hover:bg-[#FAF8F5] text-[#8C857B] disabled:opacity-30 border border-[#E8E2D9] cursor-pointer"
-              title="Krok späť"
+              onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.25))}
+              className="p-1.5 rounded-lg hover:bg-white text-[#2C2A29] cursor-pointer"
+              title="Priblížiť"
             >
-              <Undo className="w-4 h-4" />
+              <ZoomIn className="w-3.5 h-3.5" />
             </button>
-
+            <span className="text-[10px] font-mono font-bold text-[#8C857B] w-8 text-center">
+              {Math.round(zoomLevel * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={() => setZoomLevel(prev => Math.max(0.75, prev - 0.25))}
+              className="p-1.5 rounded-lg hover:bg-white text-[#2C2A29] cursor-pointer"
+              title="Oddialiť"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
             <button
               type="button"
               onClick={() => {
-                if (confirm('Naozaj chcete vyčistiť nákresy pre tento pohľad?')) {
-                  pushHistory(vectors.filter(v => v.view !== currentView));
-                }
+                setZoomLevel(1);
+                setPanOffset({ x: 0, y: 0 });
               }}
-              className="p-1.5 rounded-xl hover:bg-red-50 text-red-500 border border-[#E8E2D9] cursor-pointer"
-              title="Vymazať nákresy aktuálneho pohľadu"
+              className="p-1.5 rounded-lg hover:bg-white text-[#C5A059] cursor-pointer"
+              title="Centrovať"
             >
-              <Trash2 className="w-4 h-4" />
+              <Maximize2 className="w-3.5 h-3.5" />
             </button>
-
-            <div className="w-px h-6 bg-[#E8E2D9] mx-0.5" />
-
-            {/* Zoom */}
-            <div className="flex items-center gap-1 bg-[#FAF8F5] p-0.5 rounded-xl border border-[#E8E2D9]">
-              <button
-                type="button"
-                onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.25))}
-                className="p-1.5 rounded-lg hover:bg-white text-[#2C2A29] cursor-pointer"
-                title="Priblížiť"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-              <span className="text-[10px] font-mono font-bold text-[#8C857B] w-8 text-center">
-                {Math.round(zoomLevel * 100)}%
-              </span>
-              <button
-                type="button"
-                onClick={() => setZoomLevel(prev => Math.max(0.75, prev - 0.25))}
-                className="p-1.5 rounded-lg hover:bg-white text-[#2C2A29] cursor-pointer"
-                title="Oddialiť"
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setZoomLevel(1);
-                  setPanOffset({ x: 0, y: 0 });
-                }}
-                className="p-1.5 rounded-lg hover:bg-white text-[#C5A059] cursor-pointer"
-                title="Centrovať"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* 2. HLAVNÝ RÁM S 2D REALISTICKOU SOCHOU A KRESLIACIMI NÁSTROJMI */}
       <div 
         ref={containerRef}
         className="relative w-full aspect-[4/5] max-h-[620px] bg-gradient-to-b from-[#FAF8F5] via-[#F4EEE5] to-[#E9E0D4] rounded-3xl border border-[#E8E2D9] shadow-inner overflow-hidden flex items-center justify-center"
       >
-        {/* DRAGGABLE FLOATING TOOLS PANEL (KEĎ NIE JE DOCKED) */}
-        {!isDocked && (
-          <div 
-            style={{
-              transform: `translate3d(${toolPos.x}px, ${toolPos.y}px, 0)`,
-              touchAction: 'none'
-            }}
-            className={`absolute top-0 left-0 z-30 transition-shadow duration-150 ${
-              isDraggingTools ? 'ring-2 ring-[#C5A059] shadow-2xl scale-[1.02]' : 'hover:shadow-2xl'
-            }`}
-          >
-            {toolsMinimized ? (
-              <div 
-                onPointerDown={handleToolDragStart}
-                onPointerMove={handleToolDragMove}
-                onPointerUp={handleToolDragEnd}
-                onPointerCancel={handleToolDragEnd}
-                onClick={() => setToolsMinimized(false)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] text-white rounded-2xl cursor-pointer hover:ring-2 hover:ring-[#C5A059]/80 shadow-xl select-none group"
-                title="Kliknutím rozbalíte Nástroje (alebo potiahnite pre presun)"
-              >
-                <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-[#F5E4B8]">
-                  <PenTool className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>NÁSTROJE</span>
-                </div>
-                <div className="w-2.5 h-2.5 rounded-full border border-white/40 shadow-xs" style={{ backgroundColor: activeColor }} />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setToolsMinimized(false);
-                  }}
-                  className="p-1 hover:bg-white/20 rounded-lg text-gray-300 hover:text-white cursor-pointer ml-0.5"
-                  title="Rozbaliť panel nástrojov"
-                >
-                  <Maximize2 className="w-3 h-3 text-[#C5A059]" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col bg-white/95 backdrop-blur-md rounded-2xl border border-white/90 shadow-xl">
-                {/* DRAG HEADER / GRIP HANDLE */}
-                <div 
-                  onPointerDown={handleToolDragStart}
-                  onPointerMove={handleToolDragMove}
-                  onPointerUp={handleToolDragEnd}
-                  onPointerCancel={handleToolDragEnd}
-                  className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] text-white rounded-t-2xl cursor-grab active:cursor-grabbing select-none"
-                  title="Podržte a potiahnite pre presun okna kdekoľvek po obrazovke"
-                >
-                  <div 
-                    onClick={() => setToolsMinimized(true)}
-                    className="flex items-center gap-1 text-[10px] font-bold tracking-wider text-[#F5E4B8] cursor-pointer hover:text-white"
-                    title="Kliknutím minimalizujete panel"
-                  >
-                    <GripHorizontal className="w-3.5 h-3.5 text-[#C5A059]" />
-                    <span>NÁSTROJE</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setToolsMinimized(true);
-                      }}
-                      className="p-1 hover:bg-white/20 rounded text-gray-300 hover:text-white cursor-pointer"
-                      title="Minimalizovať panel nástrojov"
-                    >
-                      <Minimize2 className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsDocked(true);
-                      }}
-                      className="p-1 hover:bg-white/20 rounded text-gray-300 hover:text-white cursor-pointer"
-                      title="Ukotviť na lištu hore"
-                    >
-                      <Pin className="w-3 h-3 text-[#C5A059]" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* BODY PANELA (ROZBALENÝ) */}
-                <div className="p-2 flex flex-col gap-1.5 max-w-[170px]">
-                {/* POSUN / RUKA (PAN) */}
-                <button
-                  type="button"
-                  onClick={() => onSelectTool('move')}
-                  className={`p-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer ${
-                    activeTool === 'move'
-                      ? 'bg-[#2C2A29] text-white shadow-xs'
-                      : 'hover:bg-[#FAF8F5] text-[#2C2A29]'
-                  }`}
-                  title="Posun / Potiahnutie obrazu (Kliknite a ťahajte)"
-                >
-                  <Hand className="w-4 h-4 text-[#C5A059]" />
-                  <span className="font-bold">Posun (Ruka)</span>
-                </button>
-
-                {/* VÝBER / KURZOR */}
-                <button
-                  type="button"
-                  onClick={() => onSelectTool('select')}
-                  className={`p-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer ${
-                    activeTool === 'select'
-                      ? 'bg-[#2C2A29] text-white shadow-xs'
-                      : 'hover:bg-[#FAF8F5] text-[#2C2A29]'
-                  }`}
-                  title="Výber a označenie objektov / Posun plátna"
-                >
-                  <MousePointer className="w-4 h-4 text-[#8C857B]" />
-                  <span className="font-bold">Výber</span>
-                </button>
-
-                <div className="h-px bg-[#E8E2D9] my-0.5" />
-
-                {/* BODOVÝ VPICH / TOXÍN / VÝPLŇ PIER (POINT) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectTool('point');
-                    if (currentProduct.type === 'botox') onSelectColor('#3B82F6');
-                    else if (currentProduct.name.toLowerCase().includes('kysse')) onSelectColor('#EC4899');
-                    else if (currentProduct.name.toLowerCase().includes('profhilo')) onSelectColor('#10B981');
-                    else onSelectColor('#3B82F6');
-                  }}
-                  className={`p-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer ${
-                    activeTool === 'point'
-                      ? 'bg-[#3B82F6] text-white shadow-xs'
-                      : 'hover:bg-blue-50 text-[#2C2A29]'
-                  }`}
-                  title="Bodový mikrovpich (Dysport, Alluzience, Profhilo BAP, Restylane Kysse)"
-                >
-                  <CircleDot className="w-4 h-4 text-blue-400" />
-                  <span className="font-bold">Bod (Toxín/BAP)</span>
-                </button>
-
-                {/* KANYLOVÝ VEKTOR (RADIESSE / RESTYLANE JAWLINE) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectTool('vector');
-                    onSelectColor('#D97706');
-                  }}
-                  className={`p-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer ${
-                    activeTool === 'vector' || activeTool === 'threads'
-                      ? 'bg-[#D97706] text-white shadow-xs'
-                      : 'hover:bg-amber-50 text-[#2C2A29]'
-                  }`}
-                  title="Lineárny vektor / Kanyla (Radiesse, konturácia sánky, výplň)"
-                >
-                  <MoveUpRight className="w-4 h-4 text-amber-500" />
-                  <span className="font-bold">Kanyla (Vektor)</span>
-                </button>
-
-                {/* VEJÁR / FANNING (SCULPTRA / RADIESSE) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectTool('fanning');
-                    onSelectColor('#C5A059');
-                  }}
-                  className={`p-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer ${
-                    activeTool === 'fanning'
-                      ? 'bg-[#C5A059] text-white shadow-xs'
-                      : 'hover:bg-amber-50 text-[#2C2A29]'
-                  }`}
-                  title="Vejárovitá aplikácia kanylou (Radiesse / Sculptra biostimulácia)"
-                >
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  <span className="font-bold">Vejár (Fanning)</span>
-                </button>
-
-                {/* VOĽNÁ RUKA / CHIRURGICKÝ MARKER (FREEHAND) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectTool('freehand');
-                    onSelectColor('#EC4899');
-                  }}
-                  className={`p-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer ${
-                    activeTool === 'freehand'
-                      ? 'bg-[#EC4899] text-white shadow-xs'
-                      : 'hover:bg-pink-50 text-[#2C2A29]'
-                  }`}
-                  title="Voľná kresba / Chirurgický marker"
-                >
-                  <PenTool className="w-4 h-4 text-pink-400" />
-                  <span className="font-bold">Fixka (Kresba)</span>
-                </button>
-
-                <div className="h-px bg-[#E8E2D9] my-0.5" />
-
-                {/* PALETA FARIEB */}
-                <div className="grid grid-cols-6 gap-1 p-1 justify-items-center">
-                  {[
-                    { color: '#3B82F6', name: 'Modrá (Dysport / Alluzience)' },
-                    { color: '#EC4899', name: 'Ružová (Restylane Kysse pery)' },
-                    { color: '#10B981', name: 'Zelená (Profhilo BAP)' },
-                    { color: '#D97706', name: 'Jantárová (Radiesse CaHA)' },
-                    { color: '#C5A059', name: 'Zlatá (Sculptra PLLA)' },
-                    { color: '#2C2A29', name: 'Tmavá (Marker)' }
-                  ].map(c => (
-                    <button
-                      key={c.color}
-                      type="button"
-                      onClick={() => onSelectColor(c.color)}
-                      style={{ backgroundColor: c.color }}
-                      className={`w-4.5 h-4.5 rounded-full transition-transform cursor-pointer flex items-center justify-center ${
-                        activeColor === c.color ? 'scale-125 ring-2 ring-[#2C2A29] ring-offset-1' : 'hover:scale-110'
-                      }`}
-                      title={c.name}
-                    >
-                      {activeColor === c.color && <Check className="w-2.5 h-2.5 text-white" />}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="h-px bg-[#E8E2D9] my-0.5" />
-
-                {/* UNDO & RESET */}
-                <div className="flex items-center justify-between gap-1">
-                  <button
-                    type="button"
-                    onClick={handleUndo}
-                    disabled={history.length === 0}
-                    className="p-1.5 rounded-lg text-xs hover:bg-[#FAF8F5] text-[#8C857B] disabled:opacity-30 cursor-pointer flex items-center gap-1 font-medium"
-                    title="Krok späť (Undo)"
-                  >
-                    <Undo className="w-3.5 h-3.5" />
-                    <span className="text-[10px]">Späť</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm('Naozaj chcete vyčistiť nákresy pre tento pohľad?')) {
-                        pushHistory(vectors.filter(v => v.view !== currentView));
-                      }
-                    }}
-                    className="p-1.5 rounded-lg text-xs hover:bg-red-50 text-red-500 cursor-pointer flex items-center gap-1 font-medium"
-                    title="Vymazať nákresy aktuálneho pohľadu"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span className="text-[10px]">Vymazať</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* DRAGGABLE FLOATING ZOOM & VIEW CONTROLS (KEĎ NIE JE DOCKED) */}
-        {!isDocked && (
-          <div 
-            style={{
-              transform: `translate3d(${zoomPos.x}px, ${zoomPos.y}px, 0)`,
-              touchAction: 'none'
-            }}
-            className={`absolute top-0 left-0 z-30 transition-shadow duration-150 ${
-              isDraggingZoom ? 'ring-2 ring-[#C5A059] shadow-2xl scale-[1.02]' : 'hover:shadow-2xl'
-            }`}
-          >
-            {zoomMinimized ? (
-              <div 
-                onPointerDown={handleZoomDragStart}
-                onPointerMove={handleZoomDragMove}
-                onPointerUp={handleZoomDragEnd}
-                onPointerCancel={handleZoomDragEnd}
-                onClick={() => setZoomMinimized(false)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] text-white rounded-2xl cursor-pointer hover:ring-2 hover:ring-[#C5A059]/80 shadow-xl select-none group"
-                title="Kliknutím rozbalíte Zoom (alebo potiahnite pre presun)"
-              >
-                <ZoomIn className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span className="text-[11px] font-mono font-bold text-[#F5E4B8]">
-                  {Math.round(zoomLevel * 100)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setZoomMinimized(false);
-                  }}
-                  className="p-1 hover:bg-white/20 rounded-lg text-gray-300 hover:text-white cursor-pointer ml-0.5"
-                  title="Rozbaliť lupu"
-                >
-                  <Maximize2 className="w-3 h-3 text-[#C5A059]" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col bg-white/95 backdrop-blur-md rounded-2xl border border-white/90 shadow-xl">
-                {/* DRAG HEADER */}
-                <div 
-                  onPointerDown={handleZoomDragStart}
-                  onPointerMove={handleZoomDragMove}
-                  onPointerUp={handleZoomDragEnd}
-                  onPointerCancel={handleZoomDragEnd}
-                  className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] text-white rounded-t-2xl cursor-grab active:cursor-grabbing select-none"
-                  title="Podržte a potiahnite pre presun"
-                >
-                  <div 
-                    onClick={() => setZoomMinimized(true)}
-                    className="flex items-center gap-1 text-[10px] font-bold tracking-wider text-[#F5E4B8] cursor-pointer hover:text-white"
-                    title="Kliknutím minimalizujete lupu"
-                  >
-                    <GripHorizontal className="w-3 h-3 text-[#C5A059]" />
-                    <span>ZOOM</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setZoomMinimized(true);
-                    }}
-                    className="p-1 hover:bg-white/20 rounded text-gray-300 hover:text-white cursor-pointer"
-                    title="Minimalizovať lupu"
-                  >
-                    <Minimize2 className="w-3 h-3" />
-                  </button>
-                </div>
-
-                <div className="p-1.5 flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.25))}
-                    className="p-1 rounded-lg hover:bg-[#FAF8F5] text-[#2C2A29] cursor-pointer"
-                    title="Priblížiť"
-                  >
-                    <ZoomIn className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-[10px] font-mono font-bold text-[#8C857B] w-8 text-center">
-                    {Math.round(zoomLevel * 100)}%
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setZoomLevel(prev => Math.max(0.75, prev - 0.25))}
-                    className="p-1 rounded-lg hover:bg-[#FAF8F5] text-[#2C2A29] cursor-pointer"
-                    title="Oddialiť"
-                  >
-                    <ZoomOut className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setZoomLevel(1);
-                      setPanOffset({ x: 0, y: 0 });
-                    }}
-                    className="p-1 rounded-lg hover:bg-[#FAF8F5] text-[#C5A059] cursor-pointer"
-                    title="Resetovať mierku a centrovať"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* INŠTRUKCIA K OVLÁDANIU BODOV A VEKTOROV */}
         <div className="absolute bottom-3 right-4 z-20 hidden md:flex items-center gap-2.5 bg-white/90 backdrop-blur-md text-[11px] text-[#2C2A29] px-3.5 py-1.5 rounded-full border border-[#E8E2D9] shadow-xs pointer-events-none">
           <span className="flex items-center gap-1 font-semibold text-[#2C2A29]">
