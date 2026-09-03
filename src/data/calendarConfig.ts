@@ -172,6 +172,14 @@ export interface CalendarEvent {
   // STAV ZRUŠENIA A DÔVOD
   isCancelled?: boolean;
   cancelReason?: string;
+
+  // POOPERAČNÁ KONTROLA & HISTÓRIA OPERÁCIE (USER REQUEST)
+  operationTitle?: string;     // Po akej operácii / zákroku je kontrola (napr. "Augmentácia prsníkov")
+  operationDate?: string;      // Dátum kedy prebehla operácia (napr. "2026-08-12")
+  operationRecordId?: string;  // ID lekárskeho záznamu / operačného protokolu
+  operationDoctor?: string;    // Operatér predchádzajúceho zákroku (napr. "MUDr. Ján Mráz")
+  operationNotes?: string;     // Použité implantáty, materiál a pooperačné inštrukcie
+  controlInterval?: string;    // Fáza kontroly (napr. "1. pooperačná kontrola (preväz)", "14 dní (vybratie stehov)", "1 mesiac", "3 mesiace", "6 mesiacov", "Ročná kontrola")
 }
 
 export interface ClinicRoom {
@@ -286,6 +294,146 @@ export const FREEFORM_PRESETS: { category: FreeformCategory; label: string; icon
   { category: 'ine', label: 'Iné / Voľný popis', icon: '📌', defaultTitle: 'Interná udalosť' },
 ];
 
+// ==========================================
+// POMOCNÉ FUNKCIE PRE POOPERAČNÉ KONTROLY
+// ==========================================
+
+export interface PostOpIntervalOption {
+  id: string;
+  label: string;
+  shortLabel: string;
+  daysOffset: number;
+  description: string;
+}
+
+export const POST_OP_CONTROL_PRESETS: PostOpIntervalOption[] = [
+  { 
+    id: 'prevaz_7d', 
+    label: '1. pooperačná kontrola / preväz (7 dní)', 
+    shortLabel: '+7 dní (preväz)', 
+    daysOffset: 7, 
+    description: 'Kontrola rany, výmena sterilného krytia, kontrola hojenia' 
+  },
+  { 
+    id: 'stehy_14d', 
+    label: 'Vybratie stehov / hygiena (14 dní)', 
+    shortLabel: '+14 dní (stehy)', 
+    daysOffset: 14, 
+    description: 'Extrakcia stehov, kontrola stability, inštrukcie k tlakovým masážam' 
+  },
+  { 
+    id: 'mesiac_1m', 
+    label: 'Kontrola po 1 mesiaci (opuch & tvar)', 
+    shortLabel: '+1 mesiac', 
+    daysOffset: 30, 
+    description: 'Vyhodnotenie ústupu edému, symetrie a usádzania tkanív / implantátov' 
+  },
+  { 
+    id: 'mesiace_3m', 
+    label: 'Kontrola po 3 mesiacoch (stabilizácia)', 
+    shortLabel: '+3 mesiace', 
+    daysOffset: 90, 
+    description: 'Stabilizácia tvaru, uvoľnenie obmedzení športu, zhodnotenie jaziev' 
+  },
+  { 
+    id: 'mesiace_6m', 
+    label: 'Kontrola po 6 mesiacoch (výsledok)', 
+    shortLabel: '+6 mesiacov', 
+    daysOffset: 180, 
+    description: 'Polročná kontrola výsledku, porovnávacie fotografie' 
+  },
+  { 
+    id: 'rok_1y', 
+    label: 'Ročná pooperačná kontrola (12 mesiacov)', 
+    shortLabel: '+1 rok', 
+    daysOffset: 365, 
+    description: 'Dlhodobá ročná kontrola stavu tkanív a implantátov' 
+  }
+];
+
+/**
+ * Vypočíta cieľový dátum (YYYY-MM-DD) posunom o daný počet dní od dátumu operácie
+ */
+export const calculateTargetControlDate = (opDateStr: string, daysOffset: number): string => {
+  if (!opDateStr) return new Date().toISOString().split('T')[0];
+  try {
+    const op = new Date(opDateStr);
+    if (isNaN(op.getTime())) return new Date().toISOString().split('T')[0];
+    const target = new Date(op.getTime() + daysOffset * 24 * 60 * 60 * 1000);
+    return target.toISOString().split('T')[0];
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+};
+
+/**
+ * Vypočíta časový odstup medzi dátumom operácie a dátumom kontroly (alebo dneškom)
+ */
+export const getPostOpTimeDiff = (opDateStr?: string, targetDateStr?: string): {
+  days: number;
+  weeks: number;
+  months: number;
+  displayText: string;
+  badgeText: string;
+  isFuture: boolean;
+} => {
+  if (!opDateStr) {
+    return { days: 0, weeks: 0, months: 0, displayText: '', badgeText: '', isFuture: false };
+  }
+
+  try {
+    const opDate = new Date(opDateStr);
+    opDate.setHours(0, 0, 0, 0);
+
+    const refDate = targetDateStr ? new Date(targetDateStr) : new Date();
+    refDate.setHours(0, 0, 0, 0);
+
+    const diffMs = refDate.getTime() - opDate.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    const isFuture = diffDays < 0;
+    const absDays = Math.abs(diffDays);
+    const weeks = Math.floor(absDays / 7);
+    const months = Math.floor(absDays / 30.4);
+
+    let displayText = '';
+    let badgeText = '';
+
+    if (diffDays === 0) {
+      displayText = 'V deň operácie (0. pooperačný deň)';
+      badgeText = 'Dnes operované';
+    } else if (diffDays > 0) {
+      if (diffDays < 7) {
+        displayText = `${diffDays}. pooperačný deň`;
+        badgeText = `${diffDays}. deň po op.`;
+      } else if (diffDays < 30) {
+        displayText = `${diffDays}. pooperačný deň (${weeks}. týždeň)`;
+        badgeText = `${diffDays} dní po op. (${weeks}. týždeň)`;
+      } else if (months < 12) {
+        displayText = `${months} mesiac${months > 1 && months < 5 ? 'e' : months >= 5 ? 'ov' : ''} po operácii (${absDays}. pooperačný deň)`;
+        badgeText = `${months}m po op.`;
+      } else {
+        const years = (absDays / 365.25).toFixed(1);
+        displayText = `${years} roka po operácii (${absDays}. deň)`;
+        badgeText = `${years}r po op.`;
+      }
+    } else {
+      displayText = `Naplánované pred operáciou`;
+      badgeText = `Pred zákrokom`;
+    }
+
+    return {
+      days: diffDays,
+      weeks,
+      months,
+      displayText,
+      badgeText,
+      isFuture
+    };
+  } catch {
+    return { days: 0, weeks: 0, months: 0, displayText: '', badgeText: '', isFuture: false };
+  }
+};
+
 export const generateDefaultEvents = () => {
   const today = new Date();
   const getISO = (offset: number) => {
@@ -326,6 +474,32 @@ export const generateDefaultEvents = () => {
       depositAmount: 800,
       isDepositPaid: true,
       notes: 'Plánovaný subfasciálny dual-plane prístup cez podprsníkovú ryhu.'
+    },
+    {
+      id: 'seed-evt-postop',
+      roomId: 'ambulancia',
+      roomName: 'Ambulancia',
+      assignedTo: 'MUDr. Ján Mráz',
+      doctorName: 'MUDr. Ján Mráz',
+      operator: 'MUDr. Ján Mráz',
+      patientId: 'P1',
+      patientName: 'Mária Kováčová',
+      patientPhone: '+421 905 123 456',
+      patientEmail: 'maria.kovacova@email.sk',
+      title: 'Pooperačná kontrola — Augmentácia prsníkov',
+      date: todayStr,
+      startTime: '10:00',
+      endTime: '10:30',
+      type: 'kontrola',
+      operationTitle: 'Augmentácia prsníkov',
+      operationDate: '2026-08-12',
+      operationDoctor: 'MUDr. Ján Mráz',
+      operationNotes: 'Silikónové implantáty Motiva 320ml pod sval, kompresné prádlo Lipoelastic PI ideal na 6 týždňov.',
+      controlInterval: 'Kontrola po 3 týždňoch (opuch & tvar)',
+      notes: 'Kontrola symetrie, ústupu pooperačného edému a hojenia podprsníkovej ryhy.',
+      totalPrice: 0,
+      depositAmount: 0,
+      isDepositPaid: true
     },
     {
       id: 'seed-evt-2',

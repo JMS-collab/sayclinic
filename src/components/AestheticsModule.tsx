@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { Patient, MedicalRecord } from './PatientDatabase';
 import { InventoryService } from '../services/inventoryService';
+import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
+import { PatientPlan } from '../data/patientPlanConfig';
 import { 
   Sculpture2DViewer, 
   Vector2DItem, 
@@ -1258,6 +1260,25 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
     }
   };
 
+  // STAV A UKLADANIE ROČNÉHO PLÁNU PACIENTA Z ESTETICKÉHO MODULU
+  const [showCreatePlanModal, setShowCreatePlanModal] = useState(false);
+
+  const handleSavePlanFromAesthetics = (plan: PatientPlan) => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('say_clinic_patient_plans');
+        const allPlans: Record<string, PatientPlan[]> = saved ? JSON.parse(saved) : {};
+        const patientPlans = allPlans[currentPatient.id] || [];
+        allPlans[currentPatient.id] = [plan, ...patientPlans];
+        localStorage.setItem('say_clinic_patient_plans', JSON.stringify(allPlans));
+        setSavedStatusMsg(`✅ Plán pacienta "${plan.title}" bol úspešne uložený do karty pacienta!`);
+        setTimeout(() => setSavedStatusMsg(null), 5000);
+      } catch (e) {
+        console.error('Chyba uloženia plánu:', e);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       
@@ -1363,6 +1384,17 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
                 Protokol (A4)
               </button>
             </div>
+
+            {/* ROČNÝ PLÁN PACIENTA (KOZMETIKA & PROCEDÚRY) */}
+            <button
+              type="button"
+              onClick={() => setShowCreatePlanModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#2C2A29] hover:bg-[#3D3A38] text-white text-xs font-semibold border border-[#C5A059]/40 shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              title="Vytvoriť ročný estetický plán pacienta (kozmetika, procedúry na 12 mesiacov)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span className="hidden sm:inline">Ročný plán pacienta</span>
+            </button>
 
             {/* ULOŽIŤ DO ZLOŽKY */}
             <button
@@ -2593,6 +2625,16 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
           <CheckCircle2 className="w-4 h-4 text-[#C5A059]" />
           <span>{templateSuccessToast}</span>
         </div>
+      )}
+
+      {/* MODÁL PRE VYTVORENIE ROČNÉHO PLÁNU PACIENTA */}
+      {showCreatePlanModal && currentPatient && (
+        <CreatePatientPlanModal
+          isOpen={showCreatePlanModal}
+          onClose={() => setShowCreatePlanModal(false)}
+          patient={currentPatient}
+          onSavePlan={handleSavePlanFromAesthetics}
+        />
       )}
     </div>
   );

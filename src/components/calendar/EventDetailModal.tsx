@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CalendarEvent, 
   EventType, 
@@ -8,7 +8,8 @@ import {
   getRoomInfo, 
   FREEFORM_PRESETS,
   getAnesthesiaInfo,
-  getClinicStayInfo
+  getClinicStayInfo,
+  getPostOpTimeDiff
 } from '@/data/calendarConfig';
 
 interface EventDetailModalProps {
@@ -84,6 +85,67 @@ export default function EventDetailModal({
   const [localEmailBody, setLocalEmailBody] = useState(
     event ? `Dobrý deň ${event.patientName || 'klient'},\n\npripomíname Vám Váš termín na SAY CLINIC dňa ${event.date} o ${event.startTime}.\n\nS pozdravom,\nTím SAY CLINIC` : ''
   );
+
+  // Automatické zistenie predchádzajúcej operácie z dokumentov pacienta
+  const [discoveredOp, setDiscoveredOp] = useState<{
+    title: string;
+    date: string;
+    doctor: string;
+    notes: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!event) return;
+    // Ak už má event vlastné údaje o operácii, nie je potrebné hľadať
+    if (event.operationTitle && event.operationDate) return;
+
+    if (event.type === 'kontrola' || !event.operationTitle) {
+      try {
+        const recordsRaw = localStorage.getItem('say_clinic_patient_records');
+        if (recordsRaw) {
+          const recordsMap = JSON.parse(recordsRaw);
+          let patientRecs: any[] = [];
+          if (event.patientId && recordsMap[event.patientId]) {
+            patientRecs = recordsMap[event.patientId];
+          } else {
+            const patientsRaw = localStorage.getItem('say_clinic_patients');
+            if (patientsRaw) {
+              const patList = JSON.parse(patientsRaw);
+              const foundPat = patList.find((p: any) => 
+                p.name?.toLowerCase().includes((event.patientName || '').toLowerCase()) ||
+                (event.patientName || '').toLowerCase().includes(p.name?.toLowerCase())
+              );
+              if (foundPat && recordsMap[foundPat.id]) {
+                patientRecs = recordsMap[foundPat.id];
+              }
+            }
+          }
+
+          if (patientRecs && patientRecs.length > 0) {
+            const opRecord = patientRecs.find((r: any) => 
+              r.type?.toLowerCase().includes('opera') || 
+              r.type?.toLowerCase().includes('protokol') ||
+              r.title?.toLowerCase().includes('augmentác') ||
+              r.title?.toLowerCase().includes('lipo') ||
+              r.title?.toLowerCase().includes('blefaro') ||
+              r.title?.toLowerCase().includes('plastik')
+            ) || patientRecs[0];
+
+            if (opRecord) {
+              setDiscoveredOp({
+                title: opRecord.title || 'Operačný zákrok',
+                date: opRecord.date || '',
+                doctor: opRecord.doctor || 'MUDr. Ján Mráz',
+                notes: opRecord.content || ''
+              });
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [event]);
 
   if (!event) return null;
 
@@ -474,6 +536,113 @@ export default function EventDetailModal({
                     </div>
                   )}
 
+                </div>
+              )}
+
+              {/* ŠPECIFICKÉ PRE POOPERAČNÚ KONTROLU: INFORMÁCIE PO ČOM A KEDY BOLA OPERÁCIA */}
+              {(event.type === 'kontrola' || event.operationTitle || discoveredOp) && (
+                <div className="bg-sky-50/80 p-3.5 rounded-xl border border-sky-200 space-y-3">
+                  <div className="flex items-center justify-between border-b border-sky-200/80 pb-2">
+                    <h5 className="font-bold uppercase text-[11px] text-sky-950 flex items-center gap-1.5">
+                      <span>🩺</span> Pooperačná kontrola — História operácie & zákroku
+                    </h5>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-sky-200 text-sky-900 uppercase">
+                      Pooperačný protokol
+                    </span>
+                  </div>
+
+                  {/* Informácie po čom a kedy bola operácia */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* PO ČOM BOLA OPERÁCIA */}
+                    <div className="p-2.5 bg-white rounded-lg border border-sky-200 shadow-2xs">
+                      <span className="text-[9px] uppercase font-bold text-sky-700 block flex items-center gap-1">
+                        <span>🔪</span> Po akej operácii / Druh zákroku:
+                      </span>
+                      <strong className="text-xs sm:text-sm font-bold text-[#2C2A29] block mt-0.5">
+                        {event.operationTitle || discoveredOp?.title || 'Operácia z karty pacienta'}
+                      </strong>
+                      {(event.controlInterval || (event.type === 'kontrola' && 'Plánovaná pooperačná kontrola')) && (
+                        <span className="text-[10px] font-semibold text-sky-800 bg-sky-100 px-2 py-0.5 rounded inline-block mt-1">
+                          📍 Fáza: {event.controlInterval || 'Plánovaná pooperačná kontrola'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* KEDY BOLA OPERÁCIA & ČASOVÝ ODSTUP */}
+                    <div className="p-2.5 bg-white rounded-lg border border-sky-200 shadow-2xs">
+                      <span className="text-[9px] uppercase font-bold text-sky-700 block flex items-center gap-1">
+                        <span>📅</span> Dátum operácie & Časový odstup:
+                      </span>
+                      <div className="mt-0.5">
+                        <strong className="text-xs sm:text-sm font-bold text-[#2C2A29] block">
+                          {formatEventDate(event.operationDate || discoveredOp?.date) || 'Dátum operácie nešpecifikovaný'}
+                        </strong>
+                        {(() => {
+                          const opDateToUse = event.operationDate || discoveredOp?.date;
+                          if (!opDateToUse) return null;
+                          const diff = getPostOpTimeDiff(opDateToUse, event.date);
+                          return (
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-600 text-white shadow-2xs">
+                                ⏱️ {diff.displayText}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Operatér a implantáty / materiál */}
+                  <div className="p-2.5 bg-white rounded-lg border border-sky-200/80 text-[11px] space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[#8C857B] font-semibold">Operatér zákroku:</span>
+                      <strong className="text-[#2C2A29]">
+                        {event.operationDoctor || discoveredOp?.doctor || event.doctorName || 'MUDr. Ján Mráz'}
+                      </strong>
+                    </div>
+                    {(event.operationNotes || discoveredOp?.notes) && (
+                      <div className="pt-1.5 border-t border-sky-100">
+                        <span className="text-[9px] uppercase font-bold text-sky-800 block mb-0.5">
+                          🍈 Použité implantáty / materiál / priebeh:
+                        </span>
+                        <p className="text-[11px] text-[#2C2A29] whitespace-pre-line bg-sky-50/60 p-2 rounded border border-sky-100 font-medium">
+                          {event.operationNotes || discoveredOp?.notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Akcia: Otvoriť kartu pacienta & operačný protokol */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                    {(onOpenPatientFolder || onOpenFolder) && (
+                      <button
+                        type="button"
+                        onClick={handleOpenFolderAction}
+                        className="text-[11px] font-bold text-sky-900 hover:text-sky-950 bg-white hover:bg-sky-100/60 px-3 py-1.5 rounded-lg border border-sky-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <span>📁</span> Otvoriť kartu pacienta & operačný protokol
+                      </button>
+                    )}
+                    {!event.operationTitle && discoveredOp && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onEdit({
+                            ...event,
+                            operationTitle: discoveredOp.title,
+                            operationDate: discoveredOp.date,
+                            operationDoctor: discoveredOp.doctor,
+                            operationNotes: discoveredOp.notes,
+                            controlInterval: event.controlInterval || 'Kontrola po operácii'
+                          });
+                        }}
+                        className="text-[10px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded border border-emerald-300 transition-colors cursor-pointer"
+                      >
+                        ⚡ Uložiť prepojenie s touto operáciou
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 

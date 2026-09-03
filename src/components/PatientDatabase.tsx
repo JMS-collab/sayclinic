@@ -4,6 +4,48 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import PatientDriveFiles from './PatientDriveFiles';
 import { InventoryService, MaterialUsageLog, InventoryItem } from '../services/inventoryService';
+import { CalendarEvent, getPostOpTimeDiff } from '../data/calendarConfig';
+import SchedulePatientEventModal from './patient/SchedulePatientEventModal';
+import { PatientPlan, PRESET_PATIENT_PLANS, ScheduledTreatment } from '../data/patientPlanConfig';
+import PatientPlanViewer from './patient/PatientPlanViewer';
+import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
+
+const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
+  P1: [
+    {
+      id: 'plan-demo-1',
+      patientId: 'P1',
+      patientName: 'Mária Kováčová',
+      patientBirthNumber: '885512/6789',
+      createdAt: '2026-02-15T10:00:00.000Z',
+      updatedAt: '2026-02-15T10:00:00.000Z',
+      doctorName: 'MUDr. Ján Mráz',
+      ...PRESET_PATIENT_PLANS.breast_surgery_care
+    } as PatientPlan,
+    {
+      id: 'plan-demo-2',
+      patientId: 'P1',
+      patientName: 'Mária Kováčová',
+      patientBirthNumber: '885512/6789',
+      createdAt: '2026-01-10T14:30:00.000Z',
+      updatedAt: '2026-01-10T14:30:00.000Z',
+      doctorName: 'MUDr. Ján Mráz',
+      ...PRESET_PATIENT_PLANS.face_annual_rejuvenation
+    } as PatientPlan
+  ],
+  P2: [
+    {
+      id: 'plan-demo-3',
+      patientId: 'P2',
+      patientName: 'Ján Novák',
+      patientBirthNumber: '750314/1234',
+      createdAt: '2026-02-01T09:00:00.000Z',
+      updatedAt: '2026-02-01T09:00:00.000Z',
+      doctorName: 'MUDr. Ján Mráz',
+      ...PRESET_PATIENT_PLANS.blepharoplasty_care
+    } as PatientPlan
+  ]
+};
 
 export interface Patient {
   id: string;
@@ -45,15 +87,132 @@ interface PatientDatabaseProps {
   onNavigateToAesthetics?: (patient: Patient) => void;
   initialPatient?: Patient | null;
   onPatientsUpdated?: (patients: Patient[]) => void;
+  calendarEvents?: CalendarEvent[];
+  onAddCalendarEvent?: (event: CalendarEvent) => void;
+  onNavigateToCalendar?: () => void;
 }
 
-export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAesthetics, initialPatient, onPatientsUpdated }: PatientDatabaseProps) {
+export default function PatientDatabase({ 
+  onNavigateToGenerator, 
+  onNavigateToAesthetics, 
+  initialPatient, 
+  onPatientsUpdated,
+  calendarEvents = [],
+  onAddCalendarEvent,
+  onNavigateToCalendar
+}: PatientDatabaseProps) {
   const { data: session } = useSession();
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || null);
-  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy'>('dokumenty');
+  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy' | 'terminy' | 'plany'>('dokumenty');
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+
+  // STAV PRE PLÁNY PACIENTA (ROČNÝ ESTETICKÝ & PRED/POOPERAČNÝ PLÁN)
+  const [isCreatingPlan, setIsCreatingPlan] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [allPatientPlans, setAllPatientPlans] = useState<Record<string, PatientPlan[]>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('say_clinic_patient_plans');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error('Chyba načítania plánov pacienta:', e);
+        }
+      }
+    }
+    return INITIAL_DEMO_PLANS;
+  });
+
+  const handleSaveNewPlan = (newPlan: PatientPlan) => {
+    if (!selectedPatient) return;
+    const patientPlans = allPatientPlans[selectedPatient.id] || [];
+    const updated = [newPlan, ...patientPlans];
+    const newAll = {
+      ...allPatientPlans,
+      [selectedPatient.id]: updated
+    };
+    setAllPatientPlans(newAll);
+    localStorage.setItem('say_clinic_patient_plans', JSON.stringify(newAll));
+    setSelectedPlanId(newPlan.id);
+    setActiveFolder('plany');
+  };
+
+  const handleUpdatePlan = (updatedPlan: PatientPlan) => {
+    if (!selectedPatient) return;
+    const patientPlans = allPatientPlans[selectedPatient.id] || [];
+    const updated = patientPlans.map(p => p.id === updatedPlan.id ? updatedPlan : p);
+    const newAll = {
+      ...allPatientPlans,
+      [selectedPatient.id]: updated
+    };
+    setAllPatientPlans(newAll);
+    localStorage.setItem('say_clinic_patient_plans', JSON.stringify(newAll));
+  };
+
+  // STAV PRE PLÁNOVANIE TERMÍNOV PRIAMO Z KARTY PACIENTA
+  const [isSchedulingEvent, setIsSchedulingEvent] = useState(false);
+  const [schedulingSourceRecord, setSchedulingSourceRecord] = useState<MedicalRecord | null>(null);
+  const [schedulingInitialDetails, setSchedulingInitialDetails] = useState<{
+    title?: string;
+    eventType?: any;
+    notes?: string;
+    targetDate?: string;
+    doctor?: string;
+  } | undefined>(undefined);
+  const [storedEvents, setStoredEvents] = useState<CalendarEvent[]>(calendarEvents);
+
+  const handleScheduleTreatmentFromPlan = (treatment: ScheduledTreatment) => {
+    setSchedulingSourceRecord(null);
+    setSchedulingInitialDetails({
+      title: treatment.name,
+      eventType: treatment.category === 'surgery' ? 'operacia' : treatment.category === 'laser' ? 'osetrenie' : 'kontrola',
+      notes: `Zákrok z plánu pacienta: ${treatment.name} (${treatment.seasonOrMonth}). Oblasť: ${treatment.targetArea}. ${treatment.notes || ''}`,
+      targetDate: new Date().toISOString().split('T')[0]
+    });
+    setIsSchedulingEvent(true);
+  };
+
+  useEffect(() => {
+    if (calendarEvents && calendarEvents.length > 0) {
+      setStoredEvents(calendarEvents);
+    } else {
+      const saved = localStorage.getItem('say_clinic_calendar_events');
+      if (saved) {
+        try {
+          setStoredEvents(JSON.parse(saved));
+        } catch (e) {
+          console.error('Chyba načítania udalostí kalendára:', e);
+        }
+      }
+    }
+  }, [calendarEvents]);
+
+  const handleOpenScheduleModal = (sourceRecord?: MedicalRecord) => {
+    setSchedulingSourceRecord(sourceRecord || null);
+    setIsSchedulingEvent(true);
+  };
+
+  const handleSaveCalendarEvent = async (newEvent: CalendarEvent) => {
+    const updated = [newEvent, ...storedEvents];
+    setStoredEvents(updated);
+    localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+    if (onAddCalendarEvent) {
+      onAddCalendarEvent(newEvent);
+    }
+    if (session) {
+      try {
+        await fetch('/api/calendar/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newEvent)
+        });
+      } catch (err) {
+        console.error('Chyba zápisu do Google Kalendára:', err);
+      }
+    }
+  };
 
   // STAV PRE POUŽITÝ MATERIÁL & SKLAD
   const [patientMaterialLogs, setPatientMaterialLogs] = useState<MaterialUsageLog[]>([]);
@@ -761,6 +920,20 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
                   >
                     ✏️ Upraviť
                   </button>
+                  <button
+                    onClick={() => handleOpenScheduleModal()}
+                    className="text-xs bg-sky-700 hover:bg-sky-800 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Naplánovať termín alebo pooperačnú kontrolu priamo do kalendára"
+                  >
+                    <span>📅</span> + Naplánovať termín / kontrolu
+                  </button>
+                  <button
+                    onClick={() => setIsCreatingPlan(true)}
+                    className="text-xs bg-[#C5A059] hover:bg-[#b38d45] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Vytvoriť ročný estetický alebo pred/pooperačný plán starostlivosti"
+                  >
+                    <span>✨</span> + Plán pacienta
+                  </button>
                   {onNavigateToAesthetics && (
                     <button
                       onClick={() => onNavigateToAesthetics(selectedPatient)}
@@ -785,17 +958,46 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
             {/* PREPOJENIE SO ZLOŽKOU "KLIENTI SAY" NA GOOGLE DRIVE */}
             <PatientDriveFiles patientName={selectedPatient.name} />
 
-            <div className="flex flex-wrap gap-2 border-b border-[#E8E2D9]">
-              <button onClick={() => { setActiveFolder('dokumenty'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'dokumenty' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📄 Dokumenty & Záznamy</button>
-              <button onClick={() => setActiveFolder('fotodokumentacia')} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'fotodokumentacia' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📸 Fotodokumentácia</button>
-              <button onClick={() => { setActiveFolder('predoperacne'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'predoperacne' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>🩸 Výsledky & Vyšetrenia</button>
-              <button onClick={() => { setActiveFolder('materialy'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'materialy' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
-                <span>📦 Minutý materiál & Prádlo</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'materialy' ? 'bg-[#C5A059] text-white' : 'bg-[#E8E2D9] text-[#2C2A29]'}`}>
-                  {patientMaterialLogs.length}
-                </span>
-              </button>
-            </div>
+            {(() => {
+              const patientEvents = storedEvents.filter(evt => 
+                (evt.patientId && evt.patientId === selectedPatient.id) ||
+                (evt.patientName && selectedPatient.name && (
+                  evt.patientName.toLowerCase().includes(selectedPatient.name.toLowerCase()) ||
+                  selectedPatient.name.toLowerCase().includes(evt.patientName.toLowerCase())
+                ))
+              );
+              const currentPatientPlans = allPatientPlans[selectedPatient.id] || [];
+
+              return (
+                <div className="flex flex-wrap gap-2 border-b border-[#E8E2D9]">
+                  <button onClick={() => { setActiveFolder('dokumenty'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'dokumenty' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📄 Dokumenty & Záznamy</button>
+                  <button onClick={() => { setActiveFolder('plany'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'plany' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
+                    <span>📋 Plán pacienta & Starostlivosť</span>
+                    {currentPatientPlans.length > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'plany' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
+                        {currentPatientPlans.length}
+                      </span>
+                    )}
+                  </button>
+                  <button onClick={() => { setActiveFolder('terminy'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'terminy' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
+                    <span>📅 Termíny & Kontroly</span>
+                    {patientEvents.length > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'terminy' ? 'bg-sky-600 text-white' : 'bg-sky-100 text-sky-800'}`}>
+                        {patientEvents.length}
+                      </span>
+                    )}
+                  </button>
+                  <button onClick={() => setActiveFolder('fotodokumentacia')} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'fotodokumentacia' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📸 Fotodokumentácia</button>
+                  <button onClick={() => { setActiveFolder('predoperacne'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'predoperacne' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>🩸 Výsledky & Vyšetrenia</button>
+                  <button onClick={() => { setActiveFolder('materialy'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'materialy' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
+                    <span>📦 Minutý materiál & Prádlo</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'materialy' ? 'bg-[#C5A059] text-white' : 'bg-[#E8E2D9] text-[#2C2A29]'}`}>
+                      {patientMaterialLogs.length}
+                    </span>
+                  </button>
+                </div>
+              );
+            })()}
 
             <div className="min-h-[350px] border border-[#E8E2D9] rounded-b-xl rounded-tr-xl p-5 bg-white">
               
@@ -819,6 +1021,13 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
                       >
                         💊 + Vystaviť recept (A6)
                       </button>
+                      <button 
+                        onClick={() => handleOpenScheduleModal()} 
+                        className="text-[11px] bg-sky-700 hover:bg-sky-800 text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Naplánovať pooperačnú kontrolu alebo termín do kalendára"
+                      >
+                        <span>📅</span> + Naplánovať kontrolu
+                      </button>
                       <button onClick={() => onNavigateToGenerator && onNavigateToGenerator(selectedPatient)} className="text-[11px] bg-[#C5A059] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#b38d45] cursor-pointer">
                         + Vytvoriť nový záznam
                       </button>
@@ -836,7 +1045,16 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
                         
                         <div className="flex flex-col items-end gap-2">
                           <p className="text-xs font-mono text-[#8C857B] font-bold">{new Date(record.date).toLocaleDateString('sk-SK')}</p>
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {(record.type?.toLowerCase().includes('opera') || record.type?.toLowerCase().includes('protokol') || record.title?.toLowerCase().includes('augmentác') || record.title?.toLowerCase().includes('lipo')) && (
+                              <button 
+                                onClick={() => handleOpenScheduleModal(record)} 
+                                className="text-[10px] text-sky-900 bg-sky-100 hover:bg-sky-200 border border-sky-300 px-2.5 py-1 rounded uppercase font-bold transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                                title="Naplánovať pooperačnú kontrolu s automaticky načítanými údajmi z tohto operačného protokolu"
+                              >
+                                <span>🩺</span> Naplánovať kontrolu
+                              </button>
+                            )}
                             <button onClick={() => setEditingRecord(record)} className="text-[10px] text-[#8C857B] hover:text-[#C5A059] uppercase font-bold transition-colors">✏️ Upraviť</button>
                             <button onClick={() => handleDeleteRecord(record.id)} className="text-[10px] text-[#8C857B] hover:text-rose-600 uppercase font-bold transition-colors">🗑️ Zmazať</button>
                             <button onClick={() => setPreviewRecord(record)} className="text-[10px] text-[#C5A059] uppercase font-bold transition-colors border-l border-[#E8E2D9] pl-2 ml-1">
@@ -1055,6 +1273,231 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
                   )}
                 </div>
               )}
+
+              {/* ZÁLOŽKA TERMÍNY & POOPERAČNÉ KONTROLY */}
+              {activeFolder === 'terminy' && (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap justify-between items-center gap-3 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E2D9]">
+                    <div>
+                      <h4 className="text-xs uppercase font-bold text-[#2C2A29] flex items-center gap-1.5">
+                        <span>📅</span> Plánované termíny & Pooperačné kontroly pacienta
+                      </h4>
+                      <p className="text-[11px] text-[#8C857B]">
+                        Prehľad všetkých záznamov v klinickom kalendári s informáciami o predchádzajúcej operácii
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {onNavigateToCalendar && (
+                        <button
+                          onClick={onNavigateToCalendar}
+                          className="text-[11px] bg-white border border-[#E8E2D9] text-[#2C2A29] hover:bg-[#FBF9F6] px-3 py-1.5 rounded-lg uppercase font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>🗓️</span> Otvoriť kalendár
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleOpenScheduleModal()}
+                        className="text-[11px] bg-sky-700 hover:bg-sky-800 text-white px-3.5 py-1.5 rounded-lg uppercase font-bold shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>📅</span> + Naplánovať termín / kontrolu
+                      </button>
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const patientEvents = storedEvents.filter(evt => 
+                      (evt.patientId && evt.patientId === selectedPatient.id) ||
+                      (evt.patientName && selectedPatient.name && (
+                        evt.patientName.toLowerCase().includes(selectedPatient.name.toLowerCase()) ||
+                        selectedPatient.name.toLowerCase().includes(evt.patientName.toLowerCase())
+                      ))
+                    );
+
+                    if (patientEvents.length === 0) {
+                      return (
+                        <div className="text-center py-10 border border-dashed border-[#E8E2D9] rounded-xl space-y-3">
+                          <div className="text-3xl">🗓️</div>
+                          <p className="text-xs text-[#8C857B] font-medium">Pacient nemá zatiaľ v kalendári naplánovaný žiadny termín ani pooperačnú kontrolu.</p>
+                          <button
+                            onClick={() => handleOpenScheduleModal()}
+                            className="px-4 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                          >
+                            <span>📅</span> Naplánovať termín z karty pacienta
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-3">
+                        {patientEvents.map(evt => {
+                          const isCheckup = evt.type === 'kontrola' || !!evt.operationTitle;
+                          const diff = evt.operationDate ? getPostOpTimeDiff(evt.operationDate, evt.date) : null;
+                          return (
+                            <div
+                              key={evt.id}
+                              className={`border rounded-xl p-4 transition-all shadow-2xs space-y-2.5 ${
+                                evt.isCancelled 
+                                  ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                  : isCheckup 
+                                  ? 'bg-sky-50/50 border-sky-200 hover:border-sky-300' 
+                                  : 'bg-white border-[#E8E2D9] hover:border-[#C5A059]'
+                              }`}
+                            >
+                              <div className="flex flex-wrap justify-between items-start gap-2">
+                                <div className="space-y-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                                      evt.type === 'operacia' ? 'bg-purple-100 text-purple-900 border border-purple-200' :
+                                      evt.type === 'kontrola' ? 'bg-sky-600 text-white' :
+                                      evt.type === 'konzultacia' ? 'bg-amber-100 text-amber-900 border border-amber-200' :
+                                      'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                    }`}>
+                                      {evt.type === 'operacia' ? '🏥 Operácia' : evt.type === 'kontrola' ? '🩺 Poop. kontrola' : evt.type === 'konzultacia' ? '💬 Konzultácia' : '✨ Ošetrenie'}
+                                    </span>
+                                    <h5 className="font-bold text-sm text-[#2C2A29]">{evt.title}</h5>
+                                    {evt.isCancelled && (
+                                      <span className="text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold uppercase">
+                                        Zrušené ({evt.cancelReason || 'neuvedené'})
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <p className="text-xs text-[#8C857B]">
+                                    Lekár: <strong className="text-[#2C2A29]">{evt.assignedTo || evt.doctorName}</strong> • Miestnosť: <strong className="text-[#2C2A29]">{evt.roomId === 'sala_say' ? 'Sála SAY' : evt.roomId === 'ambulancia' ? 'Ambulancia' : evt.roomId}</strong>
+                                  </p>
+                                </div>
+
+                                <div className="text-right">
+                                  <div className="text-xs font-mono font-bold text-[#2C2A29] bg-black/5 px-2.5 py-1 rounded-lg">
+                                    📅 {new Date(evt.date).toLocaleDateString('sk-SK')} • {evt.isAllDay ? 'Celý deň' : `${evt.startTime} – ${evt.endTime}`}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* POOPERAČNÉ PODROBNOSTI: PO ČOM A KEDY BOLA OPERÁCIA */}
+                              {(evt.operationTitle || evt.operationDate) && (
+                                <div className="bg-sky-100/70 border border-sky-200 rounded-lg p-2.5 text-xs text-sky-950 space-y-1">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-1.5 font-bold">
+                                      <span>🔪 Pooperačná kontrola po:</span>
+                                      <strong className="text-sky-900">{evt.operationTitle || 'operačnom zákroku'}</strong>
+                                    </div>
+                                    {evt.operationDate && diff && (
+                                      <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded shadow-2xs">
+                                        Operácia: {evt.operationDate} ({diff.displayText})
+                                      </span>
+                                    )}
+                                  </div>
+                                  {evt.operationDoctor && (
+                                    <p className="text-[11px] text-sky-800">
+                                      Operatér: <strong>{evt.operationDoctor}</strong> {evt.controlInterval ? `• Odporúčaná fáza: ${evt.controlInterval}` : ''}
+                                    </p>
+                                  )}
+                                  {evt.operationNotes && (
+                                    <p className="text-[10px] text-sky-900 font-mono italic bg-white/70 p-1.5 rounded border border-sky-200/60 mt-1 line-clamp-2">
+                                      📝 {evt.operationNotes}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+
+                              {evt.notes && !evt.operationNotes && (
+                                <p className="text-xs text-[#6B6357] italic bg-[#FAF8F5] p-2 rounded-lg border border-[#E8E2D9]">
+                                  Poznámka: {evt.notes}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* ZÁLOŽKA PLÁN PACIENTA (ROČNÝ ESTETICKÝ & PRED/POOPERAČNÝ PLÁN) */}
+              {activeFolder === 'plany' && (
+                <div className="space-y-6">
+                  {(() => {
+                    const patientPlans = allPatientPlans[selectedPatient.id] || [];
+                    const currentActivePlan = patientPlans.find(p => p.id === selectedPlanId) || patientPlans[0];
+
+                    return (
+                      <div className="space-y-6">
+                        {/* HORNÁ LIŠTA: PREPÍNAČ MEDZI PLÁNMI + VYTVORENIE NOVÉHO */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#FBF9F6] rounded-2xl border border-[#E8E2D9]">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#8C857B] mr-1">
+                              Plány ({patientPlans.length}):
+                            </span>
+                            {patientPlans.map((pl) => {
+                              const isSel = currentActivePlan && currentActivePlan.id === pl.id;
+                              return (
+                                <button
+                                  key={pl.id}
+                                  onClick={() => setSelectedPlanId(pl.id)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                    isSel
+                                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                                      : 'bg-white border border-[#E8E2D9] text-[#6B6357] hover:border-[#C5A059]'
+                                  }`}
+                                >
+                                  <span>{pl.planType === 'pre_post_op' ? '🏥' : '✨'}</span>
+                                  <span className="truncate max-w-[220px]">{pl.title}</span>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${
+                                    isSel ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    {new Date(pl.createdAt).toLocaleDateString('sk-SK')}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <button
+                            onClick={() => setIsCreatingPlan(true)}
+                            className="px-3.5 py-1.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ml-auto"
+                          >
+                            <span>✨</span>
+                            <span>+ Nový plán pacienta</span>
+                          </button>
+                        </div>
+
+                        {/* OBSAH: DETAIL VYBRANÉHO PLÁNU ALEBO PRÁZDNA OBRAZOVKA */}
+                        {currentActivePlan ? (
+                          <PatientPlanViewer
+                            plan={currentActivePlan}
+                            onUpdatePlan={handleUpdatePlan}
+                            onScheduleTreatment={handleScheduleTreatmentFromPlan}
+                          />
+                        ) : (
+                          <div className="text-center py-16 px-4 bg-[#FBF9F6]/50 rounded-2xl border border-dashed border-[#E8E2D9] space-y-4">
+                            <div className="w-16 h-16 rounded-full bg-[#C5A059]/15 text-[#C5A059] flex items-center justify-center mx-auto text-2xl">
+                              ✨
+                            </div>
+                            <div className="max-w-md mx-auto">
+                              <h3 className="text-base font-bold text-[#2C2A29]">Žiaden plán pacienta</h3>
+                              <p className="text-xs text-[#8C857B] mt-1">
+                                Vytvorte personalizovaný ročný estetický plán (odporúčaná ranná a večerná kozmetika, procedúry a biostimulácie na 12 mesiacov) alebo kompletný plán pred a po operácii (príprava, režimové opatrenia, starostlivosť o jazvy, laser a microneedling).
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap justify-center gap-3 pt-2">
+                              <button
+                                onClick={() => setIsCreatingPlan(true)}
+                                className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                              >
+                                <span>✨</span>
+                                <span>Vytvoriť plán s AI asistentom</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1163,6 +1606,34 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
               </form>
             </div>
           </div>
+        )}
+
+        {/* MODAL PRE PLÁNOVANIE TERMÍNU / POOPERAČNEJ KONTROLY Z KARTY PACIENTA */}
+        {isSchedulingEvent && selectedPatient && (
+          <SchedulePatientEventModal
+            isOpen={isSchedulingEvent}
+            onClose={() => {
+              setIsSchedulingEvent(false);
+              setSchedulingSourceRecord(null);
+              setSchedulingInitialDetails(undefined);
+            }}
+            patient={selectedPatient}
+            sourceRecord={schedulingSourceRecord}
+            allRecords={patientRecords[selectedPatient.id] || []}
+            initialEventDetails={schedulingInitialDetails}
+            onSaveEvent={handleSaveCalendarEvent}
+            onNavigateToCalendar={onNavigateToCalendar}
+          />
+        )}
+
+        {/* MODAL PRE VYTVORENIE PLÁNU PACIENTA (AI & PRESETY) */}
+        {isCreatingPlan && selectedPatient && (
+          <CreatePatientPlanModal
+            isOpen={isCreatingPlan}
+            onClose={() => setIsCreatingPlan(false)}
+            patient={selectedPatient}
+            onSavePlan={handleSaveNewPlan}
+          />
         )}
       </div>
     </>

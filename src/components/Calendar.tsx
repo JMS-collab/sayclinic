@@ -19,7 +19,8 @@ import {
   ANESTHESIA_OPTIONS,
   CLINIC_STAY_OPTIONS,
   getAnesthesiaInfo,
-  getClinicStayInfo
+  getClinicStayInfo,
+  getPostOpTimeDiff
 } from '../data/calendarConfig';
 
 import EventFormModal from './calendar/EventFormModal';
@@ -772,7 +773,15 @@ export default function Calendar({
       notes: eventData.notes || '',
       totalPrice: Number(eventData.totalPrice) || 0,
       depositAmount: Number(eventData.depositAmount) || 0,
-      isDepositPaid: eventData.isDepositPaid || false
+      isDepositPaid: eventData.isDepositPaid || false,
+      // POOPERAČNÁ KONTROLA
+      operationTitle: eventData.operationTitle || '',
+      operationDate: eventData.operationDate || '',
+      operationRecordId: eventData.operationRecordId || '',
+      operationDoctor: eventData.operationDoctor || '',
+      operationNotes: eventData.operationNotes || '',
+      controlInterval: eventData.controlInterval || '',
+      patientId: eventData.patientId || ''
     };
 
     const updatedEvents = [created, ...calendarEvents];
@@ -1081,6 +1090,22 @@ export default function Calendar({
                     )}
                   </div>
                 </div>
+              ) : (evt.type === 'kontrola' || evt.operationTitle) ? (
+                <div className="space-y-0.5">
+                  <p className="text-[10px] text-[#2C2A29] truncate font-bold">
+                    👤 {evt.patientName || 'Bez mena'}
+                  </p>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-sky-100 text-sky-900 border border-sky-300 truncate max-w-[180px]" title={evt.operationTitle || 'Pooperačná kontrola'}>
+                      🔍 Po: {evt.operationTitle || 'operácii'}
+                    </span>
+                    {evt.operationDate && (
+                      <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-blue-600 text-white shadow-2xs">
+                        op. {evt.operationDate.split('-').reverse().slice(0, 2).join('.')}
+                      </span>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <p className="text-[10px] text-[#8C857B] truncate font-medium">
                   👤 {evt.patientName || 'Bez mena'} • 🩺 {evt.assignedTo || evt.doctorName}
@@ -1140,6 +1165,26 @@ export default function Calendar({
                         <span key={mat} className="px-1.5 py-0.2 bg-[#C5A059]/20 text-[#8C6B28] rounded text-[9px] font-semibold truncate max-w-[110px]">{mat}</span>
                       ))}
                     </div>
+                  )}
+                </div>
+              ) : (evt.type === 'kontrola' || evt.operationTitle) ? (
+                <div className="text-[10px] text-[#2C2A29] space-y-1 pt-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-950 border border-sky-300 flex items-center gap-1">
+                      <span>🔍 Pooperačná kontrola:</span>
+                      <strong>{evt.operationTitle || 'zákrok'}</strong>
+                    </span>
+                    {evt.operationDate && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-600 text-white shadow-2xs">
+                        📅 Op: {evt.operationDate} ({getPostOpTimeDiff(evt.operationDate, evt.date).badgeText})
+                      </span>
+                    )}
+                  </div>
+                  {evt.operationDoctor && (
+                    <p className="text-[#8C857B] truncate text-[9px]">
+                      Operatér: <strong className="text-[#2C2A29]">{evt.operationDoctor}</strong>
+                      {evt.controlInterval ? ` • Fáza: ${evt.controlInterval}` : ''}
+                    </p>
                   )}
                 </div>
               ) : evt.type !== 'volno' ? (

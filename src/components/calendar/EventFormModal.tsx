@@ -9,7 +9,10 @@ import {
   SURGERY_EQUIPMENT_OPTIONS, 
   SURGERY_MATERIAL_OPTIONS, 
   FREEFORM_PRESETS,
-  ClinicStayType
+  ClinicStayType,
+  POST_OP_CONTROL_PRESETS,
+  calculateTargetControlDate,
+  getPostOpTimeDiff
 } from '@/data/calendarConfig';
 
 interface EventFormModalProps {
@@ -61,10 +64,76 @@ export default function EventFormModal({
     depositAmount: 500,
     isDepositPaid: false,
     notes: '',
+    // POOPERAČNÁ KONTROLA
+    operationTitle: data.operationTitle || '',
+    operationDate: data.operationDate || '',
+    operationRecordId: data.operationRecordId || '',
+    operationDoctor: data.operationDoctor || 'MUDr. Ján Mráz',
+    operationNotes: data.operationNotes || '',
+    controlInterval: data.controlInterval || '',
     ...data
   });
 
   const [formData, setFormData] = useState<Partial<CalendarEvent>>(() => getInitialState(initialData));
+
+  // Funkcia na automatické načítanie operácie z dokumentov pacienta
+  const handleAutoLoadPostOpData = () => {
+    try {
+      const recordsRaw = localStorage.getItem('say_clinic_patient_records');
+      if (!recordsRaw) return;
+      const recordsMap = JSON.parse(recordsRaw);
+
+      let patientRecs: any[] = [];
+      if (formData.patientId && recordsMap[formData.patientId]) {
+        patientRecs = recordsMap[formData.patientId];
+      } else {
+        const patientsRaw = localStorage.getItem('say_clinic_patients');
+        if (patientsRaw) {
+          const patList = JSON.parse(patientsRaw);
+          const foundPat = patList.find((p: any) => 
+            p.name?.toLowerCase().includes((formData.patientName || '').toLowerCase()) ||
+            (formData.patientName || '').toLowerCase().includes(p.name?.toLowerCase())
+          );
+          if (foundPat && recordsMap[foundPat.id]) {
+            patientRecs = recordsMap[foundPat.id];
+          }
+        }
+      }
+
+      if (patientRecs && patientRecs.length > 0) {
+        const opRecord = patientRecs.find((r: any) => 
+          r.type?.toLowerCase().includes('opera') || 
+          r.type?.toLowerCase().includes('protokol') ||
+          r.title?.toLowerCase().includes('augmentác') ||
+          r.title?.toLowerCase().includes('lipo') ||
+          r.title?.toLowerCase().includes('blefaro') ||
+          r.title?.toLowerCase().includes('plastik')
+        ) || patientRecs[0];
+
+        if (opRecord) {
+          const opTitle = opRecord.title || 'Operačný zákrok';
+          const opDate = opRecord.date || new Date().toISOString().split('T')[0];
+          const opDoc = opRecord.doctor || 'MUDr. Ján Mráz';
+          const opNotes = opRecord.content || '';
+
+          setFormData(prev => ({
+            ...prev,
+            operationTitle: opTitle,
+            operationDate: opDate,
+            operationDoctor: opDoc,
+            operationNotes: opNotes,
+            operationRecordId: opRecord.id || '',
+            controlInterval: prev.controlInterval || '1. pooperačná kontrola / preväz',
+            title: (!prev.title || prev.title === 'Kontrola' || prev.title.startsWith('Pooperačná')) 
+              ? `Pooperačná kontrola — ${opTitle} (op. ${opDate})` 
+              : prev.title
+          }));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load patient records', e);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -449,7 +518,161 @@ export default function EventFormModal({
             </div>
           )}
 
-          {/* 5. OPERAČNÝ DEŇ: OPERAČNÝ TÍM, ŠPECIÁLNE VYBAVENIE & POTREBNÝ MATERIÁL */}
+          {/* 5. POOPERAČNÁ KONTROLA: PREPOJENIE NA PREDCHÁDZAJÚCU OPERÁCIU A INTERVÁLY */}
+          {formData.type === 'kontrola' && (
+            <div className="bg-sky-50/90 p-4 rounded-xl border border-sky-200 space-y-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200 pb-2.5">
+                <div>
+                  <h4 className="text-[11px] uppercase font-bold text-sky-950 flex items-center gap-1.5">
+                    <span>🩺</span> Pooperačná kontrola — Údaje o predchádzajúcej operácii
+                  </h4>
+                  <p className="text-[10px] text-sky-700 font-medium">
+                    Informácia po akej operácii a kedy bol zákrok vykonaný
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAutoLoadPostOpData}
+                  className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+                  title="Vyhľadá a natiahne posledný operačný protokol pacienta z kartotéky"
+                >
+                  <span>⚡</span> Načítať z dokumentov pacienta
+                </button>
+              </div>
+
+              {/* RÝCHLE INTERVALY KONTROLY OD DÁTUMU OPERÁCIE */}
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-sky-900 mb-1.5 flex items-center justify-between">
+                  <span>Rýchly výber termínu kontroly (od dátumu operácie):</span>
+                  {formData.operationDate && (
+                    <span className="text-[9px] text-sky-700 lowercase font-medium">
+                      operácia: {formData.operationDate}
+                    </span>
+                  )}
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {POST_OP_CONTROL_PRESETS.map(preset => {
+                    const isSelected = formData.controlInterval === preset.label;
+                    const calculatedDate = formData.operationDate 
+                      ? calculateTargetControlDate(formData.operationDate, preset.daysOffset) 
+                      : null;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          const updates: Partial<CalendarEvent> = {
+                            controlInterval: preset.label
+                          };
+                          if (formData.operationDate) {
+                            updates.date = calculateTargetControlDate(formData.operationDate, preset.daysOffset);
+                          }
+                          setFormData(prev => ({ ...prev, ...updates }));
+                        }}
+                        className={`p-2 rounded-lg text-[10px] text-left transition-all border ${
+                          isSelected 
+                            ? 'bg-sky-700 text-white border-sky-700 shadow-2xs font-bold' 
+                            : 'bg-white text-sky-950 border-sky-200 hover:bg-sky-100/70 font-semibold'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{preset.shortLabel}</span>
+                          {calculatedDate && (
+                            <span className={`text-[9px] ${isSelected ? 'text-sky-200' : 'text-sky-600 font-bold'}`}>
+                              {calculatedDate.split('-').reverse().slice(0, 2).join('.')}
+                            </span>
+                          )}
+                        </div>
+                        <div className={`text-[8.5px] mt-0.5 truncate ${isSelected ? 'text-sky-100' : 'text-[#8C857B]'}`}>
+                          {preset.description}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ZÁKLADNÉ POLIA: PO ČOM A KEDY BOLA OPERÁCIA */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] uppercase font-bold text-sky-900 mb-1">
+                    Po akej operácii / Druh zákroku *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="napr. Augmentácia prsníkov, Blefaroplastika, VASER Liposukcia..."
+                    value={formData.operationTitle || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, operationTitle: e.target.value }))}
+                    className="w-full border border-sky-300 p-2 rounded-lg bg-white text-xs font-bold text-sky-950 focus:outline-sky-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-sky-900 mb-1">
+                    Dátum operácie *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.operationDate || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, operationDate: e.target.value }))}
+                    className="w-full border border-sky-300 p-2 rounded-lg bg-white text-xs font-semibold text-sky-950 focus:outline-sky-500"
+                  />
+                </div>
+              </div>
+
+              {/* OPERATÉR A ODSTUP */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-sky-900 mb-1">
+                    Operatér predchádzajúceho zákroku
+                  </label>
+                  <select
+                    value={formData.operationDoctor || 'MUDr. Ján Mráz'}
+                    onChange={e => setFormData(prev => ({ ...prev, operationDoctor: e.target.value }))}
+                    className="w-full border border-sky-300 p-2 rounded-lg bg-white text-xs font-semibold text-sky-950 focus:outline-sky-500"
+                  >
+                    {CLINIC_STAFF.map(st => (
+                      <option key={st.id} value={st.name}>
+                        {st.name} ({st.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-sky-900 mb-1">
+                    Časový odstup od operácie k tomuto termínu
+                  </label>
+                  <div className="p-2 rounded-lg bg-white border border-sky-200 text-xs font-bold text-blue-700 flex items-center gap-1.5 h-[38px]">
+                    {(() => {
+                      if (!formData.operationDate) return <span className="text-gray-400 font-normal">Zadajte dátum operácie</span>;
+                      const diff = getPostOpTimeDiff(formData.operationDate, formData.date);
+                      return (
+                        <>
+                          <span>⏱️</span>
+                          <span>{diff.displayText}</span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* ŠPECIFIKÁ, IMPLANTÁTY A MATERIÁLY Z OPERÁCIE */}
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-sky-900 mb-1">
+                  Použité implantáty, materiál & pooperačné poznámky z protokolu
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="napr. Motiva Ergonomix 320cc pod sval, kompresná podprsenka Lipoelastic, vstrebateľné stehy Monocryl..."
+                  value={formData.operationNotes || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, operationNotes: e.target.value }))}
+                  className="w-full border border-sky-300 p-2 rounded-lg bg-white text-xs font-medium text-[#2C2A29] focus:outline-sky-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 6. OPERAČNÝ DEŇ: OPERAČNÝ TÍM, ŠPECIÁLNE VYBAVENIE & POTREBNÝ MATERIÁL */}
           {formData.type === 'operacia' && (
             <div className="bg-[#FAF7F2] p-4 rounded-xl border border-[#E0D8C8] space-y-3.5">
               <div className="flex items-center justify-between border-b border-[#E0D8C8] pb-2">

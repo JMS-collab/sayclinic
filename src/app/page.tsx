@@ -601,6 +601,9 @@ export default function Home() {
                 }}
                 initialPatient={selectedPatientForFolder}
                 onPatientsUpdated={(updatedList) => setPatients(updatedList)}
+                calendarEvents={calendarEvents}
+                onAddCalendarEvent={handleAddCalendarEvent}
+                onNavigateToCalendar={() => changeTab('calendar')}
               />
             )}
 
