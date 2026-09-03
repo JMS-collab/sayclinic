@@ -18,12 +18,14 @@ import {
   CircleDot,
   GripHorizontal,
   Minimize2,
-  Maximize,
   Pin,
   PinOff,
   RotateCcw,
   Syringe,
-  X
+  X,
+  Package,
+  Palette,
+  Layers
 } from 'lucide-react';
 
 import femaleBustFront from '../assets/images/sculpture_front_perfect_1788381191502.jpg';
@@ -32,6 +34,118 @@ import femaleBustOblique from '../assets/images/sculpture_oblique_perfect_178838
 
 export type SculptureViewType = 'front' | 'profile_left' | 'profile_right' | 'three_quarter_left' | 'three_quarter_right';
 export type DrawingToolType = 'select' | 'move' | 'vector' | 'fanning' | 'point' | 'freehand' | 'threads';
+
+export interface AestheticProductDef {
+  name: string;
+  shortName: string;
+  type: string;
+  lot: string;
+  color: string;
+  defaultUnit: string;
+  defaultUnits: number;
+}
+
+export const AESTHETIC_PRODUCTS: AestheticProductDef[] = [
+  {
+    name: 'Radiesse (+) 1.5ml (CaHA Vektoring & Lifting)',
+    shortName: 'Radiesse (+) 1.5ml',
+    type: 'biostimulator',
+    lot: 'RAD-150-332',
+    color: '#D97706',
+    defaultUnit: 'ml',
+    defaultUnits: 0.3
+  },
+  {
+    name: 'Sculptra 10ml (PLLA Neokolagenéza)',
+    shortName: 'Sculptra 10ml',
+    type: 'biostimulator',
+    lot: 'SCL-2026-881A',
+    color: '#C5A059',
+    defaultUnit: 'ml',
+    defaultUnits: 0.5
+  },
+  {
+    name: 'Restylane Kysse 1ml (Pery & Periorál)',
+    shortName: 'Restylane Kysse 1ml',
+    type: 'filler',
+    lot: 'RST-KYS-993A',
+    color: '#EC4899',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1
+  },
+  {
+    name: 'Juvederm Voluma 1ml (Zygoma & Brada)',
+    shortName: 'Juvederm Voluma 1ml',
+    type: 'filler',
+    lot: 'JUV-VOL-8812',
+    color: '#EC4899',
+    defaultUnit: 'ml',
+    defaultUnits: 0.2
+  },
+  {
+    name: 'Juvederm Volift 1ml (Nasolabiál & Vrásky)',
+    shortName: 'Juvederm Volift 1ml',
+    type: 'filler',
+    lot: 'JUV-VFT-1102',
+    color: '#EC4899',
+    defaultUnit: 'ml',
+    defaultUnits: 0.2
+  },
+  {
+    name: 'Profhilo H+L 2ml (Bioremodelácia BAP)',
+    shortName: 'Profhilo H+L 2ml',
+    type: 'meso',
+    lot: 'PRO-2ML-881',
+    color: '#10B981',
+    defaultUnit: 'ml',
+    defaultUnits: 0.2
+  },
+  {
+    name: 'Dysport 300IU (Botulotoxín A)',
+    shortName: 'Dysport 300IU',
+    type: 'botox',
+    lot: 'DYSP-4412B',
+    color: '#3B82F6',
+    defaultUnit: 'Speywood',
+    defaultUnits: 10
+  },
+  {
+    name: 'Alluzience 200U (Ready-to-use neurotoxín)',
+    shortName: 'Alluzience 200U',
+    type: 'botox',
+    lot: 'ALL-2026-771',
+    color: '#3B82F6',
+    defaultUnit: 'Speywood',
+    defaultUnits: 10
+  },
+  {
+    name: 'Botox / Vistabel 50-100U',
+    shortName: 'Botox / Vistabel',
+    type: 'botox',
+    lot: 'BTX-2026-091',
+    color: '#3B82F6',
+    defaultUnit: 'IU',
+    defaultUnits: 4
+  },
+  {
+    name: 'Aptos / Nite (Liftingové mezonite)',
+    shortName: 'Aptos / Nite',
+    type: 'threads',
+    lot: 'APT-2026-551',
+    color: '#8B5CF6',
+    defaultUnit: 'nití',
+    defaultUnits: 2
+  },
+  {
+    name: 'Chirurgický marker / Voľný nákres',
+    shortName: 'Marker',
+    type: 'freehand',
+    lot: 'CH-MARK-01',
+    color: '#2C2A29',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1
+  }
+];
 
 export interface Point2D {
   x: number;
@@ -252,16 +366,43 @@ export function Sculpture2DViewer({
   const [draggedPoint, setDraggedPoint] = useState<DraggedPointState | null>(null);
   const draggedPointRef = useRef<DraggedPointState | null>(null);
 
-  // QUICK UNITS CONTEXT MENU (RIGHT CLICK)
+  // QUICK UNITS & PRODUCT CONTEXT MENU (RIGHT CLICK)
   interface UnitsPopoverState {
     vectorId: string;
     x: number;
     y: number;
     units: number;
     unitType: string;
+    productName: string;
+    lotNumber: string;
+    color: string;
     note: string;
   }
   const [unitsPopover, setUnitsPopover] = useState<UnitsPopoverState | null>(null);
+
+  // MOUSE WHEEL ZOOM (PRI PRECHODE MYŠOU NAD OBRAZOM SOCHY)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Zabránenie posunu stránky prehliadača pri rolovaní myšou nad plátnom sochy
+      e.preventDefault();
+
+      // deltaY < 0 = otočenie kolieska hore (zoom in), deltaY > 0 = otočenie dole (zoom out)
+      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+
+      setZoomLevel(prev => {
+        const next = Math.max(0.6, Math.min(3.5, Math.round(prev * zoomFactor * 100) / 100));
+        return next;
+      });
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   // TOAST FEEDBACK
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -342,7 +483,7 @@ export function Sculpture2DViewer({
     }
   };
 
-  // Right click context menu on point or vector
+  // Right click context menu on point, cannula vector, or fanning
   const handlePointContextMenu = (e: React.MouseEvent, vec: Vector2DItem) => {
     e.preventDefault();
     e.stopPropagation();
@@ -353,40 +494,47 @@ export function Sculpture2DViewer({
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
 
-      const popWidth = 280;
-      const popHeight = 360;
-      const posX = Math.min(Math.max(12, clickX - 140), rect.width - popWidth - 12);
-      const posY = Math.min(Math.max(12, clickY - 20), rect.height - popHeight - 12);
+      const popWidth = 320;
+      const popHeight = 460;
+      const posX = Math.max(8, Math.min(rect.width - popWidth - 8, clickX - 160));
+      const posY = Math.max(8, Math.min(rect.height - popHeight - 8, clickY - 20));
 
       let initialUnits = vec.units;
       let initialUnitType = vec.unitsUnit;
 
       if (initialUnits === undefined || initialUnits === null) {
-        const match = vec.details?.match(/([0-9]+(?:\.[0-9]+)?)\s*(Speywood|IU|U|ml)/i);
+        const match = vec.details?.match(/([0-9]+(?:\.[0-9]+)?)\s*(Speywood|IU|U|ml|nití)/i);
         if (match) {
           initialUnits = parseFloat(match[1]);
           initialUnitType = match[2];
         } else {
           const isDysport = vec.productName.toLowerCase().includes('dysport');
           const isBotox = vec.productName.toLowerCase().includes('botox') || vec.productName.toLowerCase().includes('alluzience');
-          const isFiller = vec.productName.toLowerCase().includes('kysse') || vec.productName.toLowerCase().includes('restylane') || vec.productName.toLowerCase().includes('radiesse') || vec.productName.toLowerCase().includes('juvederm');
+          const isThreads = vec.type === 'threads' || vec.productName.toLowerCase().includes('nite') || vec.productName.toLowerCase().includes('aptos');
+          const isFanning = vec.type === 'fanning';
+          
           if (isDysport) {
             initialUnits = 10;
             initialUnitType = 'Speywood';
           } else if (isBotox) {
             initialUnits = 4;
             initialUnitType = 'IU';
-          } else if (isFiller) {
-            initialUnits = 0.1;
+          } else if (isThreads) {
+            initialUnits = 2;
+            initialUnitType = 'nití';
+          } else if (isFanning) {
+            initialUnits = 0.5;
             initialUnitType = 'ml';
           } else {
-            initialUnits = 2;
-            initialUnitType = 'U';
+            initialUnits = vec.type === 'vector' ? 0.3 : 0.1;
+            initialUnitType = 'ml';
           }
         }
       }
 
-      if (!initialUnitType) initialUnitType = 'U';
+      if (!initialUnitType) {
+        initialUnitType = (vec.type === 'point' && vec.productName.toLowerCase().includes('dysport')) ? 'Speywood' : 'ml';
+      }
 
       setUnitsPopover({
         vectorId: vec.id,
@@ -394,6 +542,9 @@ export function Sculpture2DViewer({
         y: posY,
         units: initialUnits,
         unitType: initialUnitType,
+        productName: vec.productName || currentProduct.name,
+        lotNumber: vec.lotNumber || currentProduct.lot,
+        color: vec.color,
         note: vec.details || ''
       });
     }
@@ -1060,52 +1211,84 @@ export function Sculpture2DViewer({
               transform: `translate3d(${toolPos.x}px, ${toolPos.y}px, 0)`,
               touchAction: 'none'
             }}
-            className={`absolute top-0 left-0 z-30 flex flex-col bg-white/95 backdrop-blur-md rounded-2xl border border-white/90 shadow-xl transition-shadow duration-150 ${
+            className={`absolute top-0 left-0 z-30 transition-shadow duration-150 ${
               isDraggingTools ? 'ring-2 ring-[#C5A059] shadow-2xl scale-[1.02]' : 'hover:shadow-2xl'
             }`}
           >
-            {/* DRAG HEADER / GRIP HANDLE */}
-            <div 
-              onPointerDown={handleToolDragStart}
-              onPointerMove={handleToolDragMove}
-              onPointerUp={handleToolDragEnd}
-              onPointerCancel={handleToolDragEnd}
-              className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] text-white rounded-t-2xl cursor-grab active:cursor-grabbing select-none"
-              title="Podržte a potiahnite pre presun okna kdekoľvek po obrazovke"
-            >
-              <div className="flex items-center gap-1 text-[10px] font-bold tracking-wider text-[#F5E4B8]">
-                <GripHorizontal className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>NÁSTROJE</span>
-              </div>
-              <div className="flex items-center gap-1">
+            {toolsMinimized ? (
+              <div 
+                onPointerDown={handleToolDragStart}
+                onPointerMove={handleToolDragMove}
+                onPointerUp={handleToolDragEnd}
+                onPointerCancel={handleToolDragEnd}
+                onClick={() => setToolsMinimized(false)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] text-white rounded-2xl cursor-pointer hover:ring-2 hover:ring-[#C5A059]/80 shadow-xl select-none group"
+                title="Kliknutím rozbalíte Nástroje (alebo potiahnite pre presun)"
+              >
+                <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-[#F5E4B8]">
+                  <PenTool className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>NÁSTROJE</span>
+                </div>
+                <div className="w-2.5 h-2.5 rounded-full border border-white/40 shadow-xs" style={{ backgroundColor: activeColor }} />
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setToolsMinimized(!toolsMinimized);
+                    setToolsMinimized(false);
                   }}
-                  className="p-0.5 hover:bg-white/20 rounded text-gray-300 hover:text-white cursor-pointer"
-                  title={toolsMinimized ? "Rozbaliť panel" : "Minimalizovať"}
+                  className="p-1 hover:bg-white/20 rounded-lg text-gray-300 hover:text-white cursor-pointer ml-0.5"
+                  title="Rozbaliť panel nástrojov"
                 >
-                  {toolsMinimized ? <Maximize className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsDocked(true);
-                  }}
-                  className="p-0.5 hover:bg-white/20 rounded text-gray-300 hover:text-white cursor-pointer"
-                  title="Ukotviť na lištu hore"
-                >
-                  <Pin className="w-3 h-3 text-[#C5A059]" />
+                  <Maximize2 className="w-3 h-3 text-[#C5A059]" />
                 </button>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col bg-white/95 backdrop-blur-md rounded-2xl border border-white/90 shadow-xl">
+                {/* DRAG HEADER / GRIP HANDLE */}
+                <div 
+                  onPointerDown={handleToolDragStart}
+                  onPointerMove={handleToolDragMove}
+                  onPointerUp={handleToolDragEnd}
+                  onPointerCancel={handleToolDragEnd}
+                  className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] text-white rounded-t-2xl cursor-grab active:cursor-grabbing select-none"
+                  title="Podržte a potiahnite pre presun okna kdekoľvek po obrazovke"
+                >
+                  <div 
+                    onClick={() => setToolsMinimized(true)}
+                    className="flex items-center gap-1 text-[10px] font-bold tracking-wider text-[#F5E4B8] cursor-pointer hover:text-white"
+                    title="Kliknutím minimalizujete panel"
+                  >
+                    <GripHorizontal className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>NÁSTROJE</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setToolsMinimized(true);
+                      }}
+                      className="p-1 hover:bg-white/20 rounded text-gray-300 hover:text-white cursor-pointer"
+                      title="Minimalizovať panel nástrojov"
+                    >
+                      <Minimize2 className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsDocked(true);
+                      }}
+                      className="p-1 hover:bg-white/20 rounded text-gray-300 hover:text-white cursor-pointer"
+                      title="Ukotviť na lištu hore"
+                    >
+                      <Pin className="w-3 h-3 text-[#C5A059]" />
+                    </button>
+                  </div>
+                </div>
 
-            {/* BODY PANELA (ROZBALENÝ) */}
-            {!toolsMinimized && (
-              <div className="p-2 flex flex-col gap-1.5 max-w-[170px]">
+                {/* BODY PANELA (ROZBALENÝ) */}
+                <div className="p-2 flex flex-col gap-1.5 max-w-[170px]">
                 {/* POSUN / RUKA (PAN) */}
                 <button
                   type="button"
@@ -1270,79 +1453,112 @@ export function Sculpture2DViewer({
                   </button>
                 </div>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* DRAGGABLE FLOATING ZOOM & VIEW CONTROLS (KEĎ NIE JE DOCKED) */}
+      {/* DRAGGABLE FLOATING ZOOM & VIEW CONTROLS (KEĎ NIE JE DOCKED) */}
         {!isDocked && (
           <div 
             style={{
               transform: `translate3d(${zoomPos.x}px, ${zoomPos.y}px, 0)`,
               touchAction: 'none'
             }}
-            className={`absolute top-0 left-0 z-30 flex flex-col bg-white/95 backdrop-blur-md rounded-2xl border border-white/90 shadow-xl transition-shadow duration-150 ${
+            className={`absolute top-0 left-0 z-30 transition-shadow duration-150 ${
               isDraggingZoom ? 'ring-2 ring-[#C5A059] shadow-2xl scale-[1.02]' : 'hover:shadow-2xl'
             }`}
           >
-            {/* DRAG HEADER */}
-            <div 
-              onPointerDown={handleZoomDragStart}
-              onPointerMove={handleZoomDragMove}
-              onPointerUp={handleZoomDragEnd}
-              onPointerCancel={handleZoomDragEnd}
-              className="flex items-center justify-between gap-1.5 px-2 py-1 bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] text-white rounded-t-2xl cursor-grab active:cursor-grabbing select-none"
-              title="Podržte a potiahnite pre presun"
-            >
-              <div className="flex items-center gap-1 text-[10px] font-bold tracking-wider text-[#F5E4B8]">
-                <GripHorizontal className="w-3 h-3 text-[#C5A059]" />
-                <span>ZOOM</span>
-              </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setZoomMinimized(!zoomMinimized);
-                }}
-                className="p-0.5 hover:bg-white/20 rounded text-gray-300 hover:text-white cursor-pointer"
-                title={zoomMinimized ? "Rozbaliť lupu" : "Minimalizovať"}
+            {zoomMinimized ? (
+              <div 
+                onPointerDown={handleZoomDragStart}
+                onPointerMove={handleZoomDragMove}
+                onPointerUp={handleZoomDragEnd}
+                onPointerCancel={handleZoomDragEnd}
+                onClick={() => setZoomMinimized(false)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] text-white rounded-2xl cursor-pointer hover:ring-2 hover:ring-[#C5A059]/80 shadow-xl select-none group"
+                title="Kliknutím rozbalíte Zoom (alebo potiahnite pre presun)"
               >
-                {zoomMinimized ? <Maximize className="w-2.5 h-2.5" /> : <Minimize2 className="w-2.5 h-2.5" />}
-              </button>
-            </div>
-
-            {!zoomMinimized && (
-              <div className="p-1.5 flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.25))}
-                  className="p-1 rounded-lg hover:bg-[#FAF8F5] text-[#2C2A29] cursor-pointer"
-                  title="Priblížiť"
-                >
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-                <span className="text-[10px] font-mono font-bold text-[#8C857B] w-8 text-center">
+                <ZoomIn className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span className="text-[11px] font-mono font-bold text-[#F5E4B8]">
                   {Math.round(zoomLevel * 100)}%
                 </span>
                 <button
                   type="button"
-                  onClick={() => setZoomLevel(prev => Math.max(0.75, prev - 0.25))}
-                  className="p-1 rounded-lg hover:bg-[#FAF8F5] text-[#2C2A29] cursor-pointer"
-                  title="Oddialiť"
-                >
-                  <ZoomOut className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setZoomLevel(1);
-                    setPanOffset({ x: 0, y: 0 });
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setZoomMinimized(false);
                   }}
-                  className="p-1 rounded-lg hover:bg-[#FAF8F5] text-[#C5A059] cursor-pointer"
-                  title="Resetovať mierku a centrovať"
+                  className="p-1 hover:bg-white/20 rounded-lg text-gray-300 hover:text-white cursor-pointer ml-0.5"
+                  title="Rozbaliť lupu"
                 >
-                  <Maximize2 className="w-3.5 h-3.5" />
+                  <Maximize2 className="w-3 h-3 text-[#C5A059]" />
                 </button>
+              </div>
+            ) : (
+              <div className="flex flex-col bg-white/95 backdrop-blur-md rounded-2xl border border-white/90 shadow-xl">
+                {/* DRAG HEADER */}
+                <div 
+                  onPointerDown={handleZoomDragStart}
+                  onPointerMove={handleZoomDragMove}
+                  onPointerUp={handleZoomDragEnd}
+                  onPointerCancel={handleZoomDragEnd}
+                  className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] text-white rounded-t-2xl cursor-grab active:cursor-grabbing select-none"
+                  title="Podržte a potiahnite pre presun"
+                >
+                  <div 
+                    onClick={() => setZoomMinimized(true)}
+                    className="flex items-center gap-1 text-[10px] font-bold tracking-wider text-[#F5E4B8] cursor-pointer hover:text-white"
+                    title="Kliknutím minimalizujete lupu"
+                  >
+                    <GripHorizontal className="w-3 h-3 text-[#C5A059]" />
+                    <span>ZOOM</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setZoomMinimized(true);
+                    }}
+                    className="p-1 hover:bg-white/20 rounded text-gray-300 hover:text-white cursor-pointer"
+                    title="Minimalizovať lupu"
+                  >
+                    <Minimize2 className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="p-1.5 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.25))}
+                    className="p-1 rounded-lg hover:bg-[#FAF8F5] text-[#2C2A29] cursor-pointer"
+                    title="Priblížiť"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[10px] font-mono font-bold text-[#8C857B] w-8 text-center">
+                    {Math.round(zoomLevel * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(prev => Math.max(0.75, prev - 0.25))}
+                    className="p-1 rounded-lg hover:bg-[#FAF8F5] text-[#2C2A29] cursor-pointer"
+                    title="Oddialiť"
+                  >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZoomLevel(1);
+                      setPanOffset({ x: 0, y: 0 });
+                    }}
+                    className="p-1 rounded-lg hover:bg-[#FAF8F5] text-[#C5A059] cursor-pointer"
+                    title="Resetovať mierku a centrovať"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1371,15 +1587,38 @@ export function Sculpture2DViewer({
           </div>
         )}
 
-        {/* QUICK UNITS / DÁVKOVANIE POPUP (PRAVÝ KLIK NA BOD) */}
+        {/* QUICK UNITS, PRODUCT & DÁVKOVANIE POPUP (PRAVÝ KLIK NA BOD, VEKTOR ALEBO VEJÁR) */}
         {unitsPopover && (() => {
           const popoverVector = vectors.find(v => v.id === unitsPopover.vectorId);
           if (!popoverVector) return null;
 
+          const isVector = popoverVector.type === 'vector';
+          const isFanning = popoverVector.type === 'fanning';
+          const isThreads = popoverVector.type === 'threads';
+
+          const typeTitle = isVector 
+            ? 'Kanylový vektor' 
+            : isFanning 
+            ? 'Vejárovitá aplikácia (Fanning)' 
+            : isThreads 
+            ? 'Liftingové mezonite' 
+            : 'Aplikačný bod (Mikrovpich)';
+
+          // Paleta farieb pre rýchlu zmenu farby vektora/bodu
+          const paletteColors = [
+            { color: '#D97706', name: 'Jantár (Radiesse)' },
+            { color: '#C5A059', name: 'Zlato (Sculptra)' },
+            { color: '#EC4899', name: 'Ružová (Restylane / Kysse)' },
+            { color: '#10B981', name: 'Zelená (Profhilo)' },
+            { color: '#3B82F6', name: 'Modrá (Dysport / Botox)' },
+            { color: '#8B5CF6', name: 'Fialová (Mezonite)' },
+            { color: '#2C2A29', name: 'Marker (Čierna)' }
+          ];
+
           return (
             <div
               style={{ left: unitsPopover.x, top: unitsPopover.y }}
-              className="absolute z-50 w-72 bg-white/95 backdrop-blur-2xl rounded-3xl border border-[#C5A059]/40 shadow-2xl p-4 space-y-3.5 animate-in zoom-in-95 duration-150 text-[#2C2A29]"
+              className="absolute z-50 w-80 max-h-[90%] overflow-y-auto bg-white/95 backdrop-blur-2xl rounded-3xl border border-[#C5A059]/40 shadow-2xl p-4 space-y-3 animate-in zoom-in-95 duration-150 text-[#2C2A29]"
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
               onContextMenu={(e) => e.preventDefault()}
@@ -1387,13 +1626,26 @@ export function Sculpture2DViewer({
               {/* Header */}
               <div className="flex items-start justify-between pb-2.5 border-b border-[#E8E2D9]">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] text-[#C5A059]">
-                    <Syringe className="w-4 h-4" />
+                  <div 
+                    className="p-1.5 rounded-xl border flex items-center justify-center text-white shadow-xs"
+                    style={{ backgroundColor: unitsPopover.color || popoverVector.color }}
+                  >
+                    {isVector ? (
+                      <MoveUpRight className="w-4 h-4" />
+                    ) : isFanning ? (
+                      <Sparkles className="w-4 h-4" />
+                    ) : isThreads ? (
+                      <Layers className="w-4 h-4" />
+                    ) : (
+                      <Syringe className="w-4 h-4" />
+                    )}
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-[#2C2A29] leading-tight">Počet jednotiek / Dávka</h4>
-                    <p className="text-[10px] text-[#8C857B] line-clamp-1 max-w-[170px]">
-                      {popoverVector.zoneName || popoverVector.productName}
+                    <h4 className="text-xs font-bold text-[#2C2A29] leading-tight flex items-center gap-1.5">
+                      <span>{typeTitle}</span>
+                    </h4>
+                    <p className="text-[11px] font-semibold text-[#C5A059] line-clamp-1 max-w-[190px]">
+                      {popoverVector.zoneName || 'Anatomická oblasť'}
                     </p>
                   </div>
                 </div>
@@ -1406,19 +1658,94 @@ export function Sculpture2DViewer({
                 </button>
               </div>
 
-              {/* Rýchle predvoľby dávky */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[10px] font-bold text-[#8C857B] uppercase tracking-wider">
-                    Rýchla predvoľba:
+              {/* 1. VÝBER PRODUKTU (PRESET ALEBO VLASTNÝ) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-[#8C857B] uppercase tracking-wider flex items-center gap-1">
+                    <Package className="w-3 h-3 text-[#C5A059]" />
+                    <span>Produkt:</span>
                   </label>
-                  <span className="text-[10px] text-[#C5A059] font-medium">
-                    {unitsPopover.unitType}
+                  {unitsPopover.lotNumber && (
+                    <span className="text-[9.5px] font-mono text-[#8C857B] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">
+                      LOT: {unitsPopover.lotNumber}
+                    </span>
+                  )}
+                </div>
+
+                <select
+                  value={unitsPopover.productName}
+                  onChange={(e) => {
+                    const selName = e.target.value;
+                    const matched = AESTHETIC_PRODUCTS.find(p => p.name === selName || p.shortName === selName);
+                    if (matched) {
+                      setUnitsPopover(prev => prev ? {
+                        ...prev,
+                        productName: matched.name,
+                        lotNumber: matched.lot,
+                        unitType: matched.defaultUnit,
+                        units: matched.defaultUnits,
+                        color: matched.color
+                      } : null);
+                    } else {
+                      setUnitsPopover(prev => prev ? { ...prev, productName: selName } : null);
+                    }
+                  }}
+                  className="w-full py-1.5 px-2.5 rounded-xl border border-[#E8E2D9] bg-white text-xs font-semibold text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059] cursor-pointer shadow-2xs"
+                >
+                  {AESTHETIC_PRODUCTS.map((prod) => (
+                    <option key={prod.name} value={prod.name}>
+                      {prod.name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Rýchle čipy najčastejších produktov */}
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {AESTHETIC_PRODUCTS.slice(0, 6).map((p) => {
+                    const isSelectedProd = unitsPopover.productName.includes(p.shortName) || unitsPopover.productName === p.name;
+                    return (
+                      <button
+                        key={p.shortName}
+                        type="button"
+                        onClick={() => {
+                          setUnitsPopover(prev => prev ? {
+                            ...prev,
+                            productName: p.name,
+                            lotNumber: p.lot,
+                            unitType: p.defaultUnit,
+                            units: p.defaultUnits,
+                            color: p.color
+                          } : null);
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all border cursor-pointer ${
+                          isSelectedProd
+                            ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-xs'
+                            : 'bg-[#FAF8F5] text-[#8C857B] border-[#E8E2D9] hover:border-[#C5A059] hover:text-[#2C2A29]'
+                        }`}
+                      >
+                        {p.shortName.split(' ')[0]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. OBJEM & DÁVKA */}
+              <div className="space-y-1.5 pt-1 border-t border-[#E8E2D9]">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-[#8C857B] uppercase tracking-wider flex items-center gap-1">
+                    <Syringe className="w-3 h-3 text-[#3B82F6]" />
+                    <span>Objem / Dávka:</span>
+                  </label>
+                  <span className="text-[10px] text-[#C5A059] font-bold">
+                    {unitsPopover.units} {unitsPopover.unitType}
                   </span>
                 </div>
+
+                {/* Rýchle predvoľby dávky podľa jednotky */}
                 {unitsPopover.unitType === 'ml' ? (
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[0.025, 0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 1.0].map((val) => (
+                  <div className="grid grid-cols-4 gap-1">
+                    {[0.05, 0.1, 0.2, 0.25, 0.3, 0.5, 0.75, 1.0].map((val) => (
                       <button
                         key={val}
                         type="button"
@@ -1429,13 +1756,13 @@ export function Sculpture2DViewer({
                             : 'bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
                         }`}
                       >
-                        {val}
+                        {val} ml
                       </button>
                     ))}
                   </div>
                 ) : unitsPopover.unitType === 'Speywood' ? (
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[2.5, 5, 8, 10, 15, 20, 25, 30].map((val) => (
+                  <div className="grid grid-cols-4 gap-1">
+                    {[5, 10, 15, 20, 25, 30, 40, 50].map((val) => (
                       <button
                         key={val}
                         type="button"
@@ -1450,8 +1777,25 @@ export function Sculpture2DViewer({
                       </button>
                     ))}
                   </div>
+                ) : unitsPopover.unitType === 'nití' ? (
+                  <div className="grid grid-cols-4 gap-1">
+                    {[1, 2, 3, 4, 6, 8, 10, 12].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setUnitsPopover(prev => prev ? { ...prev, units: val } : null)}
+                        className={`py-1 px-1 rounded-xl text-[11px] font-bold transition-all border cursor-pointer ${
+                          unitsPopover.units === val
+                            ? 'bg-[#C5A059] text-white border-[#C5A059] shadow-xs'
+                            : 'bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                        }`}
+                      >
+                        {val} nití
+                      </button>
+                    ))}
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-4 gap-1">
                     {[1, 2, 3, 4, 5, 8, 10, 15].map((val) => (
                       <button
                         key={val}
@@ -1468,14 +1812,9 @@ export function Sculpture2DViewer({
                     ))}
                   </div>
                 )}
-              </div>
 
-              {/* Krokovanie hodnoty a výber jednotky */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-[#8C857B] uppercase tracking-wider block">
-                  Vlastná hodnota & Jednotka:
-                </label>
-                <div className="flex items-center gap-1.5">
+                {/* Krokovanie hodnoty a výber jednotky */}
+                <div className="flex items-center gap-1.5 pt-1">
                   <button
                     type="button"
                     onClick={() => {
@@ -1484,6 +1823,7 @@ export function Sculpture2DViewer({
                       setUnitsPopover(prev => prev ? { ...prev, units: nextVal } : null);
                     }}
                     className="w-8 h-8 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] hover:border-[#C5A059] flex items-center justify-center font-bold text-sm text-[#2C2A29] cursor-pointer"
+                    title="Znížiť dávku"
                   >
                     -
                   </button>
@@ -1496,7 +1836,7 @@ export function Sculpture2DViewer({
                       const val = parseFloat(e.target.value) || 0;
                       setUnitsPopover(prev => prev ? { ...prev, units: val } : null);
                     }}
-                    className="flex-1 text-center font-bold text-sm py-1.5 rounded-xl border border-[#E8E2D9] bg-white text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
+                    className="flex-1 text-center font-bold text-sm py-1 rounded-xl border border-[#E8E2D9] bg-white text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
                   />
                   <button
                     type="button"
@@ -1506,6 +1846,7 @@ export function Sculpture2DViewer({
                       setUnitsPopover(prev => prev ? { ...prev, units: nextVal } : null);
                     }}
                     className="w-8 h-8 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] hover:border-[#C5A059] flex items-center justify-center font-bold text-sm text-[#2C2A29] cursor-pointer"
+                    title="Zvýšiť dávku"
                   >
                     +
                   </button>
@@ -1516,23 +1857,49 @@ export function Sculpture2DViewer({
                       setUnitsPopover(prev => {
                         if (!prev) return null;
                         let adj = prev.units;
-                        if (newType === 'ml' && prev.units > 5) adj = 0.1;
-                        if (newType !== 'ml' && prev.units < 1) adj = 4;
+                        if (newType === 'ml' && prev.units > 5) adj = 0.2;
+                        if (newType === 'Speywood' && prev.units < 1) adj = 10;
+                        if ((newType === 'IU' || newType === 'U') && prev.units < 1) adj = 4;
+                        if (newType === 'nití' && prev.units < 1) adj = 2;
                         return { ...prev, unitType: newType, units: adj };
                       });
                     }}
-                    className="py-1.5 px-2 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] text-xs font-bold text-[#2C2A29] focus:outline-hidden cursor-pointer"
+                    className="py-1 px-2 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] text-xs font-bold text-[#2C2A29] focus:outline-hidden cursor-pointer"
                   >
+                    <option value="ml">ml (objem)</option>
+                    <option value="Speywood">Speywood (Sp)</option>
+                    <option value="IU">IU (Botox)</option>
                     <option value="U">U (jednotky)</option>
-                    <option value="IU">IU</option>
-                    <option value="Speywood">Speywood</option>
-                    <option value="ml">ml</option>
                     <option value="nití">nití</option>
                   </select>
                 </div>
               </div>
 
-              {/* Tlačidlá akcie: Zmazať & Uložiť */}
+              {/* 3. FARBA ZNAČENIA */}
+              <div className="space-y-1 pt-1 border-t border-[#E8E2D9]">
+                <label className="text-[10px] font-bold text-[#8C857B] uppercase tracking-wider flex items-center gap-1">
+                  <Palette className="w-3 h-3 text-[#C5A059]" />
+                  <span>Farba nákresu:</span>
+                </label>
+                <div className="flex items-center gap-2 pt-0.5">
+                  {paletteColors.map((c) => (
+                    <button
+                      key={c.color}
+                      type="button"
+                      onClick={() => setUnitsPopover(prev => prev ? { ...prev, color: c.color } : null)}
+                      style={{ backgroundColor: c.color }}
+                      className={`w-5 h-5 rounded-full transition-transform cursor-pointer flex items-center justify-center ${
+                        unitsPopover.color === c.color ? 'scale-125 ring-2 ring-[#2C2A29] ring-offset-1' : 'hover:scale-110'
+                      }`}
+                      title={c.name}
+                    >
+                      {unitsPopover.color === c.color && <Check className="w-3 h-3 text-white" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. Tlačidlá akcie: Zmazať & Uložiť */}
               <div className="flex items-center justify-between pt-2 border-t border-[#E8E2D9] gap-2">
                 <button
                   type="button"
@@ -1541,11 +1908,11 @@ export function Sculpture2DViewer({
                     pushHistory(updated);
                     if (onSelectVector) onSelectVector(null);
                     setUnitsPopover(null);
-                    setToastMsg(`Bod "${popoverVector.zoneName || 'Bod'}" bol vymazaný`);
+                    setToastMsg(`"${popoverVector.zoneName || typeTitle}" bol vymazaný`);
                     setTimeout(() => setToastMsg(null), 2500);
                   }}
                   className="py-1.5 px-2.5 rounded-xl text-[11px] font-bold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1 cursor-pointer"
-                  title="Vymazať tento bod (Delete)"
+                  title="Vymazať tento prvok (Delete)"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Vymazať</span>
@@ -1556,26 +1923,33 @@ export function Sculpture2DViewer({
                   onClick={() => {
                     const u = unitsPopover.units;
                     const ut = unitsPopover.unitType;
+                    const prodName = unitsPopover.productName;
+                    const lot = unitsPopover.lotNumber;
+                    const clr = unitsPopover.color;
+
                     const updated = vectors.map(v => {
                       if (v.id === popoverVector.id) {
                         return {
                           ...v,
                           units: u,
                           unitsUnit: ut,
-                          details: `${u} ${ut} • ${v.zoneName}`
+                          productName: prodName,
+                          lotNumber: lot,
+                          color: clr,
+                          details: `${u} ${ut} • ${prodName} (${v.zoneName})`
                         };
                       }
                       return v;
                     });
                     pushHistory(updated);
                     setUnitsPopover(null);
-                    setToastMsg(`Nastavené: ${u} ${ut}`);
+                    setToastMsg(`Uložené: ${prodName} (${u} ${ut})`);
                     setTimeout(() => setToastMsg(null), 2500);
                   }}
                   className="py-1.5 px-3.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>Uložiť dávku</span>
+                  <span>Uložiť zmeny</span>
                 </button>
               </div>
             </div>
@@ -1783,6 +2157,17 @@ export function Sculpture2DViewer({
                     onContextMenu={(e) => handlePointContextMenu(e, vec)}
                     className="cursor-pointer group"
                   >
+                    {/* Wide transparent hit target so user can easily click or right-click anywhere along the vector */}
+                    <line
+                      x1={sx}
+                      y1={sy}
+                      x2={ex}
+                      y2={ey}
+                      stroke="transparent"
+                      strokeWidth="20"
+                      strokeLinecap="round"
+                    />
+
                     {/* Glow outline if selected */}
                     {isSelected && (
                       <line
@@ -1839,9 +2224,9 @@ export function Sculpture2DViewer({
                         className="pointer-events-none select-none"
                       >
                         <rect
-                          x={String(vec.units).length > 2 ? -18 : -14}
+                          x={String(vec.units).length > 2 ? -22 : -16}
                           y="-9"
-                          width={String(vec.units).length > 2 ? 36 : 28}
+                          width={String(vec.units).length > 2 ? 44 : 32}
                           height="14"
                           rx="5"
                           fill="#2C2A29"
@@ -1857,7 +2242,7 @@ export function Sculpture2DViewer({
                           fontWeight="bold"
                           fontFamily="sans-serif"
                         >
-                          {vec.units}{vec.unitsUnit === 'ml' ? 'ml' : vec.unitsUnit === 'Speywood' ? 'Sp' : 'U'}
+                          {vec.units}{vec.unitsUnit === 'ml' ? 'ml' : vec.unitsUnit === 'Speywood' ? 'Sp' : vec.unitsUnit === 'nití' ? 'n' : 'U'}
                         </text>
                       </g>
                     )}
@@ -1943,7 +2328,7 @@ export function Sculpture2DViewer({
                           fontWeight="bold"
                           fontFamily="sans-serif"
                         >
-                          {vec.units}{vec.unitsUnit === 'ml' ? 'ml' : vec.unitsUnit === 'Speywood' ? 'Sp' : 'U'}
+                          {vec.units}{vec.unitsUnit === 'ml' ? 'ml' : vec.unitsUnit === 'Speywood' ? 'Sp' : vec.unitsUnit === 'nití' ? 'n' : 'U'}
                         </text>
                       </g>
                     )}
@@ -2030,7 +2415,7 @@ export function Sculpture2DViewer({
                           fontWeight="bold"
                           fontFamily="sans-serif"
                         >
-                          {vec.units}{vec.unitsUnit === 'ml' ? 'ml' : vec.unitsUnit === 'Speywood' ? 'Sp' : 'U'}
+                          {vec.units}{vec.unitsUnit === 'ml' ? 'ml' : vec.unitsUnit === 'Speywood' ? 'Sp' : vec.unitsUnit === 'nití' ? 'n' : 'U'}
                         </text>
                       </g>
                     ) : (
