@@ -22,7 +22,9 @@ import {
   Shield,
   Briefcase,
   X,
-  Flame
+  Flame,
+  GripVertical,
+  CheckCircle2
 } from 'lucide-react';
 import { UserAccount, SAY_CLINIC_USERS } from './LoginForm';
 import { LiquidAvatar } from './LiquidAvatar';
@@ -99,12 +101,42 @@ const CATEGORY_CONFIG: Record<ProjectCategory, { label: string; color: string; b
   ostatne: { label: 'Ostatné', color: 'text-stone-700', bg: 'bg-stone-100', border: 'border-stone-200' },
 };
 
-const STATUS_CONFIG: Record<ProjectStatus, { label: string; dot: string; badge: string }> = {
-  planning: { label: 'Plánovanie', dot: 'bg-slate-400', badge: 'bg-slate-100 text-slate-700 border-slate-200' },
-  in_progress: { label: 'V riešení', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
-  review: { label: 'Na kontrolu CEO', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-800 border-amber-200 font-semibold' },
-  completed: { label: 'Dokončené', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  on_hold: { label: 'Pozastavené', dot: 'bg-rose-400', badge: 'bg-rose-50 text-rose-700 border-rose-200' },
+const STATUS_CONFIG: Record<ProjectStatus, { label: string; shortLabel: string; subtitle: string; dot: string; badge: string }> = {
+  planning: { 
+    label: 'Nové (Plánovanie)', 
+    shortLabel: 'Nové', 
+    subtitle: 'Nové úlohy & plánovanie', 
+    dot: 'bg-slate-400', 
+    badge: 'bg-slate-100 text-slate-700 border-slate-200' 
+  },
+  in_progress: { 
+    label: 'Rozpracované', 
+    shortLabel: 'Rozpracované', 
+    subtitle: 'Aktívne prebiehajúce', 
+    dot: 'bg-blue-500', 
+    badge: 'bg-blue-50 text-blue-700 border-blue-200' 
+  },
+  review: { 
+    label: 'Na kontrolu CEO', 
+    shortLabel: 'Kontrola CEO', 
+    subtitle: 'Čaká na revíziu vedenia', 
+    dot: 'bg-amber-500', 
+    badge: 'bg-amber-50 text-amber-800 border-amber-200 font-semibold' 
+  },
+  completed: { 
+    label: 'Hotové', 
+    shortLabel: 'Hotové', 
+    subtitle: 'Úspešne dokončené', 
+    dot: 'bg-emerald-500', 
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+  },
+  on_hold: { 
+    label: 'Pozastavené', 
+    shortLabel: 'Pozastavené', 
+    subtitle: 'Dočasne odložené', 
+    dot: 'bg-rose-400', 
+    badge: 'bg-rose-50 text-rose-700 border-rose-200' 
+  },
 };
 
 const PRIORITY_CONFIG: Record<ProjectPriority, { label: string; badge: string; icon?: boolean }> = {
@@ -517,6 +549,12 @@ export default function ProjectManagement({ currentUser }: ProjectManagementProp
   // Comment input state
   const [newCommentText, setNewCommentText] = useState('');
 
+  // Drag and Drop state for Kanban board
+  const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<ProjectStatus | null>(null);
+  const [justDragged, setJustDragged] = useState(false);
+  const [dragToast, setDragToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
   // Synchronize selectedProject when projects change
   useEffect(() => {
     if (selectedProject) {
@@ -683,7 +721,7 @@ export default function ProjectManagement({ currentUser }: ProjectManagementProp
     setProjects((prev) =>
       prev.map((p) => {
         if (p.id === projectId) {
-          return {
+          const updated = {
             ...p,
             status: newStatus,
             updatedAt: new Date().toISOString(),
@@ -699,10 +737,31 @@ export default function ProjectManagement({ currentUser }: ProjectManagementProp
               },
             ],
           };
+          if (selectedProject?.id === projectId) {
+            setSelectedProject(updated);
+          }
+          return updated;
         }
         return p;
       })
     );
+  };
+
+  const handleMoveProjectStatus = (projectId: string, targetStatus: ProjectStatus) => {
+    const proj = projects.find((p) => p.id === projectId);
+    if (!proj) return;
+    if (proj.status === targetStatus) return;
+
+    handleUpdateProjectStatus(projectId, targetStatus);
+
+    const titleTruncated = proj.title.length > 36 ? proj.title.slice(0, 36) + '...' : proj.title;
+    setDragToast({
+      message: `Projekt „${titleTruncated}“ presunutý do: ${STATUS_CONFIG[targetStatus].shortLabel}`,
+      type: 'success',
+    });
+    setTimeout(() => {
+      setDragToast(null);
+    }, 3500);
   };
 
   const handleDeleteProject = (projectId: string) => {
@@ -1155,137 +1214,312 @@ export default function ProjectManagement({ currentUser }: ProjectManagementProp
 
       {/* 4. MAIN VIEWS (KANBAN / LIST / TEAM) */}
 
-      {/* A) KANBAN VIEW */}
+      {/* A) KANBAN VIEW WITH DRAG AND DROP */}
       {activeView === 'kanban' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-          {(['planning', 'in_progress', 'review', 'completed'] as ProjectStatus[]).map((statusKey) => {
-            const columnProjects = filteredProjects.filter((p) => p.status === statusKey);
-            const cfg = STATUS_CONFIG[statusKey];
-
-            return (
-              <div key={statusKey} className="flex flex-col bg-[#F7F5F0] border border-[#E8E2D9] rounded-2xl p-4 min-h-[500px]">
-                {/* COLUMN HEADER */}
-                <div className="flex justify-between items-center pb-3 mb-3 border-b border-[#E8E2D9]">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#2C2A29]">{cfg.label}</h3>
-                  </div>
-                  <span className="text-[11px] font-bold text-[#8C857B] bg-white px-2 py-0.5 rounded-full border border-[#E8E2D9]">
-                    {columnProjects.length}
-                  </span>
-                </div>
-
-                {/* COLUMN CARDS */}
-                <div className="space-y-3.5 flex-1">
-                  {columnProjects.length === 0 ? (
-                    <div className="h-32 border-2 border-dashed border-[#E8E2D9] rounded-xl flex items-center justify-center text-[#8C857B] text-[11px] italic">
-                      Žiadny projekt v tejto fáze
-                    </div>
-                  ) : (
-                    columnProjects.map((project) => {
-                      const progress = getProjectProgress(project);
-                      const cat = CATEGORY_CONFIG[project.category];
-                      const prio = PRIORITY_CONFIG[project.priority];
-                      const isOverdue = new Date(project.deadline) < new Date() && project.status !== 'completed';
-
-                      return (
-                        <div
-                          key={project.id}
-                          onClick={() => setSelectedProject(project)}
-                          className="bg-white border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group space-y-3"
-                        >
-                          {/* CATEGORY & PRIORITY */}
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${cat.bg} ${cat.color} ${cat.border}`}>
-                              {cat.label}
-                            </span>
-                            <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${prio.badge}`}>
-                              {prio.label}
-                            </span>
-                          </div>
-
-                          {/* TITLE & DESCRIPTION */}
-                          <div>
-                            <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors leading-snug">
-                              {project.title}
-                            </h4>
-                            <p className="text-[11px] text-[#8C857B] line-clamp-2 mt-1 leading-relaxed">
-                              {project.description}
-                            </p>
-                          </div>
-
-                          {/* PROGRESS BAR */}
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-[10px] text-[#8C857B]">
-                              <span>Úlohy ({project.tasks.filter((t) => t.completed).length}/{project.tasks.length})</span>
-                              <span className="font-bold text-[#2C2A29]">{progress}%</span>
-                            </div>
-                            <div className="w-full bg-[#FBF9F6] border border-[#E8E2D9] rounded-full h-1.5 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  progress === 100 ? 'bg-emerald-600' : progress > 50 ? 'bg-[#C5A059]' : 'bg-[#2C2A29]'
-                                }`}
-                                style={{ width: `${progress}%` }}
-                              />
-                            </div>
-                          </div>
-
-                          {/* FOOTER: ASSIGNEES & DEADLINE */}
-                          <div className="flex items-center justify-between pt-2 border-t border-[#E8E2D9]/60 text-xs">
-                            {/* AVATAR STACK */}
-                            <div className="flex -space-x-1.5 overflow-hidden">
-                              {project.assigneeIds.map((userId) => {
-                                const user = SAY_CLINIC_USERS.find((u) => u.id === userId);
-                                if (!user) return null;
-                                return (
-                                  <div
-                                    key={userId}
-                                    title={`${user.name} (${user.title})`}
-                                    className="w-6 h-6 rounded-full border border-white bg-white overflow-hidden flex-shrink-0"
-                                  >
-                                    <LiquidAvatar id={user.id} name={user.name} role={user.role} />
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {/* DEADLINE & ATTACHMENTS COUNTERS */}
-                            <div className="flex items-center gap-2 text-[10px]">
-                              {project.attachments.length > 0 && (
-                                <span className="flex items-center gap-0.5 text-[#8C857B]" title={`${project.attachments.length} príloh`}>
-                                  <Paperclip className="w-3 h-3" />
-                                  <span>{project.attachments.length}</span>
-                                </span>
-                              )}
-                              <span
-                                className={`font-mono flex items-center gap-1 ${
-                                  isOverdue ? 'text-rose-600 font-bold' : 'text-[#8C857B]'
-                                }`}
-                              >
-                                <Clock className="w-3 h-3" />
-                                {new Date(project.deadline).toLocaleDateString('sk-SK', { day: 'numeric', month: 'numeric' })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* QUICK ADD IN COLUMN */}
-                <button
-                  onClick={() => {
-                    setIsCreateModalOpen(true);
-                  }}
-                  className="mt-3 w-full py-2 border border-dashed border-[#E8E2D9] hover:border-[#C5A059] rounded-xl text-xs text-[#8C857B] hover:text-[#2C2A29] bg-white/60 hover:bg-white transition-all flex items-center justify-center gap-1.5 font-medium"
-                >
-                  <Plus className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>Pridať projekt</span>
-                </button>
+        <div className="space-y-4">
+          {/* DRAG & DROP INSTRUCTION BANNER */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[#FBF9F6] border border-[#E8E2D9] rounded-xl px-4 py-2.5 text-xs text-[#8C857B]">
+            <div className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-[#C5A059]/15 text-[#8A6827] font-bold text-xs flex-shrink-0">
+                <GripVertical className="w-3.5 h-3.5" />
+              </span>
+              <p className="leading-snug">
+                <strong className="text-[#2C2A29]">Interaktívny Drag & Drop Kanban:</strong>{' '}
+                Uchopte kartu projektu a potiahnutím ju presuňte medzi stĺpcami{' '}
+                <span className="text-[#2C2A29] font-semibold">Nové → Rozpracované → Na kontrolu CEO → Hotové</span>.
+              </p>
+            </div>
+            {draggingProjectId ? (
+              <div className="flex items-center gap-1.5 text-[#C5A059] font-bold text-[11px] bg-white border border-[#C5A059]/40 px-2.5 py-1 rounded-full animate-pulse self-start sm:self-auto shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-ping" />
+                <span>Presun aktívny — pustite nad cieľovým stĺpcom</span>
               </div>
-            );
-          })}
+            ) : (
+              <div className="text-[11px] text-[#A8A095] hidden md:block">
+                Karty môžete presúvať myšou alebo tlačidlami na karte
+              </div>
+            )}
+          </div>
+
+          {/* KANBAN COLUMNS GRID */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+            {(['planning', 'in_progress', 'review', 'completed'] as ProjectStatus[]).map((statusKey) => {
+              const columnProjects = filteredProjects.filter((p) => p.status === statusKey);
+              const cfg = STATUS_CONFIG[statusKey];
+              const isColumnTarget = dragOverStatus === statusKey;
+
+              return (
+                <div
+                  key={statusKey}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverStatus !== statusKey) {
+                      setDragOverStatus(statusKey);
+                    }
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    setDragOverStatus(statusKey);
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      if (dragOverStatus === statusKey) {
+                        setDragOverStatus(null);
+                      }
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const droppedId = e.dataTransfer.getData('text/plain') || draggingProjectId;
+                    if (droppedId) {
+                      handleMoveProjectStatus(droppedId, statusKey);
+                    }
+                    setDraggingProjectId(null);
+                    setDragOverStatus(null);
+                  }}
+                  className={`flex flex-col rounded-2xl p-4 min-h-[520px] transition-all duration-200 ${
+                    isColumnTarget
+                      ? 'bg-[#F4ECE0] border-2 border-[#C5A059] ring-4 ring-[#C5A059]/20 shadow-lg scale-[1.01]'
+                      : draggingProjectId
+                      ? 'bg-[#FAF8F5] border-2 border-dashed border-[#DCD5C9]'
+                      : 'bg-[#F7F5F0] border border-[#E8E2D9]'
+                  }`}
+                >
+                  {/* COLUMN HEADER */}
+                  <div className="flex justify-between items-start pb-3 mb-3 border-b border-[#E8E2D9]">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
+                        <h3 className="text-xs font-black uppercase tracking-wider text-[#2C2A29]">
+                          {cfg.label}
+                        </h3>
+                      </div>
+                      <p className="text-[10px] text-[#8C857B] mt-0.5 pl-4.5 font-medium">
+                        {cfg.subtitle}
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#8C857B] bg-white px-2 py-0.5 rounded-full border border-[#E8E2D9] shadow-2xs">
+                      {columnProjects.length}
+                    </span>
+                  </div>
+
+                  {/* COLUMN CARDS & DROP ZONE */}
+                  <div className="space-y-3.5 flex-1 flex flex-col">
+                    {/* ACTIVE DROP TARGET INDICATOR */}
+                    {isColumnTarget && (
+                      <div className="border-2 border-dashed border-[#C5A059] bg-[#FAF5EC] text-[#8A6827] rounded-xl p-3 text-center text-xs font-bold flex items-center justify-center gap-2 animate-pulse shadow-xs mb-1">
+                        <CheckCircle2 className="w-4 h-4 text-[#C5A059]" />
+                        <span>Pustiť sem pre zaradenie do: {cfg.shortLabel}</span>
+                      </div>
+                    )}
+
+                    {columnProjects.length === 0 && !isColumnTarget ? (
+                      <div className="h-36 border-2 border-dashed border-[#E8E2D9] rounded-xl flex flex-col items-center justify-center text-[#8C857B] text-[11px] italic gap-1 p-4 text-center bg-white/40">
+                        <span>Žiadny projekt v tejto fáze</span>
+                        <span className="text-[10px] text-[#A8A095] not-italic">Presuňte sem kartu myšou (Drag & Drop)</span>
+                      </div>
+                    ) : (
+                      columnProjects.map((project) => {
+                        const progress = getProjectProgress(project);
+                        const cat = CATEGORY_CONFIG[project.category];
+                        const prio = PRIORITY_CONFIG[project.priority];
+                        const isOverdue = new Date(project.deadline) < new Date() && project.status !== 'completed';
+                        const isBeingDragged = draggingProjectId === project.id;
+
+                        return (
+                          <div
+                            key={project.id}
+                            draggable={true}
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', project.id);
+                              e.dataTransfer.effectAllowed = 'move';
+                              setDraggingProjectId(project.id);
+                            }}
+                            onDragEnd={() => {
+                              setDraggingProjectId(null);
+                              setDragOverStatus(null);
+                              setJustDragged(true);
+                              setTimeout(() => setJustDragged(false), 200);
+                            }}
+                            onClick={() => {
+                              if (justDragged) return;
+                              setSelectedProject(project);
+                            }}
+                            className={`bg-white border rounded-xl p-4 shadow-sm transition-all cursor-grab active:cursor-grabbing group space-y-3 select-none ${
+                              isBeingDragged
+                                ? 'opacity-40 scale-[0.98] border-[#C5A059] ring-2 ring-[#C5A059] shadow-xl rotate-1'
+                                : 'border-[#E8E2D9] hover:border-[#C5A059] hover:shadow-md'
+                            }`}
+                          >
+                            {/* CATEGORY, PRIORITY & DRAG HANDLE */}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${cat.bg} ${cat.color} ${cat.border}`}>
+                                  {cat.label}
+                                </span>
+                                <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${prio.badge}`}>
+                                  {prio.label}
+                                </span>
+                              </div>
+
+                              <div 
+                                className="flex items-center gap-1 text-[#B0A79B] group-hover:text-[#C5A059] p-1 rounded hover:bg-[#F4EFE6] transition-colors"
+                                title="Uchopiť a potiahnuť (Drag & Drop) do iného stĺpca"
+                              >
+                                <GripVertical className="w-4 h-4" />
+                              </div>
+                            </div>
+
+                            {/* TITLE & DESCRIPTION */}
+                            <div>
+                              <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors leading-snug">
+                                {project.title}
+                              </h4>
+                              <p className="text-[11px] text-[#8C857B] line-clamp-2 mt-1 leading-relaxed">
+                                {project.description}
+                              </p>
+                            </div>
+
+                            {/* PROGRESS BAR */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px] text-[#8C857B]">
+                                <span>Úlohy ({project.tasks.filter((t) => t.completed).length}/{project.tasks.length})</span>
+                                <span className="font-bold text-[#2C2A29]">{progress}%</span>
+                              </div>
+                              <div className="w-full bg-[#FBF9F6] border border-[#E8E2D9] rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    progress === 100 ? 'bg-emerald-600' : progress > 50 ? 'bg-[#C5A059]' : 'bg-[#2C2A29]'
+                                  }`}
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* FOOTER: ASSIGNEES & DEADLINE */}
+                            <div className="flex items-center justify-between pt-2 border-t border-[#E8E2D9]/60 text-xs">
+                              {/* AVATAR STACK */}
+                              <div className="flex -space-x-1.5 overflow-hidden">
+                                {project.assigneeIds.map((userId) => {
+                                  const user = SAY_CLINIC_USERS.find((u) => u.id === userId);
+                                  if (!user) return null;
+                                  return (
+                                    <div
+                                      key={userId}
+                                      title={`${user.name} (${user.title})`}
+                                      className="w-6 h-6 rounded-full border border-white bg-white overflow-hidden flex-shrink-0"
+                                    >
+                                      <LiquidAvatar id={user.id} name={user.name} role={user.role} />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {/* DEADLINE & ATTACHMENTS COUNTERS */}
+                              <div className="flex items-center gap-2 text-[10px]">
+                                {project.attachments.length > 0 && (
+                                  <span className="flex items-center gap-0.5 text-[#8C857B]" title={`${project.attachments.length} príloh`}>
+                                    <Paperclip className="w-3 h-3" />
+                                    <span>{project.attachments.length}</span>
+                                  </span>
+                                )}
+                                <span
+                                  className={`font-mono flex items-center gap-1 ${
+                                    isOverdue ? 'text-rose-600 font-bold' : 'text-[#8C857B]'
+                                  }`}
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  {new Date(project.deadline).toLocaleDateString('sk-SK', { day: 'numeric', month: 'numeric' })}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* QUICK STATUS SWITCH (Alternative 1-Click Transitions) */}
+                            <div 
+                              onClick={(e) => e.stopPropagation()} 
+                              className="pt-2 border-t border-[#E8E2D9]/50 flex items-center justify-between text-[10px]"
+                            >
+                              <span className="text-[#A8A095] text-[9px] flex items-center gap-0.5">
+                                <GripVertical className="w-2.5 h-2.5" />
+                                <span>Presun:</span>
+                              </span>
+
+                              <div className="flex items-center gap-1">
+                                {project.status !== 'planning' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveProjectStatus(project.id, 'planning')}
+                                    title="Presunúť do stĺpca Nové"
+                                    className="px-1.5 py-0.5 rounded bg-[#FAF7F2] hover:bg-[#EAE4D7] text-[#444] font-medium border border-[#E0D8C8] transition-colors"
+                                  >
+                                    ← Nové
+                                  </button>
+                                )}
+                                {project.status !== 'in_progress' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveProjectStatus(project.id, 'in_progress')}
+                                    title="Presunúť do stĺpca Rozpracované"
+                                    className="px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-800 font-medium border border-blue-200 transition-colors"
+                                  >
+                                    {project.status === 'planning' ? 'Rozpracovať →' : '← Rozpracované'}
+                                  </button>
+                                )}
+                                {project.status !== 'review' && project.status !== 'completed' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveProjectStatus(project.id, 'review')}
+                                    title="Odoslať na kontrolu CEO"
+                                    className="px-1.5 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 font-medium border border-amber-200 transition-colors"
+                                  >
+                                    Kontrola →
+                                  </button>
+                                )}
+                                {project.status !== 'completed' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveProjectStatus(project.id, 'completed')}
+                                    title="Označiť ako hotové"
+                                    className="px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 transition-colors flex items-center gap-0.5"
+                                  >
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    <span>Hotovo</span>
+                                  </button>
+                                )}
+                                {project.status === 'completed' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveProjectStatus(project.id, 'in_progress')}
+                                    title="Znovu otvoriť projekt do Rozpracované"
+                                    className="px-1.5 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 font-medium border border-amber-200 transition-colors"
+                                  >
+                                    ↺ Otvoriť
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* QUICK ADD IN COLUMN */}
+                  <button
+                    onClick={() => {
+                      setIsCreateModalOpen(true);
+                    }}
+                    className="mt-3 w-full py-2 border border-dashed border-[#E8E2D9] hover:border-[#C5A059] rounded-xl text-xs text-[#8C857B] hover:text-[#2C2A29] bg-white/60 hover:bg-white transition-all flex items-center justify-center gap-1.5 font-medium"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Pridať projekt</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -2212,6 +2446,21 @@ export default function ProjectManagement({ currentUser }: ProjectManagementProp
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* DRAG & DROP CONFIRMATION TOAST */}
+      {dragToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#2C2A29] text-white text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-[#C5A059]/50 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <span className="font-medium">{dragToast.message}</span>
+          <button
+            type="button"
+            onClick={() => setDragToast(null)}
+            className="ml-2 text-stone-400 hover:text-white p-0.5 rounded transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
     </div>

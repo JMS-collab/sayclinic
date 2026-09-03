@@ -2,6 +2,178 @@ export type EventType = 'operacia' | 'konzultacia' | 'osetrenie' | 'kontrola' | 
 
 export type FreeformCategory = 'obed' | 'dovolenka' | 'teambuilding' | 'skolenie' | 'sanitarny_den' | 'ine';
 
+export type AnesthesiaType = 'TIVA' | 'LA' | 'sedacia' | 'celkova' | 'ina';
+
+export type ClinicStayType = 'ambulantne' | 'dospanie' | 'hospitalizacia';
+
+export interface AnesthesiaOption {
+  id: string;
+  label: string;
+  shortLabel: string;
+  badge: string;
+  pillBg: string;
+  description: string;
+  isPrimary?: boolean;
+}
+
+export const ANESTHESIA_OPTIONS: AnesthesiaOption[] = [
+  { 
+    id: 'TIVA', 
+    label: 'TIVA (Totálna intravenózna anestézia)', 
+    shortLabel: 'TIVA', 
+    badge: 'bg-purple-100 text-purple-900 border-purple-300',
+    pillBg: 'bg-purple-700 text-white',
+    description: 'Kompletná vnútrožilová anestézia vedená anesteziológom (OAIM)',
+    isPrimary: true
+  },
+  { 
+    id: 'LA', 
+    label: 'LA (Lokálna anestézia)', 
+    shortLabel: 'LA', 
+    badge: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+    pillBg: 'bg-emerald-700 text-white',
+    description: 'Miestne znecitlivenie operovanej oblasti operatérom',
+    isPrimary: true
+  },
+  { 
+    id: 'sedacia', 
+    label: 'Analgosedácia / Sedácia', 
+    shortLabel: 'Sedácia', 
+    badge: 'bg-blue-100 text-blue-900 border-blue-300',
+    pillBg: 'bg-blue-700 text-white',
+    description: 'Tlmenie bolesti a vedomia pri zachovanom spontánnom dýchaní'
+  },
+  { 
+    id: 'celkova', 
+    label: 'Celková inhalačná anestézia (OAIM)', 
+    shortLabel: 'Celková', 
+    badge: 'bg-amber-100 text-amber-900 border-amber-300',
+    pillBg: 'bg-amber-700 text-white',
+    description: 'Klasická celková anestézia s intubáciou / LMA'
+  },
+  { 
+    id: 'ina', 
+    label: 'Iná anestézia', 
+    shortLabel: 'Iná', 
+    badge: 'bg-gray-100 text-gray-800 border-gray-300',
+    pillBg: 'bg-gray-700 text-white',
+    description: 'Iná špecifická technika anestézie'
+  }
+];
+
+export interface ClinicStayOption {
+  id: ClinicStayType;
+  label: string;
+  shortLabel: string;
+  icon: string;
+  badge: string;
+  description: string;
+}
+
+export const CLINIC_STAY_OPTIONS: ClinicStayOption[] = [
+  {
+    id: 'ambulantne',
+    label: 'Ambulantne',
+    shortLabel: 'Ambulantne',
+    icon: '🚶',
+    badge: 'bg-sky-100 text-sky-900 border-sky-300',
+    description: 'Odchod pacienta domov v deň zákroku (po zotavení)'
+  },
+  {
+    id: 'dospanie',
+    label: 'Dospanie na izbe',
+    shortLabel: 'Dospanie',
+    icon: '🛏️',
+    badge: 'bg-amber-100 text-amber-900 border-amber-300',
+    description: 'Zotavenie na dospávacej izbe po anestézii (observácia)'
+  },
+  {
+    id: 'hospitalizacia',
+    label: 'Hospitalizácia',
+    shortLabel: 'Hospitalizácia',
+    icon: '🏥',
+    badge: 'bg-indigo-100 text-indigo-900 border-indigo-300',
+    description: 'Prenocovanie na klinike s nepretržitou 24h starostlivosťou'
+  }
+];
+
+export const getAnesthesiaInfo = (anesthesiaType?: string) => {
+  if (!anesthesiaType) return null;
+  const match = ANESTHESIA_OPTIONS.find(o => 
+    o.id.toLowerCase() === anesthesiaType.toLowerCase() || 
+    o.shortLabel.toLowerCase() === anesthesiaType.toLowerCase() ||
+    anesthesiaType.toLowerCase().includes(o.id.toLowerCase())
+  );
+  if (match) return match;
+  return {
+    id: anesthesiaType,
+    label: anesthesiaType,
+    shortLabel: anesthesiaType,
+    badge: 'bg-gray-100 text-gray-800 border-gray-300',
+    pillBg: 'bg-gray-700 text-white',
+    description: anesthesiaType
+  };
+};
+
+export const getClinicStayInfo = (stay?: string) => {
+  if (!stay) return null;
+  const match = CLINIC_STAY_OPTIONS.find(s => s.id === stay || s.label.toLowerCase() === stay.toLowerCase());
+  if (match) return match;
+  return {
+    id: stay as ClinicStayType,
+    label: stay,
+    shortLabel: stay,
+    icon: '🏥',
+    badge: 'bg-gray-100 text-gray-800 border-gray-300',
+    description: stay
+  };
+};
+
+export interface CalendarEvent {
+  id: string;
+  calendarId?: string;
+  calendarName?: string;
+  roomId?: string;
+  roomName?: string;
+  assignedTo?: string;
+  patientId?: string;
+  patientName: string;
+  patientPhone?: string;
+  patientEmail?: string;
+  doctorName: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  isAllDay?: boolean;
+  type: EventType;
+  anesthesiaType?: string; // TIVA, LA, Sedácia, Celková...
+  clinicStay?: ClinicStayType | string; // 'ambulantne' | 'dospanie' | 'hospitalizacia'
+  notes?: string;
+
+  // VOĽNÝ POPIS / INTERNÁ UDALOSŤ
+  freeformCategory?: FreeformCategory;
+
+  // OPERAČNÝ DEŇ & TÍM
+  operator?: string;
+  anesthesiologist?: string;
+  anesthesiaNurse?: string;
+  scrubNurse?: string;
+  specialEquipment?: string[];
+  specialEquipmentOther?: string;
+  materials?: string[];
+  materialNotes?: string;
+  
+  // FINANČNÉ POLOŽKY A ZÁLOHOVÁ FAKTÚRA
+  totalPrice?: number;
+  depositAmount?: number;
+  isDepositPaid?: boolean;
+
+  // STAV ZRUŠENIA A DÔVOD
+  isCancelled?: boolean;
+  cancelReason?: string;
+}
+
 export interface ClinicRoom {
   id: string;
   name: string;
@@ -145,7 +317,8 @@ export const generateDefaultEvents = () => {
       startTime: '08:30',
       endTime: '11:00',
       type: 'operacia',
-      anesthesiaType: 'Celková anestézia (OAIM)',
+      anesthesiaType: 'TIVA',
+      clinicStay: 'hospitalizacia',
       specialEquipment: ['⚡ Liposukcia MicroAire (PAL)', '💨 Ohrev pacienta (Bair Hugger)', '🫁 Monitor vitálnych funkcií'],
       materials: ['🍈 Silikónové implantáty Motiva', '👙 Kompresívne prádlo Lipoelastic'],
       materialNotes: 'Motiva Ergonomix 340cc Demi profil, Lipoelastic PI ideal veľkosť M',
@@ -207,7 +380,8 @@ export const generateDefaultEvents = () => {
       startTime: '14:00',
       endTime: '15:30',
       type: 'operacia',
-      anesthesiaType: 'Lokálna anestézia',
+      anesthesiaType: 'LA',
+      clinicStay: 'ambulantne',
       specialEquipment: ['⚡ Bipolárna elektrokoagulácia', '🔬 Operačné lupy / mikroskop'],
       materials: ['🧵 Vstrebateľné stehy PDS / Monocryl', '🧴 Tkanivové lepidlo Dermabond'],
       materialNotes: 'Steri-Strip náplasti, pooperačné chladiace kompresy',
@@ -249,7 +423,8 @@ export const generateDefaultEvents = () => {
       startTime: '09:00',
       endTime: '13:00',
       type: 'operacia',
-      anesthesiaType: 'Celková anestézia (OAIM)',
+      anesthesiaType: 'TIVA',
+      clinicStay: 'hospitalizacia',
       specialEquipment: ['🔊 VASER Ultrasonic', '⚡ Liposukcia MicroAire (PAL)', '🩸 Redonova odsávačka'],
       materials: ['👙 Kompresívne prádlo Lipoelastic', '🧵 Vstrebateľné stehy PDS / Monocryl'],
       materialNotes: 'Lipoelastic kompresný pás + nohavice veľkosť L, 2x Redonov drén',

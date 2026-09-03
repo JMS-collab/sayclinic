@@ -13,13 +13,19 @@ import {
   SURGERY_EQUIPMENT_OPTIONS, 
   SURGERY_MATERIAL_OPTIONS, 
   FREEFORM_PRESETS, 
-  generateDefaultEvents 
+  generateDefaultEvents,
+  ClinicStayType,
+  AnesthesiaType,
+  ANESTHESIA_OPTIONS,
+  CLINIC_STAY_OPTIONS,
+  getAnesthesiaInfo,
+  getClinicStayInfo
 } from '../data/calendarConfig';
 
 import EventFormModal from './calendar/EventFormModal';
 import EventDetailModal from './calendar/EventDetailModal';
 
-export type { EventType, FreeformCategory, ClinicRoom };
+export type { EventType, FreeformCategory, ClinicRoom, ClinicStayType, AnesthesiaType };
 export { 
   CLINIC_ROOMS, 
   getRoomInfo, 
@@ -27,7 +33,11 @@ export {
   SURGERY_EQUIPMENT_OPTIONS, 
   SURGERY_MATERIAL_OPTIONS, 
   FREEFORM_PRESETS, 
-  generateDefaultEvents 
+  generateDefaultEvents,
+  ANESTHESIA_OPTIONS,
+  CLINIC_STAY_OPTIONS,
+  getAnesthesiaInfo,
+  getClinicStayInfo
 };
 
 export interface PositionedCalendarEvent {
@@ -56,7 +66,8 @@ export interface CalendarEvent {
   endTime: string; // HH:MM
   isAllDay?: boolean;
   type: EventType;
-  anesthesiaType?: string;
+  anesthesiaType?: string; // TIVA, LA, Sedácia, Celková...
+  clinicStay?: ClinicStayType | string; // 'ambulantne' | 'dospanie' | 'hospitalizacia'
   notes?: string;
 
   // VOĽNÝ POPIS / INTERNÁ UDALOSŤ (nie operácia ani kontrola: obed, dovolenka, teambuilding...)
@@ -1055,9 +1066,21 @@ export default function Calendar({
               {evt.type === 'volno' ? (
                 <p className="text-[10px] text-indigo-700 truncate font-semibold">👤 {evt.assignedTo || 'Celý tím'}</p>
               ) : evt.type === 'operacia' ? (
-                <p className="text-[10px] text-[#8C857B] truncate font-medium">
-                  👤 {evt.patientName || 'Bez mena'} • 🔪 {evt.operator || evt.doctorName}
-                </p>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] text-[#8C857B] truncate font-medium">
+                    👤 {evt.patientName || 'Bez mena'} • 🔪 {evt.operator || evt.doctorName}
+                  </p>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-900 border border-purple-200">
+                      💉 {evt.anesthesiaType || 'TIVA'}
+                    </span>
+                    {evt.clinicStay && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                        {getClinicStayInfo(evt.clinicStay)?.icon || '🏥'} {getClinicStayInfo(evt.clinicStay)?.shortLabel || evt.clinicStay}
+                      </span>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <p className="text-[10px] text-[#8C857B] truncate font-medium">
                   👤 {evt.patientName || 'Bez mena'} • 🩺 {evt.assignedTo || evt.doctorName}
@@ -1096,6 +1119,16 @@ export default function Calendar({
               )}
               {evt.type === 'operacia' ? (
                 <div className="text-[10px] text-[#8C857B] space-y-0.5 pt-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap pb-0.5">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-200 flex items-center gap-1">
+                      <span>💉</span> Anestézia: <strong className="text-purple-950">{evt.anesthesiaType || 'TIVA'}</strong>
+                    </span>
+                    {evt.clinicStay && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1">
+                        <span>{getClinicStayInfo(evt.clinicStay)?.icon || '🏥'}</span> Pobyt: <strong className="text-amber-950">{getClinicStayInfo(evt.clinicStay)?.shortLabel || evt.clinicStay}</strong>
+                      </span>
+                    )}
+                  </div>
                   <p className="truncate">🔪 Operatér: <strong className="text-[#2C2A29]">{evt.operator || evt.doctorName}</strong> • 💉 Anest: {evt.anesthesiologist || 'Lokálna'}</p>
                   <p className="truncate">🧤 Inštrum: {evt.scrubNurse || 'Sestra'} • 🩺 Sestra: {evt.anesthesiaNurse || '–'}</p>
                   {((evt.specialEquipment && evt.specialEquipment.length > 0) || (evt.materials && evt.materials.length > 0)) && (
@@ -1299,6 +1332,18 @@ export default function Calendar({
                       <strong className="block">{evt.isAllDay ? 'Celý deň' : `${evt.startTime} - ${evt.endTime}`}</strong>
                       <span className="truncate block font-bold text-[#2C2A29]">{evt.patientName || evt.title}</span>
                       <span className="block text-[8px] font-bold text-[#C5A059] uppercase">{getEventTypeLabel(evt.type)}</span>
+                      {evt.type === 'operacia' && (
+                        <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                          <span className="text-[8px] px-1 py-0.2 rounded bg-purple-100 text-purple-900 font-bold border border-purple-200">
+                            💉 {evt.anesthesiaType || 'TIVA'}
+                          </span>
+                          {evt.clinicStay && (
+                            <span className="text-[8px] px-1 py-0.2 rounded bg-amber-100 text-amber-900 font-bold border border-amber-200">
+                              {getClinicStayInfo(evt.clinicStay)?.icon} {getClinicStayInfo(evt.clinicStay)?.shortLabel}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {dayEvents.length === 0 && (

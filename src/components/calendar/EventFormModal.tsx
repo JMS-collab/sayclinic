@@ -8,7 +8,8 @@ import {
   CLINIC_STAFF, 
   SURGERY_EQUIPMENT_OPTIONS, 
   SURGERY_MATERIAL_OPTIONS, 
-  FREEFORM_PRESETS 
+  FREEFORM_PRESETS,
+  ClinicStayType
 } from '@/data/calendarConfig';
 
 interface EventFormModalProps {
@@ -46,6 +47,8 @@ export default function EventFormModal({
     isAllDay: false,
     type: 'operacia' as EventType,
     freeformCategory: 'obed' as const,
+    anesthesiaType: data.anesthesiaType || 'TIVA',
+    clinicStay: (data.clinicStay as ClinicStayType) || 'dospanie',
     operator: 'MUDr. Ján Mráz',
     anesthesiologist: 'MUDr. Peter Kováč',
     anesthesiaNurse: 'Bc. Jana Malá',
@@ -114,6 +117,39 @@ export default function EventFormModal({
       title: preset.defaultTitle,
       patientName: 'Personál kliniky'
     }));
+  };
+
+  const handleAnesthesiaSelect = (selectedType: string) => {
+    setFormData(prev => {
+      const updates: Partial<CalendarEvent> = {
+        ...prev,
+        anesthesiaType: selectedType
+      };
+
+      if (selectedType === 'LA') {
+        if (!prev.clinicStay || prev.clinicStay === 'dospanie' || prev.clinicStay === 'hospitalizacia') {
+          updates.clinicStay = 'ambulantne';
+        }
+        if (!prev.anesthesiologist || prev.anesthesiologist === 'MUDr. Peter Kováč' || prev.anesthesiologist === 'MUDr. Viera Nováková') {
+          updates.anesthesiologist = 'Lokálna anestézia (bez OAIM)';
+        }
+        if (prev.anesthesiaNurse === 'Bc. Jana Malá') {
+          updates.anesthesiaNurse = 'Žiadna (lokálna anestézia)';
+        }
+      } else if (selectedType === 'TIVA') {
+        if (!prev.clinicStay || prev.clinicStay === 'ambulantne') {
+          updates.clinicStay = 'dospanie';
+        }
+        if (prev.anesthesiologist === 'Lokálna anestézia (bez OAIM)') {
+          updates.anesthesiologist = 'MUDr. Peter Kováč';
+        }
+        if (prev.anesthesiaNurse === 'Žiadna (lokálna anestézia)') {
+          updates.anesthesiaNurse = 'Bc. Jana Malá';
+        }
+      }
+
+      return updates;
+    });
   };
 
   const toggleEquipment = (item: string) => {
@@ -423,6 +459,180 @@ export default function EventFormModal({
                 <span className="text-[9px] bg-[#C5A059] text-white px-2 py-0.5 rounded font-bold uppercase">
                   Chirurgický protokol
                 </span>
+              </div>
+
+              {/* 1. DRUH ANESTÉZIE (ROBÍME HLAVNE TIVU A LA) */}
+              <div className="bg-white p-3 rounded-xl border border-[#E0D8C8] space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] uppercase font-bold text-[#2C2A29] flex items-center gap-1.5">
+                    <span>💉</span> Druh anestézie *
+                  </label>
+                  <span className="text-[9px] text-[#8C857B] font-semibold">Klinika preferuje primárne TIVA a LA</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {/* TIVA */}
+                  <button
+                    type="button"
+                    onClick={() => handleAnesthesiaSelect('TIVA')}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      formData.anesthesiaType === 'TIVA'
+                        ? 'bg-purple-50 border-purple-600 ring-2 ring-purple-500/20 shadow-xs'
+                        : 'bg-[#FBF9F6] border-[#E8E2D9] hover:border-purple-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-black text-purple-950">TIVA</span>
+                      <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-purple-200 text-purple-900 uppercase">
+                        Hlavné
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-purple-900/80 leading-tight">
+                      Totálna intravenózna anestézia (OAIM)
+                    </p>
+                  </button>
+
+                  {/* LA */}
+                  <button
+                    type="button"
+                    onClick={() => handleAnesthesiaSelect('LA')}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      formData.anesthesiaType === 'LA'
+                        ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-[#FBF9F6] border-[#E8E2D9] hover:border-emerald-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-black text-emerald-950">LA</span>
+                      <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-emerald-200 text-emerald-900 uppercase">
+                        Hlavné
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-emerald-900/80 leading-tight">
+                      Lokálna anestézia operatérom
+                    </p>
+                  </button>
+
+                  {/* Sedácia */}
+                  <button
+                    type="button"
+                    onClick={() => handleAnesthesiaSelect('Sedácia')}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      formData.anesthesiaType === 'Sedácia' || formData.anesthesiaType === 'sedacia'
+                        ? 'bg-blue-50 border-blue-600 ring-2 ring-blue-500/20 shadow-xs'
+                        : 'bg-[#FBF9F6] border-[#E8E2D9] hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-black text-blue-950">Sedácia</span>
+                    </div>
+                    <p className="text-[10px] text-blue-900/80 leading-tight">
+                      Analgosedácia s monitoringom
+                    </p>
+                  </button>
+
+                  {/* Celková anestézia */}
+                  <button
+                    type="button"
+                    onClick={() => handleAnesthesiaSelect('Celková anestézia (OAIM)')}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      formData.anesthesiaType === 'Celková anestézia (OAIM)' || formData.anesthesiaType === 'celkova'
+                        ? 'bg-amber-50 border-amber-600 ring-2 ring-amber-500/20 shadow-xs'
+                        : 'bg-[#FBF9F6] border-[#E8E2D9] hover:border-amber-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-black text-amber-950">Celková</span>
+                    </div>
+                    <p className="text-[10px] text-amber-900/80 leading-tight">
+                      Klasická inhalačná anestézia
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. POBYT NA KLINIKE: AMBULANTNE, DOSPANIE, HOSPITALIZÁCIA */}
+              <div className="bg-white p-3 rounded-xl border border-[#E0D8C8] space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] uppercase font-bold text-[#2C2A29] flex items-center gap-1.5">
+                    <span>🏥</span> Pobyt na klinike *
+                  </label>
+                  <span className="text-[9px] text-[#8C857B] font-semibold">Režim zotavenia po operácii</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {/* Ambulantne */}
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, clinicStay: 'ambulantne' }))}
+                    className={`p-2.5 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                      formData.clinicStay === 'ambulantne'
+                        ? 'bg-sky-50 border-sky-600 ring-2 ring-sky-500/20 shadow-xs'
+                        : 'bg-[#FBF9F6] border-[#E8E2D9] hover:border-sky-300'
+                    }`}
+                  >
+                    <span className="text-xl p-1 bg-white rounded-lg border border-sky-200">🚶</span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <strong className="text-xs text-sky-950 block">Ambulantne</strong>
+                        {formData.clinicStay === 'ambulantne' && (
+                          <span className="text-sky-600 text-xs font-bold">✓ Vybraté</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-sky-900/80 leading-tight mt-0.5">
+                        Odchod domov v deň zákroku (po zotavení)
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Dospanie */}
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, clinicStay: 'dospanie' }))}
+                    className={`p-2.5 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                      formData.clinicStay === 'dospanie'
+                        ? 'bg-amber-50 border-amber-600 ring-2 ring-amber-500/20 shadow-xs'
+                        : 'bg-[#FBF9F6] border-[#E8E2D9] hover:border-amber-300'
+                    }`}
+                  >
+                    <span className="text-xl p-1 bg-white rounded-lg border border-amber-200">🛏️</span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <strong className="text-xs text-amber-950 block">Dospanie</strong>
+                        {formData.clinicStay === 'dospanie' && (
+                          <span className="text-amber-600 text-xs font-bold">✓ Vybraté</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-amber-900/80 leading-tight mt-0.5">
+                        Observácia na dospávacej izbe po anestézii
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Hospitalizácia */}
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, clinicStay: 'hospitalizacia' }))}
+                    className={`p-2.5 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                      formData.clinicStay === 'hospitalizacia'
+                        ? 'bg-indigo-50 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs'
+                        : 'bg-[#FBF9F6] border-[#E8E2D9] hover:border-indigo-300'
+                    }`}
+                  >
+                    <span className="text-xl p-1 bg-white rounded-lg border border-indigo-200">🏥</span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <strong className="text-xs text-indigo-950 block">Hospitalizácia</strong>
+                        {formData.clinicStay === 'hospitalizacia' && (
+                          <span className="text-indigo-600 text-xs font-bold">✓ Vybraté</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-indigo-900/80 leading-tight mt-0.5">
+                        Prenocovanie na lôžku s 24h starostlivosťou
+                      </p>
+                    </div>
+                  </button>
+                </div>
               </div>
 
               {/* A. Kto operuje, anesteziológ, anest. sestra, inštrumentárka */}

@@ -12,6 +12,7 @@ import InventoryCRM from '../components/InventoryCRM';
 import { AestheticsModule } from '../components/AestheticsModule';
 import { CosmeticsPOSModule } from '../components/CosmeticsPOSModule';
 import ProjectManagement from '../components/ProjectManagement';
+import OperativeNotesWidget from '../components/OperativeNotesWidget';
 
 export interface SaleItem {
   id: string;
@@ -109,13 +110,6 @@ export default function Home() {
   // Zoznam pacientov a udalostí
   const [patients, setPatients] = useState<Patient[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
-
-  // Tipy / Rýchle poznámky pre kliniku
-  const [clinicNotes, setClinicNotes] = useState<string[]>([
-    'Skontrolovať predoperačné výsledky pre p. Máriu Kováčovú (09:00)',
-    'Objednať kompresnú bielizeň Lipoelastic veľkosť M',
-  ]);
-  const [newNote, setNewNote] = useState('');
 
   // 1. ZACHOVANIE PRIHLÁSENÉHO POUŽÍVATEĽA PRI OBNOVENÍ / NÁVRATE SPÄŤ
   useEffect(() => {
@@ -231,18 +225,7 @@ export default function Home() {
     });
   };
 
-  const handleAddClinicNote = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNote.trim()) return;
-    setClinicNotes(prev => [newNote.trim(), ...prev]);
-    setNewNote('');
-  };
-
-  const handleRemoveClinicNote = (index: number) => {
-    setClinicNotes(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleConvertNoteToProject = (noteText: string, noteIndex: number) => {
+  const handleConvertNoteToProject = (noteText: string, _noteId?: string) => {
     if (!currentUser) return;
     const newProj = buildProjectFromNote(noteText, currentUser);
 
@@ -254,7 +237,6 @@ export default function Home() {
       console.error('Chyba ukladania prekonvertovaného projektu:', e);
     }
 
-    handleRemoveClinicNote(noteIndex);
     changeTab('projects');
   };
 
@@ -589,49 +571,11 @@ export default function Home() {
                     </div>
 
                     {/* RÝCHLE KLINICKÉ POZNÁMKY (OPERATÍVA) */}
-                    <div className="bg-white border border-[#E8E2D9] rounded-2xl p-5 shadow-sm space-y-4">
-                      <h3 className="font-brand text-sm font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-2">
-                        Operatívne Poznámky
-                      </h3>
-
-                      <form onSubmit={handleAddClinicNote} className="flex gap-2">
-                        <input 
-                          type="text" 
-                          placeholder="Pridať pripomienku..."
-                          value={newNote}
-                          onChange={e => setNewNote(e.target.value)}
-                          className="flex-1 border border-[#E8E2D9] p-2 rounded-lg text-xs bg-[#FBF9F6] outline-none focus:border-[#C5A059]"
-                        />
-                        <button type="submit" className="bg-[#C5A059] text-white px-3 py-2 rounded-lg text-xs font-bold uppercase">+</button>
-                      </form>
-
-                      <ul className="space-y-2 text-xs">
-                        {clinicNotes.map((note, idx) => (
-                          <li key={idx} className="p-2.5 bg-[#FBF9F6] border border-[#E8E2D9] rounded-lg flex justify-between items-center text-[#2C2A29] gap-2">
-                            <span className="flex-1">• {note}</span>
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <button
-                                onClick={() => handleConvertNoteToProject(note, idx)}
-                                title="Premeniť túto poznámku na projekt / poverenie"
-                                className="text-[10px] bg-[#C5A059] hover:bg-[#9C7D3D] text-white px-2 py-0.5 rounded font-bold transition-colors shadow-xs"
-                              >
-                                + Projekt / Úloha
-                              </button>
-                              <button onClick={() => handleRemoveClinicNote(idx)} className="text-[#8C857B] hover:text-rose-600 font-bold px-1">✕</button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <div className="pt-2 border-t border-[#E8E2D9]">
-                        <button
-                          onClick={() => changeTab('projects')}
-                          className="w-full text-center text-xs font-bold text-[#C5A059] hover:underline"
-                        >
-                          Otvoriť Projektový manažment (CEO) →
-                        </button>
-                      </div>
-                    </div>
+                    <OperativeNotesWidget 
+                      currentUser={currentUser}
+                      onConvertToProject={(noteText, noteId) => handleConvertNoteToProject(noteText, noteId)}
+                      onOpenProjects={() => changeTab('projects')}
+                    />
 
                   </div>
                 </div>

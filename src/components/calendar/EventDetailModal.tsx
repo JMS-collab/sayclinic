@@ -6,7 +6,9 @@ import {
   EventType, 
   FreeformCategory, 
   getRoomInfo, 
-  FREEFORM_PRESETS 
+  FREEFORM_PRESETS,
+  getAnesthesiaInfo,
+  getClinicStayInfo
 } from '@/data/calendarConfig';
 
 interface EventDetailModalProps {
@@ -358,9 +360,58 @@ export default function EventDetailModal({
                 <div className="bg-[#FAF7F2] p-3.5 rounded-xl border border-[#E0D8C8] space-y-3">
                   <div className="flex items-center justify-between border-b border-[#E0D8C8] pb-1.5">
                     <h5 className="font-bold uppercase text-[10px] text-[#2C2A29] flex items-center gap-1">
-                      <span>🏥</span> Zloženie operačného tímu
+                      <span>🏥</span> Chirurgický protokol & Operačný tím
                     </h5>
                     <span className="text-[9px] font-bold text-[#C5A059] uppercase">Operačný deň</span>
+                  </div>
+
+                  {/* Druh anestézie a Pobyt na klinike */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Druh anestézie */}
+                    <div className="p-2.5 bg-white rounded-lg border border-[#E0D8C8]">
+                      <span className="text-[9px] uppercase font-bold text-[#8C857B] block flex items-center gap-1">
+                        <span>💉</span> Druh anestézie
+                      </span>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <strong className="text-xs font-bold text-[#2C2A29]">
+                          {event.anesthesiaType || 'TIVA'}
+                        </strong>
+                        {(() => {
+                          const info = getAnesthesiaInfo(event.anesthesiaType);
+                          return info ? (
+                            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${info.badge}`}>
+                              {info.shortLabel}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
+                      <span className="text-[10px] text-[#8C857B] block mt-0.5">
+                        {getAnesthesiaInfo(event.anesthesiaType)?.description || 'Operačný anestéziologický protokol'}
+                      </span>
+                    </div>
+
+                    {/* Pobyt na klinike */}
+                    <div className="p-2.5 bg-white rounded-lg border border-[#E0D8C8]">
+                      <span className="text-[9px] uppercase font-bold text-[#8C857B] block flex items-center gap-1">
+                        <span>{getClinicStayInfo(event.clinicStay)?.icon || '🏥'}</span> Pobyt na klinike
+                      </span>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <strong className="text-xs font-bold text-[#2C2A29]">
+                          {getClinicStayInfo(event.clinicStay)?.label || event.clinicStay || 'Dospanie na izbe'}
+                        </strong>
+                        {(() => {
+                          const stay = getClinicStayInfo(event.clinicStay);
+                          return stay ? (
+                            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${stay.badge}`}>
+                              {stay.icon} {stay.shortLabel}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
+                      <span className="text-[10px] text-[#8C857B] block mt-0.5">
+                        {getClinicStayInfo(event.clinicStay)?.description || 'Režim pooperačnej starostlivosti'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Tímová matica */}
