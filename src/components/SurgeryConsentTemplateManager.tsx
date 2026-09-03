@@ -20,6 +20,7 @@ import {
   SurgeryConsentProfile, 
   getSurgeryConsentDatabase, 
   saveSurgeryConsentProfile, 
+  deleteSurgeryConsentProfile,
   resetSurgeryConsentProfile, 
   resetAllSurgeryConsentProfiles,
   getCustomSurgeryConsentDatabase,
@@ -160,12 +161,17 @@ export const SurgeryConsentTemplateManager: React.FC<SurgeryConsentTemplateManag
     setTimeout(() => setStatusMessage(null), 3000);
   };
 
-  const handleDeleteCustom = () => {
+  const handleDeleteProfile = () => {
     if (!editingProfile) return;
-    if (window.confirm(`Naozaj chcete natrvalo zmazať šablónu "${editingProfile.procedureName}"?`)) {
-      resetSurgeryConsentProfile(editingProfile.id);
+    const isBuiltIn = Boolean(SURGERY_CONSENT_DATABASE[editingProfile.id]);
+    const confirmMsg = isBuiltIn
+      ? `Naozaj chcete natrvalo zmazať predvolenú šablónu "${editingProfile.procedureName}"? (V prípade potreby je možné šablóny obnoviť cez tlačidlo "Obnoviť všetky šablóny").`
+      : `Naozaj chcete natrvalo zmazať šablónu "${editingProfile.procedureName}"?`;
+
+    if (window.confirm(confirmMsg)) {
+      deleteSurgeryConsentProfile(editingProfile.id);
       loadData();
-      setStatusMessage({ text: 'Šablóna bola vymazaná.', type: 'success' });
+      setStatusMessage({ text: `Šablóna "${editingProfile.procedureName}" bola vymazaná.`, type: 'success' });
       setTimeout(() => setStatusMessage(null), 3000);
     }
   };
@@ -386,16 +392,15 @@ export const SurgeryConsentTemplateManager: React.FC<SurgeryConsentTemplateManag
                     </button>
                   )}
 
-                  {!isOriginalBuiltIn && (
-                    <button
-                      type="button"
-                      onClick={handleDeleteCustom}
-                      className="px-3 py-1.5 rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 text-xs font-semibold text-[#B91C1C] hover:bg-[#EF4444]/20 flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Vymazať šablónu</span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleDeleteProfile}
+                    className="px-3 py-1.5 rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 text-xs font-semibold text-[#B91C1C] hover:bg-[#EF4444]/20 flex items-center gap-1 cursor-pointer transition-colors"
+                    title="Vymazať túto šablónu (aj predvolenú)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Vymazať šablónu</span>
+                  </button>
 
                   {onSelectAndApply && (
                     <button

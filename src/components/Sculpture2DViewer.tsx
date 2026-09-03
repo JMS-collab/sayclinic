@@ -30,9 +30,8 @@ import {
 
 import femaleBustFront from '../assets/images/sculpture_front_perfect_1788381191502.jpg';
 import femaleBustProfile from '../assets/images/sculpture_profile_perfect_1788381207260.jpg';
-import femaleBustOblique from '../assets/images/sculpture_oblique_perfect_1788381223031.jpg';
 
-export type SculptureViewType = 'front' | 'profile_left' | 'profile_right' | 'three_quarter_left' | 'three_quarter_right';
+export type SculptureViewType = 'front' | 'profile_left' | 'profile_right';
 export type DrawingToolType = 'select' | 'move' | 'vector' | 'fanning' | 'point' | 'freehand' | 'threads';
 
 export interface AestheticProductDef {
@@ -188,8 +187,6 @@ export const VIEW_CONFIGS: { id: SculptureViewType; label: string; shortLabel: s
   { id: 'front', label: 'Čelný pohľad (En face)', shortLabel: 'Čelný', desc: 'Symetrické plánovanie čela, glately, líc, pier a brady' },
   { id: 'profile_left', label: 'Profil Ľavý (90°)', shortLabel: 'Profil Ľ', desc: 'Sánková línia, mandibulárny uhol, spánok a podbradok' },
   { id: 'profile_right', label: 'Profil Pravý (90°)', shortLabel: 'Profil P', desc: 'Sánková línia, mandibulárny uhol, spánok a podbradok' },
-  { id: 'three_quarter_left', label: '3/4 Pohľad Ľavý (Oblique)', shortLabel: '3/4 Ľavý', desc: 'Zygomatický oblúk, nasolabiálna ryha a liftingový vektor' },
-  { id: 'three_quarter_right', label: '3/4 Pohľad Pravý (Oblique)', shortLabel: '3/4 Pravý', desc: 'Zygomatický oblúk, nasolabiálna ryha a liftingový vektor' },
 ];
 
 export function Sculpture2DViewer({
@@ -389,11 +386,14 @@ export function Sculpture2DViewer({
       // Zabránenie posunu stránky prehliadača pri rolovaní myšou nad plátnom sochy
       e.preventDefault();
 
-      // deltaY < 0 = otočenie kolieska hore (zoom in), deltaY > 0 = otočenie dole (zoom out)
-      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+      // Zjemnené, plynulé krokovanie kolieskom myši
+      // Normalizácia deltaMode (riadky vs pixely) a jemný koeficient zoomu pre komfortné prehliadanie detailov tváre
+      const rawDelta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      const clampedDelta = Math.max(-60, Math.min(60, rawDelta));
+      const zoomFactor = 1 - (clampedDelta * 0.0006);
 
       setZoomLevel(prev => {
-        const next = Math.max(0.6, Math.min(3.5, Math.round(prev * zoomFactor * 100) / 100));
+        const next = Math.max(0.65, Math.min(3.2, Math.round(prev * zoomFactor * 1000) / 1000));
         return next;
       });
     };
@@ -620,14 +620,7 @@ export function Sculpture2DViewer({
       return `Krk & Dekolt (${side})`;
     }
 
-    // 3/4 views
-    const side34 = view === 'three_quarter_left' ? 'Ľavý' : 'Pravý';
-    if (y < 235) return `Čelo & Spánok (3/4 ${side34} – Dysport)`;
-    if (y >= 235 && y < 350) return `Zygomatická projekcia & Očný vejár (3/4 ${side34})`;
-    if (y >= 350 && y < 450) return `Malar fat pad & Líce (3/4 ${side34} – Radiesse / Sculptra)`;
-    if (y >= 450 && y < 540) return `Pery (Restylane Kysse) & Línia sánky (3/4 ${side34})`;
-    if (y >= 540 && y < 640) return `Podbradok & Kontúra krku (3/4 ${side34})`;
-    return `Krk a dekolt (3/4 ${side34})`;
+    return 'Estetická zóna';
   };
 
   // MOUSE DOWN: Start drawing or panning
@@ -2042,34 +2035,6 @@ export function Sculpture2DViewer({
                 <g transform="translate(600, 0) scale(-1, 1)">
                   <image
                     href={getImgSrc(femaleBustProfile)}
-                    x="0"
-                    y="0"
-                    width="600"
-                    height="800"
-                    preserveAspectRatio="none"
-                    className="pointer-events-none select-none transition-opacity duration-300"
-                  />
-                </g>
-              )}
-
-              {/* 4. 3/4 POHĽAD ĽAVÝ (THREE QUARTER LEFT) */}
-              {currentView === 'three_quarter_left' && (
-                <image
-                  href={getImgSrc(femaleBustOblique)}
-                  x="0"
-                  y="0"
-                  width="600"
-                  height="800"
-                  preserveAspectRatio="none"
-                  className="pointer-events-none select-none transition-opacity duration-300"
-                />
-              )}
-
-              {/* 5. 3/4 POHĽAD PRAVÝ (THREE QUARTER RIGHT - FLIPPED) */}
-              {currentView === 'three_quarter_right' && (
-                <g transform="translate(600, 0) scale(-1, 1)">
-                  <image
-                    href={getImgSrc(femaleBustOblique)}
                     x="0"
                     y="0"
                     width="600"

@@ -460,33 +460,88 @@ export const SURGERY_CONSENT_DATABASE: Record<string, SurgeryConsentProfile> = {
 };
 
 const STORAGE_KEY = 'sayclinic_surgery_consent_templates';
+const DELETED_STORAGE_KEY = 'sayclinic_surgery_consent_deleted_ids';
 
-// Získanie aktívnej databázy šablón (predvolené + používateľské úpravy z localStorage)
+// Zoznam ID zmazaných šablón (vrátane predvolených)
+export function getDeletedSurgeryConsentIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const saved = localStorage.getItem(DELETED_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    console.error('Chyba pri načítaní zoznamu zmazaných šablón:', e);
+    return [];
+  }
+}
+
+// Získanie aktívnej databázy šablón (predvolené + používateľské úpravy z localStorage - zmazané)
 export function getSurgeryConsentDatabase(): Record<string, SurgeryConsentProfile> {
   if (typeof window === 'undefined') {
     return SURGERY_CONSENT_DATABASE;
   }
   try {
+    const deletedIds = new Set(getDeletedSurgeryConsentIds());
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...SURGERY_CONSENT_DATABASE, ...parsed };
+    const custom: Record<string, SurgeryConsentProfile> = saved ? JSON.parse(saved) : {};
+
+    const activeDb: Record<string, SurgeryConsentProfile> = {};
+
+    // 1. Pridať všetky predvolené šablóny, ktoré neboli zmazané
+    for (const [k, v] of Object.entries(SURGERY_CONSENT_DATABASE)) {
+      if (!deletedIds.has(k)) {
+        activeDb[k] = v;
+      }
     }
+
+    // 2. Prepísať upravenými alebo pridať nové vlastné šablóny, pokiaľ neboli zmazané
+    for (const [k, v] of Object.entries(custom)) {
+      if (!deletedIds.has(k)) {
+        activeDb[k] = v;
+      }
+    }
+
+    return activeDb;
   } catch (e) {
     console.error('Chyba pri načítaní šablón z localStorage:', e);
   }
   return SURGERY_CONSENT_DATABASE;
 }
 
-// Uloženie konkrétnej šablóny (úprava existujúcej alebo vytvorenie novej)
+// Uloženie konkrétnej šablóny (úprava existujúcej/predvolenej alebo vytvorenie novej)
 export function saveSurgeryConsentProfile(profile: SurgeryConsentProfile): void {
   if (typeof window === 'undefined') return;
   try {
     const currentCustom = getCustomSurgeryConsentDatabase();
     currentCustom[profile.id] = profile;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(currentCustom));
+
+    // Ak bola šablóna predtým v zozname zmazaných, vymažeme ju zo zmazaných
+    const deletedIds = getDeletedSurgeryConsentIds().filter(id => id !== profile.id);
+    localStorage.setItem(DELETED_STORAGE_KEY, JSON.stringify(deletedIds));
   } catch (e) {
     console.error('Chyba pri ukladaní šablóny do localStorage:', e);
+  }
+}
+
+// Vymazanie akejkoľvek šablóny (aj predvolenej, aj vlastnej)
+export function deleteSurgeryConsentProfile(id: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    // 1. Vymazať z custom databázy
+    const currentCustom = getCustomSurgeryConsentDatabase();
+    if (currentCustom[id]) {
+      delete currentCustom[id];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(currentCustom));
+    }
+
+    // 2. Pridať do zoznamu zmazaných ID, aby sa nezobrazovala ani predvolená výrobná šablóna
+    const deletedIds = getDeletedSurgeryConsentIds();
+    if (!deletedIds.includes(id)) {
+      deletedIds.push(id);
+      localStorage.setItem(DELETED_STORAGE_KEY, JSON.stringify(deletedIds));
+    }
+  } catch (e) {
+    console.error('Chyba pri mazaní šablóny:', e);
   }
 }
 
@@ -495,6 +550,8 @@ export function saveAllSurgeryConsentProfiles(database: Record<string, SurgeryCo
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(database));
+    // Vyčistiť zoznam zmazaných, lebo celá databáza sa nanovo ukladá
+    localStorage.removeItem(DELETED_STORAGE_KEY);
   } catch (e) {
     console.error('Chyba pri ukladaní šablón do localStorage:', e);
   }
@@ -504,9 +561,9 @@ export function saveAllSurgeryConsentProfiles(database: Record<string, SurgeryCo
 export function getCustomSurgeryConsentDatabase(): Record<string, SurgeryConsentProfile> {
   if (typeof window === 'undefined') return {};
   try {
-    const saved逃 = localStorage.getItem(STORAGE_KEY);
-    if (saved逃) {
-      return JSON.parse(saved逃);
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
     }
   } catch (e) {
     console.error('Chyba pri načítaní custom šablón:', e);
@@ -523,6 +580,8 @@ export function resetSurgeryConsentProfile(id: string): void {
       delete currentCustom[id];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(currentCustom));
     }
+    const deletedIds = getDeletedSurgeryConsentIds().filter(dId => dId !== id);
+    localStorage.setItem(DELETED_STORAGE_KEY, JSON.stringify(deletedIds));
   } catch (e) {
     console.error('Chyba pri resetovaní šablóny:', e);
   }
@@ -533,6 +592,7 @@ export function resetAllSurgeryConsentProfiles(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(DELETED_STORAGE_KEY);
   } catch (e) {
     console.error('Chyba pri resete všetkých šablón:', e);
   }
