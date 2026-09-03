@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import PatientDriveFiles from './PatientDriveFiles';
+import { InventoryService, MaterialUsageLog, InventoryItem } from '../services/inventoryService';
 
 export interface Patient {
   id: string;
@@ -50,9 +51,20 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
   const { data: session } = useSession();
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || null);
-  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive'>('dokumenty');
+  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy'>('dokumenty');
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+
+  // STAV PRE POUŽITÝ MATERIÁL & SKLAD
+  const [patientMaterialLogs, setPatientMaterialLogs] = useState<MaterialUsageLog[]>([]);
+  const [isDispensingMaterial, setIsDispensingMaterial] = useState(false);
+  const [allStockItems, setAllStockItems] = useState<InventoryItem[]>([]);
+  const [dispenseItemId, setDispenseItemId] = useState('');
+  const [dispenseQuantity, setDispenseQuantity] = useState(1);
+  const [dispenseType, setDispenseType] = useState<'ambulancia' | 'pradlo' | 'operacia' | 'estetika'>('pradlo');
+  const [dispenseProcedureName, setDispenseProcedureName] = useState('Výdaj pooperačného prádla / ošetrenie');
+  const [dispenseNote, setDispenseNote] = useState('');
+  const [materialFilterType, setMaterialFilterType] = useState<string>('all');
 
   // Stav pre pridať pacienta
   const [isAddingPatient, setIsAddingPatient] = useState(false);
@@ -119,6 +131,54 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
       console.error('Chyba pri ukladaní záznamov do localStorage:', e);
     }
   }, [patientRecords]);
+
+  // Načítanie a sledovanie spotrebovaného materiálu pre vybraného pacienta
+  const refreshPatientMaterials = () => {
+    if (!selectedPatient) return;
+    const logs = InventoryService.getLogsForPatient(selectedPatient.id, selectedPatient.birthNumber, selectedPatient.name);
+    setPatientMaterialLogs(logs);
+    setAllStockItems(InventoryService.getInventory());
+  };
+
+  useEffect(() => {
+    refreshPatientMaterials();
+    const onMaterialLogged = () => refreshPatientMaterials();
+    window.addEventListener('say_clinic_material_usage_logged', onMaterialLogged);
+    window.addEventListener('say_clinic_inventory_changed', onMaterialLogged);
+    return () => {
+      window.removeEventListener('say_clinic_material_usage_logged', onMaterialLogged);
+      window.removeEventListener('say_clinic_inventory_changed', onMaterialLogged);
+    };
+  }, [selectedPatient]);
+
+  const handleDispenseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatient || !dispenseItemId) return;
+    const item = allStockItems.find(i => i.id === dispenseItemId);
+    if (!item) return;
+
+    InventoryService.logMaterialUsage({
+      patientId: selectedPatient.id,
+      patientName: selectedPatient.name,
+      patientBirthNumber: selectedPatient.birthNumber,
+      sourceType: dispenseType,
+      procedureName: dispenseProcedureName || 'Priamy výdaj materiálu',
+      itemId: item.id,
+      itemName: item.name,
+      category: item.category,
+      quantity: Number(dispenseQuantity) || 1,
+      unit: item.unit,
+      lotNumber: item.lotNumber,
+      performerName: 'Sestra / SAY CLINIC',
+      notes: dispenseNote || 'Manuálny výdaj zo zložky pacienta'
+    });
+
+    setIsDispensingMaterial(false);
+    setDispenseItemId('');
+    setDispenseQuantity(1);
+    setDispenseNote('');
+    refreshPatientMaterials();
+  };
 
   // 1. Načítanie kešovaných pacientov z localStorage pri štarte
   useEffect(() => {
@@ -725,10 +785,16 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
             {/* PREPOJENIE SO ZLOŽKOU "KLIENTI SAY" NA GOOGLE DRIVE */}
             <PatientDriveFiles patientName={selectedPatient.name} />
 
-            <div className="flex gap-2 border-b border-[#E8E2D9]">
+            <div className="flex flex-wrap gap-2 border-b border-[#E8E2D9]">
               <button onClick={() => { setActiveFolder('dokumenty'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'dokumenty' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📄 Dokumenty & Záznamy</button>
               <button onClick={() => setActiveFolder('fotodokumentacia')} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'fotodokumentacia' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📸 Fotodokumentácia</button>
               <button onClick={() => { setActiveFolder('predoperacne'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'predoperacne' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>🩸 Výsledky & Vyšetrenia</button>
+              <button onClick={() => { setActiveFolder('materialy'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'materialy' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
+                <span>📦 Minutý materiál & Prádlo</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'materialy' ? 'bg-[#C5A059] text-white' : 'bg-[#E8E2D9] text-[#2C2A29]'}`}>
+                  {patientMaterialLogs.length}
+                </span>
+              </button>
             </div>
 
             <div className="min-h-[350px] border border-[#E8E2D9] rounded-b-xl rounded-tr-xl p-5 bg-white">
@@ -843,6 +909,258 @@ export default function PatientDatabase({ onNavigateToGenerator, onNavigateToAes
                   </div>
                 </div>
               )}
+
+              {/* ZÁLOŽKA MINUTÝ MATERIÁL & PRÁDLO */}
+              {activeFolder === 'materialy' && (
+                <div className="space-y-4">
+                  {/* Horný panel: Štatistiky a akcie */}
+                  <div className="flex flex-wrap justify-between items-center gap-3 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E2D9]">
+                    <div className="flex flex-wrap items-center gap-4 text-xs">
+                      <div>
+                        <span className="text-[10px] uppercase text-[#8C857B] font-bold block">Minuté položky</span>
+                        <span className="text-base font-bold text-[#2C2A29]">{patientMaterialLogs.length} záznamov</span>
+                      </div>
+                      <div className="h-8 w-px bg-[#E8E2D9] hidden sm:block" />
+                      <div>
+                        <span className="text-[10px] uppercase text-[#8C857B] font-bold block">Implantáty & Špeciál</span>
+                        <span className="text-base font-bold text-[#C5A059]">
+                          {patientMaterialLogs.filter(l => l.category === 'implantaty').length} ks
+                        </span>
+                      </div>
+                      <div className="h-8 w-px bg-[#E8E2D9] hidden sm:block" />
+                      <div>
+                        <span className="text-[10px] uppercase text-[#8C857B] font-bold block">Pooperačné prádlo</span>
+                        <span className="text-base font-bold text-[#2C2A29]">
+                          {patientMaterialLogs.filter(l => l.category === 'kompresivne_pradlo').length} ks
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDispensingMaterial(true);
+                        setDispenseItemId(allStockItems[0]?.id || '');
+                      }}
+                      className="text-xs bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3.5 py-2 rounded-xl uppercase font-bold tracking-wider shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>+ Vystaviť / Odpísať materiál</span>
+                    </button>
+                  </div>
+
+                  {/* Filtre */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="text-[10px] uppercase font-bold text-[#8C857B] mr-1">Filter:</span>
+                    {[
+                      { id: 'all', label: 'Všetko' },
+                      { id: 'operacia', label: '🏥 Operácie' },
+                      { id: 'estetika', label: '💉 Estetika' },
+                      { id: 'pradlo', label: '👙 Vydané prádlo' },
+                      { id: 'ambulancia', label: '🩺 Ambulancia' },
+                    ].map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => setMaterialFilterType(f.id)}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                          materialFilterType === f.id
+                            ? 'bg-[#2C2A29] text-white'
+                            : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Zoznam položiek */}
+                  {patientMaterialLogs.length === 0 ? (
+                    <div className="text-center py-12 border border-dashed border-[#E8E2D9] rounded-xl bg-[#FAF8F5]">
+                      <p className="text-3xl mb-2">📦</p>
+                      <p className="text-sm font-semibold text-[#2C2A29]">Zatiaľ nebol zaznamenaný žiadny minutý materiál</p>
+                      <p className="text-xs text-[#8C857B] max-w-md mx-auto mt-1">
+                        Materiál sa automaticky odpisuje zo skladu pri ukladaní operačného protokolu, estetického ošetrenia (Face Mapping), kontrolného vyšetrenia alebo priamom výdaji pooperačnej bielizne.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsDispensingMaterial(true);
+                          setDispenseItemId(allStockItems[0]?.id || '');
+                        }}
+                        className="mt-4 text-xs bg-[#C5A059] text-white px-4 py-2 rounded-xl uppercase font-bold hover:bg-[#b08d48] cursor-pointer"
+                      >
+                        + Zaznamenať výdaj materiálu
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {patientMaterialLogs
+                        .filter(log => materialFilterType === 'all' || log.sourceType === materialFilterType)
+                        .map(log => (
+                          <div
+                            key={log.id}
+                            className="border border-[#E8E2D9] rounded-xl p-3.5 bg-white hover:border-[#C5A059]/50 transition-all shadow-2xs space-y-2"
+                          >
+                            <div className="flex flex-wrap justify-between items-start gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                                    log.sourceType === 'operacia'
+                                      ? 'bg-rose-100 text-rose-800'
+                                      : log.sourceType === 'estetika'
+                                      ? 'bg-purple-100 text-purple-800'
+                                      : log.sourceType === 'pradlo'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    {log.sourceType === 'operacia' ? '🏥 Operácia' : log.sourceType === 'estetika' ? '💉 Estetika' : log.sourceType === 'pradlo' ? '👙 Prádlo' : '🩺 Ambulancia'}
+                                  </span>
+                                  <span className="text-xs font-bold text-[#2C2A29]">{log.itemName}</span>
+                                </div>
+                                <p className="text-[11px] text-[#8C857B] mt-0.5">
+                                  Výkon: <strong className="text-[#2C2A29]">{log.procedureName}</strong>
+                                </p>
+                              </div>
+
+                              <div className="text-right">
+                                <span className="text-sm font-bold text-[#2C2A29] bg-[#FAF8F5] px-2.5 py-1 rounded-lg border border-[#E8E2D9]">
+                                  {log.quantity} {log.unit}
+                                </span>
+                                <span className="block text-[10px] text-[#8C857B] mt-1">
+                                  {new Date(log.timestamp).toLocaleString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F0EBE1] text-[11px]">
+                              <div className="flex flex-wrap items-center gap-3 text-[#8C857B]">
+                                {log.lotNumber && (
+                                  <span>Šarža / LOT: <strong className="text-[#C5A059] font-mono">{log.lotNumber}</strong></span>
+                                )}
+                                {log.serialNumber && (
+                                  <span>SN: <strong className="text-[#2C2A29] font-mono">{log.serialNumber}</strong></span>
+                                )}
+                                {log.performerName && (
+                                  <span>Personál: <strong className="text-[#2C2A29]">{log.performerName}</strong></span>
+                                )}
+                              </div>
+                              {log.notes && (
+                                <span className="text-[#8C857B] italic text-[10px]">
+                                  {log.notes}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: RÝCHLY VÝDAJ MATERIÁLU NA PACIENTA */}
+        {isDispensingMaterial && selectedPatient && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E8E2D9] space-y-4">
+              <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
+                <div>
+                  <h3 className="font-bold text-sm text-[#2C2A29] uppercase tracking-wide">
+                    Výdaj / Odpis materiálu zo skladu
+                  </h3>
+                  <p className="text-xs text-[#8C857B]">Klient: <strong className="text-[#2C2A29]">{selectedPatient.name}</strong> ({selectedPatient.birthNumber})</p>
+                </div>
+                <button
+                  onClick={() => setIsDispensingMaterial(false)}
+                  className="text-[#8C857B] hover:text-[#2C2A29] text-lg font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleDispenseSubmit} className="space-y-3">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Položka materiálu zo skladu *</label>
+                  <select
+                    value={dispenseItemId}
+                    onChange={e => setDispenseItemId(e.target.value)}
+                    required
+                    className="w-full border border-[#E8E2D9] p-2.5 rounded-xl text-xs bg-white focus:border-[#C5A059] outline-none"
+                  >
+                    <option value="" disabled>Vyberte materiál alebo prádlo zo skladu...</option>
+                    {allStockItems.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} (Zásoba: {item.quantity} {item.unit}) [{item.supplier}]
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Množstvo *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={dispenseQuantity}
+                      onChange={e => setDispenseQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Typ výdaja *</label>
+                    <select
+                      value={dispenseType}
+                      onChange={e => setDispenseType(e.target.value as any)}
+                      className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
+                    >
+                      <option value="pradlo">👙 Výdaj prádla</option>
+                      <option value="ambulancia">🩺 Ambulancia / Preväz</option>
+                      <option value="operacia">🏥 Operácia / Sála</option>
+                      <option value="estetika">💉 Estetika</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Dôvod / Názov výkonu</label>
+                  <input
+                    type="text"
+                    value={dispenseProcedureName}
+                    onChange={e => setDispenseProcedureName(e.target.value)}
+                    placeholder="napr. Výdaj pooperačného prádla po augmentácii"
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Poznámka / Veľkosť (voliteľné)</label>
+                  <input
+                    type="text"
+                    value={dispenseNote}
+                    onChange={e => setDispenseNote(e.target.value)}
+                    placeholder="napr. Veľkosť M, čierna farba, predané na recepcii"
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#E8E2D9]">
+                  <button
+                    type="button"
+                    onClick={() => setIsDispensingMaterial(false)}
+                    className="px-4 py-2 border border-[#E8E2D9] rounded-xl text-xs font-semibold hover:bg-[#FAF8F5] cursor-pointer"
+                  >
+                    Zrušiť
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-[#C5A059] hover:bg-[#b08d48] text-white rounded-xl text-xs uppercase font-bold tracking-wider cursor-pointer shadow-xs"
+                  >
+                    Zaevidovať & Odpísať zo skladu
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

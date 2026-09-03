@@ -12,6 +12,7 @@ import {
 import { SurgeryConsentTemplateManager } from './SurgeryConsentTemplateManager';
 import PrescriptionModule from './PrescriptionModule';
 import { Sliders, Save, RotateCcw, Check } from './Icons';
+import { InventoryService, InventoryItem } from '../services/inventoryService';
 
 export interface ServiceCategory {
   id: string;
@@ -651,6 +652,26 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     'Šijací materiál: PDS 4-0 (vnútorná sutúra), Monocryl 4-0 (podkožie), Glycolon 4-0 (intrakutánny steh), Steri-stripp\nHemostatiká & Roztok: Tumescenčný roztok (adrenalín 1:200 000 + levobupivacain), Surgicel\nDrenáž: 2x Redonov podtlakový drén CH10\nKrytie: Sterilné krytie, kompresívna pooperačná bielizeň'
   );
 
+  // MINUTÝ MATERIÁL PRE AUTOMATICKÝ ODPIS ZO SKLADU SAY CLINIC
+  const [usedMaterialsToDeduct, setUsedMaterialsToDeduct] = useState<{
+    id: string;
+    itemId?: string;
+    name: string;
+    quantity: number;
+    unit: string;
+    category: string;
+    lotNumber?: string;
+  }[]>([]);
+  const [availableStockItems, setAvailableStockItems] = useState<InventoryItem[]>([]);
+  const [selectedStockItemToAdd, setSelectedStockItemToAdd] = useState<string>('');
+
+  useEffect(() => {
+    setAvailableStockItems(InventoryService.getInventory());
+    const handleStockUpdate = () => setAvailableStockItems(InventoryService.getInventory());
+    window.addEventListener('say_clinic_inventory_changed', handleStockUpdate);
+    return () => window.removeEventListener('say_clinic_inventory_changed', handleStockUpdate);
+  }, []);
+
   // AUTOMATICKÉ ODPORÚČANIA PO OPERÁCII PRE OŠETRUJÚCI PERSONÁL
   const [postopStaffCare, setPostopStaffCare] = useState(getStaffRecommendationsForProcedure('Augmentácia'));
 
@@ -1148,12 +1169,124 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
       }
     }
 
+    // AUTOMATICKÝ ODPIS MINUTÉHO MATERIÁLU A IMPLANTÁTOV ZO SKLADU SAY CLINIC
+    let autoLoggedCount = 0;
+    try {
+      const clientName = patientName || 'Neznámy pacient';
+      const procedureNameStr = manualProcedure || selectedItems[0]?.name || DOC_TITLES[docType];
+
+      // 1. Zalogovanie implantátov pri operácii
+      if (docType === 'operacny_protokol' && surgeryImplants && surgeryImplants.length > 0) {
+        surgeryImplants.forEach(impl => {
+          if (impl.vyrobca || impl.model || impl.kat) {
+            InventoryService.logMaterialUsage({
+              patientName: clientName,
+              patientBirthNumber: birthNumber,
+              sourceType: 'operacia',
+              procedureName: procedureNameStr,
+              itemName: `${impl.vyrobca} ${impl.model} ${impl.objem} (${impl.strana || 'Bilat'})`,
+              category: 'implantaty',
+              quantity: 1,
+              unit: 'ks',
+              lotNumber: impl.lot,
+              serialNumber: impl.sn,
+              performerName: doctor,
+              notes: `Operačný implantát KAT: ${impl.kat || '---'}`
+            });
+            autoLoggedCount++;
+          }
+        });
+      }
+
+      // 2. Zalogovanie šijacieho materiálu, hemostatík a drénov z operačného protokolu
+      if (docType === 'operacny_protokol' && surgeryMaterials) {
+        const matLower = surgeryMaterials.toLowerCase();
+        const recognizedSurgicalItems = [
+          { pattern: 'pds', name: 'PDS II 4-0 ihla SH-1 (bal 36ks)', cat: 'sijaci_material', unit: 'bal', qty: 1 },
+          { pattern: 'monocryl', name: 'Monocryl 4-0 ihla PS-2 (bal 36ks)', cat: 'sijaci_material', unit: 'bal', qty: 1 },
+          { pattern: 'glycolon', name: 'Glycolon 4-0 intrakutánny intrakut. steh (bal 24ks)', cat: 'sijaci_material', unit: 'bal', qty: 1 },
+          { pattern: 'prolene', name: 'Prolene 5-0 ihla P-3 na blepharoplastiku (bal 36ks)', cat: 'sijaci_material', unit: 'bal', qty: 1 },
+          { pattern: 'vicryl', name: 'Vicryl 3-0 ihla CT-1 (bal 36ks)', cat: 'sijaci_material', unit: 'bal', qty: 1 },
+          { pattern: 'surgicel', name: 'Surgicel hemostatická gáza 5x7.5cm (bal 10ks)', cat: 'sijaci_material', unit: 'bal', qty: 1 },
+          { pattern: 'floseal', name: 'Floseal hemostatická matrica 5ml', cat: 'sijaci_material', unit: 'ks', qty: 1 },
+          { pattern: 'redon', name: 'Redonov podtlakový drén CH10 so zberačom', cat: 'sijaci_material', unit: 'ks', qty: 2 },
+          { pattern: 'podprsenka', name: 'Kompresívna podprsenka Lipoelastic PI Ideal', cat: 'kompresivne_pradlo', unit: 'ks', qty: 1, isGarment: true },
+          { pattern: 'brušný pás', name: 'Brušný kompresívny pás 3-panelový Lipoelastic', cat: 'kompresivne_pradlo', unit: 'ks', qty: 1, isGarment: true },
+          { pattern: 'dlaha', name: 'Termoplastická nosová dlaha fixačná po rhinoplastike', cat: 'kompresivne_pradlo', unit: 'ks', qty: 1, isGarment: true },
+        ];
+
+        recognizedSurgicalItems.forEach(item => {
+          if (matLower.includes(item.pattern)) {
+            InventoryService.logMaterialUsage({
+              patientName: clientName,
+              patientBirthNumber: birthNumber,
+              sourceType: item.isGarment ? 'pradlo' : 'operacia',
+              procedureName: procedureNameStr,
+              itemName: item.name,
+              category: item.cat,
+              quantity: item.qty,
+              unit: item.unit,
+              performerName: doctor,
+              notes: 'Automatický odpis materiálu z operačného protokolu'
+            });
+            autoLoggedCount++;
+          }
+        });
+      }
+
+      // 3. Zalogovanie prádla pri dohode o cene / cenovej ponuke / objednávke
+      selectedItems.forEach(item => {
+        if (SERVICES_DATABASE.aftercareAndGarments.some(g => g.id === item.id)) {
+          InventoryService.logMaterialUsage({
+            patientName: clientName,
+            patientBirthNumber: birthNumber,
+            sourceType: 'pradlo',
+            procedureName: `Vydané pooperačné prádlo (${procedureNameStr})`,
+            itemName: item.name,
+            category: 'kompresivne_pradlo',
+            quantity: 1,
+            unit: 'ks',
+            performerName: doctor,
+            notes: `Zaradené v kalkulácii: ${item.price} €`
+          });
+          autoLoggedCount++;
+        }
+      });
+
+      // 4. Zalogovanie explicitne zvolených položiek zo skladu
+      if (usedMaterialsToDeduct.length > 0) {
+        usedMaterialsToDeduct.forEach(mat => {
+          InventoryService.logMaterialUsage({
+            patientName: clientName,
+            patientBirthNumber: birthNumber,
+            sourceType: docType === 'operacny_protokol' ? 'operacia' : (mat.category === 'kompresivne_pradlo' ? 'pradlo' : 'ambulancia'),
+            procedureName: procedureNameStr,
+            itemId: mat.itemId,
+            itemName: mat.name,
+            category: mat.category,
+            quantity: mat.quantity,
+            unit: mat.unit,
+            lotNumber: mat.lotNumber,
+            performerName: doctor,
+            notes: `Odpísané pri zázname: ${DOC_TITLES[docType]}`
+          });
+          autoLoggedCount++;
+        });
+      }
+    } catch (invErr) {
+      console.error('Chyba pri automatickom logovaní skladu:', invErr);
+    }
+
     const response = await HealthProService.sendMedicalRecord({
       patientBirthNumber: birthNumber,
       diagnosisCode: diagnosis,
       notes: recordNote,
       doctorLicenseCode: 'LEK-123456',
     });
+
+    if (response && autoLoggedCount > 0) {
+      response.message = `${response.message || 'Záznam úspešne odoslaný.'} (📦 Sklad: ${autoLoggedCount} položiek minutého materiálu bolo automaticky zalogovaných a odpísaných).`;
+    }
 
     setResult(response);
     setLoading(false);
@@ -2840,6 +2973,88 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     className="w-full border border-[#E8E2D9] p-2.5 rounded-xl text-xs bg-white leading-relaxed"
                   />
                 </div>
+
+                {/* PREPOJENIE SO SKLADOM: AUTOMATICKÝ ODPIS MATERIÁLU */}
+                <div className="p-3.5 bg-[#FAF7F2] border border-[#C5A059]/30 rounded-xl space-y-2.5">
+                  <div className="flex flex-wrap justify-between items-center gap-1">
+                    <span className="text-[10px] uppercase font-bold text-[#C5A059] flex items-center gap-1.5">
+                      📦 Prepojenie so skladom SAY CLINIC (Automatický odpis)
+                    </span>
+                    <span className="text-[9px] bg-white border border-[#E8E2D9] px-2 py-0.5 rounded text-[#8C857B] font-medium">
+                      Odpíše sa pri uložení protokolu
+                    </span>
+                  </div>
+
+                  <p className="text-[10px] text-[#8C857B] leading-relaxed">
+                    Všetky implantáty ({surgeryImplants.length} ks) a rozpoznaný materiál (Monocryl, PDS, Glycolon, Prolene, Surgicel, Floseal, Redon, prádlo) budú po odoslaní automaticky zaevidované do Knihy spotreby klienta. Ak ste použili ďalšie položky zo skladu, vyberte ich nižšie:
+                  </p>
+
+                  {/* Zoznam manuálne pridaných položiek */}
+                  {usedMaterialsToDeduct.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      {usedMaterialsToDeduct.map((mat, idx) => (
+                        <div key={mat.id} className="flex justify-between items-center bg-white p-2 rounded-lg border border-[#E8E2D9] text-xs shadow-2xs">
+                          <div>
+                            <span className="font-semibold text-[#2C2A29]">{mat.name}</span>
+                            <span className="ml-2 text-[9px] text-[#8C857B] uppercase bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">{mat.category}</span>
+                            {mat.lotNumber && <span className="ml-1 text-[9px] text-[#C5A059] font-mono">LOT: {mat.lotNumber}</span>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E8E2D9]">{mat.quantity} {mat.unit}</span>
+                            <button
+                              type="button"
+                              onClick={() => setUsedMaterialsToDeduct(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-rose-500 hover:text-rose-700 font-bold px-1"
+                              title="Odstrániť"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Dropdown pre výber ďalšej skladovej položky */}
+                  <div className="flex flex-wrap sm:flex-nowrap gap-2 pt-1">
+                    <select
+                      value={selectedStockItemToAdd}
+                      onChange={e => setSelectedStockItemToAdd(e.target.value)}
+                      className="flex-1 border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white focus:border-[#C5A059] outline-none"
+                    >
+                      <option value="">+ Vyberte ďalší materiál zo skladu na odpis (anestézia, infúzia, krytie, prádlo)...</option>
+                      {availableStockItems.map(item => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} (Zásoba: {item.quantity} {item.unit}) [{item.supplier}]
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={!selectedStockItemToAdd}
+                      onClick={() => {
+                        const item = availableStockItems.find(i => i.id === selectedStockItemToAdd);
+                        if (!item) return;
+                        setUsedMaterialsToDeduct(prev => [
+                          ...prev,
+                          {
+                            id: `deduct-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+                            itemId: item.id,
+                            name: item.name,
+                            quantity: 1,
+                            unit: item.unit,
+                            category: item.category,
+                            lotNumber: item.lotNumber
+                          }
+                        ]);
+                        setSelectedStockItemToAdd('');
+                      }}
+                      className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-40 shrink-0 cursor-pointer"
+                    >
+                      + Pridať k odpisu
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -3040,6 +3255,82 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   placeholder="Podrobný popis operačného postupu, anatomických pomerov, preparácie, implantácie, hemostázy a sutúry..." 
                   className="w-full border border-[#E8E2D9] p-3 rounded-xl text-xs bg-white text-[#2C2A29] leading-relaxed font-normal" 
                 />
+              </div>
+            )}
+
+            {/* VOLITEĽNÝ ODPIS MATERIÁLU PRE AMBULANTNÉ VÝKONY A KONTROLY */}
+            {docType !== 'operacny_protokol' && (
+              <div className="border border-[#E8E2D9] rounded-xl p-3.5 bg-[#FAF7F2] space-y-2">
+                <div className="flex flex-wrap justify-between items-center gap-1">
+                  <span className="text-[10px] uppercase font-bold text-[#C5A059] flex items-center gap-1.5">
+                    📦 Skladový odpis materiálu / vydaného prádla na klienta
+                  </span>
+                  <span className="text-[9px] text-[#8C857B]">
+                    Voliteľné: odpočíta sa zo skladu a zaloguje v Knihe spotreby
+                  </span>
+                </div>
+
+                {usedMaterialsToDeduct.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    {usedMaterialsToDeduct.map((mat, idx) => (
+                      <div key={mat.id} className="flex justify-between items-center bg-white p-2 rounded-lg border border-[#E8E2D9] text-xs">
+                        <div>
+                          <span className="font-semibold text-[#2C2A29]">{mat.name}</span>
+                          <span className="ml-2 text-[9px] text-[#8C857B] uppercase bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">{mat.category}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E8E2D9]">{mat.quantity} {mat.unit}</span>
+                          <button
+                            type="button"
+                            onClick={() => setUsedMaterialsToDeduct(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-rose-500 hover:text-rose-700 font-bold px-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap sm:flex-nowrap gap-2 pt-1">
+                  <select
+                    value={selectedStockItemToAdd}
+                    onChange={e => setSelectedStockItemToAdd(e.target.value)}
+                    className="flex-1 border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white focus:border-[#C5A059] outline-none"
+                  >
+                    <option value="">+ Pridať spotrebovaný ambulantný materiál, krytie, stehy alebo prádlo...</option>
+                    {availableStockItems.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} (Zásoba: {item.quantity} {item.unit}) [{item.supplier}]
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!selectedStockItemToAdd}
+                    onClick={() => {
+                      const item = availableStockItems.find(i => i.id === selectedStockItemToAdd);
+                      if (!item) return;
+                      setUsedMaterialsToDeduct(prev => [
+                        ...prev,
+                        {
+                          id: `deduct-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+                          itemId: item.id,
+                          name: item.name,
+                          quantity: 1,
+                          unit: item.unit,
+                          category: item.category,
+                          lotNumber: item.lotNumber
+                        }
+                      ]);
+                      setSelectedStockItemToAdd('');
+                    }}
+                    className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-40 shrink-0 cursor-pointer"
+                  >
+                    + Pridať
+                  </button>
+                </div>
               </div>
             )}
 

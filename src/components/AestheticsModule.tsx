@@ -28,6 +28,7 @@ import {
   Pencil
 } from 'lucide-react';
 import { Patient, MedicalRecord } from './PatientDatabase';
+import { InventoryService } from '../services/inventoryService';
 import { 
   Sculpture2DViewer, 
   Vector2DItem, 
@@ -1197,8 +1198,57 @@ Pacient bol riadne poučený o poaplikačnom a pooperačnom režime. V prípade 
       existing[currentPatient.id] = updatedList;
       localStorage.setItem('say_clinic_patient_records', JSON.stringify(existing));
 
-      setSavedStatusMsg(`✅ Protokol bol úspešne uložený do karty pacienta: ${currentPatient.name}`);
-      setTimeout(() => setSavedStatusMsg(null), 5000);
+      // 3. AUTOMATICKÝ ODPIS POUŽITÉHO MATERIÁLU DO SKLADU (KNIHA SPOTREBY)
+      let loggedCount = 0;
+      const usedProductsMap = new Map<string, { productName: string; lotNumber: string; count: number; zones: string[] }>();
+      vectors.forEach(v => {
+        if (!v.productName) return;
+        const key = `${v.productName}_${v.lotNumber || ''}`;
+        if (!usedProductsMap.has(key)) {
+          usedProductsMap.set(key, { productName: v.productName, lotNumber: v.lotNumber || '', count: 1, zones: [v.zoneName] });
+        } else {
+          const entry = usedProductsMap.get(key)!;
+          entry.count++;
+          if (!entry.zones.includes(v.zoneName)) entry.zones.push(v.zoneName);
+        }
+      });
+
+      usedProductsMap.forEach(item => {
+        InventoryService.logMaterialUsage({
+          patientId: currentPatient.id,
+          patientName: currentPatient.name,
+          patientBirthNumber: currentPatient.birthNumber,
+          sourceType: 'estetika',
+          procedureName: `Estetická aplikácia (${item.zones.slice(0, 2).join(', ')})`,
+          itemName: item.productName,
+          category: 'estetika',
+          quantity: 1,
+          lotNumber: item.lotNumber,
+          performerName: 'MUDr. Ján Mráz',
+          notes: `Aplikovaných ${item.count} aplikačných bodov/vektorov do: ${item.zones.join(', ')}`
+        });
+        loggedCount++;
+      });
+
+      bodyTreatments.forEach(b => {
+        InventoryService.logMaterialUsage({
+          patientId: currentPatient.id,
+          patientName: currentPatient.name,
+          patientBirthNumber: currentPatient.birthNumber,
+          sourceType: 'estetika',
+          procedureName: `Telové ošetrenie: ${b.procedureName} (${b.zone})`,
+          itemName: b.productName,
+          category: 'estetika',
+          quantity: 1,
+          lotNumber: b.lotNumber,
+          performerName: 'MUDr. Ján Mráz',
+          notes: `Dávka: ${b.dosage}, Technika: ${b.technique}`
+        });
+        loggedCount++;
+      });
+
+      setSavedStatusMsg(`✅ Protokol bol úspešne uložený do karty pacienta: ${currentPatient.name} (${loggedCount > 0 ? `${loggedCount} položiek materiálu automaticky odpísaných zo skladu` : 'hotovo'})`);
+      setTimeout(() => setSavedStatusMsg(null), 6000);
     } catch (e) {
       console.error(e);
       setSavedStatusMsg('❌ Chyba pri ukladaní.');
