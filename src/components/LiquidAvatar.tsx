@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 interface AvatarProps {
   id: string;
   name: string;
-  role: 'doctor' | 'manager' | 'nurse';
+  role: 'doctor' | 'manager' | 'nurse' | 'ceo';
   className?: string;
 }
 

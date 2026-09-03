@@ -11,6 +11,7 @@ import Calendar, { CalendarEvent } from '../components/Calendar';
 import InventoryCRM from '../components/InventoryCRM';
 import { AestheticsModule } from '../components/AestheticsModule';
 import { CosmeticsPOSModule } from '../components/CosmeticsPOSModule';
+import ProjectManagement from '../components/ProjectManagement';
 
 export interface SaleItem {
   id: string;
@@ -25,7 +26,59 @@ const INITIAL_SALES: SaleItem[] = [
   { id: 'S1', date: '2026-08-14', patientName: 'Ján Novák', doctorName: 'MUDr. Ján Mráz', serviceType: 'Augmentácia prsníkov', amount: 4100 },
 ];
 
-type TabType = 'home' | 'generator' | 'patients' | 'aesthetics' | 'cosmetics' | 'calendar' | 'inventory' | 'finance';
+type TabType = 'home' | 'generator' | 'patients' | 'aesthetics' | 'cosmetics' | 'calendar' | 'inventory' | 'finance' | 'projects';
+
+function buildProjectFromNote(noteText: string, currentUser: UserAccount) {
+  const isCeoUser = currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';
+  const timestamp = Date.now();
+  const dateStr = new Date(timestamp).toISOString().split('T')[0];
+  const deadlineStr = new Date(timestamp + 7 * 86400000).toISOString().split('T')[0];
+
+  return {
+    id: `PRJ-${timestamp}`,
+    title: noteText,
+    category: 'operativa',
+    description: `Operatívne poverenie vytvorené z poznámok kliniky: "${noteText}". Zadal: ${currentUser.name}.`,
+    status: 'in_progress',
+    priority: 'high',
+    leadId: currentUser.id,
+    leadName: currentUser.name,
+    assigneeIds: ['u1', 'u4', 'u7'],
+    deadline: deadlineStr,
+    startDate: dateStr,
+    createdById: currentUser.id,
+    createdByName: `${currentUser.name} (${isCeoUser ? 'CEO' : currentUser.title})`,
+    createdAt: new Date(timestamp).toISOString(),
+    updatedAt: new Date(timestamp).toISOString(),
+    attachments: [],
+    tasks: [
+      {
+        id: `tsk-${timestamp}-1`,
+        projectId: `PRJ-${timestamp}`,
+        title: noteText,
+        description: 'Úloha prenesená z operatívnej pripomienky kliniky.',
+        assignedToId: 'u4',
+        assignedToName: 'Ing. Barbara Mecerodová, MBA',
+        assignedToRole: 'manager',
+        createdById: currentUser.id,
+        createdByName: currentUser.name,
+        completed: false,
+        priority: 'high',
+        deadline: deadlineStr,
+      }
+    ],
+    comments: [
+      {
+        id: `c-${timestamp}`,
+        authorId: currentUser.id,
+        authorName: currentUser.name,
+        authorRole: isCeoUser ? 'CEO & Zakladateľ' : currentUser.title,
+        text: `Projekt a poverenie automaticky prenesené z operatívnych poznámok.`,
+        timestamp: new Date(timestamp).toLocaleDateString('sk-SK') + ' ' + new Date(timestamp).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' }),
+      }
+    ]
+  };
+}
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -80,7 +133,7 @@ export default function Home() {
   useEffect(() => {
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '') as TabType;
-      if (['home', 'generator', 'patients', 'aesthetics', 'cosmetics', 'finance', 'calendar', 'inventory'].includes(hash)) {
+      if (['home', 'generator', 'patients', 'aesthetics', 'cosmetics', 'finance', 'calendar', 'inventory', 'projects'].includes(hash)) {
         setActiveTab(hash);
       } else {
         setActiveTab('home');
@@ -189,6 +242,22 @@ export default function Home() {
     setClinicNotes(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleConvertNoteToProject = (noteText: string, noteIndex: number) => {
+    if (!currentUser) return;
+    const newProj = buildProjectFromNote(noteText, currentUser);
+
+    try {
+      const existingStr = localStorage.getItem('say_clinic_projects');
+      const existing = existingStr ? JSON.parse(existingStr) : [];
+      localStorage.setItem('say_clinic_projects', JSON.stringify([newProj, ...existing]));
+    } catch (e) {
+      console.error('Chyba ukladania prekonvertovaného projektu:', e);
+    }
+
+    handleRemoveClinicNote(noteIndex);
+    changeTab('projects');
+  };
+
   // Dnešné udalosti pre Homescreen
   const todayString = new Date().toISOString().split('T')[0];
   const todayEvents = calendarEvents.filter(e => e.date === todayString);
@@ -294,6 +363,14 @@ export default function Home() {
             >
               📊 Financie & Výsledky
             </button>
+            <button
+              onClick={() => changeTab('projects')}
+              className={`px-3 py-2 transition-all ${
+                activeTab === 'projects' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+              }`}
+            >
+              📑 Projekty & Úlohy
+            </button>
           </nav>
 
           {/* PROFIL */}
@@ -314,7 +391,7 @@ export default function Home() {
             <div className="text-right hidden sm:block">
               <p className="text-xs font-bold text-[#2C2A29]">{currentUser.name}</p>
               <p className="text-[9px] uppercase tracking-widest text-[#C5A059]">
-                {currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra'}
+                {currentUser.role === 'ceo' ? 'CEO & Primár' : currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra'}
               </p>
             </div>
             <button
@@ -501,6 +578,13 @@ export default function Home() {
                           <span>📅 Naplánovať operáciu v kalendári</span>
                           <span>+</span>
                         </button>
+                        <button 
+                          onClick={() => changeTab('projects')}
+                          className="w-full bg-[#FAF4E9] border border-[#E6D4B2] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                        >
+                          <span className="text-[#8A6827]">📑 Projekty & Delegovanie úloh (CEO)</span>
+                          <span className="text-[#C5A059] font-bold">➔</span>
+                        </button>
                       </div>
                     </div>
 
@@ -523,12 +607,30 @@ export default function Home() {
 
                       <ul className="space-y-2 text-xs">
                         {clinicNotes.map((note, idx) => (
-                          <li key={idx} className="p-2.5 bg-[#FBF9F6] border border-[#E8E2D9] rounded-lg flex justify-between items-center text-[#2C2A29]">
-                            <span>• {note}</span>
-                            <button onClick={() => handleRemoveClinicNote(idx)} className="text-[#8C857B] hover:text-rose-600 font-bold ml-2">✕</button>
+                          <li key={idx} className="p-2.5 bg-[#FBF9F6] border border-[#E8E2D9] rounded-lg flex justify-between items-center text-[#2C2A29] gap-2">
+                            <span className="flex-1">• {note}</span>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <button
+                                onClick={() => handleConvertNoteToProject(note, idx)}
+                                title="Premeniť túto poznámku na projekt / poverenie"
+                                className="text-[10px] bg-[#C5A059] hover:bg-[#9C7D3D] text-white px-2 py-0.5 rounded font-bold transition-colors shadow-xs"
+                              >
+                                + Projekt / Úloha
+                              </button>
+                              <button onClick={() => handleRemoveClinicNote(idx)} className="text-[#8C857B] hover:text-rose-600 font-bold px-1">✕</button>
+                            </div>
                           </li>
                         ))}
                       </ul>
+
+                      <div className="pt-2 border-t border-[#E8E2D9]">
+                        <button
+                          onClick={() => changeTab('projects')}
+                          className="w-full text-center text-xs font-bold text-[#C5A059] hover:underline"
+                        >
+                          Otvoriť Projektový manažment (CEO) →
+                        </button>
+                      </div>
                     </div>
 
                   </div>
@@ -601,6 +703,13 @@ export default function Home() {
             {activeTab === 'finance' && (
               <FinanceCRM 
                 sales={sales} 
+              />
+            )}
+
+            {/* PROJEKTY & OPERATÍVNY MANAŽMENT (CEO) */}
+            {activeTab === 'projects' && (
+              <ProjectManagement 
+                currentUser={currentUser}
               />
             )}
           </>

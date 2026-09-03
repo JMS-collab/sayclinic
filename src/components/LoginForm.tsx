@@ -8,7 +8,7 @@ export interface UserAccount {
   id: string;
   name: string;
   email: string;
-  role: 'doctor' | 'manager' | 'nurse';
+  role: 'doctor' | 'manager' | 'nurse' | 'ceo';
   title: string;
   avatarBg: string;
   avatarUrl?: string;
@@ -19,8 +19,8 @@ export const SAY_CLINIC_USERS: UserAccount[] = [
     id: 'u1',
     name: 'MUDr. Ján Mráz',
     email: 'mraz@sayclinic.sk',
-    role: 'doctor',
-    title: 'Plastický chirurg',
+    role: 'ceo',
+    title: 'Plastický chirurg & CEO',
     avatarBg: 'bg-[#2C2A29]',
     avatarUrl: ''
   },
