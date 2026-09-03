@@ -1,9 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
 export type EventType = 'operacia' | 'konzultacia' | 'osetrenie' | 'kontrola';
+
+export interface PositionedCalendarEvent {
+  event: CalendarEvent;
+  colIndex: number;
+  totalCols: number;
+  startMin: number;
+  endMin: number;
+}
 
 export interface CalendarEvent {
   id: string;
@@ -113,6 +121,20 @@ export default function Calendar({
     isDepositPaid: false
   });
 
+  // ZOOM ROZOSTUPU HODÍN (VÝŠKA JEDNEJ HODINY V PIXELOCH)
+  const [hourHeight, setHourHeight] = useState<number>(85);
+  // PREPÍNAČ MEDZI INTERAKTÍVNOU ČASOVOU OSOU TÝŽDŇA A KARTAMI
+  const [weekViewMode, setWeekViewMode] = useState<'grid' | 'cards'>('grid');
+
+  // TAHANIE MYŠOU PRE VYTVORENIE UDALOSTI (DRAG-TO-CREATE)
+  const [isCreatingDrag, setIsCreatingDrag] = useState(false);
+  const [createDragDate, setCreateDragDate] = useState('');
+  const [dragStartMin, setDragStartMin] = useState(0);
+  const [dragCurrentMin, setDragCurrentMin] = useState(0);
+
+  // REF PRE ZACHYTÁVANIE CTRL + KOLIESKO MYŠI (ZOOM)
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+
   const detectEventType = (title: string = ''): EventType => {
     const t = title.toLowerCase();
     if (t.includes('konzultac') || t.includes('vysetren')) return 'konzultacia';
@@ -201,6 +223,129 @@ export default function Calendar({
         .finally(() => setIsSyncing(false));
     }
   }, [session]);
+
+  // NAČÍTANIE ULOŽENÉHO ROZOSTUPU HODÍN Z LOCALSTORAGE
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('say_clinic_calendar_hour_height');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val) && val >= 45 && val <= 240) {
+          setHourHeight(val);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // OBSLUHA CTRL + KOLIESKO MYŠI PRE PLYNULÝ ZOOM ROZOSTUPU HODÍN
+  useEffect(() => {
+    const container = gridContainerRef.current;
+    if (!container) return;
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault(); // Zamedzí predvolenému zoomu celej webstránky
+        const delta = e.deltaY < 0 ? 12 : -12; // Scroll hore = zväčšiť, scroll dole = zmenšiť
+        setHourHeight(prev => {
+          const next = Math.min(220, Math.max(45, prev + delta));
+          try {
+            localStorage.setItem('say_clinic_calendar_hour_height', next.toString());
+          } catch {
+            // ignore
+          }
+          return next;
+        });
+      }
+    };
+
+    container.addEventListener('wheel', handleNativeWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleNativeWheel);
+    };
+  }, [view, weekViewMode]);
+
+  // INTELIGENTNÝ VÝPOČET ROZLOŽENIA PREKRÝVAJÚCICH SA UDALOSTÍ DO STĹPCOV
+  const computeEventLayout = (events: CalendarEvent[]): PositionedCalendarEvent[] => {
+    if (events.length === 0) return [];
+
+    // Zoradenie podľa času začiatku vzostupne, potom podľa dĺžky trvania zostupne
+    const sorted = [...events].sort((a, b) => {
+      const aStart = timeToMinutes(a.startTime);
+      const bStart = timeToMinutes(b.startTime);
+      if (aStart !== bStart) return aStart - bStart;
+      return (timeToMinutes(b.endTime) - bStart) - (timeToMinutes(a.endTime) - aStart);
+    });
+
+    // Zoskupenie do zhlukov prekrývajúcich sa udalostí
+    const clusters: CalendarEvent[][] = [];
+    let currentCluster: CalendarEvent[] = [];
+    let clusterEnd = -1;
+
+    for (const evt of sorted) {
+      const start = timeToMinutes(evt.startTime);
+      const end = Math.max(start + 15, timeToMinutes(evt.endTime));
+
+      if (currentCluster.length === 0) {
+        currentCluster.push(evt);
+        clusterEnd = end;
+      } else if (start < clusterEnd) {
+        currentCluster.push(evt);
+        clusterEnd = Math.max(clusterEnd, end);
+      } else {
+        clusters.push(currentCluster);
+        currentCluster = [evt];
+        clusterEnd = end;
+      }
+    }
+    if (currentCluster.length > 0) {
+      clusters.push(currentCluster);
+    }
+
+    const result: PositionedCalendarEvent[] = [];
+
+    for (const cluster of clusters) {
+      const columns: number[] = [];
+      const clusterItems: { event: CalendarEvent; colIndex: number; startMin: number; endMin: number }[] = [];
+
+      for (const evt of cluster) {
+        const start = timeToMinutes(evt.startTime);
+        const end = Math.max(start + 15, timeToMinutes(evt.endTime));
+
+        let placedCol = -1;
+        for (let c = 0; c < columns.length; c++) {
+          if (columns[c] <= start) {
+            columns[c] = end;
+            placedCol = c;
+            break;
+          }
+        }
+
+        if (placedCol === -1) {
+          columns.push(end);
+          placedCol = columns.length - 1;
+        }
+
+        clusterItems.push({
+          event: evt,
+          colIndex: placedCol,
+          startMin: start,
+          endMin: end
+        });
+      }
+
+      const totalCols = Math.max(1, columns.length);
+      for (const item of clusterItems) {
+        result.push({
+          ...item,
+          totalCols
+        });
+      }
+    }
+
+    return result;
+  };
 
   const filteredEvents = calendarEvents.filter(e => {
     const matchesCalendar = selectedCalendarId === 'all' || e.calendarId === selectedCalendarId;
@@ -492,16 +637,19 @@ export default function Calendar({
     else alert('Pacient nebol nájdený v kartotéke.');
   };
 
-  // NAŤAHOVANIE MYŠOU (RESIZE OKRAJA PRE TRVANIE)
+  // NAŤAHOVANIE MYŠOU (RESIZE OKRAJA PRE TRVANIE UDALOSTI)
   const handleMouseDownResize = (e: React.MouseEvent, evt: CalendarEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     const startY = e.clientY;
     const startEndMin = timeToMinutes(evt.endTime);
+    const pxPerMin = hourHeight / 60;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaY = moveEvent.clientY - startY;
-      const deltaMinutes = Math.round((deltaY / 1.33) / 15) * 15;
-      const newEndMin = Math.max(timeToMinutes(evt.startTime) + 15, startEndMin + deltaMinutes);
+      const snapInterval = hourHeight >= 140 ? 5 : 15;
+      const deltaMinutes = Math.round((deltaY / pxPerMin) / snapInterval) * snapInterval;
+      const newEndMin = Math.max(timeToMinutes(evt.startTime) + snapInterval, startEndMin + deltaMinutes);
       const newEndTimeStr = minutesToTimeStr(newEndMin);
 
       setCalendarEvents(prev => {
@@ -523,7 +671,7 @@ export default function Calendar({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  // PRESÚVANIE MYŠOU (DRAG & DROP PRE ZMENU ČASU)
+  // PRESÚVANIE MYŠOU (DRAG & DROP PRE ZMENU ČASU UDALOSTI)
   const handleMouseDownDrag = (e: React.MouseEvent, evt: CalendarEvent) => {
     const target = e.target as HTMLElement;
     
@@ -539,6 +687,7 @@ export default function Calendar({
     const startY = e.clientY;
     const originalStartMin = timeToMinutes(evt.startTime);
     const durationMin = timeToMinutes(evt.endTime) - timeToMinutes(evt.startTime);
+    const pxPerMin = hourHeight / 60;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaY = moveEvent.clientY - startY;
@@ -546,10 +695,12 @@ export default function Calendar({
       if (Math.abs(deltaY) > 5) dragged = true;
 
       if (dragged) {
-        const deltaMinutes = Math.round((deltaY / 1.33) / 15) * 15;
+        const snapInterval = hourHeight >= 140 ? 5 : 15;
+        const deltaMinutes = Math.round((deltaY / pxPerMin) / snapInterval) * snapInterval;
         let newStartMin = originalStartMin + deltaMinutes;
         
         if (newStartMin < 7 * 60) newStartMin = 7 * 60; // minimum na osi 07:00
+        if (newStartMin + durationMin > 21 * 60) newStartMin = 21 * 60 - durationMin; // max 21:00
         
         const newEndMin = newStartMin + durationMin;
 
@@ -577,41 +728,242 @@ export default function Calendar({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  // --- POHĽAD: DEŇ (S INTELIGENTNÝM VÝPOČTOM KOLÍZIÍ, DRAG, RESIZE A CELODENNÝMI UDALOSŤAMI) ---
+  // ŤAHANIE MYŠOU PO ČASOVEJ OSI PRE VYTVORENIE NOVEJ UDALOSTI ĽUBOVOĽNEJ DĹŽKY (GOOGLE KALENDÁR ŠTÝL)
+  const handleMouseDownCreate = (e: React.MouseEvent, targetDate: string) => {
+    if (e.button !== 0) return; // Len hlavné ľavé tlačidlo myši
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('[data-event-id]') || 
+      target.closest('button') || 
+      target.closest('input') || 
+      target.closest('select') || 
+      target.closest('.resize-handle')
+    ) {
+      return;
+    }
+
+    e.preventDefault();
+    const columnEl = e.currentTarget as HTMLElement;
+    const rect = columnEl.getBoundingClientRect();
+    const startY = e.clientY - rect.top;
+
+    const pxPerMin = hourHeight / 60;
+    const dayStartMin = 7 * 60; // 07:00
+    const dayEndMin = 21 * 60; // 21:00
+
+    const rawMin = dayStartMin + Math.floor(startY / pxPerMin);
+    const snapInterval = hourHeight >= 140 ? 5 : 15;
+    const startMin = Math.max(dayStartMin, Math.min(dayEndMin - snapInterval, Math.floor(rawMin / snapInterval) * snapInterval));
+    const initialEndMin = Math.min(dayEndMin, startMin + 30);
+
+    let hasMoved = false;
+    let currentEnd = initialEndMin;
+
+    setIsCreatingDrag(true);
+    setCreateDragDate(targetDate);
+    setDragStartMin(startMin);
+    setDragCurrentMin(initialEndMin);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const currentY = moveEvent.clientY - rect.top;
+      const deltaY = moveEvent.clientY - e.clientY;
+      if (Math.abs(deltaY) > 6) {
+        hasMoved = true;
+      }
+
+      const curRawMin = dayStartMin + Math.floor(currentY / pxPerMin);
+      const snappedCurMin = Math.max(dayStartMin, Math.min(dayEndMin, Math.round(curRawMin / snapInterval) * snapInterval));
+      currentEnd = snappedCurMin;
+      setDragCurrentMin(snappedCurMin);
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      setIsCreatingDrag(false);
+
+      let finalStart = startMin;
+      let finalEnd = currentEnd;
+
+      if (!hasMoved) {
+        // Jednoduché kliknutie bez ťahania - predvolená dĺžka 30 minút
+        finalStart = startMin;
+        finalEnd = Math.min(dayEndMin, startMin + 30);
+      } else {
+        if (finalStart > finalEnd) {
+          const tmp = finalStart;
+          finalStart = finalEnd;
+          finalEnd = tmp;
+        }
+        if (finalEnd - finalStart < 15) {
+          finalEnd = finalStart + 15;
+        }
+      }
+
+      const startTimeStr = minutesToTimeStr(finalStart);
+      const endTimeStr = minutesToTimeStr(finalEnd);
+
+      setNewEvent(prev => ({
+        ...prev,
+        date: targetDate,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        isAllDay: false,
+        title: '',
+        patientName: '',
+        doctorName: 'MUDr. Ján Mráz',
+        type: 'operacia',
+        totalPrice: 3500,
+        depositAmount: 500,
+        isDepositPaid: false
+      }));
+      setIsAddingEvent(true);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // VYKRESLENIE KARTY UDALOSTI S ADAPTÍVNYM ZOBRAZENÍM PODROBNOSTÍ PODĽA ZOOMU
+  const renderEventCard = (
+    evt: CalendarEvent, 
+    top: number, 
+    height: number, 
+    left: string, 
+    width: string
+  ) => {
+    const isCompact = height < 46;
+    const isMedium = height >= 46 && height < 80;
+    const durationMin = timeToMinutes(evt.endTime) - timeToMinutes(evt.startTime);
+
+    return (
+      <div 
+        key={evt.id} 
+        data-event-id={evt.id}
+        onMouseDown={(e) => handleMouseDownDrag(e, evt)}
+        className={`absolute rounded-xl p-2 shadow-xs border pointer-events-auto cursor-move active:cursor-grabbing transition-all hover:shadow-md flex flex-col justify-between z-10 overflow-hidden group/card ${
+          evt.isCancelled 
+            ? 'bg-gray-100 border-gray-300 opacity-60 line-through' 
+            : evt.type === 'operacia'
+            ? 'bg-white border-[#2C2A29] border-l-4 border-l-[#2C2A29]'
+            : evt.type === 'konzultacia'
+            ? 'bg-[#FBF9F6] border-[#C5A059] border-l-4 border-l-[#C5A059]'
+            : evt.type === 'osetrenie'
+            ? 'bg-emerald-50/90 border-emerald-500 border-l-4 border-l-emerald-600'
+            : 'bg-blue-50/90 border-blue-400 border-l-4 border-l-blue-500'
+        }`}
+        style={{ 
+          top: `${top}px`, 
+          height: `${height}px`,
+          left,
+          width,
+        }}
+      >
+        {isCompact ? (
+          <div className="flex items-center gap-1.5 h-full truncate pointer-events-none">
+            <span className="font-mono text-[9px] font-bold text-[#2C2A29] shrink-0 leading-none">
+              {evt.startTime}
+            </span>
+            <div className="scale-75 origin-left shrink-0 -ml-1">
+              {getEventTypeBadge(evt.type)}
+            </div>
+            <span className="text-[10px] font-bold text-[#2C2A29] truncate leading-none">
+              {evt.patientName || evt.title}
+            </span>
+          </div>
+        ) : isMedium ? (
+          <div className="flex-1 overflow-hidden pointer-events-none flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between gap-1 mb-0.5">
+                <span className="font-mono text-[10px] font-bold text-[#2C2A29] bg-black/5 px-1 rounded">
+                  {evt.startTime} - {evt.endTime}
+                </span>
+                <div className="scale-90 origin-right">{getEventTypeBadge(evt.type)}</div>
+              </div>
+              <h4 className="font-bold text-xs text-[#2C2A29] truncate leading-tight">{evt.title}</h4>
+              <p className="text-[10px] text-[#8C857B] truncate font-medium">👤 {evt.patientName || 'Bez mena'}</p>
+            </div>
+          </div>
+        ) : (
+          /* DETAILNÝ REŽIM PRI ZVÄČŠENOM ROZOSTUPE (ZOOM) - KOMPLETNÉ PODROBNOSTI */
+          <div className="flex-1 overflow-hidden pointer-events-none space-y-1">
+            <div className="flex items-center justify-between gap-1">
+              <span className="font-mono text-xs font-bold text-[#2C2A29] bg-black/5 px-1.5 py-0.5 rounded">
+                {evt.startTime} – {evt.endTime} ({durationMin}m)
+              </span>
+              <div className="flex items-center gap-1">
+                {getEventTypeBadge(evt.type)}
+                {evt.anesthesiaType && (
+                  <span className="text-[9px] font-bold bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
+                    {evt.anesthesiaType}
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-bold text-xs md:text-sm text-[#2C2A29] leading-tight truncate">{evt.title}</h4>
+              <p className="text-xs text-[#2C2A29] font-bold flex items-center gap-1 mt-0.5 truncate">
+                <span>👤 {evt.patientName || 'Bez mena'}</span>
+                {getEventPhone(evt) && (
+                  <span className="text-[10px] font-normal text-[#8C857B] font-mono">({getEventPhone(evt)})</span>
+                )}
+              </p>
+              <p className="text-[10px] text-[#8C857B] truncate">🩺 {evt.doctorName}</p>
+            </div>
+
+            {evt.totalPrice ? (
+              <div className="flex items-center gap-2 text-[10px] pt-1 border-t border-black/5">
+                <span className="font-bold text-[#2C2A29]">💰 {evt.totalPrice} €</span>
+                {evt.depositAmount ? (
+                  <span className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${evt.isDepositPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                    Záloha {evt.depositAmount} € ({evt.isDepositPaid ? '✓' : '✗'})
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+
+            {evt.notes && (
+              <p className="text-[10px] text-[#6B6357] italic line-clamp-1 border-t border-black/5 pt-0.5">
+                📝 {evt.notes}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* SPODNÝ ÚCHOP PRE RESIZE TRVANIA UDALOSTI */}
+        {!evt.isCancelled && (
+          <div 
+            onMouseDown={(e) => handleMouseDownResize(e, evt)}
+            className="resize-handle absolute bottom-0 left-0 right-0 h-2.5 cursor-ns-resize flex items-center justify-center transition-colors group/resize bg-gradient-to-t from-black/10 to-transparent hover:from-black/25"
+            title="Potiahnite pre zmenu trvania udalosti"
+          >
+            <div className="w-8 h-1 bg-black/25 group-hover/resize:bg-black/60 rounded-full mb-0.5 transition-colors"></div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // --- POHĽAD: DEŇ (S INTELIGENTNÝM VÝPOČTOM KOLÍZIÍ, DYNAMICKÝM ZOOMOM, DRAG, RESIZE A DRAG-TO-CREATE) ---
   const renderDayView = () => {
     const formattedDate = currentDate.toISOString().split('T')[0];
     const allEventsToday = filteredEvents
       .filter(e => e.date === formattedDate)
-      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)); // Zoradiť chronologicky
+      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
 
     // ROZDELENIE NA CELODENNÉ A ČASOVÉ UDALOSTI
     const allDayEvents = allEventsToday.filter(e => e.isAllDay || (e.startTime === '00:00' && (e.endTime === '23:59' || e.endTime === '00:00')));
     const timedEvents = allEventsToday.filter(e => !(e.isAllDay || (e.startTime === '00:00' && (e.endTime === '23:59' || e.endTime === '00:00'))));
 
-    // INTELIGENTNÝ VÝPOČET KOLÍZIÍ (STĹPCOVANIE PRE ČASOVÉ UDALOSTI)
-    const groups: CalendarEvent[][] = [];
-    let currentGroup: CalendarEvent[] = [];
-    let groupEnd = 0;
-
-    timedEvents.forEach(evt => {
-      const start = timeToMinutes(evt.startTime);
-      const end = timeToMinutes(evt.endTime);
-
-      if (start >= groupEnd) {
-        if (currentGroup.length > 0) groups.push([...currentGroup]);
-        currentGroup = [evt];
-        groupEnd = end;
-      } else {
-        currentGroup.push(evt);
-        groupEnd = Math.max(groupEnd, end);
-      }
-    });
-    if (currentGroup.length > 0) groups.push([...currentGroup]);
+    const positioned = computeEventLayout(timedEvents);
+    const pxPerMin = hourHeight / 60;
+    const dayStartMin = 7 * 60; // 07:00
 
     return (
       <div className="relative border border-[#E8E2D9] rounded-2xl bg-white overflow-hidden shadow-sm select-none flex flex-col">
         
-        {/* ZOBRAZENIE CELODENNÝCH UDALOSTÍ ÚPLNE NAVRCHU (MIMO ČASOVEJ OSI) */}
+        {/* ZOBRAZENIE CELODENNÝCH UDALOSTÍ ÚPLNE NAVRCHU */}
         {allDayEvents.length > 0 && (
           <div className="bg-[#FBF9F6] border-b border-[#E8E2D9] p-3 z-20 relative shadow-sm">
             <div className="text-[9px] font-bold uppercase text-[#8C857B] mb-2 tracking-widest flex items-center gap-1">
@@ -621,7 +973,7 @@ export default function Calendar({
               {allDayEvents.map(evt => (
                 <div 
                   key={evt.id} 
-                  data-event-id={evt.id} // IDENTIFIKÁTOR PRE GLOBÁLNE KONTEXTOVÉ MENU (PRAVÝ KLIK)
+                  data-event-id={evt.id}
                   onClick={() => setSelectedEvent(evt)} 
                   className={`bg-white border hover:border-[#C5A059] p-2.5 rounded-xl cursor-pointer flex justify-between items-center shadow-sm transition-all ${evt.isCancelled ? 'opacity-60 border-rose-200' : 'border-[#E8E2D9]'}`}
                 >
@@ -641,96 +993,77 @@ export default function Calendar({
         )}
 
         {/* HODINOVÁ ČASOVÁ OS (07:00 - 20:00) */}
-        <div className="relative min-h-[1040px] overflow-y-auto">
-          {TIME_SLOTS.map((slotTime) => (
-            <div key={slotTime} className="h-[80px] border-b border-[#E8E2D9]/50 flex items-start">
-              <div className="w-16 text-right pr-3 pt-1 font-mono text-[10px] font-bold text-[#8C857B] border-r border-[#E8E2D9]">
-                {slotTime}
-              </div>
-              <div className="flex-1 h-full bg-[#FBF9F6]/20"></div>
+        <div className="relative min-h-[600px] max-h-[750px] overflow-y-auto">
+          <div className="flex">
+            
+            {/* ĽAVÝ STĹPEC S HODINAMI */}
+            <div className="w-16 shrink-0 border-r border-[#E8E2D9] bg-white sticky left-0 z-10 select-none">
+              {TIME_SLOTS.map((slotTime) => (
+                <div 
+                  key={slotTime} 
+                  style={{ height: `${hourHeight}px` }}
+                  className="border-b border-[#E8E2D9]/50 pr-3 pt-1 font-mono text-[10px] font-bold text-[#8C857B] text-right"
+                >
+                  {slotTime}
+                </div>
+              ))}
             </div>
-          ))}
 
-          {/* VIZUÁLNE BLOKY UMESTNENÉ NA ČASOVEJ OSI VEDĽA SEBA */}
-          <div className="absolute top-0 left-16 right-0 bottom-0 p-1 pointer-events-none flex">
-            {groups.map((group, groupIndex) => {
-              const columnWidth = 100 / group.length; 
-
-              return group.map((evt, colIndex) => {
-                const startMin = timeToMinutes(evt.startTime);
-                const endMin = timeToMinutes(evt.endTime);
-                const dayStartMin = 7 * 60; // 07:00
-                const durationMin = endMin - startMin;
-                
-                const top = Math.max(0, (startMin - dayStartMin) * 1.33);
-                // VÝŠKA BLOKU: Minimálna výška 35px, aby bola vždy klikateľná a čitateľná
-                const height = Math.max(35, durationMin * 1.33); 
-                
-                const isNarrow = group.length > 2;
-                const isShort = durationMin <= 30; // Zistenie, či je udalosť krátka (30 minút alebo menej)
-
-                return (
+            {/* PRAVÁ PLOCHA PRE UDALOSTI A TAHANIE NOVÝCH UDALOSTÍ */}
+            <div 
+              onMouseDown={(e) => handleMouseDownCreate(e, formattedDate)}
+              className="flex-1 relative cursor-crosshair bg-[#FBF9F6]/20"
+            >
+              {/* VODIACE ČIARY HODÍN A JEMNÉ POLHODINOVÉ LINKY */}
+              {TIME_SLOTS.map((slotTime) => (
+                <div 
+                  key={slotTime} 
+                  style={{ height: `${hourHeight}px` }}
+                  className="border-b border-[#E8E2D9]/50 relative pointer-events-none"
+                >
                   <div 
-                    key={evt.id} 
-                    data-event-id={evt.id} // IDENTIFIKÁTOR PRE GLOBÁLNE KONTEXTOVÉ MENU (PRAVÝ KLIK)
-                    onMouseDown={(e) => handleMouseDownDrag(e, evt)}
-                    className={`absolute rounded-xl p-1.5 shadow-sm border pointer-events-auto cursor-move active:cursor-grabbing transition-all hover:shadow-md flex flex-col justify-between z-10 overflow-hidden group/card ${
-                      evt.isCancelled 
-                        ? 'bg-gray-100 border-gray-300 opacity-60 line-through' 
-                        : evt.type === 'operacia'
-                        ? 'bg-white border-[#2C2A29] border-l-4 border-l-[#2C2A29]'
-                        : evt.type === 'konzultacia'
-                        ? 'bg-[#FBF9F6] border-[#C5A059] border-l-4 border-l-[#C5A059]'
-                        : evt.type === 'osetrenie'
-                        ? 'bg-emerald-50/70 border-emerald-500 border-l-4 border-l-emerald-600'
-                        : 'bg-blue-50/70 border-blue-400 border-l-4 border-l-blue-500'
-                    }`}
-                    style={{ 
-                      top: `${top}px`, 
-                      height: `${height}px`,
-                      left: `${colIndex * columnWidth}%`,
-                      width: `calc(${columnWidth}% - 4px)`,
-                      marginLeft: '2px',
-                    }}
-                  >
-                    
-                    {/* KOMPAKTNÝ DIZAJN PRE KRÁTKE UDALOSTI (< 30 min) VS NORMÁLNY DIZAJN */}
-                    {isShort ? (
-                      <div className="flex items-center gap-1.5 h-full truncate pointer-events-none">
-                        <span className="font-mono text-[9px] font-bold text-[#2C2A29] shrink-0 leading-none mt-0.5">{evt.startTime}</span>
-                        {!isNarrow && <div className="scale-75 origin-left shrink-0 -ml-1 mt-0.5">{getEventTypeBadge(evt.type)}</div>}
-                        <span className="text-[10px] font-bold text-[#2C2A29] truncate leading-none mt-0.5">{evt.patientName || evt.title}</span>
-                      </div>
-                    ) : (
-                      <div className="flex-1 overflow-hidden pointer-events-none">
-                        <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
-                          <span className="font-mono text-[10px] font-bold text-[#2C2A29]">
-                            {evt.startTime}
-                          </span>
-                          {!isNarrow && getEventTypeBadge(evt.type)}
-                        </div>
-                        <div className="truncate">
-                          <h4 className="font-bold text-xs text-[#2C2A29] truncate leading-tight">{evt.title}</h4>
-                          <p className="text-[10px] text-[#8C857B] truncate leading-tight">{evt.patientName}</p>
-                        </div>
-                      </div>
-                    )}
+                    style={{ top: `${hourHeight / 2}px` }}
+                    className="absolute left-0 right-0 border-b border-dashed border-[#E8E2D9]/30"
+                  />
+                </div>
+              ))}
 
-                    {/* SPODNÝ UCHOP PRE NAŤAHOVANIE ČASU - ABSOLÚTNE POZICIOVANÝ DOLE */}
-                    {!evt.isCancelled && (
-                      <div 
-                        onMouseDown={(e) => handleMouseDownResize(e, evt)}
-                        className="resize-handle absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize flex items-center justify-center transition-colors group/resize bg-gradient-to-t from-black/5 to-transparent"
-                        title="Potiahnite pre zmenu trvania"
-                      >
-                        <div className="w-6 h-0.5 bg-black/20 group-hover/resize:bg-black/50 rounded-full mb-0.5 transition-colors"></div>
-                      </div>
-                    )}
+              {/* VYKRESLENIE UDALOSTÍ BEZ PREKRÝVANIA (STĹPCE) */}
+              {positioned.map(item => {
+                const durationMin = item.endMin - item.startMin;
+                const top = Math.max(0, (item.startMin - dayStartMin) * pxPerMin);
+                const height = Math.max(30, durationMin * pxPerMin);
+                const columnWidth = 100 / item.totalCols;
+                const left = `calc(${item.colIndex * columnWidth}% + 2px)`;
+                const width = `calc(${columnWidth}% - 4px)`;
 
+                return renderEventCard(item.event, top, height, left, width);
+              })}
+
+              {/* DUCH PRE TAHANIE NOVEJ UDALOSTI (LIVE PREVIEW AKO V GOOGLE KALENDÁRI) */}
+              {isCreatingDrag && createDragDate === formattedDate && (
+                <div 
+                  className="absolute left-1 right-2 rounded-xl border-2 border-dashed border-[#C5A059] bg-[#C5A059]/25 backdrop-blur-xs p-2.5 pointer-events-none z-30 shadow-lg flex flex-col justify-between animate-pulse"
+                  style={{
+                    top: `${(Math.min(dragStartMin, dragCurrentMin) - dayStartMin) * pxPerMin}px`,
+                    height: `${Math.max(28, Math.abs(dragCurrentMin - dragStartMin) * pxPerMin)}px`,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold text-[#2C2A29] bg-white px-2 py-0.5 rounded shadow-xs">
+                      {minutesToTimeStr(Math.min(dragStartMin, dragCurrentMin))} – {minutesToTimeStr(Math.max(dragStartMin, dragCurrentMin))}
+                    </span>
+                    <span className="text-[11px] font-bold text-[#8A6827] uppercase">
+                      ({Math.abs(dragCurrentMin - dragStartMin)} min) + Nový termín
+                    </span>
                   </div>
-                );
-              });
-            })}
+                  <span className="text-[10px] text-[#2C2A29]/70 font-semibold italic">
+                    Pustite tlačidlo myši pre otvorenie formulára
+                  </span>
+                </div>
+              )}
+
+            </div>
           </div>
         </div>
 
@@ -738,33 +1071,166 @@ export default function Calendar({
     );
   };
 
+  // --- POHĽAD: TÝŽDEŇ (S DVOJITÝM REŽIMOM: ČASOVÁ OS GOOGLE ŠTÝL ALEBO PREHĽADNÉ KARTY) ---
   const renderWeekView = () => {
     const weekDays = getDaysInWeek(currentDate);
     const dayNames = ['Pondelok', 'Utorok', 'Streda', 'Štvrtok', 'Piatok', 'Sobota', 'Nedeľa'];
+    const pxPerMin = hourHeight / 60;
+    const dayStartMin = 7 * 60; // 07:00
+
+    if (weekViewMode === 'cards') {
+      return (
+        <div className="grid grid-cols-7 gap-2">
+          {weekDays.map((date, idx) => {
+            const formattedDate = date.toISOString().split('T')[0];
+            const dayEvents = filteredEvents.filter(e => e.date === formattedDate);
+            const isToday = formattedDate === new Date().toISOString().split('T')[0];
+            return (
+              <div key={formattedDate} className={`border rounded-xl flex flex-col h-[480px] overflow-y-auto ${isToday ? 'border-[#C5A059] bg-[#FBF9F6]' : 'border-[#E8E2D9] bg-white'}`}>
+                <div className={`text-center p-2 border-b text-[10px] uppercase font-bold sticky top-0 z-10 ${isToday ? 'bg-[#C5A059] text-white' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>
+                  <span className="block">{dayNames[idx]}</span>
+                  <span className="text-sm">{date.getDate()}.{date.getMonth() + 1}.</span>
+                </div>
+                <div className="p-1.5 flex-1 space-y-1.5">
+                  {dayEvents.map(evt => (
+                    <div key={evt.id} data-event-id={evt.id} onClick={() => setSelectedEvent(evt)} className={`text-[9px] p-1.5 rounded cursor-pointer border hover:border-[#C5A059] ${evt.isCancelled ? 'line-through opacity-50 bg-gray-100' : 'bg-gray-50 text-gray-800 space-y-0.5'}`}>
+                      <strong className="block">{evt.isAllDay ? 'Celý deň' : `${evt.startTime} - ${evt.endTime}`}</strong>
+                      <span className="truncate block font-bold text-[#2C2A29]">{evt.patientName || evt.title}</span>
+                      <span className="block text-[8px] font-bold text-[#C5A059] uppercase">{getEventTypeLabel(evt.type)}</span>
+                    </div>
+                  ))}
+                  {dayEvents.length === 0 && (
+                    <div 
+                      onClick={() => {
+                        setNewEvent(prev => ({
+                          ...prev,
+                          date: formattedDate,
+                          startTime: '09:00',
+                          endTime: '10:00'
+                        }));
+                        setIsAddingEvent(true);
+                      }}
+                      className="text-center py-6 text-[10px] text-[#8C857B] hover:text-[#C5A059] cursor-pointer border border-dashed border-[#E8E2D9] rounded-lg hover:border-[#C5A059] transition-colors"
+                    >
+                      + Pridať termín
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // TÝŽDENNÁ ČASOVÁ OS S PLNÝM ZOOMOM A TAHANÍM (GOOGLE KALENDÁR)
     return (
-      <div className="grid grid-cols-7 gap-2">
-        {weekDays.map((date, idx) => {
-          const formattedDate = date.toISOString().split('T')[0];
-          const dayEvents = filteredEvents.filter(e => e.date === formattedDate);
-          const isToday = formattedDate === new Date().toISOString().split('T')[0];
-          return (
-            <div key={formattedDate} className={`border rounded-xl flex flex-col h-[400px] overflow-y-auto ${isToday ? 'border-[#C5A059] bg-[#FBF9F6]' : 'border-[#E8E2D9] bg-white'}`}>
-              <div className={`text-center p-2 border-b text-[10px] uppercase font-bold sticky top-0 z-10 ${isToday ? 'bg-[#C5A059] text-white' : 'bg-[#FBF9F6] text-[#8C857B]'}`}>
-                <span className="block">{dayNames[idx]}</span>
-                <span className="text-sm">{date.getDate()}.{date.getMonth() + 1}.</span>
+      <div className="relative border border-[#E8E2D9] rounded-2xl bg-white overflow-hidden shadow-sm select-none flex flex-col">
+        {/* HLAVIČKA S DŇAMI TÝŽDŇA */}
+        <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-[#E8E2D9] bg-[#FBF9F6] sticky top-0 z-20 shadow-xs">
+          <div className="p-2 text-center text-[10px] font-bold text-[#8C857B] border-r border-[#E8E2D9] flex items-center justify-center">
+            Čas
+          </div>
+          {weekDays.map((date, idx) => {
+            const formattedDate = date.toISOString().split('T')[0];
+            const isToday = formattedDate === new Date().toISOString().split('T')[0];
+            return (
+              <div 
+                key={formattedDate} 
+                onClick={() => { setCurrentDate(date); setView('day'); }}
+                className={`p-2 text-center border-r border-[#E8E2D9] cursor-pointer hover:bg-[#FAF4E9] transition-colors ${isToday ? 'bg-[#C5A059]/15' : ''}`}
+                title="Kliknite pre zobrazenie dňa"
+              >
+                <span className="block text-[10px] uppercase font-bold text-[#8C857B]">{dayNames[idx]}</span>
+                <span className={`text-xs font-bold inline-block px-1.5 py-0.5 rounded-full ${isToday ? 'bg-[#C5A059] text-white' : 'text-[#2C2A29]'}`}>
+                  {date.getDate()}.{date.getMonth() + 1}.
+                </span>
               </div>
-              <div className="p-1.5 flex-1 space-y-1.5">
-                {dayEvents.map(evt => (
-                  <div key={evt.id} data-event-id={evt.id} onClick={() => setSelectedEvent(evt)} className={`text-[9px] p-1.5 rounded cursor-pointer border ${evt.isCancelled ? 'line-through opacity-50 bg-gray-100' : 'bg-gray-100 text-gray-800 space-y-0.5'}`}>
-                    <strong className="block">{evt.isAllDay ? 'Celý deň' : evt.startTime}</strong>
-                    <span className="truncate block font-bold">{evt.patientName || evt.title}</span>
-                    <span className="block text-[8px] font-bold text-[#C5A059] uppercase">{getEventTypeLabel(evt.type)}</span>
-                  </div>
-                ))}
-              </div>
+            );
+          })}
+        </div>
+
+        {/* SCROLLOVATEĽNÁ TÝŽDENNÁ ČASOVÁ OS */}
+        <div className="relative min-h-[600px] max-h-[750px] overflow-y-auto">
+          <div className="grid grid-cols-[56px_repeat(7,1fr)] relative">
+            
+            {/* ĽAVÝ STĹPEC S ČASMI */}
+            <div className="border-r border-[#E8E2D9] bg-white sticky left-0 z-10 select-none">
+              {TIME_SLOTS.map((slotTime) => (
+                <div 
+                  key={slotTime} 
+                  style={{ height: `${hourHeight}px` }}
+                  className="border-b border-[#E8E2D9]/60 pr-2 pt-1 font-mono text-[10px] font-bold text-[#8C857B] text-right"
+                >
+                  {slotTime}
+                </div>
+              ))}
             </div>
-          );
-        })}
+
+            {/* 7 INTERAKTÍVNYCH STĹPCOV PRE JEDNOTLIVÉ DNI */}
+            {weekDays.map((date) => {
+              const formattedDate = date.toISOString().split('T')[0];
+              const dayEvents = filteredEvents.filter(e => e.date === formattedDate);
+              const timedEvents = dayEvents.filter(e => !(e.isAllDay || (e.startTime === '00:00' && (e.endTime === '23:59' || e.endTime === '00:00'))));
+              const positioned = computeEventLayout(timedEvents);
+
+              return (
+                <div 
+                  key={formattedDate}
+                  onMouseDown={(e) => handleMouseDownCreate(e, formattedDate)}
+                  className="relative border-r border-[#E8E2D9]/60 cursor-crosshair group/col hover:bg-amber-50/20 transition-colors"
+                >
+                  {/* HODINOVÉ RIADKY V POZADÍ */}
+                  {TIME_SLOTS.map((slotTime) => (
+                    <div 
+                      key={slotTime}
+                      style={{ height: `${hourHeight}px` }}
+                      className="border-b border-[#E8E2D9]/40 relative pointer-events-none"
+                    >
+                      <div 
+                        style={{ top: `${hourHeight / 2}px` }} 
+                        className="absolute left-0 right-0 border-b border-dashed border-[#E8E2D9]/30"
+                      />
+                    </div>
+                  ))}
+
+                  {/* VYKRESLENIE UDALOSTÍ PRE DOKONALÉ NEPREKRÝVANIE */}
+                  {positioned.map(item => {
+                    const durationMin = item.endMin - item.startMin;
+                    const top = Math.max(0, (item.startMin - dayStartMin) * pxPerMin);
+                    const height = Math.max(28, durationMin * pxPerMin);
+                    const columnWidth = 100 / item.totalCols;
+                    const left = `calc(${item.colIndex * columnWidth}% + 1px)`;
+                    const width = `calc(${columnWidth}% - 2px)`;
+
+                    return renderEventCard(item.event, top, height, left, width);
+                  })}
+
+                  {/* DUCH PRE TAHANIE NOVEJ UDALOSTI V TÝŽDNI */}
+                  {isCreatingDrag && createDragDate === formattedDate && (
+                    <div 
+                      className="absolute left-0.5 right-1 rounded-xl border-2 border-dashed border-[#C5A059] bg-[#C5A059]/25 backdrop-blur-xs p-1.5 pointer-events-none z-30 shadow-md flex flex-col justify-between animate-pulse"
+                      style={{
+                        top: `${(Math.min(dragStartMin, dragCurrentMin) - dayStartMin) * pxPerMin}px`,
+                        height: `${Math.max(26, Math.abs(dragCurrentMin - dragStartMin) * pxPerMin)}px`,
+                      }}
+                    >
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="font-mono text-[9px] font-bold text-[#2C2A29] bg-white px-1 py-0.5 rounded shadow-xs">
+                          {minutesToTimeStr(Math.min(dragStartMin, dragCurrentMin))} – {minutesToTimeStr(Math.max(dragStartMin, dragCurrentMin))}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-bold text-[#8A6827]">
+                        + Nový ({Math.abs(dragCurrentMin - dragStartMin)}m)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+          </div>
+        </div>
       </div>
     );
   };
@@ -850,28 +1316,114 @@ export default function Calendar({
         </div>
       </div>
 
-      {/* NAVIGÁCIA */}
-      <div className="flex justify-between items-center bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
+      {/* NAVIGÁCIA A OVLÁDANIE POHĽADOV */}
+      <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 bg-[#FBF9F6] p-3 rounded-xl border border-[#E8E2D9]">
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate(-1)} className="px-2 py-1 bg-white border border-[#E8E2D9] rounded text-xs font-bold text-[#2C2A29]">←</button>
-          <button onClick={() => navigate(0)} className="px-3 py-1 bg-white border border-[#E8E2D9] rounded text-[10px] uppercase font-bold text-[#8C857B]">Dnes</button>
-          <button onClick={() => navigate(1)} className="px-2 py-1 bg-white border border-[#E8E2D9] rounded text-xs font-bold text-[#2C2A29]">→</button>
-        </div>
-        
-        <div className="text-center px-4 font-bold text-[#2C2A29] text-sm uppercase">
-          {currentDate.toLocaleDateString('sk-SK', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+          <button onClick={() => navigate(-1)} className="px-2.5 py-1.5 bg-white border border-[#E8E2D9] hover:border-[#C5A059] rounded-lg text-xs font-bold text-[#2C2A29] shadow-xs">←</button>
+          <button onClick={() => navigate(0)} className="px-3.5 py-1.5 bg-white border border-[#E8E2D9] hover:border-[#C5A059] rounded-lg text-[10px] uppercase font-bold text-[#8C857B] hover:text-[#2C2A29] shadow-xs">Dnes</button>
+          <button onClick={() => navigate(1)} className="px-2.5 py-1.5 bg-white border border-[#E8E2D9] hover:border-[#C5A059] rounded-lg text-xs font-bold text-[#2C2A29] shadow-xs">→</button>
+          <div className="pl-2 font-bold text-[#2C2A29] text-xs md:text-sm uppercase tracking-wide">
+            {currentDate.toLocaleDateString('sk-SK', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+          </div>
         </div>
 
-        <div className="flex gap-1 bg-white border border-[#E8E2D9] p-1 rounded-lg">
-          {(['day', 'week', 'month'] as ViewMode[]).map(m => (
-            <button key={m} onClick={() => setView(m)} className={`px-3 py-1 text-[10px] font-bold uppercase rounded ${view === m ? 'bg-[#2C2A29] text-white' : 'text-[#8C857B]'}`}>
-              {m === 'day' ? 'Deň' : m === 'week' ? 'Týždeň' : 'Mesiac'}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* PREPÍNAČ MEDZI TÝŽDENNOU ČASOVOU OSOU A KARTAMI */}
+          {view === 'week' && (
+            <div className="flex items-center bg-white border border-[#E8E2D9] p-0.5 rounded-lg shadow-xs mr-1">
+              <button 
+                onClick={() => setWeekViewMode('grid')}
+                className={`px-2.5 py-1 text-[9px] font-bold uppercase rounded ${weekViewMode === 'grid' ? 'bg-[#C5A059] text-white' : 'text-[#8C857B] hover:text-[#2C2A29]'}`}
+                title="Časová os s plným zobrazením hodín a zoomom"
+              >
+                ⏱️ Časová os
+              </button>
+              <button 
+                onClick={() => setWeekViewMode('cards')}
+                className={`px-2.5 py-1 text-[9px] font-bold uppercase rounded ${weekViewMode === 'cards' ? 'bg-[#C5A059] text-white' : 'text-[#8C857B] hover:text-[#2C2A29]'}`}
+                title="Kompaktný zoznam kariet"
+              >
+                🗂️ Karty
+              </button>
+            </div>
+          )}
+
+          {/* PREPÍNAČ DEŇ / TÝŽDEŇ / MESIAC */}
+          <div className="flex gap-1 bg-white border border-[#E8E2D9] p-1 rounded-lg shadow-xs">
+            {(['day', 'week', 'month'] as ViewMode[]).map(m => (
+              <button key={m} onClick={() => setView(m)} className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition-colors ${view === m ? 'bg-[#2C2A29] text-white' : 'text-[#8C857B] hover:text-[#2C2A29]'}`}>
+                {m === 'day' ? 'Deň' : m === 'week' ? 'Týždeň' : 'Mesiac'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="min-h-[400px]">
+      {/* LIŠTA PRE ZOOM A TIPY (AKTÍVNA PRE DEŇ A TÝŽDENNÚ ČASOVÚ OS) */}
+      {(view === 'day' || (view === 'week' && weekViewMode === 'grid')) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#FAF8F5] border border-[#E8E2D9] px-3.5 py-2 rounded-xl text-xs">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B] flex items-center gap-1">
+              <span>🔍</span> Rozostup hodín:
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button 
+                onClick={() => setHourHeight(prev => Math.max(45, prev - 15))}
+                disabled={hourHeight <= 45}
+                className="w-7 h-7 flex items-center justify-center bg-white border border-[#E8E2D9] hover:border-[#C5A059] disabled:opacity-40 rounded font-bold text-xs shadow-2xs"
+                title="Zmenšiť rozostup hodín"
+              >
+                −
+              </button>
+              <input 
+                type="range"
+                min="45"
+                max="220"
+                step="5"
+                value={hourHeight}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setHourHeight(val);
+                  try {
+                    localStorage.setItem('say_clinic_calendar_hour_height', val.toString());
+                  } catch {
+                    // ignore
+                  }
+                }}
+                className="w-24 md:w-36 accent-[#C5A059] cursor-pointer"
+                title={`Aktuálna výška: ${hourHeight}px za hodinu`}
+              />
+              <button 
+                onClick={() => setHourHeight(prev => Math.min(220, prev + 15))}
+                disabled={hourHeight >= 220}
+                className="w-7 h-7 flex items-center justify-center bg-white border border-[#E8E2D9] hover:border-[#C5A059] disabled:opacity-40 rounded font-bold text-xs shadow-2xs"
+                title="Zväčšiť rozostup hodín"
+              >
+                +
+              </button>
+              <button 
+                onClick={() => setHourHeight(85)}
+                className="px-2 py-1 text-[9px] font-bold uppercase bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#8C857B] hover:text-[#2C2A29] rounded shadow-2xs"
+                title="Obnoviť predvolený rozostup (85px)"
+              >
+                Reset ({hourHeight}px)
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-[10px] text-[#8C857B] flex-wrap">
+            <span className="bg-white px-2 py-1 rounded border border-[#E8E2D9] flex items-center gap-1 font-medium">
+              <kbd className="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-300 text-[#2C2A29]">Ctrl</kbd> + <span className="font-medium text-[#2C2A29]">koliesko myši</span> = zoom rozostupu
+            </span>
+            <span className="bg-white px-2 py-1 rounded border border-[#E8E2D9] flex items-center gap-1 font-medium hidden sm:flex">
+              <span className="text-[#C5A059]">✦</span> Ťahaním myšou (drag) vytvoríte ľubovoľne dlhú novú udalosť
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* HLAVNÝ KONTAJNER KALENDÁRA SO ZACHYTÁVANÍM CTRL + SCROLL PRE ZOOM */}
+      <div ref={gridContainerRef} className="min-h-[400px]">
         {view === 'day' && renderDayView()}
         {view === 'week' && renderWeekView()}
         {view === 'month' && renderMonthView()}
