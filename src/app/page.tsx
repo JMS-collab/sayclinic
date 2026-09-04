@@ -650,6 +650,8 @@ export default function Home() {
             {activeTab === 'finance' && (
               <FinanceCRM 
                 sales={sales} 
+                calendarEvents={calendarEvents}
+                patients={patients}
               />
             )}
 
