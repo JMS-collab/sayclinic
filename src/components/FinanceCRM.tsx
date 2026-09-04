@@ -14,6 +14,7 @@ import { InventoryService } from '@/services/inventoryService';
 import InvoiceDetailModal from './finance/InvoiceDetailModal';
 import CreateInvoiceModal from './finance/CreateInvoiceModal';
 import ClientFinanceDetailModal from './finance/ClientFinanceDetailModal';
+import MonthlyFinancialVisualizer from './finance/MonthlyFinancialVisualizer';
 import { 
   Coins, 
   FileText, 
@@ -33,7 +34,8 @@ import {
   ArrowUpRight, 
   Building2, 
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  BarChart3
 } from 'lucide-react';
 
 interface ExpenseItem {
@@ -64,13 +66,26 @@ export default function FinanceCRM({
   patients = [] 
 }: FinanceCRMProps) {
   // Hlavné podzáložky
-  const [activeSubTab, setActiveSubTab] = useState<'clients' | 'overview' | 'invoices' | 'unit_economics' | 'credits'>('clients');
+  const [activeSubTab, setActiveSubTab] = useState<'clients' | 'overview' | 'monthly_analytics' | 'invoices' | 'unit_economics' | 'credits'>('clients');
 
   // Stavy pre dáta
   const [clientProfiles, setClientProfiles] = useState<PatientFinancialProfile[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [creditLogs, setCreditLogs] = useState<CreditTransaction[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>(INITIAL_EXPENSES);
+
+  // Počet nadchádzajúcich požiadaviek na fakturáciu pre odznak na záložke
+  const upcomingBillingCount = useMemo(() => {
+    let count = 0;
+    clientProfiles.forEach(p => {
+      if (p.status === 'planned' && (!p.isDepositPaid || p.balanceDue > 0)) count++;
+      if (p.status === 'operated' && (!p.invoices || p.invoices.length === 0)) count++;
+    });
+    invoices.forEach(i => {
+      if (i.status === 'unpaid' || i.status === 'overdue') count++;
+    });
+    return count;
+  }, [clientProfiles, invoices]);
 
   // Filtre a vyhľadávanie pre klientov
   const [clientFilter, setClientFilter] = useState<'all' | 'planned' | 'operated' | 'due' | 'credit'>('all');
@@ -341,6 +356,26 @@ export default function FinanceCRM({
             <span className="ml-1 px-1.5 py-0.2 text-[10px] rounded-full bg-white/20">
               {clientProfiles.length}
             </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('monthly_analytics')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeSubTab === 'monthly_analytics'
+                ? 'bg-[#2C2A29] text-white shadow-xs'
+                : 'text-[#8C857B] hover:text-[#2C2A29]'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Mesačné tržby & Požiadavky</span>
+            {upcomingBillingCount > 0 && (
+              <span className={`ml-1 px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
+                activeSubTab === 'monthly_analytics' ? 'bg-[#C5A059] text-[#2C2A29]' : 'bg-amber-100 text-amber-900'
+              }`}>
+                {upcomingBillingCount}
+              </span>
+            )}
           </button>
 
           <button
@@ -746,11 +781,67 @@ export default function FinanceCRM({
       )}
 
       {/* ========================================================================= */}
-      {/* 2. SUB-TAB: FINANČNÝ PREHĽAD & P&L VÝSLEDKY KLINIKY                       */}
+      {/* 2. SUB-TAB: MESAČNÁ VIZUALIZÁCIA TRŽIEB VS. VÝDAVKOV & POŽIADAVKY KLIENTOV */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'monthly_analytics' && (
+        <MonthlyFinancialVisualizer
+          invoices={invoices}
+          clientProfiles={clientProfiles}
+          calendarEvents={calendarEvents}
+          patients={patients}
+          sales={sales}
+          onOpenInvoiceModal={(inv) => {
+            setSelectedInvoice(inv);
+            setIsInvoiceDetailOpen(true);
+          }}
+          onOpenInvoiceByNumber={(invNum) => {
+            const found = invoices.find(i => i.invoiceNumber === invNum);
+            if (found) {
+              setSelectedInvoice(found);
+              setIsInvoiceDetailOpen(true);
+            }
+          }}
+          onTriggerCreateInvoice={(patientName, procedureName, amount, type) => {
+            handleTriggerCreateInvoice(patientName, procedureName, amount, type);
+          }}
+          onOpenClientDetail={(profile) => {
+            setSelectedProfile(profile);
+            setIsProfileDetailOpen(true);
+          }}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3. SUB-TAB: FINANČNÝ PREHĽAD & P&L VÝSLEDKY KLINIKY                       */}
       {/* ========================================================================= */}
       {activeSubTab === 'overview' && (
         <div className="space-y-6">
           
+          {/* BANNER PRE PRECHOD NA DETAILNÚ MESAČNÚ VIZUALIZÁCIU A POŽIADAVKY */}
+          <div className="bg-[#FBF9F6] p-4 rounded-2xl border border-[#E8E2D9] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-[#2C2A29] text-[#C5A059] rounded-xl">
+                <BarChart3 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-brand font-bold text-sm text-[#2C2A29]">
+                  Mesačný rozpad tržieb vs. výdavkov & Požiadavky klientov
+                </p>
+                <p className="text-xs text-[#8C857B]">
+                  Interaktívny graf vývoja nákladov, skladovej spotreby a zoznam nadchádzajúcich záloh a doplatkov
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('monthly_analytics')}
+              className="px-4 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs whitespace-nowrap"
+            >
+              <span>Zobraziť graf & požiadavky</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {/* HLAVNÉ KARTY VÝSLEDKOV */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             
