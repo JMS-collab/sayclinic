@@ -27,10 +27,12 @@ export async function POST(req: Request) {
 
     const resend = new Resend(apiKey);
 
+    const fromAddress = process.env.EMAIL_FROM || 'SAY CLINIC Bezpečnosť <onboarding@resend.dev>';
+
     // Odoslanie reálneho 2FA e-mailu
     try {
       const emailResult = await resend.emails.send({
-        from: 'SAY CLINIC Bezpečnosť <onboarding@resend.dev>', // Po overení vlastnej domény: bezpecnost@sayclinic.sk
+        from: fromAddress,
         to: [email],
         subject: type === 'reset' ? '🔑 Obnova hesla - SAY CLINIC' : '🔐 Váš 2FA overovací kód - SAY CLINIC',
         html: `
