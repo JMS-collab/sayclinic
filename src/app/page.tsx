@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
+import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check } from 'lucide-react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient } from '../components/PatientDatabase';
-import LoginForm, { UserAccount, SAY_CLINIC_USERS } from '../components/LoginForm';
+import LoginForm, { UserAccount } from '../components/LoginForm';
 import { LiquidAvatar } from '../components/LiquidAvatar';
 import FinanceCRM from '../components/FinanceCRM';
 import Calendar, { CalendarEvent } from '../components/Calendar';
@@ -13,6 +14,7 @@ import { AestheticsModule } from '../components/AestheticsModule';
 import { CosmeticsPOSModule } from '../components/CosmeticsPOSModule';
 import ProjectManagement from '../components/ProjectManagement';
 import OperativeNotesWidget from '../components/OperativeNotesWidget';
+import { AuthService } from '../services/authService';
 
 export interface SaleItem {
   id: string;
@@ -86,16 +88,9 @@ export default function Home() {
 
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
     if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('say_clinic_user');
-      if (savedUser) {
-        try {
-          return JSON.parse(savedUser);
-        } catch (e) {
-          console.error('Chyba načítania používateľa:', e);
-        }
-      }
+      return AuthService.getCurrentSession();
     }
-    return SAY_CLINIC_USERS[0];
+    return null;
   });
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
@@ -111,15 +106,20 @@ export default function Home() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
 
+  // Správa hesla používateľa (Modal zmeny hesla)
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showOldPass, setShowOldPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [passwordChangeStatus, setPasswordChangeStatus] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+
   // 1. ZACHOVANIE PRIHLÁSENÉHO POUŽÍVATEĽA PRI OBNOVENÍ / NÁVRATE SPÄŤ
   useEffect(() => {
-    const savedUser = localStorage.getItem('say_clinic_user');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error('Chyba načítania používateľa:', e);
-      }
+    const sessionUser = AuthService.getCurrentSession();
+    if (sessionUser) {
+      setCurrentUser(sessionUser);
     }
   }, []);
 
@@ -146,15 +146,49 @@ export default function Home() {
     window.history.pushState({ tab }, '', `#${tab}`);
   };
 
-  const handleLoginSuccess = (user: UserAccount) => {
+  const handleLoginSuccess = (user: UserAccount, rememberMe: boolean = true) => {
     setCurrentUser(user);
-    localStorage.setItem('say_clinic_user', JSON.stringify(user));
+    AuthService.saveSession(user, rememberMe);
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('say_clinic_user');
+    AuthService.clearSession();
     if (session) signOut();
+  };
+
+  const handleChangePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    if (!oldPassword) {
+      setPasswordChangeStatus({ type: 'error', message: 'Zadajte pôvodné heslo.' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordChangeStatus({ type: 'error', message: 'Nové heslo musí mať minimálne 6 znakov.' });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordChangeStatus({ type: 'error', message: 'Nové heslo a jeho potvrdenie sa nezhodujú.' });
+      return;
+    }
+
+    const res = AuthService.changePassword(currentUser.id, oldPassword, newPassword);
+    if (res.success) {
+      setPasswordChangeStatus({ type: 'success', message: 'Heslo bolo úspešne zmenené.' });
+      setTimeout(() => {
+        setShowChangePasswordModal(false);
+        setPasswordChangeStatus(null);
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+      }, 1500);
+    } else {
+      setPasswordChangeStatus({ type: 'error', message: res.message });
+    }
   };
 
   // Aktualizácia živého času
@@ -376,15 +410,154 @@ export default function Home() {
                 {currentUser.role === 'ceo' ? 'CEO & Primár' : currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra'}
               </p>
             </div>
+            
+            <button
+              type="button"
+              onClick={() => {
+                setShowChangePasswordModal(true);
+                setPasswordChangeStatus(null);
+                setOldPassword('');
+                setNewPassword('');
+                setConfirmNewPassword('');
+              }}
+              title="Zmeniť heslo účtu"
+              className="p-1.5 text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] rounded-lg border border-transparent hover:border-[#E8E2D9] transition-all"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+            </button>
+
             <button
               onClick={handleLogout}
-              className="text-xs text-[#8C857B] hover:text-[#2C2A29] underline underline-offset-4"
+              className="text-xs text-[#8C857B] hover:text-rose-600 transition-colors font-medium underline underline-offset-4"
             >
               Odhlásiť
             </button>
           </div>
         </div>
       </header>
+
+      {/* MODAL PRE ZMENU HESLA PRIHLÁSENÉHO POUŽÍVATEĽA */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C2A29]/30 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="backdrop-blur-3xl bg-white/95 border border-white/90 w-full max-w-md rounded-[32px] shadow-[0_35px_80px_rgba(0,0,0,0.18)] overflow-hidden">
+            <div className="p-6 border-b border-[#E8E2D9] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[#C5A059]/15 text-[#C5A059]">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[#2C2A29]">Zmena hesla</h3>
+                  <p className="text-xs text-[#8C857B]">{currentUser.name} ({currentUser.email})</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowChangePasswordModal(false)}
+                className="p-1.5 text-[#8C857B] hover:text-[#2C2A29] rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangePasswordSubmit} className="p-6 space-y-4">
+              {passwordChangeStatus && (
+                <div
+                  className={`p-3 rounded-2xl text-xs flex items-center gap-2 ${
+                    passwordChangeStatus.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  }`}
+                >
+                  {passwordChangeStatus.type === 'success' ? (
+                    <Check className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                  )}
+                  <span>{passwordChangeStatus.message}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                  Aktuálne (pôvodné) heslo
+                </label>
+                <div className="relative">
+                  <input
+                    type={showOldPass ? 'text' : 'password'}
+                    required
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    placeholder="Zadajte súčasné heslo"
+                    className="w-full border border-[#E8E2D9] p-3 rounded-xl text-sm outline-none focus:border-[#C5A059] pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOldPass(!showOldPass)}
+                    className="absolute right-3 top-3 text-[#8C857B] hover:text-[#2C2A29]"
+                  >
+                    {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                  Nové heslo (min. 6 znakov)
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Zadajte nové bezpečné heslo"
+                    className="w-full border border-[#E8E2D9] p-3 rounded-xl text-sm outline-none focus:border-[#C5A059] pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-3 top-3 text-[#8C857B] hover:text-[#2C2A29]"
+                  >
+                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                  Potvrdenie nového hesla
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Zopakujte nové heslo"
+                  className="w-full border border-[#E8E2D9] p-3 rounded-xl text-sm outline-none focus:border-[#C5A059]"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePasswordModal(false)}
+                  className="flex-1 py-3 border border-[#E8E2D9] text-[#8C857B] hover:text-[#2C2A29] rounded-xl text-xs font-semibold hover:bg-gray-50 transition-all"
+                >
+                  Zrušiť
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-semibold transition-all shadow-md"
+                >
+                  Uložiť nové heslo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* OBSAH */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">

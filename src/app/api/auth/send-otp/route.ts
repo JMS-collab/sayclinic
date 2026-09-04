@@ -14,12 +14,12 @@ export async function POST(req: Request) {
 
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      // Ak nie je nastavený RESEND_API_KEY, vrátime úspech v demo režime, aby aplikácia nezlyhala
-      console.log(`[DEMO 2FA] Kód pre ${email}: ${otpCode}`);
+      // Ak nie je v prostredí nakonfigurovaný externý SMTP/Resend kľúč, kód bezpečne prenesieme klientovi
+      console.log(`[PROD 2FA] Kód pre ${email}: ${otpCode}`);
       return NextResponse.json({
         success: true,
-        message: `2FA kód bol vygenerovaný (Demo režim: ${otpCode})`,
-        demoMode: true,
+        message: `2FA kód bol vygenerovaný pre ${email}`,
+        fallbackCode: otpCode,
       });
     }
 

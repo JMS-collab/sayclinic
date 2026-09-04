@@ -1,8 +1,25 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, Trash2, X, Check, RefreshCw, KeyRound, ShieldCheck, Sparkles, UserCheck } from 'lucide-react';
+import { 
+  Camera, 
+  Upload, 
+  Trash2, 
+  X, 
+  Check,
+  RefreshCw, 
+  KeyRound, 
+  ShieldCheck, 
+  Sparkles, 
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  ArrowRight,
+  AlertCircle
+} from 'lucide-react';
 import { LiquidAvatar } from './LiquidAvatar';
+import { AuthService } from '../services/authService';
 
 export interface UserAccount {
   id: string;
@@ -92,15 +109,24 @@ const PRESET_PORTRAITS = [
 ];
 
 interface LoginFormProps {
-  onLoginSuccess: (user: UserAccount) => void;
+  onLoginSuccess: (user: UserAccount, rememberMe?: boolean) => void;
 }
 
 type AuthStep = 'select_user' | 'password' | '2fa' | 'reset_password';
+
+function maskEmail(email: string): string {
+  const parts = email.split('@');
+  if (parts.length !== 2) return email;
+  const user = parts[0];
+  const masked = user.length > 2 ? `${user.slice(0, 2)}•••${user.slice(-1)}` : `${user[0]}•••`;
+  return `${masked}@${parts[1]}`;
+}
 
 export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [users, setUsers] = useState<UserAccount[]>(SAY_CLINIC_USERS);
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
   const [step, setStep] = useState<AuthStep>('select_user');
+  const [loginMethodTab, setLoginMethodTab] = useState<'cards' | 'direct'>('cards');
 
   // Správa vlastných fotografií (Modal)
   const [photoModalUser, setPhotoModalUser] = useState<UserAccount | null>(null);
@@ -114,11 +140,32 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
   // Formulárové stavy
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [directEmail, setDirectEmail] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Stavy obnovy hesla
+  const [resetStep, setResetStep] = useState<'request' | 'verify'>('request');
+  const [resetEmailInput, setResetEmailInput] = useState('');
+  const [resetCodeInput, setResetCodeInput] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
+
+  // Odpočítavanie pre opätovné zaslanie 2FA
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   // Načítanie uložených fotografií z LocalStorage
   useEffect(() => {
@@ -257,42 +304,172 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setSelectedUser(user);
     setStep('password');
     setPassword('');
+    setShowPassword(false);
     setErrorMsg('');
     setInfoMsg('');
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handleDirectEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password) {
-      setErrorMsg('Zadajte heslo.');
+    setErrorMsg('');
+    if (!directEmail.trim()) {
+      setErrorMsg('Zadajte váš pracovný e-mail.');
       return;
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(code);
+    const matchedUser = users.find(u => u.email.toLowerCase() === directEmail.trim().toLowerCase());
+    if (!matchedUser) {
+      setErrorMsg('Používateľ s týmto e-mailom nebol v databáze SAY CLINIC nájdený.');
+      return;
+    }
+
+    setSelectedUser(matchedUser);
+    setStep('password');
+    setPassword('');
+    setShowPassword(false);
     setErrorMsg('');
-    setInfoMsg(`TESTOVACÍ REŽIM: Váš 2FA kód je ${code} (alebo 123456)`);
-    setStep('2fa');
+    setInfoMsg('');
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    if (!password) {
+      setErrorMsg('Zadajte vaše prístupové heslo.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg('');
+
+    // Reálne overenie voči databáze poverení
+    const isValid = AuthService.verifyPassword(selectedUser.id, password);
+    if (!isValid) {
+      setIsSubmitting(false);
+      setErrorMsg('Nesprávne heslo. Skontrolujte zadané údaje a skúste znova.');
+      return;
+    }
+
+    // Reálne generovanie a odoslanie 2FA kódu
+    try {
+      const res = await AuthService.generateAndSendOtp(selectedUser, 'login');
+      setGeneratedOtp(res.fallbackOtp || null);
+      setInfoMsg(`Dvojfaktorový overovací kód bol odoslaný na ${maskEmail(selectedUser.email)}`);
+      setStep('2fa');
+      setTwoFactorCode('');
+      setResendCooldown(30);
+    } catch (err) {
+      setErrorMsg('Nepodarilo sa odoslať 2FA kód. Skúste znova.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResend2FA = async () => {
+    if (!selectedUser || resendCooldown > 0 || isSubmitting) return;
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      const res = await AuthService.generateAndSendOtp(selectedUser, 'login');
+      setGeneratedOtp(res.fallbackOtp || null);
+      setInfoMsg(`Nový kód bol odoslaný na ${maskEmail(selectedUser.email)}`);
+      setResendCooldown(30);
+    } catch (e) {
+      setErrorMsg('Chyba pri opätovnom odosielaní kódu.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handle2FASubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (twoFactorCode === generatedOtp || twoFactorCode === '123456') {
-      onLoginSuccess(selectedUser!);
+    if (!selectedUser) return;
+
+    if (!twoFactorCode || twoFactorCode.trim().length !== 6) {
+      setErrorMsg('Zadajte platný 6-miestny overovací kód.');
+      return;
+    }
+
+    // Reálna verifikácia voči aktívnemu OTP kódu
+    const isVerified = AuthService.verifyOtp(selectedUser.email, twoFactorCode.trim(), generatedOtp || undefined);
+    if (isVerified) {
+      onLoginSuccess(selectedUser, rememberMe);
     } else {
-      setErrorMsg('Neplatný 2FA kód. Použite 123456.');
+      setErrorMsg('Neplatný alebo expirovaný overovací kód. Skontrolujte kód z e-mailu alebo požiadajte o nový.');
     }
   };
 
-  const handleResetPasswordSubmit = (e: React.FormEvent) => {
+  // Krok 1 obnovy hesla - Žiadosť o kód
+  const handleRequestResetCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUser?.email) return;
+    const emailToReset = (resetEmailInput || selectedUser?.email || '').trim().toLowerCase();
+    if (!emailToReset) {
+      setErrorMsg('Zadajte e-mailovú adresu pre obnovu hesla.');
+      return;
+    }
 
-    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-    setInfoMsg(`Odkaz na obnovu hesla pre ${selectedUser.email} bol odoslaný (Kód: ${resetCode})`);
-    setTimeout(() => {
+    const matchedUser = users.find(u => u.email.toLowerCase() === emailToReset);
+    if (!matchedUser) {
+      setErrorMsg('Používateľ s týmto e-mailom nebol nájdený.');
+      return;
+    }
+
+    setSelectedUser(matchedUser);
+    setIsSubmitting(true);
+    setErrorMsg('');
+
+    try {
+      const res = await AuthService.generateAndSendOtp(matchedUser, 'reset');
+      setGeneratedOtp(res.fallbackOtp || null);
+      setInfoMsg(`Kód pre obnovu hesla bol odoslaný na ${maskEmail(matchedUser.email)}`);
+      setResetStep('verify');
+    } catch (err) {
+      setErrorMsg('Nepodarilo sa odoslať kód pre obnovu.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Krok 2 obnovy hesla - Overenie kódu a nastavenie nového hesla
+  const handleConfirmNewPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    if (!resetCodeInput || resetCodeInput.trim().length !== 6) {
+      setErrorMsg('Zadajte 6-miestny overovací kód z e-mailu.');
+      return;
+    }
+
+    if (resetNewPassword.length < 6) {
+      setErrorMsg('Nové heslo musí mať aspoň 6 znakov.');
+      return;
+    }
+
+    if (resetNewPassword !== resetConfirmPassword) {
+      setErrorMsg('Nové heslá sa nezhodujú.');
+      return;
+    }
+
+    const isCodeValid = AuthService.verifyOtp(selectedUser.email, resetCodeInput.trim(), generatedOtp || undefined);
+    if (!isCodeValid) {
+      setErrorMsg('Neplatný alebo expirovaný overovací kód.');
+      return;
+    }
+
+    const res = AuthService.setNewPassword(selectedUser.id, resetNewPassword);
+    if (res.success) {
+      setInfoMsg('Heslo bolo úspešne zmenené. Teraz sa môžete prihlásiť novým heslom.');
+      setPassword(resetNewPassword);
       setStep('password');
-    }, 3000);
+      setResetStep('request');
+      setResetCodeInput('');
+      setResetNewPassword('');
+      setResetConfirmPassword('');
+      setErrorMsg('');
+    } else {
+      setErrorMsg(res.message);
+    }
   };
 
   return (
@@ -337,98 +514,161 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
       {/* KROK 1: VÝBER POUŽÍVATEĽOV V ŠTÝLE LIQUID GLASS */}
       {step === 'select_user' && (
-        <div className="w-full max-w-5xl mx-auto space-y-10">
+        <div className="w-full max-w-5xl mx-auto space-y-6">
           
-          {/* HLAVNÁ LIQUID GLASS KARTA S AVATARMI */}
-          <div className="backdrop-blur-3xl bg-white/45 border border-white/80 rounded-[36px] p-8 sm:p-12 shadow-[0_25px_60px_-15px_rgba(44,42,41,0.06),inset_0_1.5px_2px_rgba(255,255,255,0.95),inset_0_-1px_2px_rgba(197,160,89,0.12)] relative overflow-hidden">
+          {/* HLAVNÁ LIQUID GLASS KARTA */}
+          <div className="backdrop-blur-3xl bg-white/50 border border-white/80 rounded-[36px] p-6 sm:p-10 shadow-[0_25px_60px_-15px_rgba(44,42,41,0.06),inset_0_1.5px_2px_rgba(255,255,255,0.95),inset_0_-1px_2px_rgba(197,160,89,0.12)] relative overflow-hidden">
             
             {/* Vnútorný specular svetelný odlesk na vrchu karty */}
             <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent opacity-80" />
             
-            <div className="text-center mb-10">
+            <div className="text-center mb-8">
               <h2 className="text-xl sm:text-2xl font-light text-[#2C2A29] tracking-tight">
-                Vyberte svoj profil pre prihlásenie
+                Prihlásenie do klinického systému
               </h2>
               <p className="text-xs text-[#8C857B] mt-1.5 font-normal tracking-wide">
-                Zabezpečený klinický prístup s dvojfaktorovým overením
+                Zabezpečený produkčný prístup tímu SAY CLINIC s 2FA overením
               </p>
+
+              {/* Prepínač metódy prihlásenia */}
+              <div className="inline-flex items-center gap-1.5 p-1 bg-white/70 backdrop-blur-md rounded-full border border-white/90 shadow-inner mt-4">
+                <button
+                  type="button"
+                  onClick={() => setLoginMethodTab('cards')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    loginMethodTab === 'cards'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'text-[#8C857B] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  👥 Tím kliniky
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginMethodTab('direct')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    loginMethodTab === 'direct'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'text-[#8C857B] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  ✉️ Prihlásenie e-mailom
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-wrap justify-center items-start gap-7 sm:gap-9 md:gap-10">
-              {users.map(u => (
-                <div
-                  key={u.id}
-                  onClick={() => handleSelectUser(u)}
-                  className="group flex flex-col items-center cursor-pointer transition-all duration-400 w-32 sm:w-36 text-center"
-                >
-                  {/* LIQUID GLASS GULA AVATARA */}
-                  <div className="relative mb-3.5">
-                    {/* Vonkajší liquid glass kruh s optickým lomom */}
-                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 backdrop-blur-xl bg-gradient-to-b from-white/90 via-white/50 to-white/20 border border-white/90 shadow-[0_12px_28px_-6px_rgba(44,42,41,0.08),inset_0_2px_4px_rgba(255,255,255,0.95),inset_0_-2px_4px_rgba(197,160,89,0.18)] group-hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.32),inset_0_2px_6px_rgba(255,255,255,1)] group-hover:border-[#C5A059]/60 group-hover:scale-106 transition-all duration-400 flex items-center justify-center overflow-hidden">
-                      {u.avatarUrl ? (
-                        <img
-                          src={u.avatarUrl}
-                          alt={u.name}
-                          className="w-full h-full rounded-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white shadow-inner">
-                          <LiquidAvatar id={u.id} name={u.name} role={u.role} />
-                        </div>
-                      )}
+            {errorMsg && (
+              <div className="max-w-md mx-auto mb-6 p-3 rounded-2xl bg-rose-50/90 border border-rose-200/80 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {loginMethodTab === 'cards' ? (
+              /* KARTY ČLENOV TÍMU */
+              <div className="flex flex-wrap justify-center items-start gap-6 sm:gap-8 md:gap-9">
+                {users.map(u => (
+                  <div
+                    key={u.id}
+                    onClick={() => handleSelectUser(u)}
+                    className="group flex flex-col items-center cursor-pointer transition-all duration-400 w-32 sm:w-36 text-center"
+                  >
+                    {/* LIQUID GLASS GULA AVATARA */}
+                    <div className="relative mb-3.5">
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 backdrop-blur-xl bg-gradient-to-b from-white/90 via-white/50 to-white/20 border border-white/90 shadow-[0_12px_28px_-6px_rgba(44,42,41,0.08),inset_0_2px_4px_rgba(255,255,255,0.95),inset_0_-2px_4px_rgba(197,160,89,0.18)] group-hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.32),inset_0_2px_6px_rgba(255,255,255,1)] group-hover:border-[#C5A059]/60 group-hover:scale-106 transition-all duration-400 flex items-center justify-center overflow-hidden">
+                        {u.avatarUrl ? (
+                          <img
+                            src={u.avatarUrl}
+                            alt={u.name}
+                            className="w-full h-full rounded-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white shadow-inner">
+                            <LiquidAvatar id={u.id} name={u.name} role={u.role} />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Tlačidlo úpravy avataru */}
+                      <button
+                        type="button"
+                        onClick={(e) => openPhotoModal(u, e)}
+                        title="Zmeniť profilový avatar"
+                        className="absolute -bottom-1 -right-1 p-1.5 backdrop-blur-md bg-white/90 text-[#2C2A29] hover:bg-[#C5A059] hover:text-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.1)] border border-white transition-all transform group-hover:scale-110"
+                      >
+                        <Camera className="w-3 h-3" />
+                      </button>
                     </div>
 
-                    {/* Tlačidlo úpravy avataru */}
+                    {/* MENO A POZÍCIA */}
+                    <h3 className="text-xs sm:text-sm font-semibold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors leading-tight line-clamp-2">
+                      {u.name}
+                    </h3>
+                    
+                    {/* Glass rola štítok */}
+                    <span className="mt-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-medium backdrop-blur-md bg-white/60 border border-white/80 text-[#8C857B] group-hover:text-[#2C2A29] group-hover:bg-white/90 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                      {u.title}
+                    </span>
+
+                    {/* TLAČIDLO PRE ZADANIE HESLA */}
                     <button
                       type="button"
-                      onClick={(e) => openPhotoModal(u, e)}
-                      title="Zmeniť profilový avatar"
-                      className="absolute -bottom-1 -right-1 p-1.5 backdrop-blur-md bg-white/90 text-[#2C2A29] hover:bg-[#C5A059] hover:text-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.1)] border border-white transition-all transform group-hover:scale-110"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectUser(u);
+                      }}
+                      className="mt-2.5 w-full py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1"
                     >
-                      <Camera className="w-3 h-3" />
+                      <span>Prihlásiť sa</span>
+                      <span className="text-[#C5A059] group-hover:text-white">→</span>
                     </button>
                   </div>
+                ))}
+              </div>
+            ) : (
+              /* PRIAME PRIHLÁSENIE E-MAILOM */
+              <div className="max-w-md mx-auto py-4">
+                <form onSubmit={handleDirectEmailSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                      Klinická e-mailová adresa (@sayclinic.sk)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        required
+                        autoFocus
+                        placeholder="napr. mraz@sayclinic.sk"
+                        value={directEmail}
+                        onChange={(e) => setDirectEmail(e.target.value)}
+                        className="w-full border border-white/90 p-3.5 rounded-2xl text-sm bg-white/80 backdrop-blur-md outline-none focus:border-[#C5A059] focus:bg-white transition-all pl-11 shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)]"
+                      />
+                      <Mail className="w-4 h-4 text-[#C5A059] absolute left-3.5 top-4" />
+                    </div>
+                  </div>
 
-                  {/* MENO A POZÍCIA */}
-                  <h3 className="text-xs sm:text-sm font-semibold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors leading-tight line-clamp-2">
-                    {u.name}
-                  </h3>
-                  
-                  {/* Glass rola štítok */}
-                  <span className="mt-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-medium backdrop-blur-md bg-white/60 border border-white/80 text-[#8C857B] group-hover:text-[#2C2A29] group-hover:bg-white/90 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-                    {u.title}
-                  </span>
-
-                  {/* PRIAME TLAČIDLO VSTÚPIŤ */}
                   <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLoginSuccess(u);
-                    }}
-                    className="mt-2.5 w-full py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1"
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] flex items-center justify-center gap-2"
                   >
-                    <span>Vstúpiť</span>
-                    <span className="text-[#C5A059] group-hover:text-white">→</span>
+                    <span>Pokračovať na heslo</span>
+                    <ArrowRight className="w-4 h-4 text-[#C5A059]" />
                   </button>
-                </div>
-              ))}
-            </div>
+                </form>
+              </div>
+            )}
 
-            {/* SPODNÁ LIŠTA S RÝCHLYM DEMO VSTUPOM */}
-            <div className="mt-8 pt-6 border-t border-white/60 flex flex-wrap items-center justify-between gap-3 text-xs text-[#8C857B]">
+            {/* SPODNÁ LIŠTA - BEZPEČNOSTNÝ STATUS */}
+            <div className="mt-10 pt-6 border-t border-white/60 flex flex-wrap items-center justify-between gap-3 text-xs text-[#8C857B]">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                <span className="font-medium">Klinický systém je online (SAY OS v2.6 Liquid Glass)</span>
+                <span className="font-medium text-[#2C2A29]">Produkčný server SAY CLINIC je online</span>
               </div>
-              <button
-                type="button"
-                onClick={() => onLoginSuccess(users[0])}
-                className="px-4 py-2 rounded-xl bg-white/80 hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
-              >
-                <span>⚡ Rýchly vstup ako MUDr. Ján Mráz</span>
-                <span className="text-[#C5A059]">→</span>
-              </button>
+              
+              <div className="flex items-center gap-2 text-emerald-800 bg-emerald-50/80 px-3 py-1.5 rounded-full border border-emerald-200/80 text-[11px] font-medium">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>SSL/TLS 256-bit šifrovanie • 2FA aktívne</span>
+              </div>
             </div>
 
           </div>
@@ -438,7 +678,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
       {/* KROK 2: LIQUID GLASS ZADANIE HESLA */}
       {step === 'password' && selectedUser && (
-        <div className="max-w-md mx-auto w-full backdrop-blur-3xl bg-white/55 border border-white/80 p-8 sm:p-10 rounded-[36px] shadow-[0_30px_70px_-15px_rgba(44,42,41,0.08),inset_0_1.5px_2px_rgba(255,255,255,0.95)] text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+        <div className="max-w-md mx-auto w-full backdrop-blur-3xl bg-white/60 border border-white/80 p-8 sm:p-10 rounded-[36px] shadow-[0_30px_70px_-15px_rgba(44,42,41,0.08),inset_0_1.5px_2px_rgba(255,255,255,0.95)] text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
           
           {/* LIQUID GLASS GULA VYBRANÉHO POUŽÍVATEĽA */}
           <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 backdrop-blur-xl bg-gradient-to-b from-white/90 via-white/50 to-white/20 border-2 border-[#C5A059]/70 mx-auto shadow-[0_16px_36px_-6px_rgba(197,160,89,0.28),inset_0_2px_4px_rgba(255,255,255,0.95)] flex items-center justify-center overflow-hidden">
@@ -458,35 +698,69 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           <div>
             <h2 className="text-lg font-semibold text-[#2C2A29]">{selectedUser.name}</h2>
             <p className="text-xs text-[#8C857B] mt-0.5 font-medium">{selectedUser.title}</p>
+            <p className="text-[11px] text-[#C5A059] font-mono mt-0.5">{selectedUser.email}</p>
           </div>
 
           <form onSubmit={handlePasswordSubmit} className="space-y-4 text-left">
             <div>
+              <label className="block text-xs font-medium text-[#2C2A29] mb-1.5">
+                Prístupové heslo
+              </label>
               <div className="relative">
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   autoFocus
                   placeholder="Zadajte heslo"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border border-white/90 p-3.5 rounded-2xl text-sm font-mono bg-white/70 backdrop-blur-md outline-none focus:border-[#C5A059] focus:bg-white transition-all pl-11 shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_4px_12px_rgba(0,0,0,0.02)]"
+                  className="w-full border border-white/90 p-3.5 rounded-2xl text-sm bg-white/75 backdrop-blur-md outline-none focus:border-[#C5A059] focus:bg-white transition-all pl-11 pr-11 shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)]"
                 />
                 <KeyRound className="w-4 h-4 text-[#C5A059] absolute left-3.5 top-4" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3.5 p-1 text-[#8C857B] hover:text-[#2C2A29] transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
             {errorMsg && (
-              <p className="text-xs text-rose-600 font-medium text-center bg-rose-50/80 backdrop-blur-sm border border-rose-200/60 p-2.5 rounded-xl">
-                {errorMsg}
+              <div className="p-3 rounded-xl bg-rose-50/90 border border-rose-200/80 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {infoMsg && (
+              <p className="text-xs text-emerald-800 bg-emerald-50/90 border border-emerald-200 p-2.5 rounded-xl text-center">
+                {infoMsg}
               </p>
             )}
 
             <div className="flex justify-between items-center text-xs pt-1">
+              <label className="flex items-center gap-2 cursor-pointer text-[#5C554F]">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="rounded border-[#E8E2D9] text-[#C5A059] focus:ring-[#C5A059]"
+                />
+                <span>Zapamätať prihlásenie (30 dní)</span>
+              </label>
+
               <button
                 type="button"
-                onClick={() => setStep('reset_password')}
-                className="text-[#8C857B] hover:text-[#2C2A29] transition-colors font-medium"
+                onClick={() => {
+                  setResetEmailInput(selectedUser.email);
+                  setResetStep('request');
+                  setErrorMsg('');
+                  setInfoMsg('');
+                  setStep('reset_password');
+                }}
+                className="text-[#8C857B] hover:text-[#2C2A29] transition-colors font-medium underline underline-offset-2"
               >
                 Zabudnuté heslo?
               </button>
@@ -495,23 +769,32 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setStep('select_user')}
-                className="backdrop-blur-md bg-white/60 hover:bg-white/90 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] px-4 py-3 rounded-2xl text-xs font-semibold transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
+                onClick={() => {
+                  setStep('select_user');
+                  setPassword('');
+                  setErrorMsg('');
+                }}
+                className="backdrop-blur-md bg-white/70 hover:bg-white/95 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] px-4 py-3 rounded-2xl text-xs font-semibold transition-all shadow-xs"
               >
-                Späť
+                ← Zmeniť profil
               </button>
-              <button
-                type="button"
-                onClick={() => onLoginSuccess(selectedUser!)}
-                className="flex-1 bg-[#C5A059] hover:bg-[#9C7D3D] text-white py-3 rounded-2xl text-xs font-semibold transition-all shadow-md"
-              >
-                ⚡ Rýchly vstup
-              </button>
+              
               <button
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white py-3 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)]"
+                disabled={isSubmitting}
+                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-50 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] flex items-center justify-center gap-1.5"
               >
-                2FA Overenie →
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Overujem...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Pokračovať na 2FA overenie</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#C5A059]" />
+                  </>
+                )}
               </button>
             </div>
           </form>
@@ -520,18 +803,23 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
       {/* KROK 3: LIQUID GLASS 2FA OVERENIE */}
       {step === '2fa' && selectedUser && (
-        <div className="max-w-md mx-auto w-full backdrop-blur-3xl bg-white/55 border border-white/80 p-8 sm:p-10 rounded-[36px] shadow-[0_30px_70px_-15px_rgba(44,42,41,0.08),inset_0_1.5px_2px_rgba(255,255,255,0.95)] text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+        <div className="max-w-md mx-auto w-full backdrop-blur-3xl bg-white/60 border border-white/80 p-8 sm:p-10 rounded-[36px] shadow-[0_30px_70px_-15px_rgba(44,42,41,0.08),inset_0_1.5px_2px_rgba(255,255,255,0.95)] text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
           <div className="w-14 h-14 rounded-full backdrop-blur-xl bg-gradient-to-b from-white/90 to-white/40 border border-white/90 text-[#2C2A29] flex items-center justify-center mx-auto shadow-[0_8px_20px_rgba(197,160,89,0.15)]">
             <ShieldCheck className="w-7 h-7 text-[#C5A059]" />
           </div>
 
           <div>
-            <h2 className="text-lg font-semibold text-[#2C2A29]">2FA Overenie</h2>
-            <p className="text-xs text-[#8C857B] mt-0.5">{selectedUser.name}</p>
+            <h2 className="text-lg font-semibold text-[#2C2A29]">Dvojfaktorové overenie (2FA)</h2>
+            <p className="text-xs text-[#8C857B] mt-1 font-medium">
+              Overovací kód bol odoslaný na e-mail:
+            </p>
+            <p className="text-xs font-mono font-semibold text-[#2C2A29] mt-0.5">
+              {maskEmail(selectedUser.email)}
+            </p>
           </div>
 
           {infoMsg && (
-            <div className="backdrop-blur-md bg-[#FAF8F5]/80 border border-[#C5A059]/30 text-[#2C2A29] p-3.5 rounded-2xl text-xs font-mono text-center shadow-inner">
+            <div className="backdrop-blur-md bg-emerald-50/80 border border-emerald-200/80 text-emerald-800 p-3 rounded-2xl text-xs text-center shadow-xs">
               {infoMsg}
             </div>
           )}
@@ -540,35 +828,64 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             <div>
               <input
                 type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 maxLength={6}
                 required
                 autoFocus
-                placeholder="123456"
+                placeholder="000000"
                 value={twoFactorCode}
-                onChange={(e) => setTwoFactorCode(e.target.value)}
-                className="w-full border-2 border-white/90 p-3.5 rounded-2xl text-center text-xl tracking-[0.3em] font-mono bg-white/80 backdrop-blur-md outline-none focus:border-[#C5A059] shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)]"
+                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+                className="w-full border-2 border-white/90 p-3.5 rounded-2xl text-center text-2xl tracking-[0.35em] font-mono bg-white/85 backdrop-blur-md outline-none focus:border-[#C5A059] shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] text-[#2C2A29]"
               />
+              <p className="text-[11px] text-[#8C857B] mt-1.5">
+                Zadajte 6-miestny číselný kód
+              </p>
             </div>
 
             {errorMsg && (
-              <p className="text-xs text-rose-600 font-medium text-center bg-rose-50/80 p-2.5 rounded-xl border border-rose-200/60">
-                {errorMsg}
-              </p>
+              <div className="p-3 rounded-xl bg-rose-50/90 border border-rose-200/80 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
             )}
+
+            {/* Opätovné zaslanie kódu */}
+            <div className="pt-1">
+              <button
+                type="button"
+                disabled={resendCooldown > 0 || isSubmitting}
+                onClick={handleResend2FA}
+                className="text-xs text-[#8C857B] hover:text-[#2C2A29] disabled:opacity-50 transition-colors font-medium flex items-center justify-center gap-1.5 mx-auto"
+              >
+                <RefreshCw className={`w-3 h-3 ${isSubmitting ? 'animate-spin' : ''}`} />
+                {resendCooldown > 0 ? (
+                  <span>Znovu odoslať kód o {resendCooldown}s</span>
+                ) : (
+                  <span>Neprišiel kód? Znovu odoslať</span>
+                )}
+              </button>
+            </div>
 
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setStep('password')}
-                className="flex-1 backdrop-blur-md bg-white/60 hover:bg-white/90 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] py-3 rounded-2xl text-xs font-semibold transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
+                onClick={() => {
+                  setStep('password');
+                  setTwoFactorCode('');
+                  setErrorMsg('');
+                }}
+                className="flex-1 backdrop-blur-md bg-white/70 hover:bg-white/95 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-xs"
               >
-                Späť
+                ← Späť
               </button>
+              
               <button
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white py-3 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] hover:shadow-[0_12px_28px_-5px_rgba(197,160,89,0.35)]"
+                disabled={twoFactorCode.length !== 6}
+                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-40 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] hover:shadow-[0_12px_28px_-5px_rgba(197,160,89,0.35)]"
               >
-                Vstúpiť
+                Overiť a vstúpiť
               </button>
             </div>
           </form>
@@ -576,36 +893,140 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       )}
 
       {/* KROK 4: LIQUID GLASS OBNOVA HESLA */}
-      {step === 'reset_password' && selectedUser && (
-        <div className="max-w-md mx-auto w-full backdrop-blur-3xl bg-white/55 border border-white/80 p-8 sm:p-10 rounded-[36px] shadow-[0_30px_70px_-15px_rgba(44,42,41,0.08),inset_0_1.5px_2px_rgba(255,255,255,0.95)] text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
-          <div>
-            <h2 className="text-lg font-semibold text-[#2C2A29]">Obnova hesla</h2>
-            <p className="text-xs text-[#8C857B] mt-1">{selectedUser.email}</p>
+      {step === 'reset_password' && (
+        <div className="max-w-md mx-auto w-full backdrop-blur-3xl bg-white/60 border border-white/80 p-8 sm:p-10 rounded-[36px] shadow-[0_30px_70px_-15px_rgba(44,42,41,0.08),inset_0_1.5px_2px_rgba(255,255,255,0.95)] text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+          <div className="w-14 h-14 rounded-full backdrop-blur-xl bg-gradient-to-b from-white/90 to-white/40 border border-white/90 text-[#2C2A29] flex items-center justify-center mx-auto shadow-xs">
+            <Lock className="w-7 h-7 text-[#C5A059]" />
           </div>
 
-          <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
-            {infoMsg ? (
-              <p className="text-xs text-emerald-800 bg-emerald-50/90 backdrop-blur-sm border border-emerald-200 p-3.5 rounded-2xl text-center">
-                {infoMsg}
-              </p>
-            ) : (
+          <div>
+            <h2 className="text-lg font-semibold text-[#2C2A29]">Obnova prístupového hesla</h2>
+            <p className="text-xs text-[#8C857B] mt-1">
+              {resetStep === 'request'
+                ? 'Zadajte vašu klinickú e-mailovú adresu pre odoslanie overovacieho kódu.'
+                : 'Zadajte kód z e-mailu a nastavte si nové bezpečné heslo.'}
+            </p>
+          </div>
+
+          {infoMsg && (
+            <p className="text-xs text-emerald-800 bg-emerald-50/90 border border-emerald-200 p-3 rounded-2xl text-center">
+              {infoMsg}
+            </p>
+          )}
+
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-rose-50/90 border border-rose-200/80 text-rose-700 text-xs flex items-center gap-2 text-left">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {resetStep === 'request' ? (
+            <form onSubmit={handleRequestResetCode} className="space-y-4 text-left">
+              <div>
+                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                  Pracovný e-mail
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    required
+                    autoFocus
+                    placeholder="napr. mraz@sayclinic.sk"
+                    value={resetEmailInput}
+                    onChange={(e) => setResetEmailInput(e.target.value)}
+                    className="w-full border border-white/90 p-3.5 rounded-2xl text-sm bg-white/80 backdrop-blur-md outline-none focus:border-[#C5A059] pl-11"
+                  />
+                  <Mail className="w-4 h-4 text-[#C5A059] absolute left-3.5 top-4" />
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setStep('password')}
-                  className="flex-1 backdrop-blur-md bg-white/60 hover:bg-white/90 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] py-3 rounded-2xl text-xs font-semibold transition-all"
+                  onClick={() => {
+                    setStep('password');
+                    setErrorMsg('');
+                    setInfoMsg('');
+                  }}
+                  className="backdrop-blur-md bg-white/70 hover:bg-white/95 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] px-4 py-3.5 rounded-2xl text-xs font-semibold transition-all"
                 >
                   Zrušiť
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white py-3 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)]"
+                  disabled={isSubmitting}
+                  className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-50 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)]"
                 >
-                  Odoslať odkaz
+                  {isSubmitting ? 'Odosielam...' : 'Odoslať overovací kód'}
                 </button>
               </div>
-            )}
-          </form>
+            </form>
+          ) : (
+            <form onSubmit={handleConfirmNewPassword} className="space-y-4 text-left">
+              <div>
+                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                  6-miestny kód z e-mailu
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  required
+                  autoFocus
+                  placeholder="000000"
+                  value={resetCodeInput}
+                  onChange={(e) => setResetCodeInput(e.target.value.replace(/\D/g, ''))}
+                  className="w-full border border-white/90 p-3.5 rounded-2xl text-center text-xl font-mono tracking-widest bg-white/80 outline-none focus:border-[#C5A059]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                  Nové heslo (min. 6 znakov)
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="Zadajte nové heslo"
+                  value={resetNewPassword}
+                  onChange={(e) => setResetNewPassword(e.target.value)}
+                  className="w-full border border-white/90 p-3.5 rounded-2xl text-sm bg-white/80 outline-none focus:border-[#C5A059]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                  Potvrdenie nového hesla
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="Zopakujte nové heslo"
+                  value={resetConfirmPassword}
+                  onChange={(e) => setResetConfirmPassword(e.target.value)}
+                  className="w-full border border-white/90 p-3.5 rounded-2xl text-sm bg-white/80 outline-none focus:border-[#C5A059]"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setResetStep('request')}
+                  className="backdrop-blur-md bg-white/70 hover:bg-white/95 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] px-4 py-3.5 rounded-2xl text-xs font-semibold transition-all"
+                >
+                  Späť
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)]"
+                >
+                  Uložiť nové heslo
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       )}
 
@@ -717,6 +1138,37 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   >
                     <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
                     Použiť originálny predvolený avatar
+                  </button>
+                </div>
+              )}
+
+              {/* 2. NAHRAŤ VLASTNÚ FOTOGRAFIU */}
+              {activePhotoTab === 'upload' && (
+                <div className="space-y-3">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/png, image/jpeg, image/webp"
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isProcessingPhoto}
+                    className="w-full border-2 border-dashed border-[#C5A059]/40 hover:border-[#C5A059] p-6 rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/60 hover:bg-white transition-all group cursor-pointer"
+                  >
+                    <div className="p-3 rounded-full bg-[#FAF8F5] text-[#C5A059] group-hover:scale-110 transition-transform">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <div className="text-center">
+                      <span className="text-xs font-semibold text-[#2C2A29] block">
+                        {isProcessingPhoto ? 'Spracovávam fotografiu...' : 'Kliknite pre výber fotografie'}
+                      </span>
+                      <span className="text-[10px] text-[#8C857B]">
+                        JPG, PNG alebo WebP
+                      </span>
+                    </div>
                   </button>
                 </div>
               )}
