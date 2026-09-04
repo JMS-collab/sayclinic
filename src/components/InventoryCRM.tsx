@@ -2,6 +2,16 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
+  Pencil, 
+  Trash2, 
+  Plus, 
+  Search, 
+  AlertTriangle, 
+  Check, 
+  Package, 
+  Layers 
+} from 'lucide-react';
+import { 
   InventoryService, 
   InventoryItem, 
   MaterialUsageLog, 
@@ -34,6 +44,25 @@ export default function InventoryCRM() {
   const [isRestocking, setIsRestocking] = useState(false);
   const [isManualUsageModal, setIsManualUsageModal] = useState(false);
   const [selectedItemForRestock, setSelectedItemForRestock] = useState<InventoryItem | null>(null);
+
+  // Stavy pre úpravu a mazanie položiek
+  const [isEditingItem, setIsEditingItem] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [isDeleteItemModal, setIsDeleteItemModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
+
+  // Stavy pre balíčky výkonov (úprava, tvorba, mazanie)
+  const [bundleSearch, setBundleSearch] = useState('');
+  const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
+  const [editingBundle, setEditingBundle] = useState<MaterialBundle | null>(null);
+  const [bundleFormServiceName, setBundleFormServiceName] = useState('');
+  const [bundleFormDescription, setBundleFormDescription] = useState('');
+  const [bundleFormItems, setBundleFormItems] = useState<{ itemId: string; quantity: number }[]>([]);
+  const [bundlePickerItemId, setBundlePickerItemId] = useState('');
+  const [bundlePickerQty, setBundlePickerQty] = useState(1);
+
+  const [isDeleteBundleModal, setIsDeleteBundleModal] = useState(false);
+  const [bundleToDelete, setBundleToDelete] = useState<MaterialBundle | null>(null);
 
   // Form states pre novú položku
   const [newItem, setNewItem] = useState<Partial<InventoryItem>>({
@@ -86,13 +115,16 @@ export default function InventoryCRM() {
 
     const handleInvChange = () => refreshAllData();
     const handleLogChange = () => refreshAllData();
+    const handleBundleChange = () => refreshAllData();
 
     window.addEventListener('say_clinic_inventory_changed', handleInvChange);
     window.addEventListener('say_clinic_material_usage_logged', handleLogChange);
+    window.addEventListener('say_clinic_bundles_changed', handleBundleChange);
 
     return () => {
       window.removeEventListener('say_clinic_inventory_changed', handleInvChange);
       window.removeEventListener('say_clinic_material_usage_logged', handleLogChange);
+      window.removeEventListener('say_clinic_bundles_changed', handleBundleChange);
     };
   }, []);
 
@@ -182,8 +214,21 @@ export default function InventoryCRM() {
       location: newItem.location || 'Sklad'
     };
 
-    const updated = [itemToAdd, ...inventory];
-    InventoryService.saveInventory(updated);
+    InventoryService.addItem(itemToAdd);
+    setNewItem({
+      name: '',
+      category: 'estetika',
+      quantity: 10,
+      unit: 'ks',
+      minQuantity: 5,
+      optimalQuantity: 15,
+      costPerUnit: 0,
+      supplier: '',
+      supplierCode: '',
+      lotNumber: '',
+      expirationDate: '',
+      location: ''
+    });
     setIsAddingItem(false);
     showToast(`Položka "${itemToAdd.name}" bola úspešne pridaná na sklad.`);
   };
@@ -268,6 +313,138 @@ export default function InventoryCRM() {
     showToast('Objednávkový zoznam bol skopírovaný do schránky.');
   };
 
+  // Filtrované balíčky pre výkony
+  const filteredBundles = useMemo(() => {
+    if (!bundleSearch.trim()) return bundles;
+    const term = bundleSearch.toLowerCase();
+    return bundles.filter(b => 
+      b.serviceName.toLowerCase().includes(term) || 
+      (b.description && b.description.toLowerCase().includes(term)) ||
+      b.items.some(bi => {
+        const invItem = inventory.find(i => i.id === bi.itemId);
+        return invItem?.name.toLowerCase().includes(term);
+      })
+    );
+  }, [bundles, bundleSearch, inventory]);
+
+  // Handlery pre úpravu a mazanie položky skladu
+  const handleOpenEditItem = (item: InventoryItem) => {
+    setEditingItem({ ...item });
+    setIsEditingItem(true);
+  };
+
+  const handleEditItemSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem || !editingItem.name.trim()) return;
+
+    InventoryService.updateItem(editingItem);
+    setIsEditingItem(false);
+    showToast(`Položka "${editingItem.name}" bola úspešne upravená.`);
+  };
+
+  const handleOpenDeleteItem = (item: InventoryItem) => {
+    setItemToDelete(item);
+    setIsDeleteItemModal(true);
+  };
+
+  const handleConfirmDeleteItem = () => {
+    if (!itemToDelete) return;
+    const name = itemToDelete.name;
+    InventoryService.deleteItem(itemToDelete.id);
+    setIsDeleteItemModal(false);
+    setItemToDelete(null);
+    showToast(`Položka "${name}" bola zmazaná zo skladu.`);
+  };
+
+  // Handlery pre balíčky výkonov
+  const handleOpenAddBundle = () => {
+    setEditingBundle(null);
+    setBundleFormServiceName('');
+    setBundleFormDescription('');
+    setBundleFormItems([]);
+    setBundlePickerItemId(inventory[0]?.id || '');
+    setBundlePickerQty(1);
+    setIsBundleModalOpen(true);
+  };
+
+  const handleOpenEditBundle = (bundle: MaterialBundle) => {
+    setEditingBundle(bundle);
+    setBundleFormServiceName(bundle.serviceName);
+    setBundleFormDescription(bundle.description || '');
+    setBundleFormItems([...bundle.items]);
+    setBundlePickerItemId(inventory[0]?.id || '');
+    setBundlePickerQty(1);
+    setIsBundleModalOpen(true);
+  };
+
+  const handleAddItemToBundle = () => {
+    if (!bundlePickerItemId) return;
+    const existingIndex = bundleFormItems.findIndex(i => i.itemId === bundlePickerItemId);
+    if (existingIndex >= 0) {
+      const updated = [...bundleFormItems];
+      updated[existingIndex].quantity += bundlePickerQty;
+      setBundleFormItems(updated);
+    } else {
+      setBundleFormItems([...bundleFormItems, { itemId: bundlePickerItemId, quantity: bundlePickerQty }]);
+    }
+    setBundlePickerQty(1);
+  };
+
+  const handleRemoveItemFromBundle = (indexToRemove: number) => {
+    setBundleFormItems(bundleFormItems.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleUpdateBundleItemQty = (index: number, newQty: number) => {
+    if (newQty <= 0) {
+      handleRemoveItemFromBundle(index);
+      return;
+    }
+    const updated = [...bundleFormItems];
+    updated[index].quantity = newQty;
+    setBundleFormItems(updated);
+  };
+
+  const handleSaveBundleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bundleFormServiceName.trim()) return;
+
+    if (editingBundle) {
+      const updated: MaterialBundle = {
+        ...editingBundle,
+        serviceName: bundleFormServiceName.trim(),
+        description: bundleFormDescription.trim(),
+        items: bundleFormItems
+      };
+      InventoryService.updateBundle(updated);
+      showToast(`Balíček "${updated.serviceName}" bol úspešne upravený.`);
+    } else {
+      const newBundle: MaterialBundle = {
+        id: `bundle-${Date.now()}`,
+        serviceName: bundleFormServiceName.trim(),
+        description: bundleFormDescription.trim(),
+        items: bundleFormItems
+      };
+      InventoryService.addBundle(newBundle);
+      showToast(`Nový balíček "${newBundle.serviceName}" bol vytvorený.`);
+    }
+
+    setIsBundleModalOpen(false);
+  };
+
+  const handleOpenDeleteBundle = (bundle: MaterialBundle) => {
+    setBundleToDelete(bundle);
+    setIsDeleteBundleModal(true);
+  };
+
+  const handleConfirmDeleteBundle = () => {
+    if (!bundleToDelete) return;
+    const name = bundleToDelete.serviceName;
+    InventoryService.deleteBundle(bundleToDelete.id);
+    setIsDeleteBundleModal(false);
+    setBundleToDelete(null);
+    showToast(`Balíček "${name}" bol úspešne zmazaný.`);
+  };
+
   const getCategoryLabel = (cat: string) => {
     switch (cat) {
       case 'estetika': return '💉 Estetika / Botox';
@@ -307,18 +484,34 @@ export default function InventoryCRM() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button 
-            onClick={() => setIsManualUsageModal(true)}
-            className="bg-[#FAF8F5] hover:bg-[#F0EBE1] text-[#2C2A29] border border-[#E8E2D9] px-3 py-2 rounded-xl text-xs uppercase font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-          >
-            <span>📉 + Manuálny odpis</span>
-          </button>
-          <button 
-            onClick={() => setIsAddingItem(true)}
-            className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase font-bold transition-colors shadow-sm cursor-pointer flex items-center gap-1.5"
-          >
-            <span>+ Nová položka</span>
-          </button>
+          {activeTab === 'bundles' ? (
+            <button 
+              type="button"
+              onClick={handleOpenAddBundle}
+              className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase font-bold transition-colors shadow-sm cursor-pointer flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Nový balíček výkonu</span>
+            </button>
+          ) : (
+            <>
+              <button 
+                type="button"
+                onClick={() => setIsManualUsageModal(true)}
+                className="bg-[#FAF8F5] hover:bg-[#F0EBE1] text-[#2C2A29] border border-[#E8E2D9] px-3 py-2 rounded-xl text-xs uppercase font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              >
+                <span>📉 + Manuálny odpis</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => setIsAddingItem(true)}
+                className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase font-bold transition-colors shadow-sm cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Nová položka</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -461,7 +654,7 @@ export default function InventoryCRM() {
                   <th className="p-3 font-mono">Cena / ks</th>
                   <th className="p-3 font-mono">Hodnota</th>
                   <th className="p-3">Šarža (LOT)</th>
-                  <th className="p-3 text-right">Rýchle akcie</th>
+                  <th className="p-3 text-right">Akcie</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8E2D9]">
@@ -534,13 +727,32 @@ export default function InventoryCRM() {
                       </td>
 
                       <td className="p-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenRestock(item)}
-                          className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-2.5 py-1 rounded-lg text-[10px] uppercase font-bold transition-colors cursor-pointer shadow-2xs"
-                        >
-                          + Naskladniť
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRestock(item)}
+                            className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-2 py-1 rounded-lg text-[10px] uppercase font-bold transition-colors cursor-pointer shadow-2xs whitespace-nowrap"
+                            title="Naskladniť tovar"
+                          >
+                            + Naskladniť
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditItem(item)}
+                            className="p-1 rounded-lg bg-[#FAF8F5] hover:bg-[#2C2A29] hover:text-white text-[#2C2A29] border border-[#E8E2D9] transition-colors cursor-pointer"
+                            title="Upraviť položku skladu"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDeleteItem(item)}
+                            className="p-1 rounded-lg bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 border border-rose-200 transition-colors cursor-pointer"
+                            title="Zmazať položku zo skladu"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -817,47 +1029,146 @@ export default function InventoryCRM() {
       {/* 4. ZÁLOŽKA: BALÍČKY PRE VÝKONY                                             */}
       {/* ========================================================================= */}
       {activeTab === 'bundles' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {bundles.map(bundle => {
-            const totalBundleCost = bundle.items.reduce((acc, bItem) => {
-              const invItem = inventory.find(i => i.id === bItem.itemId);
-              return acc + (invItem ? invItem.costPerUnit * bItem.quantity : 0);
-            }, 0);
-
-            return (
-              <div key={bundle.id} className="border border-[#E8E2D9] rounded-xl p-5 bg-[#FAF8F5] space-y-3">
-                <div className="flex justify-between items-start border-b pb-2 border-[#E8E2D9]">
-                  <div>
-                    <h4 className="font-bold text-sm text-[#2C2A29] uppercase">{bundle.serviceName}</h4>
-                    <p className="text-[11px] text-[#8C857B]">{bundle.description}</p>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-[#C5A059] bg-white px-2.5 py-1 rounded-lg border border-[#E8E2D9] shrink-0">
-                    Náklady: {totalBundleCost.toFixed(2)} €
-                  </span>
-                </div>
-
-                <div className="space-y-1 text-xs">
-                  <p className="text-[10px] uppercase text-[#8C857B] font-bold">Automaticky odpisované položky:</p>
-                  <ul className="space-y-1.5">
-                    {bundle.items.map((bItem, idx) => {
-                      const invItem = inventory.find(i => i.id === bItem.itemId);
-                      return (
-                        <li key={idx} className="flex justify-between items-center bg-white p-2 rounded-lg border border-[#E8E2D9]">
-                          <div>
-                            <span className="font-semibold text-[#2C2A29]">{invItem?.name || bItem.itemId}</span>
-                            <span className="ml-2 text-[9px] text-[#8C857B] uppercase bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">{invItem?.category}</span>
-                          </div>
-                          <span className="font-mono font-bold">
-                            {bItem.quantity} {invItem?.unit} ({(invItem ? invItem.costPerUnit * bItem.quantity : 0).toFixed(2)} €)
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
+        <div className="space-y-4">
+          {/* LIŠTA PRE VYHĽADÁVANIE A PRIDANIE BALÍČKA */}
+          <div className="flex flex-col sm:flex-row justify-between gap-3 items-center bg-[#FAF8F5] p-4 rounded-xl border border-[#E8E2D9]">
+            <div className="w-full sm:w-auto flex-1 max-w-md">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-[#8C857B] absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Vyhľadať balíček podľa výkonu, popisu alebo materiálu..."
+                  value={bundleSearch}
+                  onChange={e => setBundleSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 border border-[#E8E2D9] rounded-xl text-xs bg-white focus:border-[#C5A059] outline-none"
+                />
               </div>
-            );
-          })}
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <span className="text-xs text-[#8C857B] hidden sm:inline">
+                Spolu balíčkov: <strong className="text-[#2C2A29]">{bundles.length}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleOpenAddBundle}
+                className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Nový balíček výkonu</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ZOZNAM KARIET BALÍČKOV */}
+          {filteredBundles.length === 0 ? (
+            <div className="text-center py-16 border border-dashed border-[#E8E2D9] rounded-2xl bg-[#FAF8F5]">
+              <Layers className="w-8 h-8 text-[#8C857B] mx-auto mb-2 opacity-50" />
+              <h4 className="font-bold text-[#2C2A29] text-sm">Žiadne balíčky sa nenašli</h4>
+              <p className="text-xs text-[#8C857B] max-w-md mx-auto mt-1">
+                {bundleSearch ? `Žiaden balíček nezodpovedá hľadanému výrazu "${bundleSearch}".` : 'Zatiaľ nemáte vytvorené žiadne balíčky pre výkony.'}
+              </p>
+              {!bundleSearch && (
+                <button
+                  type="button"
+                  onClick={handleOpenAddBundle}
+                  className="mt-3 bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  + Vytvoriť prvý balíček
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredBundles.map(bundle => {
+                const totalBundleCost = bundle.items.reduce((acc, bItem) => {
+                  const invItem = inventory.find(i => i.id === bItem.itemId);
+                  return acc + (invItem ? invItem.costPerUnit * bItem.quantity : 0);
+                }, 0);
+
+                return (
+                  <div key={bundle.id} className="border border-[#E8E2D9] rounded-xl p-5 bg-[#FAF8F5] space-y-3 flex flex-col justify-between hover:shadow-xs transition-shadow">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start border-b pb-3 border-[#E8E2D9] gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="p-1 rounded-md bg-[#2C2A29] text-[#C5A059]">
+                              <Package className="w-3.5 h-3.5" />
+                            </span>
+                            <h4 className="font-bold text-sm text-[#2C2A29] uppercase">{bundle.serviceName}</h4>
+                          </div>
+                          {bundle.description && (
+                            <p className="text-[11px] text-[#8C857B] mt-1">{bundle.description}</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs font-mono font-bold text-[#C5A059] bg-white px-2.5 py-1 rounded-lg border border-[#E8E2D9]">
+                            {totalBundleCost.toFixed(2)} €
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditBundle(bundle)}
+                            className="p-1.5 rounded-lg bg-white hover:bg-[#2C2A29] hover:text-white text-[#2C2A29] border border-[#E8E2D9] transition-colors cursor-pointer"
+                            title="Upraviť balíček"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDeleteBundle(bundle)}
+                            className="p-1.5 rounded-lg bg-white hover:bg-rose-600 hover:text-white text-rose-600 border border-rose-200 transition-colors cursor-pointer"
+                            title="Zmazať balíček"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-xs">
+                        <p className="text-[10px] uppercase text-[#8C857B] font-bold">
+                          Automaticky odpisované položky ({bundle.items.length}):
+                        </p>
+                        <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {bundle.items.map((bItem, idx) => {
+                            const invItem = inventory.find(i => i.id === bItem.itemId);
+                            const itemCost = (invItem ? invItem.costPerUnit * bItem.quantity : 0);
+                            return (
+                              <li key={idx} className="flex justify-between items-center bg-white p-2 rounded-lg border border-[#E8E2D9]">
+                                <div>
+                                  <span className="font-semibold text-[#2C2A29]">{invItem?.name || bItem.itemId}</span>
+                                  {invItem && (
+                                    <span className="ml-2 text-[9px] text-[#8C857B] uppercase bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">
+                                      {getCategoryLabel(invItem.category)}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="font-mono font-bold text-xs text-[#2C2A29]">
+                                  {bItem.quantity} {invItem?.unit || 'ks'} <span className="text-[#8C857B] font-normal">({itemCost.toFixed(2)} €)</span>
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#E8E2D9] flex justify-between items-center text-[10px] text-[#8C857B]">
+                      <span>ID: <code className="text-[#2C2A29]">{bundle.id}</code></span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditBundle(bundle)}
+                        className="text-[#C5A059] font-bold hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Upraviť zloženie balíčka
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1194,6 +1505,509 @@ export default function InventoryCRM() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ÚPRAVA POLOŽKY SKLADU                                               */}
+      {/* ========================================================================= */}
+      {isEditingItem && editingItem && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-xs p-4">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-xl border border-[#E8E2D9] space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3 border-[#E8E2D9]">
+              <div>
+                <h3 className="font-brand text-base font-bold text-[#2C2A29] uppercase">Úprava položky skladu</h3>
+                <p className="text-xs text-[#8C857B]">{editingItem.name}</p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsEditingItem(false)} 
+                className="text-[#8C857B] hover:text-[#2C2A29] font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleEditItemSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Názov materiálu / lieku *</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={editingItem.name} 
+                  onChange={e => setEditingItem({ ...editingItem, name: e.target.value })} 
+                  className="w-full border border-[#E8E2D9] p-2.5 rounded-xl bg-white font-medium text-[#2C2A29]" 
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Kategória *</label>
+                  <select 
+                    value={editingItem.category} 
+                    onChange={e => setEditingItem({ ...editingItem, category: e.target.value as InventoryCategory })} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white font-semibold text-[#2C2A29]"
+                  >
+                    <option value="estetika">Estetika (Botox/Výplne)</option>
+                    <option value="implantaty">Implantáty</option>
+                    <option value="kompresivne_pradlo">Pooperačné prádlo</option>
+                    <option value="sijaci_material">Šijací materiál & Hemostáza</option>
+                    <option value="anestezia">Anestézia & Farmaká</option>
+                    <option value="ambulantny_material">Ambulancia & Krytie</option>
+                    <option value="spotrebny">Spotrebný materiál</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Merná jednotka</label>
+                  <select 
+                    value={editingItem.unit} 
+                    onChange={e => setEditingItem({ ...editingItem, unit: e.target.value as any })} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white"
+                  >
+                    <option value="ks">ks (kusy)</option>
+                    <option value="balenie">balenie</option>
+                    <option value="ml">ml</option>
+                    <option value="amp">amp (ampulka)</option>
+                    <option value="par">pár</option>
+                    <option value="fl">fl (fľaštička)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Aktuálna zásoba</label>
+                  <input 
+                    type="number" 
+                    required 
+                    min="0"
+                    value={editingItem.quantity} 
+                    onChange={e => setEditingItem({ ...editingItem, quantity: Number(e.target.value) })} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white font-bold" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Min. zásoba</label>
+                  <input 
+                    type="number" 
+                    required 
+                    min="0"
+                    value={editingItem.minQuantity} 
+                    onChange={e => setEditingItem({ ...editingItem, minQuantity: Number(e.target.value) })} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Nákupná cena (€)</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    required 
+                    min="0"
+                    value={editingItem.costPerUnit} 
+                    onChange={e => setEditingItem({ ...editingItem, costPerUnit: Number(e.target.value) })} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white font-bold" 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Dodávateľ</label>
+                  <input 
+                    type="text" 
+                    value={editingItem.supplier || ''} 
+                    onChange={e => setEditingItem({ ...editingItem, supplier: e.target.value })} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Kód u dodávateľa</label>
+                  <input 
+                    type="text" 
+                    value={editingItem.supplierCode || ''} 
+                    onChange={e => setEditingItem({ ...editingItem, supplierCode: e.target.value })} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white" 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Umiestnenie</label>
+                  <input 
+                    type="text" 
+                    value={editingItem.location || ''} 
+                    onChange={e => setEditingItem({ ...editingItem, location: e.target.value })} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Šarža (LOT)</label>
+                  <input 
+                    type="text" 
+                    value={editingItem.lotNumber || ''} 
+                    onChange={e => setEditingItem({ ...editingItem, lotNumber: e.target.value })} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white font-mono" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Expirácia</label>
+                  <input 
+                    type="date" 
+                    value={editingItem.expirationDate || ''} 
+                    onChange={e => setEditingItem({ ...editingItem, expirationDate: e.target.value })} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white font-mono" 
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9]">
+                <button 
+                  type="button" 
+                  onClick={() => setIsEditingItem(false)} 
+                  className="px-4 py-2 font-bold text-[#8C857B] cursor-pointer hover:text-[#2C2A29]"
+                >
+                  Zrušiť
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-5 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold rounded-xl uppercase tracking-wider cursor-pointer shadow-xs transition-colors"
+                >
+                  Uložiť zmeny
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: POTVRDENIE ZMAZANIA POLOŽKY                                        */}
+      {/* ========================================================================= */}
+      {isDeleteItemModal && itemToDelete && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-xs p-4">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-[#E8E2D9] space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200">
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-brand text-base font-bold text-[#2C2A29] uppercase">Zmazať položku zo skladu?</h3>
+                <p className="text-xs text-[#8C857B]">Táto akcia je trvalá a nemožno ju vrátiť späť.</p>
+              </div>
+            </div>
+
+            <div className="bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E2D9] text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-[#8C857B]">Názov:</span>
+                <span className="font-bold text-[#2C2A29]">{itemToDelete.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8C857B]">Kategória:</span>
+                <span className="font-semibold text-[#2C2A29]">{getCategoryLabel(itemToDelete.category)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8C857B]">Aktuálna zásoba:</span>
+                <span className="font-mono font-bold text-[#2C2A29]">{itemToDelete.quantity} {itemToDelete.unit}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8C857B]">Hodnota na sklade:</span>
+                <span className="font-mono font-bold text-[#C5A059]">{(itemToDelete.quantity * itemToDelete.costPerUnit).toFixed(2)} €</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-[#E8E2D9]">
+              <button 
+                type="button" 
+                onClick={() => {
+                  setIsDeleteItemModal(false);
+                  setItemToDelete(null);
+                }} 
+                className="px-4 py-2 font-bold text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
+              >
+                Zrušiť
+              </button>
+              <button 
+                type="button" 
+                onClick={handleConfirmDeleteItem} 
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl uppercase tracking-wider cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Áno, zmazať položku</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: VYTVORENIE / ÚPRAVA BALÍČKA VÝKONU                                  */}
+      {/* ========================================================================= */}
+      {isBundleModalOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-xs p-4">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-2xl shadow-xl border border-[#E8E2D9] space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3 border-[#E8E2D9]">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#2C2A29] text-[#C5A059]">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-brand text-base font-bold text-[#2C2A29] uppercase">
+                    {editingBundle ? 'Úprava balíčka pre výkon' : 'Nový balíček pre výkon'}
+                  </h3>
+                  <p className="text-xs text-[#8C857B]">
+                    Zadefinujte zoznam materiálov a množstiev, ktoré sa automaticky odpíšu pri zrealizovaní výkonu
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsBundleModalOpen(false)} 
+                className="text-[#8C857B] hover:text-[#2C2A29] font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBundleSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Názov výkonu / zákroku *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="napr. Augmentácia prsníkov, Blefaroplastika..."
+                    value={bundleFormServiceName}
+                    onChange={e => setBundleFormServiceName(e.target.value)}
+                    className="w-full border border-[#E8E2D9] p-2.5 rounded-xl bg-white font-bold text-[#2C2A29]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Popis / Poznámka</label>
+                  <input
+                    type="text"
+                    placeholder="napr. Zahrnuté implantáty, kanyly, krytie..."
+                    value={bundleFormDescription}
+                    onChange={e => setBundleFormDescription(e.target.value)}
+                    className="w-full border border-[#E8E2D9] p-2.5 rounded-xl bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* SEKCIA: PRIDANIE MATERIÁLU DO BALÍČKA */}
+              <div className="bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E2D9] space-y-2.5">
+                <label className="block text-[10px] uppercase text-[#8C857B] font-bold">
+                  Pridať materiál zo skladu do tohto balíčka:
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    value={bundlePickerItemId}
+                    onChange={e => setBundlePickerItemId(e.target.value)}
+                    className="flex-1 border border-[#E8E2D9] p-2 rounded-xl bg-white font-medium text-[#2C2A29] text-xs"
+                  >
+                    {inventory.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} ({getCategoryLabel(item.category)} — Skladom: {item.quantity} {item.unit}, {item.costPerUnit.toFixed(2)} €/ks)
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={bundlePickerQty}
+                      onChange={e => setBundlePickerQty(Math.max(1, Number(e.target.value)))}
+                      className="w-20 border border-[#E8E2D9] p-2 rounded-xl bg-white font-mono text-center font-bold text-xs"
+                      title="Počet kusov"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddItemToBundle}
+                      className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3 py-2 rounded-xl font-bold uppercase tracking-wider text-[11px] transition-colors cursor-pointer whitespace-nowrap shadow-2xs flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Pridať</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* ZOZNAM POLOŽIEK V BALÍČKU */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] uppercase text-[#8C857B] font-bold">
+                    Zoznam materiálov v balíčku ({bundleFormItems.length}):
+                  </span>
+                  {bundleFormItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setBundleFormItems([])}
+                      className="text-[10px] text-rose-600 hover:underline font-semibold cursor-pointer"
+                    >
+                      Vyčistiť všetky
+                    </button>
+                  )}
+                </div>
+
+                {bundleFormItems.length === 0 ? (
+                  <div className="text-center py-6 border border-dashed border-[#E8E2D9] rounded-xl bg-[#FAF8F5] text-[#8C857B]">
+                    Zatiaľ nie je priradený žiadny materiál. Vyberte položku vyššie a kliknite na &quot;Pridať&quot;.
+                  </div>
+                ) : (
+                  <div className="border border-[#E8E2D9] rounded-xl overflow-hidden shadow-2xs divide-y divide-[#E8E2D9] max-h-56 overflow-y-auto">
+                    {bundleFormItems.map((bItem, idx) => {
+                      const invItem = inventory.find(i => i.id === bItem.itemId);
+                      const unitCost = invItem ? invItem.costPerUnit : 0;
+                      const lineTotal = unitCost * bItem.quantity;
+
+                      return (
+                        <div key={idx} className="p-2.5 bg-white flex items-center justify-between gap-3 hover:bg-[#FAF8F5]/80 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-[#2C2A29] truncate">{invItem?.name || bItem.itemId}</div>
+                            <div className="text-[10px] text-[#8C857B] flex gap-2 items-center">
+                              {invItem && <span>{getCategoryLabel(invItem.category)}</span>}
+                              <span>•</span>
+                              <span className="font-mono">{unitCost.toFixed(2)} € / {invItem?.unit || 'ks'}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-[#8C857B] font-bold">Počet:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={bItem.quantity}
+                                onChange={e => handleUpdateBundleItemQty(idx, Number(e.target.value))}
+                                className="w-16 border border-[#E8E2D9] p-1 rounded-lg text-center font-mono font-bold text-xs bg-white"
+                              />
+                              <span className="text-xs text-[#8C857B]">{invItem?.unit || 'ks'}</span>
+                            </div>
+
+                            <span className="font-mono font-bold text-xs text-[#C5A059] w-20 text-right">
+                              {lineTotal.toFixed(2)} €
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItemFromBundle(idx)}
+                              className="p-1 rounded-lg hover:bg-rose-100 text-[#8C857B] hover:text-rose-700 transition-colors cursor-pointer"
+                              title="Odstrániť z balíčka"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* SÚHRN BALÍČKA */}
+              <div className="p-3.5 bg-[#2C2A29] text-white rounded-xl flex justify-between items-center">
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-[#C5A059] font-bold block">
+                    Kalkulované priame náklady balíčka:
+                  </span>
+                  <span className="text-xs text-gray-300">
+                    Spolu {bundleFormItems.length} druhov materiálu ({bundleFormItems.reduce((acc, i) => acc + i.quantity, 0)} jednotiek)
+                  </span>
+                </div>
+                <div className="text-xl font-mono font-bold text-[#C5A059]">
+                  {bundleFormItems.reduce((acc, bItem) => {
+                    const invItem = inventory.find(i => i.id === bItem.itemId);
+                    return acc + (invItem ? invItem.costPerUnit * bItem.quantity : 0);
+                  }, 0).toFixed(2)} €
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#E8E2D9]">
+                <button 
+                  type="button" 
+                  onClick={() => setIsBundleModalOpen(false)} 
+                  className="px-4 py-2 font-bold text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
+                >
+                  Zrušiť
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-5 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold rounded-xl uppercase tracking-wider cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{editingBundle ? 'Uložiť zmeny balíčka' : 'Vytvoriť balíček'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: POTVRDENIE ZMAZANIA BALÍČKA                                        */}
+      {/* ========================================================================= */}
+      {isDeleteBundleModal && bundleToDelete && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-xs p-4">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-[#E8E2D9] space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200">
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-brand text-base font-bold text-[#2C2A29] uppercase">Zmazať balíček výkonu?</h3>
+                <p className="text-xs text-[#8C857B]">Táto akcia odstráni automatické odpisovanie pre tento výkon.</p>
+              </div>
+            </div>
+
+            <div className="bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E2D9] text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-[#8C857B]">Názov balíčka:</span>
+                <span className="font-bold text-[#2C2A29]">{bundleToDelete.serviceName}</span>
+              </div>
+              {bundleToDelete.description && (
+                <div className="flex justify-between">
+                  <span className="text-[#8C857B]">Popis:</span>
+                  <span className="text-[#2C2A29] max-w-xs truncate">{bundleToDelete.description}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-[#8C857B]">Materiály v balíčku:</span>
+                <span className="font-mono font-bold text-[#2C2A29]">{bundleToDelete.items.length} položiek</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8C857B]">Priame náklady:</span>
+                <span className="font-mono font-bold text-[#C5A059]">
+                  {bundleToDelete.items.reduce((acc, bItem) => {
+                    const invItem = inventory.find(i => i.id === bItem.itemId);
+                    return acc + (invItem ? invItem.costPerUnit * bItem.quantity : 0);
+                  }, 0).toFixed(2)} €
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-[#E8E2D9]">
+              <button 
+                type="button" 
+                onClick={() => {
+                  setIsDeleteBundleModal(false);
+                  setBundleToDelete(null);
+                }} 
+                className="px-4 py-2 font-bold text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
+              >
+                Zrušiť
+              </button>
+              <button 
+                type="button" 
+                onClick={handleConfirmDeleteBundle} 
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl uppercase tracking-wider cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Áno, zmazať balíček</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

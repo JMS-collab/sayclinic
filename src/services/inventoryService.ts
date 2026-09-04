@@ -510,8 +510,51 @@ export class InventoryService {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(this.STORAGE_KEY_BUNDLES, JSON.stringify(bundles));
+      window.dispatchEvent(new CustomEvent('say_clinic_bundles_changed', { detail: bundles }));
     } catch (e) {
       console.error(e);
     }
+  }
+
+  // Pridanie novej položky
+  public static addItem(item: InventoryItem): void {
+    const inventory = this.getInventory();
+    const updated = [item, ...inventory];
+    this.saveInventory(updated);
+  }
+
+  // Úprava existujúcej položky skladu
+  public static updateItem(updatedItem: InventoryItem): void {
+    const inventory = this.getInventory();
+    const updated = inventory.map(item => item.id === updatedItem.id ? updatedItem : item);
+    this.saveInventory(updated);
+  }
+
+  // Zmazanie položky zo skladu
+  public static deleteItem(itemId: string): void {
+    const inventory = this.getInventory();
+    const updated = inventory.filter(item => item.id !== itemId);
+    this.saveInventory(updated);
+  }
+
+  // Pridanie nového balíčka
+  public static addBundle(bundle: MaterialBundle): void {
+    const bundles = this.getBundles();
+    const updated = [bundle, ...bundles];
+    this.saveBundles(updated);
+  }
+
+  // Úprava existujúceho balíčka pre výkon
+  public static updateBundle(updatedBundle: MaterialBundle): void {
+    const bundles = this.getBundles();
+    const updated = bundles.map(b => b.id === updatedBundle.id ? updatedBundle : b);
+    this.saveBundles(updated);
+  }
+
+  // Zmazanie balíčka pre výkon
+  public static deleteBundle(bundleId: string): void {
+    const bundles = this.getBundles();
+    const updated = bundles.filter(b => b.id !== bundleId);
+    this.saveBundles(updated);
   }
 }
