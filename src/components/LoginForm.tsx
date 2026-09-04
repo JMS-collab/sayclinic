@@ -16,7 +16,8 @@ import {
   Lock,
   Mail,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Info
 } from 'lucide-react';
 import { LiquidAvatar } from './LiquidAvatar';
 import { AuthService } from '../services/authService';
@@ -145,6 +146,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [directEmail, setDirectEmail] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
+  const [otpEmailSent, setOtpEmailSent] = useState<boolean | null>(null);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -331,7 +333,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setInfoMsg('');
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent, force2FA: boolean = false) => {
     e.preventDefault();
     if (!selectedUser) return;
 
@@ -351,16 +353,28 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       return;
     }
 
-    // Reálne generovanie a odoslanie 2FA kódu
+    // Ak nie je vyžiadané 2FA, prihlásime používateľa priamo heslom
+    if (!force2FA) {
+      setIsSubmitting(false);
+      onLoginSuccess(selectedUser, rememberMe);
+      return;
+    }
+
+    // Ak používateľ zvolil prihlásenie s 2FA overením:
     try {
       const res = await AuthService.generateAndSendOtp(selectedUser, 'login');
       setGeneratedOtp(res.fallbackOtp || null);
-      setInfoMsg(`Dvojfaktorový overovací kód bol odoslaný na ${maskEmail(selectedUser.email)}`);
+      setOtpEmailSent(res.emailSent ?? false);
+      if (res.emailSent) {
+        setInfoMsg(`Dvojfaktorový overovací kód bol odoslaný na ${maskEmail(selectedUser.email)}`);
+      } else {
+        setInfoMsg(`Overovací kód bol pripravený pre ${maskEmail(selectedUser.email)}.`);
+      }
       setStep('2fa');
       setTwoFactorCode('');
       setResendCooldown(30);
     } catch (err) {
-      setErrorMsg('Nepodarilo sa odoslať 2FA kód. Skúste znova.');
+      setErrorMsg('Nepodarilo sa vygenerovať 2FA kód. Skúste znova.');
     } finally {
       setIsSubmitting(false);
     }
@@ -373,7 +387,12 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     try {
       const res = await AuthService.generateAndSendOtp(selectedUser, 'login');
       setGeneratedOtp(res.fallbackOtp || null);
-      setInfoMsg(`Nový kód bol odoslaný na ${maskEmail(selectedUser.email)}`);
+      setOtpEmailSent(res.emailSent ?? false);
+      if (res.emailSent) {
+        setInfoMsg(`Nový kód bol odoslaný na ${maskEmail(selectedUser.email)}`);
+      } else {
+        setInfoMsg(`Nový overovací kód bol vygenerovaný pre ${maskEmail(selectedUser.email)}.`);
+      }
       setResendCooldown(30);
     } catch (e) {
       setErrorMsg('Chyba pri opätovnom odosielaní kódu.');
@@ -422,7 +441,12 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     try {
       const res = await AuthService.generateAndSendOtp(matchedUser, 'reset');
       setGeneratedOtp(res.fallbackOtp || null);
-      setInfoMsg(`Kód pre obnovu hesla bol odoslaný na ${maskEmail(matchedUser.email)}`);
+      setOtpEmailSent(res.emailSent ?? false);
+      if (res.emailSent) {
+        setInfoMsg(`Kód pre obnovu hesla bol odoslaný na ${maskEmail(matchedUser.email)}`);
+      } else {
+        setInfoMsg(`Kód pre obnovu hesla bol pripravený pre ${maskEmail(matchedUser.email)}.`);
+      }
       setResetStep('verify');
     } catch (err) {
       setErrorMsg('Nepodarilo sa odoslať kód pre obnovu.');
@@ -469,6 +493,29 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       setErrorMsg('');
     } else {
       setErrorMsg(res.message);
+    }
+  };
+
+  const handleQuickResetToDefault = () => {
+    const emailToReset = resetEmailInput.trim() || selectedUser?.email;
+    if (!emailToReset) {
+      setErrorMsg('Zadajte váš pracovný e-mail.');
+      return;
+    }
+    const matchedUser = users.find(u => u.email.toLowerCase() === emailToReset.toLowerCase());
+    if (!matchedUser) {
+      setErrorMsg('Používateľ s týmto e-mailom nebol nájdený.');
+      return;
+    }
+    const res = AuthService.resetToDefaultPassword(matchedUser.email);
+    if (res.success) {
+      setSelectedUser(matchedUser);
+      setPassword('SayClinic2026!');
+      setStep('password');
+      setInfoMsg('Heslo bolo úspešne obnovené na predvolené: SayClinic2026!');
+      setErrorMsg('');
+    } else {
+      setErrorMsg(res.message || 'Chyba pri obnove hesla.');
     }
   };
 
@@ -725,6 +772,18 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+
+              {/* Rýchly pomocník pre počiatočné heslo */}
+              <div className="mt-2 flex items-center justify-between bg-[#FAF8F5]/80 border border-[#E8E2D9] px-3 py-1.5 rounded-xl text-[11px] text-[#5C554F]">
+                <span>Predvolené klinické heslo: <strong className="font-mono text-[#2C2A29]">SayClinic2026!</strong></span>
+                <button
+                  type="button"
+                  onClick={() => setPassword('SayClinic2026!')}
+                  className="text-[#C5A059] hover:underline font-semibold ml-2 cursor-pointer"
+                >
+                  Vyplniť
+                </button>
+              </div>
             </div>
 
             {errorMsg && (
@@ -782,7 +841,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-50 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] flex items-center justify-center gap-1.5"
+                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-50 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
@@ -791,10 +850,20 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   </>
                 ) : (
                   <>
-                    <span>Pokračovať na 2FA overenie</span>
+                    <span>Prihlásiť sa do systému</span>
                     <ArrowRight className="w-3.5 h-3.5 text-[#C5A059]" />
                   </>
                 )}
+              </button>
+            </div>
+
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={(e) => handlePasswordSubmit(e, true)}
+                className="text-[11px] text-[#8C857B] hover:text-[#C5A059] transition-colors"
+              >
+                Vyžadovať 2FA kód pri prihlásení →
               </button>
             </div>
           </form>
@@ -811,12 +880,39 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           <div>
             <h2 className="text-lg font-semibold text-[#2C2A29]">Dvojfaktorové overenie (2FA)</h2>
             <p className="text-xs text-[#8C857B] mt-1 font-medium">
-              Overovací kód bol odoslaný na e-mail:
+              Overovací kód bol pripravený pre:
             </p>
             <p className="text-xs font-mono font-semibold text-[#2C2A29] mt-0.5">
-              {maskEmail(selectedUser.email)}
+              {selectedUser.email}
             </p>
           </div>
+
+          {/* Vizuálny núdzový / preview kód ak e-mail nedorazil */}
+          {generatedOtp && (
+            <div className="backdrop-blur-md bg-[#FAF8F5] border border-[#C5A059]/40 p-3.5 rounded-2xl text-left space-y-2 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-[#C5A059]" />
+                  Bezpečnostný kód:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTwoFactorCode(generatedOtp)}
+                  className="text-[11px] text-[#C5A059] hover:underline font-bold"
+                >
+                  Vyplniť kód
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-xl font-bold tracking-[0.25em] text-[#2C2A29] bg-white px-3 py-1 rounded-xl border border-[#E8E2D9]">
+                  {generatedOtp}
+                </span>
+                <span className="text-[10px] text-[#8C857B] leading-tight text-right">
+                  {otpEmailSent ? 'Odoslané aj na e-mail' : 'Priamy kód (ak e-mail mešká)'}
+                </span>
+              </div>
+            </div>
+          )}
 
           {infoMsg && (
             <div className="backdrop-blur-md bg-emerald-50/80 border border-emerald-200/80 text-emerald-800 p-3 rounded-2xl text-xs text-center shadow-xs">
@@ -956,14 +1052,56 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-50 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)]"
+                  className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-50 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] cursor-pointer"
                 >
                   {isSubmitting ? 'Odosielam...' : 'Odoslať overovací kód'}
                 </button>
               </div>
+
+              {/* Rýchla obnova bez e-mailu */}
+              <div className="pt-3 border-t border-white/60 text-center">
+                <button
+                  type="button"
+                  onClick={handleQuickResetToDefault}
+                  className="w-full py-2.5 px-3 rounded-2xl bg-[#FAF8F5] hover:bg-white border border-[#C5A059]/50 text-[#2C2A29] text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Obnoviť na predvolené heslo (SayClinic2026!)</span>
+                </button>
+                <p className="text-[10px] text-[#8C857B] mt-1">
+                  Umožní okamžité prihlásenie bez čakania na e-mailovú správu.
+                </p>
+              </div>
             </form>
           ) : (
             <form onSubmit={handleConfirmNewPassword} className="space-y-4 text-left">
+              {/* Vizuálny kód ak e-mail mešká */}
+              {generatedOtp && (
+                <div className="backdrop-blur-md bg-[#FAF8F5] border border-[#C5A059]/40 p-3.5 rounded-2xl text-left space-y-2 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-1.5">
+                      <KeyRound className="w-3.5 h-3.5 text-[#C5A059]" />
+                      Bezpečnostný kód:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setResetCodeInput(generatedOtp)}
+                      className="text-[11px] text-[#C5A059] hover:underline font-bold cursor-pointer"
+                    >
+                      Vyplniť kód
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xl font-bold tracking-[0.25em] text-[#2C2A29] bg-white px-3 py-1 rounded-xl border border-[#E8E2D9]">
+                      {generatedOtp}
+                    </span>
+                    <span className="text-[10px] text-[#8C857B] leading-tight text-right">
+                      {otpEmailSent ? 'Odoslané na e-mail' : 'Priamy kód (ak e-mail mešká)'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
                   6-miestny kód z e-mailu

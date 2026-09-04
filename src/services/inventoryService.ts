@@ -73,6 +73,321 @@ export interface OrderItem {
   notes?: string;
 }
 
+// =========================================================================
+// OPIÁTOVÁ KNIHA & EVIDENCIA OPL (ZÁKON NR SR Č. 139/1998 Z. z.)
+// ==========================================
+export type OpiateClassification = 
+  | 'omamna_latka_II'      // Omamné látky II. skupiny (Fentanyl, Sufentanil, Morfín, Piritramid)
+  | 'psychotropna_latka_II' // Psychotropné látky II. skupiny (Ketamín)
+  | 'psychotropna_latka_III'; // Psychotropné látky III. skupiny (Midazolam, Diazepam)
+
+export interface OpiateItem {
+  id: string;
+  name: string; // napr. "Fentanyl Kalceks 0.05 mg/ml (0.1 mg / 2 ml inj.)"
+  activeSubstance: string; // "Fentanylum"
+  form: string; // "injekčný roztok v ampulkách"
+  strength: string; // "0.1 mg / 2 ml"
+  packageUnit: 'ampulka' | 'vialka' | 'balenie';
+  currentStock: number; // Aktuálny fyzický počet ampuliek v trezore
+  minStock: number;
+  lotNumber: string;
+  expirationDate: string; // YYYY-MM-DD
+  safeLocation: string; // "Trezor OPL č. 1 - Operačná sála (dvojitý zámok)"
+  responsiblePerson: string; // "MUDr. Ján Mráz"
+  classification: OpiateClassification;
+  suklCode?: string;
+  notes?: string;
+}
+
+export type OpiateMovementType = 
+  | 'prijem'        // Príjem do trezoru z lekárne na úradnú žiadanku OPL
+  | 'podanie'       // Podanie pacientovi pri anestézii / analgézii
+  | 'znehodnotenie' // Znehodnotenie nespotrebovaného zostatku / poškodenej ampulky svedkom
+  | 'inventura';    // Riadna mesačná fyzická kontrola trezoru
+
+export interface OpiateLogEntry {
+  id: string;
+  entryNumber: number; // Prírastkové úradné poradové číslo zápisu v knihe
+  timestamp: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  opiateId: string;
+  opiateName: string;
+  activeSubstance: string;
+  lotNumber: string;
+  movementType: OpiateMovementType;
+  
+  // Príjem
+  deliveryNoteNumber?: string; // Číslo úradnej žiadanky na OPL s modrým pruhom / dodací list
+  supplier?: string; // Nemocničná lekáreň / distribútor
+  
+  // Výdaj / Podanie pacientovi
+  patientId?: string;
+  patientName?: string;
+  patientBirthNumber?: string;
+  procedureName?: string; // Operačný výkon / indikácia (napr. "Augmentácia prsníkov v CA")
+  prescribingDoctor?: string; // Ordinujúci lekár / anesteziológ
+  administeringNurse?: string; // Podávajúca sestra
+  witness?: string; // Svedok (druhý zdravotnícky pracovník)
+  
+  // Množstvá
+  quantityIn: number; // Príjem (ampulky)
+  quantityOut: number; // Výdaj (ampulky)
+  quantityWasted?: number; // Nespotrebovaný znehodnotený zostatok z ampulky (napr. 0.5 ml)
+  balanceAfter: number; // Zostatok po tomto zápise
+  unit: string; // 'ampulka' | 'vialka' | 'ml'
+  
+  notes?: string;
+  recordedBy: string; // Meno zapisujúceho pracovníka
+}
+
+// Predvolený katalóg klinických opiátov v trezore SAY CLINIC
+export const INITIAL_OPIATES: OpiateItem[] = [
+  {
+    id: 'op-fentanyl',
+    name: 'Fentanyl Kalceks 0.05 mg/ml (0.1 mg / 2 ml inj.)',
+    activeSubstance: 'Fentanylum',
+    form: 'injekčný roztok v ampulkách (5x2ml)',
+    strength: '0.1 mg / 2 ml',
+    packageUnit: 'ampulka',
+    currentStock: 18,
+    minStock: 8,
+    lotNumber: 'LOT-FNT-992',
+    expirationDate: '2027-11-30',
+    safeLocation: 'Trezor OPL č. 1 - Operačná sála (dvojitý zámok)',
+    responsiblePerson: 'MUDr. Ján Mráz',
+    classification: 'omamna_latka_II',
+    suklCode: '0235813',
+    notes: 'Syntetické opioidné analgetikum pre úvod a vedenie celkovej anestézie'
+  },
+  {
+    id: 'op-sufentanil',
+    name: 'Sufentanil Torrex 5 mcg/ml (2 ml inj.)',
+    activeSubstance: 'Sufentanilum',
+    form: 'injekčný roztok v ampulkách (5x2ml)',
+    strength: '10 mcg / 2 ml',
+    packageUnit: 'ampulka',
+    currentStock: 12,
+    minStock: 6,
+    lotNumber: 'LOT-SUF-418',
+    expirationDate: '2028-02-28',
+    safeLocation: 'Trezor OPL č. 1 - Operačná sála (dvojitý zámok)',
+    responsiblePerson: 'MUDr. Ján Mráz',
+    classification: 'omamna_latka_II',
+    suklCode: '0044315',
+    notes: 'Vysoko účinný opioid pre dlhšie výkony a kardiovaskulárnu stabilitu'
+  },
+  {
+    id: 'op-dipidolor',
+    name: 'Dipidolor 15 mg / 2 ml injekčný roztok',
+    activeSubstance: 'Piritramidum',
+    form: 'injekčný roztok v ampulkách (5x2ml)',
+    strength: '15 mg / 2 ml',
+    packageUnit: 'ampulka',
+    currentStock: 14,
+    minStock: 5,
+    lotNumber: 'LOT-DPD-770',
+    expirationDate: '2027-09-15',
+    safeLocation: 'Trezor OPL č. 1 - Dospávacia izba (dvojitý zámok)',
+    responsiblePerson: 'MUDr. Ján Mráz',
+    classification: 'omamna_latka_II',
+    suklCode: '0002477',
+    notes: 'Opioid pre stredne silnú až silnú pooperačnú bolesť na dospávaní'
+  },
+  {
+    id: 'op-morphin',
+    name: 'Morphin Biotika 1% (10 mg / 1 ml inj.)',
+    activeSubstance: 'Morphini hydrochloridum',
+    form: 'injekčný roztok v ampulkách (10x1ml)',
+    strength: '10 mg / 1 ml',
+    packageUnit: 'ampulka',
+    currentStock: 10,
+    minStock: 5,
+    lotNumber: 'LOT-MPH-331',
+    expirationDate: '2028-06-30',
+    safeLocation: 'Trezor OPL č. 1 - Operačná sála (dvojitý zámok)',
+    responsiblePerson: 'MUDr. Ján Mráz',
+    classification: 'omamna_latka_II',
+    suklCode: '0000087',
+    notes: 'Klasické opioidné analgetikum pre silnú pooperačnú bolesť'
+  },
+  {
+    id: 'op-ketamin',
+    name: 'Calypsol (Ketamín) 50 mg / ml (10 ml vialka)',
+    activeSubstance: 'Ketaminum',
+    form: 'injekčný roztok vo vialke (10ml)',
+    strength: '500 mg / 10 ml',
+    packageUnit: 'vialka',
+    currentStock: 6,
+    minStock: 3,
+    lotNumber: 'LOT-KTM-552',
+    expirationDate: '2028-04-30',
+    safeLocation: 'Trezor OPL č. 1 - Operačná sála',
+    responsiblePerson: 'MUDr. Ján Mráz',
+    classification: 'psychotropna_latka_II',
+    suklCode: '0087814',
+    notes: 'Disociatívne anestetikum na analgosedáciu a analgéziu'
+  },
+  {
+    id: 'op-midazolam',
+    name: 'Midazolam Accord 5 mg / 1 ml (bal 10x1ml)',
+    activeSubstance: 'Midazolamum',
+    form: 'injekčný roztok v ampulkách (10x1ml)',
+    strength: '5 mg / 1 ml',
+    packageUnit: 'ampulka',
+    currentStock: 22,
+    minStock: 10,
+    lotNumber: 'LOT-MDZ-889',
+    expirationDate: '2027-12-15',
+    safeLocation: 'Trezor OPL č. 1 - Zákroková miestnosť',
+    responsiblePerson: 'MUDr. Ján Mráz',
+    classification: 'psychotropna_latka_III',
+    suklCode: '0115322',
+    notes: 'Krátkodobo pôsobiaci benzodiazepín na premedikáciu a analgosedáciu'
+  }
+];
+
+// Predvolený úradný register (Kniha OPL)
+export const INITIAL_OPIATE_LOGS: OpiateLogEntry[] = [
+  {
+    id: 'opl-log-1',
+    entryNumber: 1,
+    timestamp: '2026-08-28T08:15:00.000Z',
+    date: '2026-08-28',
+    time: '08:15',
+    opiateId: 'op-fentanyl',
+    opiateName: 'Fentanyl Kalceks 0.05 mg/ml (0.1 mg / 2 ml inj.)',
+    activeSubstance: 'Fentanylum',
+    lotNumber: 'LOT-FNT-992',
+    movementType: 'prijem',
+    deliveryNoteNumber: 'Žiadanka OPL č. 2026/08-042',
+    supplier: 'Lekáreň Nemocnice s poliklinikou Banská Bystrica',
+    quantityIn: 20,
+    quantityOut: 0,
+    balanceAfter: 20,
+    unit: 'ampulka',
+    notes: 'Príjem do trezoru na základe úradnej žiadanky s modrým pruhom',
+    recordedBy: 'MUDr. Ján Mráz'
+  },
+  {
+    id: 'opl-log-2',
+    entryNumber: 2,
+    timestamp: '2026-08-28T08:20:00.000Z',
+    date: '2026-08-28',
+    time: '08:20',
+    opiateId: 'op-dipidolor',
+    opiateName: 'Dipidolor 15 mg / 2 ml injekčný roztok',
+    activeSubstance: 'Piritramidum',
+    lotNumber: 'LOT-DPD-770',
+    movementType: 'prijem',
+    deliveryNoteNumber: 'Žiadanka OPL č. 2026/08-042',
+    supplier: 'Lekáreň Nemocnice s poliklinikou Banská Bystrica',
+    quantityIn: 15,
+    quantityOut: 0,
+    balanceAfter: 15,
+    unit: 'ampulka',
+    notes: 'Príjem do trezoru na základe žiadanky OPL',
+    recordedBy: 'MUDr. Ján Mráz'
+  },
+  {
+    id: 'opl-log-3',
+    entryNumber: 3,
+    timestamp: '2026-09-02T10:15:00.000Z',
+    date: '2026-09-02',
+    time: '10:15',
+    opiateId: 'op-fentanyl',
+    opiateName: 'Fentanyl Kalceks 0.05 mg/ml (0.1 mg / 2 ml inj.)',
+    activeSubstance: 'Fentanylum',
+    lotNumber: 'LOT-FNT-992',
+    movementType: 'podanie',
+    patientId: 'P1',
+    patientName: 'Mária Kováčová',
+    patientBirthNumber: '885512/6789',
+    procedureName: 'Augmentácia prsníkov silikónovými implantátmi v CA',
+    prescribingDoctor: 'MUDr. Ján Mráz',
+    administeringNurse: 'Bc. Simona Horváthová',
+    witness: 'PhDr. Veronika Vargová',
+    quantityIn: 0,
+    quantityOut: 2,
+    balanceAfter: 18,
+    unit: 'ampulka',
+    notes: 'Podané v úvode celkovej anestézie a počas intraoperatívnej fázy',
+    recordedBy: 'Bc. Simona Horváthová'
+  },
+  {
+    id: 'opl-log-4',
+    entryNumber: 4,
+    timestamp: '2026-09-02T13:30:00.000Z',
+    date: '2026-09-02',
+    time: '13:30',
+    opiateId: 'op-dipidolor',
+    opiateName: 'Dipidolor 15 mg / 2 ml injekčný roztok',
+    activeSubstance: 'Piritramidum',
+    lotNumber: 'LOT-DPD-770',
+    movementType: 'podanie',
+    patientId: 'P1',
+    patientName: 'Mária Kováčová',
+    patientBirthNumber: '885512/6789',
+    procedureName: 'Pooperačná analgézia po augmentácii prsníkov',
+    prescribingDoctor: 'MUDr. Ján Mráz',
+    administeringNurse: 'Bc. Simona Horváthová',
+    witness: 'MUDr. Ján Mráz',
+    quantityIn: 0,
+    quantityOut: 1,
+    balanceAfter: 14,
+    unit: 'ampulka',
+    notes: 'Aplikované 15 mg i.m. na dospávacej izbe pri VAS 6/10',
+    recordedBy: 'Bc. Simona Horváthová'
+  },
+  {
+    id: 'opl-log-5',
+    entryNumber: 5,
+    timestamp: '2026-09-03T11:00:00.000Z',
+    date: '2026-09-03',
+    time: '11:00',
+    opiateId: 'op-midazolam',
+    opiateName: 'Midazolam Accord 5 mg / 1 ml (bal 10x1ml)',
+    activeSubstance: 'Midazolamum',
+    lotNumber: 'LOT-MDZ-889',
+    movementType: 'podanie',
+    patientId: 'P2',
+    patientName: 'Ján Novák',
+    patientBirthNumber: '750314/1234',
+    procedureName: 'Blefaroplastika horných viečok v analgosedácii',
+    prescribingDoctor: 'MUDr. Ján Mráz',
+    administeringNurse: 'PhDr. Veronika Vargová',
+    witness: 'MUDr. Ján Mráz',
+    quantityIn: 0,
+    quantityOut: 1,
+    quantityWasted: 0.5,
+    balanceAfter: 22,
+    unit: 'ampulka',
+    notes: 'Aplikované 2.5 mg i.v. do sedácie; nespotrebovaný zvyšok 2.5 mg (0.5 ml) znehodnotený do odpadu za prítomnosti lekára',
+    recordedBy: 'PhDr. Veronika Vargová'
+  },
+  {
+    id: 'opl-log-6',
+    entryNumber: 6,
+    timestamp: '2026-09-04T07:30:00.000Z',
+    date: '2026-09-04',
+    time: '07:30',
+    opiateId: 'op-fentanyl',
+    opiateName: 'Všetky OPL v trezore',
+    activeSubstance: 'Komplexná kontrola',
+    lotNumber: 'Všetky šarže',
+    movementType: 'inventura',
+    prescribingDoctor: 'MUDr. Ján Mráz',
+    administeringNurse: 'Bc. Simona Horváthová',
+    witness: 'PhDr. Veronika Vargová',
+    quantityIn: 0,
+    quantityOut: 0,
+    balanceAfter: 18,
+    unit: 'ampulka',
+    notes: 'Riadna mesačná fyzická kontrola trezoru OPL k 01.09.2026. Fyzický stav ampuliek a šarží plne súhlasí so stavom v knihe.',
+    recordedBy: 'MUDr. Ján Mráz'
+  }
+];
+
 // Predvolené skladové zásoby SAY CLINIC
 export const INITIAL_INVENTORY: InventoryItem[] = [
   // ESTETIKA & VÝPLNE
@@ -556,5 +871,325 @@ export class InventoryService {
     const bundles = this.getBundles();
     const updated = bundles.filter(b => b.id !== bundleId);
     this.saveBundles(updated);
+  }
+
+  // ==========================================
+  // OPIÁTOVÁ KNIHA & EVIDENCIA OPL (ZÁKON Č. 139/1998 Z. z.)
+  // ==========================================
+  private static STORAGE_KEY_OPIATES = 'say_clinic_opiates_catalog_v1';
+  private static STORAGE_KEY_OPIATE_LOGS = 'say_clinic_opiate_book_logs_v1';
+
+  public static getOpiates(): OpiateItem[] {
+    if (typeof window === 'undefined') return INITIAL_OPIATES;
+    try {
+      const saved = localStorage.getItem(this.STORAGE_KEY_OPIATES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      localStorage.setItem(this.STORAGE_KEY_OPIATES, JSON.stringify(INITIAL_OPIATES));
+      return INITIAL_OPIATES;
+    } catch (e) {
+      console.error('Chyba načítania katalógu opiátov:', e);
+      return INITIAL_OPIATES;
+    }
+  }
+
+  public static saveOpiates(items: OpiateItem[]): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(this.STORAGE_KEY_OPIATES, JSON.stringify(items));
+      window.dispatchEvent(new CustomEvent('say_clinic_opiates_changed', { detail: items }));
+    } catch (e) {
+      console.error('Chyba ukladania katalógu opiátov:', e);
+    }
+  }
+
+  public static getOpiateLogs(): OpiateLogEntry[] {
+    if (typeof window === 'undefined') return INITIAL_OPIATE_LOGS;
+    try {
+      const saved = localStorage.getItem(this.STORAGE_KEY_OPIATE_LOGS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      localStorage.setItem(this.STORAGE_KEY_OPIATE_LOGS, JSON.stringify(INITIAL_OPIATE_LOGS));
+      return INITIAL_OPIATE_LOGS;
+    } catch (e) {
+      console.error('Chyba načítania knihy opiátov:', e);
+      return INITIAL_OPIATE_LOGS;
+    }
+  }
+
+  public static saveOpiateLogs(logs: OpiateLogEntry[]): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(this.STORAGE_KEY_OPIATE_LOGS, JSON.stringify(logs));
+      window.dispatchEvent(new CustomEvent('say_clinic_opiate_logs_changed', { detail: logs }));
+    } catch (e) {
+      console.error('Chyba ukladania knihy opiátov:', e);
+    }
+  }
+
+  // Zápis o podaní opiátu pacientovi s odpisom zo zásob
+  public static recordOpiateUsage(entry: {
+    opiateId: string;
+    patientId?: string;
+    patientName: string;
+    patientBirthNumber?: string;
+    procedureName: string;
+    prescribingDoctor: string;
+    administeringNurse: string;
+    witness?: string;
+    quantityOut: number;
+    quantityWasted?: number;
+    notes?: string;
+    recordedBy: string;
+    date?: string;
+    time?: string;
+  }): { success: boolean; error?: string; log?: OpiateLogEntry } {
+    const opiates = this.getOpiates();
+    const opiate = opiates.find(o => o.id === entry.opiateId);
+    if (!opiate) {
+      return { success: false, error: 'Opiát nebol nájdený v trezore.' };
+    }
+
+    if (opiate.currentStock < entry.quantityOut) {
+      return { 
+        success: false, 
+        error: `Nedostatočná zásoba v trezore! K dispozícii je len ${opiate.currentStock} ${opiate.packageUnit}.` 
+      };
+    }
+
+    const now = new Date();
+    const date = entry.date || now.toISOString().split('T')[0];
+    const time = entry.time || now.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+
+    const newStock = Math.max(0, opiate.currentStock - entry.quantityOut);
+    const logs = this.getOpiateLogs();
+    const nextEntryNum = logs.reduce((max, l) => Math.max(max, l.entryNumber || 0), 0) + 1;
+
+    const newLog: OpiateLogEntry = {
+      id: `opl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      entryNumber: nextEntryNum,
+      timestamp: now.toISOString(),
+      date,
+      time,
+      opiateId: opiate.id,
+      opiateName: opiate.name,
+      activeSubstance: opiate.activeSubstance,
+      lotNumber: opiate.lotNumber,
+      movementType: 'podanie',
+      patientId: entry.patientId,
+      patientName: entry.patientName,
+      patientBirthNumber: entry.patientBirthNumber,
+      procedureName: entry.procedureName,
+      prescribingDoctor: entry.prescribingDoctor,
+      administeringNurse: entry.administeringNurse,
+      witness: entry.witness,
+      quantityIn: 0,
+      quantityOut: entry.quantityOut,
+      quantityWasted: entry.quantityWasted,
+      balanceAfter: newStock,
+      unit: opiate.packageUnit,
+      notes: entry.notes,
+      recordedBy: entry.recordedBy || entry.administeringNurse
+    };
+
+    // Aktualizácia stavu zásob opiátu
+    const updatedOpiates = opiates.map(o => o.id === opiate.id ? { ...o, currentStock: newStock } : o);
+    this.saveOpiates(updatedOpiates);
+
+    // Uloženie do audit logu
+    const updatedLogs = [newLog, ...logs];
+    this.saveOpiateLogs(updatedLogs);
+
+    return { success: true, log: newLog };
+  }
+
+  // Príjem novej dodávky opiátov do trezoru (z lekárne na žiadanku OPL)
+  public static recordOpiateReceipt(entry: {
+    opiateId: string;
+    deliveryNoteNumber: string;
+    supplier: string;
+    quantityIn: number;
+    lotNumber?: string;
+    expirationDate?: string;
+    notes?: string;
+    recordedBy: string;
+    date?: string;
+    time?: string;
+  }): { success: boolean; error?: string; log?: OpiateLogEntry } {
+    const opiates = this.getOpiates();
+    const opiate = opiates.find(o => o.id === entry.opiateId);
+    if (!opiate) {
+      return { success: false, error: 'Opiát nebol nájdený v trezore.' };
+    }
+
+    const now = new Date();
+    const date = entry.date || now.toISOString().split('T')[0];
+    const time = entry.time || now.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+
+    const newStock = opiate.currentStock + entry.quantityIn;
+    const logs = this.getOpiateLogs();
+    const nextEntryNum = logs.reduce((max, l) => Math.max(max, l.entryNumber || 0), 0) + 1;
+
+    const newLog: OpiateLogEntry = {
+      id: `opl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      entryNumber: nextEntryNum,
+      timestamp: now.toISOString(),
+      date,
+      time,
+      opiateId: opiate.id,
+      opiateName: opiate.name,
+      activeSubstance: opiate.activeSubstance,
+      lotNumber: entry.lotNumber || opiate.lotNumber,
+      movementType: 'prijem',
+      deliveryNoteNumber: entry.deliveryNoteNumber,
+      supplier: entry.supplier,
+      quantityIn: entry.quantityIn,
+      quantityOut: 0,
+      balanceAfter: newStock,
+      unit: opiate.packageUnit,
+      notes: entry.notes,
+      recordedBy: entry.recordedBy
+    };
+
+    const updatedOpiates = opiates.map(o => o.id === opiate.id ? { 
+      ...o, 
+      currentStock: newStock,
+      lotNumber: entry.lotNumber || o.lotNumber,
+      expirationDate: entry.expirationDate || o.expirationDate
+    } : o);
+    this.saveOpiates(updatedOpiates);
+
+    const updatedLogs = [newLog, ...logs];
+    this.saveOpiateLogs(updatedLogs);
+
+    return { success: true, log: newLog };
+  }
+
+  // Protokolárne znehodnotenie zostatku / poškodenej ampulky za prítomnosti svedka
+  public static recordOpiateWaste(entry: {
+    opiateId: string;
+    quantityWastedUnits: number; // Celé ampulky
+    wasteReason: string; // napr. "Rozbitá ampulka pri manipulácii", "Exspirované liečivo"
+    prescribingDoctor: string;
+    administeringNurse: string;
+    witness: string; // Povinný druhý podpis
+    notes?: string;
+    recordedBy: string;
+  }): { success: boolean; error?: string; log?: OpiateLogEntry } {
+    const opiates = this.getOpiates();
+    const opiate = opiates.find(o => o.id === entry.opiateId);
+    if (!opiate) return { success: false, error: 'Opiát nebol nájdený.' };
+
+    if (opiate.currentStock < entry.quantityWastedUnits) {
+      return { success: false, error: 'Počet na znehodnotenie presahuje zásobu v trezore.' };
+    }
+
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+
+    const newStock = Math.max(0, opiate.currentStock - entry.quantityWastedUnits);
+    const logs = this.getOpiateLogs();
+    const nextEntryNum = logs.reduce((max, l) => Math.max(max, l.entryNumber || 0), 0) + 1;
+
+    const newLog: OpiateLogEntry = {
+      id: `opl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      entryNumber: nextEntryNum,
+      timestamp: now.toISOString(),
+      date,
+      time,
+      opiateId: opiate.id,
+      opiateName: opiate.name,
+      activeSubstance: opiate.activeSubstance,
+      lotNumber: opiate.lotNumber,
+      movementType: 'znehodnotenie',
+      procedureName: `Protokolárna likvidácia OPL: ${entry.wasteReason}`,
+      prescribingDoctor: entry.prescribingDoctor,
+      administeringNurse: entry.administeringNurse,
+      witness: entry.witness,
+      quantityIn: 0,
+      quantityOut: entry.quantityWastedUnits,
+      balanceAfter: newStock,
+      unit: opiate.packageUnit,
+      notes: `Znehodnotené a zlikvidované za prítomnosti svedka: ${entry.witness}. ${entry.notes || ''}`,
+      recordedBy: entry.recordedBy
+    };
+
+    const updatedOpiates = opiates.map(o => o.id === opiate.id ? { ...o, currentStock: newStock } : o);
+    this.saveOpiates(updatedOpiates);
+
+    const updatedLogs = [newLog, ...logs];
+    this.saveOpiateLogs(updatedLogs);
+
+    return { success: true, log: newLog };
+  }
+
+  // Fyzická kontrola a inventúra trezoru OPL
+  public static recordOpiateInventoryCheck(entry: {
+    doctorName: string;
+    nurseName: string;
+    notes?: string;
+  }): OpiateLogEntry {
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+
+    const logs = this.getOpiateLogs();
+    const nextEntryNum = logs.reduce((max, l) => Math.max(max, l.entryNumber || 0), 0) + 1;
+
+    const newLog: OpiateLogEntry = {
+      id: `opl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      entryNumber: nextEntryNum,
+      timestamp: now.toISOString(),
+      date,
+      time,
+      opiateId: 'vsetky',
+      opiateName: 'Fyzická inventúra trezoru OPL',
+      activeSubstance: 'Všetky evidované OPL',
+      lotNumber: 'Všetky šarže',
+      movementType: 'inventura',
+      prescribingDoctor: entry.doctorName,
+      administeringNurse: entry.nurseName,
+      witness: entry.nurseName,
+      quantityIn: 0,
+      quantityOut: 0,
+      balanceAfter: 0,
+      unit: 'trezor',
+      notes: entry.notes || 'Riadna mesačná fyzická kontrola trezoru OPL. Fyzické počty ampuliek a šarže plne súhlasia so záznamami v knihe.',
+      recordedBy: entry.doctorName
+    };
+
+    const updatedLogs = [newLog, ...logs];
+    this.saveOpiateLogs(updatedLogs);
+    return newLog;
+  }
+
+  // Správa katalógu OPL
+  public static addOpiateItem(item: OpiateItem): void {
+    const opiates = this.getOpiates();
+    const updated = [item, ...opiates];
+    this.saveOpiates(updated);
+  }
+
+  public static updateOpiateItem(item: OpiateItem): void {
+    const opiates = this.getOpiates();
+    const updated = opiates.map(o => o.id === item.id ? item : o);
+    this.saveOpiates(updated);
+  }
+
+  public static deleteOpiateItem(id: string): void {
+    const opiates = this.getOpiates();
+    const updated = opiates.filter(o => o.id !== id);
+    this.saveOpiates(updated);
+  }
+
+  public static deleteOpiateLog(logId: string): void {
+    const logs = this.getOpiateLogs();
+    const updated = logs.filter(l => l.id !== logId);
+    this.saveOpiateLogs(updated);
   }
 }

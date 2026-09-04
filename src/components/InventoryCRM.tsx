@@ -9,8 +9,10 @@ import {
   AlertTriangle, 
   Check, 
   Package, 
-  Layers 
+  Layers,
+  Lock
 } from 'lucide-react';
+import OpiateLogbook from './inventory/OpiateLogbook';
 import { 
   InventoryService, 
   InventoryItem, 
@@ -27,7 +29,7 @@ export default function InventoryCRM() {
   const [bundles, setBundles] = useState<MaterialBundle[]>([]);
   const [reorderList, setReorderList] = useState<OrderItem[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'items' | 'usage' | 'reorder' | 'bundles'>('items');
+  const [activeTab, setActiveTab] = useState<'items' | 'usage' | 'reorder' | 'bundles' | 'opiates'>('items');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [onlyLowStock, setOnlyLowStock] = useState(false);
@@ -493,7 +495,7 @@ export default function InventoryCRM() {
               <Plus className="w-3.5 h-3.5" />
               <span>+ Nový balíček výkonu</span>
             </button>
-          ) : (
+          ) : activeTab === 'opiates' ? null : (
             <>
               <button 
                 type="button"
@@ -597,6 +599,21 @@ export default function InventoryCRM() {
           }`}
         >
           <span>🧪 Balíčky pre výkony ({bundles.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('opiates')}
+          className={`px-4 py-2.5 rounded-xl text-xs uppercase font-bold tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === 'opiates' 
+              ? 'bg-[#2C2A29] text-[#C5A059] shadow-sm border border-[#C5A059]/40' 
+              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9]'
+          }`}
+        >
+          <Lock className="w-3.5 h-3.5 text-[#C5A059]" />
+          <span>Opiátová kniha (OPL)</span>
+          <span className="bg-[#C5A059]/20 text-[#C5A059] text-[9px] px-1.5 py-0.5 rounded font-mono font-bold">
+            Trezor
+          </span>
         </button>
       </div>
 
@@ -1170,6 +1187,13 @@ export default function InventoryCRM() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5. ZÁLOŽKA: EVIDENCIA OPIÁTOV (OPIÁTOVÁ KNIHA OPL)                        */}
+      {/* ========================================================================= */}
+      {activeTab === 'opiates' && (
+        <OpiateLogbook />
       )}
 
       {/* ========================================================================= */}

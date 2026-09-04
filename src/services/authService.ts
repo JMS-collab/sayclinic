@@ -145,7 +145,7 @@ export const AuthService = {
   },
 
   // Generovanie a odoslanie 2FA kódu
-  async generateAndSendOtp(user: UserAccount, type: 'login' | 'reset' = 'login'): Promise<{ success: boolean; fallbackOtp?: string; message: string }> {
+  async generateAndSendOtp(user: UserAccount, type: 'login' | 'reset' = 'login'): Promise<{ success: boolean; fallbackOtp?: string; emailSent?: boolean; message: string }> {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
     // Uloženie OTP do session pamäte pre overenie (platnosť 10 minút)
@@ -175,17 +175,24 @@ export const AuthService = {
       const data = await res.json();
       return {
         success: true,
+        emailSent: data.emailSent ?? false,
         fallbackOtp: data.fallbackCode || otp,
-        message: data.message || `Overovací kód bol odoslaný na ${user.email}`,
+        message: data.message || `Overovací kód bol pripravený pre ${user.email}`,
       };
     } catch (e) {
       console.warn('API send-otp zlyhalo, použitá interná verifikácia:', e);
       return {
         success: true,
+        emailSent: false,
         fallbackOtp: otp,
         message: `Overovací kód bol pripravený pre ${user.email}`,
       };
     }
+  },
+
+  // Rýchle obnovenie na predvolené klinické heslo
+  resetToDefaultPassword(identifier: string): { success: boolean; message: string } {
+    return this.setNewPassword(identifier, DEFAULT_INITIAL_PASSWORD);
   },
 
   // Overenie 2FA kódu
