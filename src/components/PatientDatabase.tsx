@@ -7,6 +7,7 @@ import { CheckCircle, AlertCircle, Cloud, CloudOff, Lock } from 'lucide-react';
 import PatientDriveFiles from './PatientDriveFiles';
 import { InventoryService, MaterialUsageLog, InventoryItem } from '../services/inventoryService';
 import { CalendarEvent, getPostOpTimeDiff } from '../data/calendarConfig';
+import { createGoogleCalendarEvent } from '../services/calendarSyncService';
 import SchedulePatientEventModal from './patient/SchedulePatientEventModal';
 import { PatientPlan, PRESET_PATIENT_PLANS, ScheduledTreatment } from '../data/patientPlanConfig';
 import PatientPlanViewer from './patient/PatientPlanViewer';
@@ -237,16 +238,19 @@ export default function PatientDatabase({
     if (onAddCalendarEvent) {
       onAddCalendarEvent(newEvent);
     }
-    if (session) {
-      try {
-        await fetch('/api/calendar/events', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newEvent)
+
+    try {
+      const gRes = await createGoogleCalendarEvent(newEvent, session);
+      if (gRes.success && gRes.googleEventId) {
+        const syncedEvent: CalendarEvent = { ...newEvent, googleEventId: gRes.googleEventId, isGoogleSynced: true };
+        setStoredEvents(prev => {
+          const synced = prev.map(e => e.id === newEvent.id ? syncedEvent : e);
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(synced));
+          return synced;
         });
-      } catch (err) {
-        console.error('Chyba zápisu do Google Kalendára:', err);
       }
+    } catch (err) {
+      console.error('Chyba zápisu do Google Kalendára:', err);
     }
   };
 

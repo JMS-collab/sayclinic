@@ -131,8 +131,10 @@ export const getClinicStayInfo = (stay?: string) => {
 
 export interface CalendarEvent {
   id: string;
+  googleEventId?: string; // ID udalosti v Google Kalendári (pre 2-smernú synchronizáciu)
   calendarId?: string;
   calendarName?: string;
+  isGoogleSynced?: boolean;
   roomId?: string;
   roomName?: string;
   assignedTo?: string;
@@ -173,7 +175,7 @@ export interface CalendarEvent {
   isCancelled?: boolean;
   cancelReason?: string;
 
-  // POOPERAČNÁ KONTROLA & HISTÓRIA OPERÁCIE (USER REQUEST)
+  patientBirthNumber?: string;
   operationTitle?: string;     // Po akej operácii / zákroku je kontrola (napr. "Augmentácia prsníkov")
   operationDate?: string;      // Dátum kedy prebehla operácia (napr. "2026-08-12")
   operationRecordId?: string;  // ID lekárskeho záznamu / operačného protokolu
@@ -188,6 +190,7 @@ export interface ClinicRoom {
   shortName: string;
   color: string;
   badgeBg: string;
+  badgeColor?: string;
   borderAccent: string;
   icon: string;
   description: string;
@@ -200,6 +203,7 @@ export const CLINIC_ROOMS: ClinicRoom[] = [
     shortName: 'AMB',
     color: '#0284C7',
     badgeBg: 'bg-sky-50 text-sky-800 border-sky-300',
+    badgeColor: 'bg-sky-50 text-sky-800 border-sky-300',
     borderAccent: 'border-l-sky-500',
     icon: '🩺',
     description: 'Konzultácie, vstupné vyšetrenia, kontroly a estetické ošetrenia'
@@ -210,6 +214,7 @@ export const CLINIC_ROOMS: ClinicRoom[] = [
     shortName: 'SÁLA SAY',
     color: '#2C2A29',
     badgeBg: 'bg-[#2C2A29] text-white border-[#2C2A29]',
+    badgeColor: 'bg-[#2C2A29] text-white border-[#2C2A29]',
     borderAccent: 'border-l-[#2C2A29]',
     icon: '🏥',
     description: 'Hlavné operačné sály SAY CLINIC (celková a lokálna anestézia)'
@@ -220,6 +225,7 @@ export const CLINIC_ROOMS: ClinicRoom[] = [
     shortName: 'SÁLA RUDLOVÁ',
     color: '#C5A059',
     badgeBg: 'bg-amber-100 text-amber-900 border-[#C5A059]',
+    badgeColor: 'bg-amber-100 text-amber-900 border-[#C5A059]',
     borderAccent: 'border-l-[#C5A059]',
     icon: '🏛️',
     description: 'Operačné sály pracovisko Rudlová'
@@ -230,6 +236,7 @@ export const CLINIC_ROOMS: ClinicRoom[] = [
     shortName: 'DOSPÁVACIA',
     color: '#059669',
     badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+    badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-300',
     borderAccent: 'border-l-emerald-500',
     icon: '🛏️',
     description: 'Pooperačné zotavovacie lôžka a observácia pacientov'
@@ -244,6 +251,7 @@ export interface ClinicStaffMember {
   id: string;
   name: string;
   role: string;
+  specialization?: string;
   type: 'doctor' | 'anesthesiologist' | 'nurse' | 'manager' | 'team';
 }
 
@@ -434,7 +442,7 @@ export const getPostOpTimeDiff = (opDateStr?: string, targetDateStr?: string): {
   }
 };
 
-export const generateDefaultEvents = () => {
+export const generateDefaultEvents = (): CalendarEvent[] => {
   const today = new Date();
   const getISO = (offset: number) => {
     const d = new Date(today);

@@ -195,7 +195,7 @@ export default function AIHealthRoadmapView({
         ...m,
         interventions: m.interventions.map(inv => {
           if (inv.id !== interventionId) return inv;
-          const nextStatus = inv.status === 'completed' ? 'planned' : 'completed';
+          const nextStatus: 'planned' | 'completed' = inv.status === 'completed' ? 'planned' : 'completed';
           return { ...inv, status: nextStatus };
         })
       };

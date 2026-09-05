@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
 import { 
+  CalendarEvent,
   EventType, 
   FreeformCategory, 
   ClinicRoom, 
@@ -25,8 +26,17 @@ import {
 
 import EventFormModal from './calendar/EventFormModal';
 import EventDetailModal from './calendar/EventDetailModal';
+import {
+  fetchGoogleCalendarEvents,
+  createGoogleCalendarEvent,
+  updateGoogleCalendarEvent,
+  deleteGoogleCalendarEvent,
+  mergeCalendarEvents,
+  getCalendarAuthToken,
+} from '../services/calendarSyncService';
+import { googleSignIn, subscribeWorkspaceAuth } from '../lib/workspaceAuth';
 
-export type { EventType, FreeformCategory, ClinicRoom, ClinicStayType, AnesthesiaType };
+export type { CalendarEvent, EventType, FreeformCategory, ClinicRoom, ClinicStayType, AnesthesiaType };
 export { 
   CLINIC_ROOMS, 
   getRoomInfo, 
@@ -49,50 +59,7 @@ export interface PositionedCalendarEvent {
   endMin: number;
 }
 
-export interface CalendarEvent {
-  id: string;
-  calendarId?: string;
-  calendarName?: string;
-  roomId?: string; // 'ambulancia' | 'sala_say' | 'sala_rudlova' | 'dospavacia_izba'
-  roomName?: string;
-  assignedTo?: string; // Komu je pridelená udalosť (napr. MUDr. Mráz, Celý tím)
-  patientId?: string;
-  patientName: string;
-  patientPhone?: string;
-  patientEmail?: string;
-  doctorName: string;
-  title: string;
-  date: string; // YYYY-MM-DD
-  startTime: string; // HH:MM
-  endTime: string; // HH:MM
-  isAllDay?: boolean;
-  type: EventType;
-  anesthesiaType?: string; // TIVA, LA, Sedácia, Celková...
-  clinicStay?: ClinicStayType | string; // 'ambulantne' | 'dospanie' | 'hospitalizacia'
-  notes?: string;
 
-  // VOĽNÝ POPIS / INTERNÁ UDALOSŤ (nie operácia ani kontrola: obed, dovolenka, teambuilding...)
-  freeformCategory?: FreeformCategory;
-
-  // OPERAČNÝ DEŇ & TÍM (kto operuje, anesteziológ, anest. sestra, inštrumentárka)
-  operator?: string;
-  anesthesiologist?: string;
-  anesthesiaNurse?: string;
-  scrubNurse?: string;
-  specialEquipment?: string[]; // špeciálne vybavenie (MicroAire, VASER, C-rameno...)
-  specialEquipmentOther?: string;
-  materials?: string[]; // potrebný materiál (implantáty Motiva, Polytech, prádlo...)
-  materialNotes?: string; // špecifikácia implantátov, profil, veľkosti
-  
-  // FINANČNÉ POLOŽKY A ZÁLOHOVÁ FAKTÚRA
-  totalPrice?: number;
-  depositAmount?: number;
-  isDepositPaid?: boolean;
-
-  // STAV ZRUŠENIA A DÔVOD
-  isCancelled?: boolean;
-  cancelReason?: string;
-}
 
 export interface GoogleCalendarItem {
   id: string;
@@ -154,6 +121,9 @@ export default function Calendar({
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isWorkspaceConnected, setIsWorkspaceConnected] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
   
   const [customPhones, setCustomPhones] = useState<Record<string, string>>({});
   const [customEmails, setCustomEmails] = useState<Record<string, string>>({});
@@ -250,10 +220,10 @@ export default function Calendar({
       try {
         const parsed = JSON.parse(cachedEvents);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const formatted = parsed.map((e: CalendarEvent) => ({
+          const formatted: CalendarEvent[] = parsed.map((e: any) => ({
             ...e,
             roomId: e.roomId || (e.type === 'operacia' ? 'sala_say' : 'ambulancia'),
-            type: e.type || detectEventType(e.title)
+            type: (e.type || detectEventType(e.title)) as EventType
           }));
           setCalendarEvents(formatted);
         } else {
@@ -279,42 +249,67 @@ export default function Calendar({
       }
     }
 
+    // Sledovanie autorizácie cez Google Workspace
+    const unsub = subscribeWorkspaceAuth((user, token) => {
+      const connected = Boolean(user && token);
+      setIsWorkspaceConnected(connected);
+      if (connected) {
+        performTwoWaySync(true);
+      }
+    });
+
     if (session) {
-      setIsSyncing(true);
-      fetch('/api/calendar')
-        .then(res => res.json())
-        .then(data => {
-          let fetchedEvents: CalendarEvent[] = [];
-          let fetchedCalendars: GoogleCalendarItem[] = [];
-
-          if (data.events && Array.isArray(data.events)) {
-            fetchedEvents = data.events;
-            fetchedCalendars = data.calendars || [];
-          } else if (Array.isArray(data)) {
-            fetchedEvents = data;
-          }
-
-          if (fetchedEvents.length > 0) {
-            const mappedEvents: CalendarEvent[] = fetchedEvents.map(evt => ({
-              ...evt,
-              type: evt.type || detectEventType(evt.title),
-              totalPrice: evt.totalPrice !== undefined ? evt.totalPrice : (detectEventType(evt.title) === 'operacia' ? 3500 : 50),
-              depositAmount: evt.depositAmount !== undefined ? evt.depositAmount : (detectEventType(evt.title) === 'operacia' ? 500 : 0),
-              isAllDay: evt.isAllDay || (evt.startTime === '00:00' && evt.endTime === '23:59')
-            }));
-
-            setCalendarEvents(mappedEvents);
-            localStorage.setItem('say_clinic_calendar_events', JSON.stringify(mappedEvents));
-          }
-          if (fetchedCalendars.length > 0) {
-            setAvailableCalendars(fetchedCalendars);
-            localStorage.setItem('say_clinic_calendars', JSON.stringify(fetchedCalendars));
-          }
-        })
-        .catch(err => console.error("Chyba synchronizácie:", err))
-        .finally(() => setIsSyncing(false));
+      performTwoWaySync(true);
     }
+
+    return () => unsub();
   }, [session]);
+
+  const isGoogleConnected = Boolean((session as any)?.accessToken || isWorkspaceConnected);
+
+  /**
+   * Vykoná obojsmernú synchronizáciu:
+   * Stiahne najnovšie udalosti z Google Kalendára a inteligentne ich zlúči s lokálnymi udalosťami
+   */
+  const performTwoWaySync = async (silent: boolean = false) => {
+    setIsSyncing(true);
+    if (!silent) setSyncStatusMsg(null);
+
+    try {
+      const result = await fetchGoogleCalendarEvents(session);
+      if (result) {
+        setCalendarEvents(prev => {
+          const merged = mergeCalendarEvents(prev, result.events, result.successfulCalendarIds);
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(merged));
+          return merged;
+        });
+
+        if (result.calendars && result.calendars.length > 0) {
+          setAvailableCalendars(result.calendars);
+          localStorage.setItem('say_clinic_calendars', JSON.stringify(result.calendars));
+        }
+
+        const now = new Date();
+        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        setLastSyncTime(timeStr);
+        if (!silent) {
+          setSyncStatusMsg(`Synchronizované o ${timeStr} (${result.events.length} udalostí)`);
+          setTimeout(() => setSyncStatusMsg(null), 4000);
+        }
+      } else if (!silent) {
+        setSyncStatusMsg('Synchronizácia neúspešná (overte prihlásenie)');
+        setTimeout(() => setSyncStatusMsg(null), 4000);
+      }
+    } catch (err) {
+      console.error('Chyba obojsmernej synchronizácie:', err);
+      if (!silent) {
+        setSyncStatusMsg('Chyba spojenia');
+        setTimeout(() => setSyncStatusMsg(null), 4000);
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // NAČÍTANIE ULOŽENÉHO ROZOSTUPU HODÍN Z LOCALSTORAGE
   useEffect(() => {
@@ -496,24 +491,45 @@ export default function Calendar({
     });
   };
 
-  const handleConfirmCancelEvent = (e: React.FormEvent) => {
+  const handleConfirmCancelEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cancellingEvent) return;
 
     const finalReason = cancelReasonInput === 'Iné (vlastný dôvod)' ? customCancelReason : cancelReasonInput;
 
+    const cancelledEvent: CalendarEvent = {
+      ...cancellingEvent,
+      isCancelled: true,
+      cancelReason: finalReason
+    };
+
     setCalendarEvents(prev => {
-      const updated = prev.map(evt => evt.id === cancellingEvent.id ? { ...evt, isCancelled: true, cancelReason: finalReason } : evt);
+      const updated = prev.map(evt => evt.id === cancellingEvent.id ? cancelledEvent : evt);
       localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
       return updated;
     });
 
+    if (selectedEvent && selectedEvent.id === cancellingEvent.id) {
+      setSelectedEvent(cancelledEvent);
+    }
+
     setCancellingEvent(null);
     setCustomCancelReason('');
-    alert(`❌ Termín bol zrušený. Dôvod: ${finalReason}`);
+
+    // Obojsmerná synchronizácia storna do Google Kalendára
+    try {
+      const targetGId = cancelledEvent.googleEventId || (cancelledEvent.id.startsWith('gcal-') ? cancelledEvent.id.replace('gcal-', '') : null);
+      if (targetGId) {
+        await updateGoogleCalendarEvent({ ...cancelledEvent, googleEventId: targetGId }, session);
+      }
+    } catch (err) {
+      console.error('Chyba zápisu storna do Google Kalendára:', err);
+    }
+
+    alert(`❌ Termín bol zrušený a aktualizovaný v Google Kalendári. Dôvod: ${finalReason}`);
   };
 
-  const handleSaveModalEditedEvent = (eventData: Partial<CalendarEvent>) => {
+  const handleSaveModalEditedEvent = async (eventData: Partial<CalendarEvent>) => {
     if (!eventData.id) return;
 
     const finalStartTime = eventData.isAllDay ? '00:00' : (eventData.startTime || '09:00');
@@ -525,6 +541,7 @@ export default function Calendar({
       endTime: finalEndTime
     } as CalendarEvent;
 
+    // 1. Okamžitý lokálny zápis (optimistický)
     setCalendarEvents(prev => {
       const updated = prev.map(evt => evt.id === eventData.id ? updatedEvent : evt);
       localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
@@ -536,6 +553,51 @@ export default function Calendar({
     }
 
     setIsEditingEvent(false);
+
+    // 2. Obojsmerná synchronizácia do Google Kalendára
+    try {
+      const targetGId = updatedEvent.googleEventId || (updatedEvent.id.startsWith('gcal-') ? updatedEvent.id.replace('gcal-', '') : null);
+      if (targetGId) {
+        await updateGoogleCalendarEvent({ ...updatedEvent, googleEventId: targetGId }, session);
+      } else {
+        // Ak udalosť ešte nemala Google ID, vytvoríme ju tam
+        const res = await createGoogleCalendarEvent(updatedEvent, session);
+        if (res.success && res.googleEventId) {
+          setCalendarEvents(prev => {
+            const synced = prev.map(e => e.id === updatedEvent.id ? { ...e, googleEventId: res.googleEventId, isGoogleSynced: true } : e);
+            localStorage.setItem('say_clinic_calendar_events', JSON.stringify(synced));
+            return synced;
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Chyba aktualizácie do Google Kalendára:', err);
+    }
+  };
+
+  const handleDeleteCalendarEvent = async (eventToDelete: CalendarEvent | Partial<CalendarEvent>) => {
+    if (!eventToDelete.id) return;
+    const targetId = eventToDelete.id;
+    const gId = eventToDelete.googleEventId || (targetId.startsWith('gcal-') ? targetId.replace('gcal-', '') : targetId);
+
+    // 1. Okamžité lokálne zmazanie
+    setCalendarEvents(prev => {
+      const updated = prev.filter(e => e.id !== targetId && e.googleEventId !== targetId && e.id !== gId);
+      localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+      return updated;
+    });
+
+    if (selectedEvent && (selectedEvent.id === targetId || selectedEvent.googleEventId === targetId)) {
+      setSelectedEvent(null);
+    }
+    setIsEditingEvent(false);
+
+    // 2. Obojsmerné zmazanie z Google Kalendára
+    try {
+      await deleteGoogleCalendarEvent(gId, eventToDelete.calendarId || 'primary', session);
+    } catch (err) {
+      console.error('Chyba zmazania z Google Kalendára:', err);
+    }
   };
 
   const sendWhatsApp = (evt: CalendarEvent) => {
@@ -707,9 +769,19 @@ export default function Calendar({
     setCurrentDate(newDate);
   };
 
-  const handleGoogleConnect = () => {
-    if (session) signOut();
-    else signIn('google');
+  const handleGoogleConnect = async () => {
+    if (session) {
+      signOut();
+    } else if (isWorkspaceConnected) {
+      await performTwoWaySync(false);
+    } else {
+      try {
+        await googleSignIn();
+        await performTwoWaySync(false);
+      } catch {
+        signIn('google');
+      }
+    }
   };
 
   const handleOpenAddEventModal = () => {
@@ -769,7 +841,7 @@ export default function Calendar({
       specialEquipmentOther: eventData.specialEquipmentOther || '',
       materials: eventData.materials || [],
       materialNotes: eventData.materialNotes || '',
-      calendarId: eventData.calendarId || 'primary',
+      calendarId: eventData.calendarId || (selectedCalendarId !== 'all' ? selectedCalendarId : 'primary'),
       notes: eventData.notes || '',
       totalPrice: Number(eventData.totalPrice) || 0,
       depositAmount: Number(eventData.depositAmount) || 0,
@@ -792,16 +864,18 @@ export default function Calendar({
     setIsSaving(false);
     setIsAddingEvent(false);
 
-    if (session) {
-      try {
-        await fetch('/api/calendar/events', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(created)
+    // Obojsmerná synchronizácia: vytvorenie na Google Kalendári
+    try {
+      const gRes = await createGoogleCalendarEvent(created, session);
+      if (gRes.success && gRes.googleEventId) {
+        setCalendarEvents(prev => {
+          const synced = prev.map(e => e.id === created.id ? { ...e, googleEventId: gRes.googleEventId, isGoogleSynced: true } : e);
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(synced));
+          return synced;
         });
-      } catch (err) {
-        console.error('Chyba pozadového zápisu do Google API:', err);
       }
+    } catch (err) {
+      console.error('Chyba vytvorenia udalosti na Google Kalendári:', err);
     }
   };
 
@@ -823,16 +897,17 @@ export default function Calendar({
     const startY = e.clientY;
     const startEndMin = timeToMinutes(evt.endTime);
     const pxPerMin = hourHeight / 60;
+    let latestEndTimeStr = evt.endTime;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaY = moveEvent.clientY - startY;
       const snapInterval = hourHeight >= 140 ? 5 : 15;
       const deltaMinutes = Math.round((deltaY / pxPerMin) / snapInterval) * snapInterval;
       const newEndMin = Math.max(timeToMinutes(evt.startTime) + snapInterval, startEndMin + deltaMinutes);
-      const newEndTimeStr = minutesToTimeStr(newEndMin);
+      latestEndTimeStr = minutesToTimeStr(newEndMin);
 
       setCalendarEvents(prev => {
-        const updated = prev.map(item => item.id === evt.id ? { ...item, endTime: newEndTimeStr } : item);
+        const updated = prev.map(item => item.id === evt.id ? { ...item, endTime: latestEndTimeStr } : item);
         return updated;
       });
     };
@@ -840,10 +915,30 @@ export default function Calendar({
     const handleMouseUp = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      
+      let resizedEvent: CalendarEvent | null = null;
       setCalendarEvents(prev => {
-        localStorage.setItem('say_clinic_calendar_events', JSON.stringify(prev));
-        return prev;
+        const updated = prev.map(item => {
+          if (item.id === evt.id) {
+            resizedEvent = { ...item, endTime: latestEndTimeStr };
+            return resizedEvent;
+          }
+          return item;
+        });
+        localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+        return updated;
       });
+
+      // Obojsmerná aktualizácia na Google Kalendári
+      if (resizedEvent) {
+        const targetEvt: CalendarEvent = resizedEvent;
+        const targetGId = targetEvt.googleEventId || (targetEvt.id.startsWith('gcal-') ? targetEvt.id.replace('gcal-', '') : null);
+        if (targetGId) {
+          updateGoogleCalendarEvent({ ...targetEvt, googleEventId: targetGId }, session).catch(err =>
+            console.error('Chyba update po resize:', err)
+          );
+        }
+      }
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -867,6 +962,8 @@ export default function Calendar({
     const originalStartMin = timeToMinutes(evt.startTime);
     const durationMin = timeToMinutes(evt.endTime) - timeToMinutes(evt.startTime);
     const pxPerMin = hourHeight / 60;
+    let latestStartStr = evt.startTime;
+    let latestEndStr = evt.endTime;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaY = moveEvent.clientY - startY;
@@ -882,9 +979,11 @@ export default function Calendar({
         if (newStartMin + durationMin > 21 * 60) newStartMin = 21 * 60 - durationMin; // max 21:00
         
         const newEndMin = newStartMin + durationMin;
+        latestStartStr = minutesToTimeStr(newStartMin);
+        latestEndStr = minutesToTimeStr(newEndMin);
 
         setCalendarEvents(prev => prev.map(item => 
-          item.id === evt.id ? { ...item, startTime: minutesToTimeStr(newStartMin), endTime: minutesToTimeStr(newEndMin) } : item
+          item.id === evt.id ? { ...item, startTime: latestStartStr, endTime: latestEndStr } : item
         ));
       }
     };
@@ -896,10 +995,29 @@ export default function Calendar({
       if (!dragged) {
         setSelectedEvent(evt);
       } else {
+        let movedEvent: CalendarEvent | null = null;
         setCalendarEvents(prev => {
-          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(prev));
-          return prev;
+          const updated = prev.map(item => {
+            if (item.id === evt.id) {
+              movedEvent = { ...item, startTime: latestStartStr, endTime: latestEndStr };
+              return movedEvent;
+            }
+            return item;
+          });
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+          return updated;
         });
+
+        // Obojsmerná aktualizácia na Google Kalendári
+        if (movedEvent) {
+          const targetEvt: CalendarEvent = movedEvent;
+          const targetGId = targetEvt.googleEventId || (targetEvt.id.startsWith('gcal-') ? targetEvt.id.replace('gcal-', '') : null);
+          if (targetGId) {
+            updateGoogleCalendarEvent({ ...targetEvt, googleEventId: targetGId }, session).catch(err =>
+              console.error('Chyba update po presune:', err)
+            );
+          }
+        }
       }
     };
 
@@ -1579,22 +1697,53 @@ export default function Calendar({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {session && availableCalendars.length > 0 && (
-            <select
-              value={selectedCalendarId}
-              onChange={(e) => setSelectedCalendarId(e.target.value)}
-              className="bg-[#FBF9F6] border border-[#E8E2D9] text-[#2C2A29] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider focus:outline-none"
+          {/* Synchronizačný stav a tlačidlo manuálnej synchronizácie */}
+          {isGoogleConnected ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => performTwoWaySync(false)}
+                disabled={isSyncing}
+                className="bg-[#FBF9F6] hover:bg-white border border-[#E8E2D9] text-[#2C2A29] hover:border-[#C5A059] px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title={lastSyncTime ? `Posledná synchronizácia: ${lastSyncTime}` : 'Kliknite pre okamžitú obojsmernú synchronizáciu'}
+              >
+                <span className={isSyncing ? 'animate-spin inline-block' : ''}>🔄</span>
+                <span>{isSyncing ? 'Synchronizujem...' : 'Synchronizovať'}</span>
+                {lastSyncTime && <span className="text-[#8C857B] font-mono text-[9px]">({lastSyncTime})</span>}
+              </button>
+
+              {availableCalendars.length > 0 && (
+                <select
+                  value={selectedCalendarId}
+                  onChange={(e) => setSelectedCalendarId(e.target.value)}
+                  className="bg-[#FBF9F6] border border-[#E8E2D9] text-[#2C2A29] px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider focus:outline-none"
+                >
+                  <option value="all">🗓️ Všetky kalendáre ({availableCalendars.length})</option>
+                  {availableCalendars.map(cal => (
+                    <option key={cal.id} value={cal.id}>{cal.summary}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleGoogleConnect}
+              className="bg-white hover:bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <option value="all">🗓️ Google kalendáre ({availableCalendars.length})</option>
-              {availableCalendars.map(cal => (
-                <option key={cal.id} value={cal.id}>{cal.summary}</option>
-              ))}
-            </select>
+              <span>🌐</span> Pripojiť Google Kalendár
+            </button>
+          )}
+
+          {syncStatusMsg && (
+            <span className="text-[9px] bg-emerald-50 border border-emerald-200 text-emerald-800 px-2.5 py-1 rounded-lg font-bold animate-fadeIn">
+              {syncStatusMsg}
+            </span>
           )}
 
           <button 
             onClick={handleOpenAddEventModal} 
-            className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-bold shadow-sm transition-all flex items-center gap-1.5"
+            className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <span>+</span> Nový termín / záznam
           </button>
@@ -1841,20 +1990,21 @@ export default function Calendar({
         <EventDetailModal
           event={selectedEvent}
           onClose={() => setSelectedEvent(null)}
-          onEdit={(evt) => {
+          onEdit={(evt: CalendarEvent) => {
             setEditingEventData(evt);
             setIsEditingEvent(true);
             setSelectedEvent(null);
           }}
-          onOpenPatientFolder={(evt) => {
+          onDelete={handleDeleteCalendarEvent}
+          onOpenPatientFolder={(evt: CalendarEvent) => {
             handleOpenFolderForEvent(evt);
             setSelectedEvent(null);
           }}
-          onCancelRequest={(evt) => {
+          onCancelRequest={(evt: CalendarEvent) => {
             setCancellingEvent(evt);
             setSelectedEvent(null);
           }}
-          onToggleDepositPaid={(evt) => {
+          onToggleDepositPaid={(evt: CalendarEvent) => {
             const newStatus = !evt.isDepositPaid;
             updateDepositStatus(evt.id, newStatus);
             setSelectedEvent({ ...evt, isDepositPaid: newStatus });
@@ -1892,6 +2042,7 @@ export default function Calendar({
           initialData={editingEventData}
           onClose={() => setIsEditingEvent(false)}
           onSave={handleSaveModalEditedEvent}
+          onDelete={handleDeleteCalendarEvent}
           isSaving={isSaving}
         />
       )}

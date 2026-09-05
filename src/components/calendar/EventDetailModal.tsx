@@ -16,6 +16,7 @@ interface EventDetailModalProps {
   event: CalendarEvent | null;
   onClose: () => void;
   onEdit: (event: CalendarEvent) => void;
+  onDelete?: (event: CalendarEvent) => void;
   onCancelClick?: (event: CalendarEvent) => void;
   onCancelRequest?: (event: CalendarEvent) => void;
   onToggleDepositPaid?: ((event: CalendarEvent) => void) | ((eventId: string, newStatus: boolean) => void);
@@ -49,6 +50,7 @@ export default function EventDetailModal({
   event,
   onClose,
   onEdit,
+  onDelete,
   onCancelClick,
   onCancelRequest,
   onToggleDepositPaid,
@@ -266,6 +268,16 @@ export default function EventDetailModal({
 
               {renderBadge()}
               
+              {event.googleEventId ? (
+                <span className="bg-emerald-50 text-emerald-800 border border-emerald-300 text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <span>🌐</span> Google Kalendár
+                </span>
+              ) : (
+                <span className="bg-[#FBF9F6] text-[#8C857B] border border-[#E8E2D9] text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <span>💾</span> SAY OS
+                </span>
+              )}
+
               {event.isAllDay && (
                 <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase">
                   ☀️ Celodenná
@@ -802,6 +814,21 @@ export default function EventDetailModal({
             >
               <span>✏️</span> Upraviť
             </button>
+
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Naozaj chcete natrvalo zmazať udalosť "${event.title}" zo SAY OS aj z Google Kalendára?`)) {
+                    onDelete(event);
+                  }
+                }}
+                className="bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer"
+                title="Odstrániť zo systému aj z Google Kalendára"
+              >
+                <span>🗑️</span> Zmazať
+              </button>
+            )}
 
             {!event.isCancelled && (onCancelRequest || onCancelClick) && (
               <button

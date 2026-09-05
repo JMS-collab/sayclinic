@@ -22,6 +22,7 @@ interface EventFormModalProps {
   initialData: Partial<CalendarEvent>;
   onClose: () => void;
   onSave: (eventData: Partial<CalendarEvent>) => void;
+  onDelete?: (eventData: Partial<CalendarEvent>) => void;
   isSaving?: boolean;
 }
 
@@ -32,6 +33,7 @@ export default function EventFormModal({
   initialData,
   onClose,
   onSave,
+  onDelete,
   isSaving = false
 }: EventFormModalProps) {
   const isEditMode = isEditing || mode === 'edit' || Boolean(initialData?.id);
@@ -1086,21 +1088,40 @@ export default function EventFormModal({
           </div>
 
           {/* TLAČIDLÁ V SPODNEJ ČASTI */}
-          <div className="flex justify-end gap-2 pt-3 border-t border-[#E8E2D9] shrink-0">
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="px-4 py-2 font-bold text-[11px] uppercase tracking-wider text-[#8C857B] hover:text-[#2C2A29]"
-            >
-              Zrušiť
-            </button>
-            <button 
-              type="submit" 
-              disabled={isSaving}
-              className="px-6 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold text-[11px] uppercase tracking-wider rounded-xl shadow-sm transition-colors disabled:opacity-50"
-            >
-              {isSaving ? 'Ukladám...' : (isEditMode ? 'Uložiť zmeny' : 'Vytvoriť termín')}
-            </button>
+          <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#E8E2D9] shrink-0">
+            <div>
+              {isEditMode && onDelete && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Naozaj chcete natrvalo zmazať udalosť "${formData.title || 'tento termín'}" zo SAY OS aj z Google Kalendára?`)) {
+                      onDelete(formData);
+                    }
+                  }}
+                  className="px-3.5 py-2 text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-xl font-bold text-[11px] uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Odstrániť zo systému a z Google Kalendára"
+                >
+                  <span>🗑️</span> Zmazať udalosť
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button 
+                type="button" 
+                onClick={onClose} 
+                className="px-4 py-2 font-bold text-[11px] uppercase tracking-wider text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
+              >
+                Zrušiť
+              </button>
+              <button 
+                type="submit" 
+                disabled={isSaving}
+                className="px-6 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold text-[11px] uppercase tracking-wider rounded-xl shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isSaving ? 'Ukladám...' : (isEditMode ? 'Uložiť zmeny' : 'Vytvoriť termín')}
+              </button>
+            </div>
           </div>
 
         </form>
