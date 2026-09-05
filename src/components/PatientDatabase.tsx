@@ -10,6 +10,7 @@ import SchedulePatientEventModal from './patient/SchedulePatientEventModal';
 import { PatientPlan, PRESET_PATIENT_PLANS, ScheduledTreatment } from '../data/patientPlanConfig';
 import PatientPlanViewer from './patient/PatientPlanViewer';
 import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
+import AIHealthRoadmapView from './patient/AIHealthRoadmapView';
 
 const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
   P1: [
@@ -105,7 +106,7 @@ export default function PatientDatabase({
   const { data: session } = useSession();
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || null);
-  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy' | 'terminy' | 'plany'>('dokumenty');
+  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy' | 'terminy' | 'plany' | 'roadmap'>('dokumenty');
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
 
@@ -255,6 +256,10 @@ export default function PatientDatabase({
     'P1': [
       { id: 'rec-1', type: 'Operačný protokol', typeColor: 'bg-[#2C2A29]', title: 'Augmentácia prsníkov', doctor: 'MUDr. Ján Mráz', diagnosis: 'Z41.1', date: '2026-08-12', content: 'Zákrok prebehol bez komplikácií v celkovej anestézii.\n\nBoli použité silikónové implantáty Motiva 320ml, vložené pod sval. Rany zašité vstrebateľným stehom.\n\nPacientka stabilizovaná, poučená o pooperačnom režime a nutnosti nosiť kompresné prádlo Lipoelastic PI ideal na 6 týždňov.' },
       { id: 'rec-2', type: 'Vstupné vyšetrenie', typeColor: 'bg-[#C5A059]', title: 'Konzultácia - Augmentácia', doctor: 'MUDr. Ján Mráz', diagnosis: 'Z41.1', date: '2026-07-25', content: 'Vstupné vyšetrenie k plánovanej augmentácii prsníkov.\nAnamnéza: negatívna, bez alergií.\n\nObjektívny nález: Prsníky asymetrické, mierna ptóza, koža elastická.\n\nNavrhnutý postup: Augmentácia silikónovými implantátmi, prístup z podprsníkovej ryhy. Pacientka súhlasí s navrhnutým postupom a bola oboznámená s rizikami.' }
+    ],
+    'P2': [
+      { id: 'rec-p2-1', type: 'Operačný protokol', typeColor: 'bg-[#2C2A29]', title: 'Blefaroplastika horných viečok', doctor: 'MUDr. Ján Mráz', diagnosis: 'H02.8', date: '2026-05-18', content: 'Korekcia dermatochalázy horných viečok v lokálnej anestézii.\n\nExcízia prebytočnej kože 8mm obojstranne, parciálna resekcia mediálneho tukového vankúšika. Hemoctáza bipolárnou koaguláciou. Intrakutánna sutura Prolene 6-0.\n\nStehy odstránené na 6. deň, hojenie per primam bez komplikácií. Odporúčaná lokálna silikónová starostlivosť a striktná UV fotoprotekcia.' },
+      { id: 'rec-p2-2', type: 'Vstupné vyšetrenie', typeColor: 'bg-[#C5A059]', title: 'Konzultácia - Solárne lézie & Textúra pleti', doctor: 'MUDr. Ján Mráz', diagnosis: 'L57.0', date: '2026-04-10', content: 'Vstupné dermatologické vyšetrenie.\nAnamnéza: častý pobyt na slnku bez SPF ochrany v minulosti.\n\nObjektívny nález: Solárne lentigá v oblasti líc a nosa, zhrubnutá stratum corneum, hlbšie frontálne vrásky.\n\nNavrhnutý plán: Príprava pleti v jarnom období (antioxidanty, SPF 50+), v jesennom/zimnom období aplikácia vaskulárneho/pigmentového lasera a frakčného resurfacingu.' }
     ]
   });
 
@@ -964,11 +969,21 @@ export default function PatientDatabase({
                     <span>📅</span> + Naplánovať termín / kontrolu
                   </button>
                   <button
+                    onClick={() => {
+                      setActiveFolder('roadmap');
+                      setActivePhotoCategory(null);
+                    }}
+                    className="text-xs bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] hover:from-[#C5A059] hover:to-[#B38F46] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border border-[#C5A059]/40"
+                    title="12-mesačný personalizovaný plán liečby a ošetrení vygenerovaný modelom Gemini"
+                  >
+                    <span>✨</span> AI Plán Liečby
+                  </button>
+                  <button
                     onClick={() => setIsCreatingPlan(true)}
                     className="text-xs bg-[#C5A059] hover:bg-[#b38d45] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
                     title="Vytvoriť ročný estetický alebo pred/pooperačný plán starostlivosti"
                   >
-                    <span>✨</span> + Plán pacienta
+                    <span>📋</span> + Plán starostlivosti
                   </button>
                   {onNavigateToAesthetics && (
                     <button
@@ -1007,6 +1022,13 @@ export default function PatientDatabase({
               return (
                 <div className="flex flex-wrap gap-2 border-b border-[#E8E2D9]">
                   <button onClick={() => { setActiveFolder('dokumenty'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'dokumenty' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📄 Dokumenty & Záznamy</button>
+                  <button onClick={() => { setActiveFolder('roadmap'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'roadmap' ? 'bg-[#2C2A29] text-white shadow-xs' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
+                    <span className="text-[#C5A059]">✨</span>
+                    <span>AI Plán Liečby</span>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'roadmap' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
+                      12M
+                    </span>
+                  </button>
                   <button onClick={() => { setActiveFolder('plany'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'plany' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
                     <span>📋 Plán pacienta & Starostlivosť</span>
                     {currentPatientPlans.length > 0 && (
@@ -1533,6 +1555,119 @@ export default function PatientDatabase({
                     );
                   })()}
                 </div>
+              )}
+
+              {/* ZÁLOŽKA AI HEALTH ROADMAP (12-MESAČNÝ LIEČEBNÝ A SKINCARE PLÁN) */}
+              {activeFolder === 'roadmap' && (
+                <AIHealthRoadmapView
+                  patient={selectedPatient}
+                  proceduresHistory={patientRecords[selectedPatient.id] || []}
+                  aestheticsHistory={(() => {
+                    try {
+                      const saved = localStorage.getItem('say_clinic_aesthetic_sessions');
+                      if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed[selectedPatient.id] && parsed[selectedPatient.id].length > 0) {
+                          return parsed[selectedPatient.id];
+                        }
+                      }
+                    } catch (e) {
+                      console.error(e);
+                    }
+                    if (selectedPatient.id === 'P1') {
+                      return [
+                        {
+                          id: 'aes-p1-1',
+                          patientId: 'P1',
+                          date: '2026-06-15',
+                          formattedDate: '15.06.2026',
+                          title: 'Tvár – Aplikácia Dysport & Restylane Kysse',
+                          doctor: 'MUDr. Ján Mráz',
+                          protocolNumber: 'AES-2026-441',
+                          notes: 'Aplikácia botulotoxínu do glabely a frontalis s cieľom eliminácie dynamických vrások. Decentná hydratácia pier prípravkom Restylane Kysse. Aplikácia bez komplikácií.',
+                          vectors: [
+                            {
+                              id: 'vec-1',
+                              type: 'point',
+                              view: 'front',
+                              color: '#3B82F6',
+                              startPoint: { x: 250, y: 210 },
+                              zoneName: 'Čelo (m. frontalis)',
+                              productName: 'Dysport 300IU (Botulotoxín A)',
+                              lotNumber: 'DYSP-4412B',
+                              details: '20 Speywood U (intramuskulárne)',
+                              createdAt: '11:15'
+                            },
+                            {
+                              id: 'vec-2',
+                              type: 'point',
+                              view: 'front',
+                              color: '#3B82F6',
+                              startPoint: { x: 250, y: 245 },
+                              zoneName: 'Glabela (m. procerus + corrugator)',
+                              productName: 'Dysport 300IU (Botulotoxín A)',
+                              lotNumber: 'DYSP-4412B',
+                              details: '30 Speywood U (intramuskulárne)',
+                              createdAt: '11:20'
+                            },
+                            {
+                              id: 'vec-3',
+                              type: 'fanning',
+                              view: 'front',
+                              color: '#EC4899',
+                              startPoint: { x: 250, y: 395 },
+                              zoneName: 'Pery (vermilion border + stred)',
+                              productName: 'Restylane Kysse 1ml s Lidokaínom',
+                              lotNumber: 'RST-KYS-993A',
+                              details: '0.8 ml (retrográdne kanylou 25G)',
+                              createdAt: '11:35'
+                            }
+                          ],
+                          bodyTreatments: []
+                        }
+                      ];
+                    }
+                    if (selectedPatient.id === 'P2') {
+                      return [
+                        {
+                          id: 'aes-p2-1',
+                          patientId: 'P2',
+                          date: '2026-05-20',
+                          formattedDate: '20.05.2026',
+                          title: 'Tvár – Brotox & Mezoterapia vitamínmi',
+                          doctor: 'MUDr. Ján Mráz',
+                          protocolNumber: 'AES-2026-382',
+                          notes: 'Aplikácia botulotoxínu pre muža do glabely a periokulárnej oblasti. Zohľadnená väčšia svalová hmota. Doplnená mezoterapia s kyselinou hyalurónovou na revitalizáciu kože.',
+                          vectors: [
+                            {
+                              id: 'vec-p2-1',
+                              type: 'point',
+                              view: 'front',
+                              color: '#3B82F6',
+                              startPoint: { x: 250, y: 240 },
+                              zoneName: 'Glabela (m. corrugator supercilii)',
+                              productName: 'Dysport 300IU',
+                              lotNumber: 'DYSP-4412B',
+                              details: '40 Speywood U',
+                              createdAt: '14:20'
+                            }
+                          ],
+                          bodyTreatments: []
+                        }
+                      ];
+                    }
+                    return [];
+                  })()}
+                  onScheduleEvent={(evtData) => {
+                    setSchedulingInitialDetails({
+                      title: evtData.title,
+                      eventType: evtData.type === 'surgical_followup' ? 'kontrola' : 'osetrenie',
+                      notes: evtData.notes
+                    });
+                    setIsSchedulingEvent(true);
+                  }}
+                  onNavigateToCalendar={onNavigateToCalendar}
+                />
               )}
             </div>
           </div>
