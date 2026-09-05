@@ -4,11 +4,14 @@ import { authOptions } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
+    const authHeader = req.headers.get('Authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
     const session: any = await getServerSession(authOptions);
+    const accessToken = bearerToken || session?.accessToken;
 
-    if (!session || !session.accessToken) {
+    if (!accessToken) {
       return NextResponse.json(
-        { error: 'Neautorizovaný prístup k Google Drive.' },
+        { error: 'Neautorizovaný prístup k Google Drive. Prihláste sa cez Google účet.' },
         { status: 401 }
       );
     }
@@ -23,7 +26,7 @@ export async function POST(req: Request) {
     }
 
     const headers = {
-      Authorization: `Bearer ${session.accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     };
 

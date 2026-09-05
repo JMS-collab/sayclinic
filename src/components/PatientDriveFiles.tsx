@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { getAccessToken, googleSignIn, subscribeWorkspaceAuth } from '@/lib/workspaceAuth';
+import { User } from 'firebase/auth';
 
 interface DriveFile {
   id: string;
@@ -18,6 +20,9 @@ interface PatientDriveFilesProps {
 
 export default function PatientDriveFiles({ patientName }: PatientDriveFilesProps) {
   const { data: session } = useSession();
+  const [googleUser, setGoogleUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [driveData, setDriveData] = useState<{
     found: boolean;
@@ -27,22 +32,74 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
   } | null>(null);
 
   useEffect(() => {
-    if (!session || !patientName) return;
+    const unsub = subscribeWorkspaceAuth((user, token) => {
+      setGoogleUser(user);
+      setAccessToken(token);
+    });
+    return () => unsub();
+  }, []);
+
+  const effectiveToken = accessToken || (session as any)?.accessToken || null;
+  const isConnected = Boolean(effectiveToken || googleUser || session);
+
+  const fetchDriveFiles = useCallback(async () => {
+    if (!isConnected || !patientName) return;
 
     setLoading(true);
-    fetch(`/api/drive?patientName=${encodeURIComponent(patientName)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setDriveData(data);
-      })
-      .catch((err) => console.error('Chyba pri načítavaní zložky z Google Drive:', err))
-      .finally(() => setLoading(false));
-  }, [session, patientName]);
+    try {
+      const headers: Record<string, string> = {};
+      const token = (await getAccessToken()) || effectiveToken;
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
-  if (!session) {
+      const res = await fetch(`/api/drive?patientName=${encodeURIComponent(patientName)}`, { headers });
+      const data = await res.json();
+      setDriveData(data);
+    } catch (err) {
+      console.error('Chyba pri načítavaní zložky z Google Drive:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [isConnected, patientName, effectiveToken]);
+
+  useEffect(() => {
+    fetchDriveFiles();
+  }, [fetchDriveFiles]);
+
+  const handleSignIn = async () => {
+    setIsSigningIn(true);
+    try {
+      await googleSignIn();
+    } catch (err) {
+      console.error('Prihlásenie zlyhalo:', err);
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  if (!isConnected) {
     return (
-      <div className="bg-[#FBF9F6] border border-[#E8E2D9] p-4 rounded-xl text-center text-xs text-[#8C857B]">
-        🔒 Pre prístup ku kartotéke na Google Disku sa musíte prihlásiť cez Google účet.
+      <div className="bg-[#FAF8F5] border border-[#E8E2D9] p-5 rounded-2xl text-center space-y-3">
+        <p className="text-xs text-[#8C857B]">
+          🔒 Pre prístup ku kartotéke a zložke pacienta na Google Disku pripojte svoj Google účet.
+        </p>
+        <button
+          type="button"
+          onClick={handleSignIn}
+          disabled={isSigningIn}
+          className="gsi-material-button inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+        >
+          <div className="w-3.5 h-3.5 flex-shrink-0 bg-white p-0.5 rounded-full">
+            <svg viewBox="0 0 48 48" className="w-full h-full">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+            </svg>
+          </div>
+          <span>{isSigningIn ? 'Pripájam...' : 'Pripojiť Google Drive'}</span>
+        </button>
       </div>
     );
   }

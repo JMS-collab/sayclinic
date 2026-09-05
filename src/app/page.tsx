@@ -14,6 +14,7 @@ import { AestheticsModule } from '../components/AestheticsModule';
 import { CosmeticsPOSModule } from '../components/CosmeticsPOSModule';
 import ProjectManagement from '../components/ProjectManagement';
 import OperativeNotesWidget from '../components/OperativeNotesWidget';
+import GoogleDriveManager from '../components/GoogleDriveManager';
 import { AuthService } from '../services/authService';
 
 export interface SaleItem {
@@ -29,7 +30,7 @@ const INITIAL_SALES: SaleItem[] = [
   { id: 'S1', date: '2026-08-14', patientName: 'Ján Novák', doctorName: 'MUDr. Ján Mráz', serviceType: 'Augmentácia prsníkov', amount: 4100 },
 ];
 
-type TabType = 'home' | 'generator' | 'patients' | 'aesthetics' | 'cosmetics' | 'calendar' | 'inventory' | 'finance' | 'projects';
+type TabType = 'home' | 'generator' | 'patients' | 'drive' | 'aesthetics' | 'cosmetics' | 'calendar' | 'inventory' | 'finance' | 'projects';
 
 function buildProjectFromNote(noteText: string, currentUser: UserAccount) {
   const isCeoUser = currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';
@@ -127,7 +128,7 @@ export default function Home() {
   useEffect(() => {
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '') as TabType;
-      if (['home', 'generator', 'patients', 'aesthetics', 'cosmetics', 'finance', 'calendar', 'inventory', 'projects'].includes(hash)) {
+      if (['home', 'generator', 'patients', 'drive', 'aesthetics', 'cosmetics', 'finance', 'calendar', 'inventory', 'projects'].includes(hash)) {
         setActiveTab(hash);
       } else {
         setActiveTab('home');
@@ -338,6 +339,14 @@ export default function Home() {
               }`}
             >
               🗂️ Kartotéka Pacientov
+            </button>
+            <button
+              onClick={() => changeTab('drive')}
+              className={`px-3 py-2 transition-all ${
+                activeTab === 'drive' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+              }`}
+            >
+              📁 Google Drive
             </button>
             <button
               onClick={() => changeTab('aesthetics')}
@@ -727,6 +736,13 @@ export default function Home() {
                           <span className="text-[#C5A059]">+</span>
                         </button>
                         <button 
+                          onClick={() => changeTab('drive')}
+                          className="w-full bg-[#FAF8F5] border border-[#C5A059]/40 hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                        >
+                          <span>📁 Prehliadač Google Disku (Klienti SAY)</span>
+                          <span className="text-[#C5A059] font-bold">➔</span>
+                        </button>
+                        <button 
                           onClick={() => changeTab('calendar')}
                           className="w-full bg-[#2C2A29] text-white hover:bg-[#C5A059] p-3 rounded-xl text-left font-bold transition-all flex items-center justify-between"
                         >
@@ -778,6 +794,11 @@ export default function Home() {
                 onAddCalendarEvent={handleAddCalendarEvent}
                 onNavigateToCalendar={() => changeTab('calendar')}
               />
+            )}
+
+            {/* GOOGLE DRIVE MANAŽÉR & PREHLIADAČ */}
+            {activeTab === 'drive' && (
+              <GoogleDriveManager />
             )}
 
             {/* ESTETICKÁ MEDICÍNA & FACE MAPPING */}

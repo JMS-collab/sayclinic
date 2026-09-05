@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
-export async function POST() {
+export async function POST(req: Request) {
+  const authHeader = req.headers.get('Authorization');
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
   const session: any = await getServerSession(authOptions);
+  const accessToken = bearerToken || session?.accessToken;
 
-  if (!session || !session.accessToken) {
+  if (!accessToken) {
     return NextResponse.json({ error: 'Nie ste prihlásený do Google účtu.' }, { status: 401 });
   }
 
@@ -15,7 +18,7 @@ export async function POST() {
     const rootUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(rootQuery)}&pageSize=10&supportsAllDrives=true&includeItemsFromAllDrives=true`;
 
     const rootRes = await fetch(rootUrl, {
-      headers: { Authorization: `Bearer ${session.accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     const rootData = await rootRes.json();
     const folders = rootData.files || [];
@@ -29,7 +32,7 @@ export async function POST() {
 
     if (!targetRootFolder) {
       return NextResponse.json({
-        error: 'Zložka "Klienti SAY" nebola na Google Disku nájdená. Skontrolujte, či je nasdieľaná pre účet mraz@sayclinic.sk.'
+        error: 'Zložka "Klienti SAY" nebola na Google Disku nájdená. Skontrolujte, či je nasdieľaná pre váš Google účet.'
       }, { status: 404 });
     }
 
@@ -43,7 +46,7 @@ export async function POST() {
       if (pageToken) pageUrl += `&pageToken=${pageToken}`;
 
       const foldersRes = await fetch(pageUrl, { 
-        headers: { Authorization: `Bearer ${session.accessToken}` } 
+        headers: { Authorization: `Bearer ${accessToken}` } 
       });
       const foldersData = await foldersRes.json();
       

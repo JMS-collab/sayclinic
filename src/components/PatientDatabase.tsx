@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { googleSignIn, subscribeWorkspaceAuth } from '@/lib/workspaceAuth';
 import PatientDriveFiles from './PatientDriveFiles';
 import { InventoryService, MaterialUsageLog, InventoryItem } from '../services/inventoryService';
 import { CalendarEvent, getPostOpTimeDiff } from '../data/calendarConfig';
@@ -111,6 +112,15 @@ export default function PatientDatabase({
   // STAV PRE PLÁNY PACIENTA (ROČNÝ ESTETICKÝ & PRED/POOPERAČNÝ PLÁN)
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [workspaceToken, setWorkspaceToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = subscribeWorkspaceAuth((user, token) => {
+      setWorkspaceToken(token);
+    });
+    return () => unsub();
+  }, []);
+
   const [allPatientPlans, setAllPatientPlans] = useState<Record<string, PatientPlan[]>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('say_clinic_patient_plans');
@@ -358,9 +368,13 @@ export default function PatientDatabase({
   // 2. AUTOMATICKÝ IMPORT NA POZADÍ pri prihlásení do Google účtu
   useEffect(() => {
     const userSession = session as any;
-    if (userSession && userSession.accessToken) {
+    const effectiveToken = workspaceToken || userSession?.accessToken;
+    if (effectiveToken) {
       setIsImporting(true);
-      fetch('/api/drive/import', { method: 'POST' })
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${effectiveToken}`,
+      };
+      fetch('/api/drive/import', { method: 'POST', headers })
         .then(res => res.json())
         .then(data => {
           if (data.success && data.patients) {
@@ -389,7 +403,7 @@ export default function PatientDatabase({
         .catch(err => console.error('Automatický import z Google Drive zlyhal:', err))
         .finally(() => setIsImporting(false));
     }
-  }, [session]);
+  }, [session, workspaceToken]);
 
   const filteredPatients = patients.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -410,13 +424,17 @@ export default function PatientDatabase({
 
     let driveLink = '';
     const userSession = session as any;
+    const effectiveToken = workspaceToken || userSession?.accessToken;
 
-    if (userSession && userSession.accessToken) {
+    if (effectiveToken) {
       setIsCreatingDriveFolder(true);
       try {
         const res = await fetch('/api/drive/create-patient', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${effectiveToken}`,
+          },
           body: JSON.stringify({ patientName: newPatientData.name }),
         });
         const data = await res.json();
@@ -473,7 +491,20 @@ export default function PatientDatabase({
   };
 
   const handleRunDriveImport = async () => {
-    if (!session) {
+    let token = workspaceToken || (session as any)?.accessToken;
+    if (!token) {
+      try {
+        const res = await googleSignIn();
+        if (res?.accessToken) {
+          token = res.accessToken;
+        }
+      } catch {
+        alert('Pre import z Google Disku musíte byť prihlásený cez Google účet.');
+        return;
+      }
+    }
+
+    if (!token) {
       alert('Pre import z Google Disku musíte byť prihlásený cez Google účet.');
       return;
     }
@@ -481,7 +512,12 @@ export default function PatientDatabase({
     setIsImporting(true);
 
     try {
-      const res = await fetch('/api/drive/import', { method: 'POST' });
+      const res = await fetch('/api/drive/import', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
 
       if (res.ok && data.success && data.patients) {
