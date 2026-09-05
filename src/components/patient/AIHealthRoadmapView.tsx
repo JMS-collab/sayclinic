@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   AIHealthRoadmap, 
   RoadmapIntervention, 
@@ -11,6 +11,7 @@ import {
 import { 
   Sparkles, 
   Printer, 
+  Download,
   CalendarPlus, 
   CheckCircle2, 
   AlertCircle, 
@@ -24,9 +25,13 @@ import {
   CloudSun, 
   Check, 
   Calendar as CalendarIcon,
-  FileText
+  FileText,
+  Eye,
+  X
 } from 'lucide-react';
 import { CalendarEvent } from '@/data/calendarConfig';
+import { generatePdfFilename, exportElementToPdf } from '@/lib/pdfGenerator';
+import { AIHealthRoadmapPdfDocument } from './AIHealthRoadmapPdfDocument';
 
 interface AIHealthRoadmapViewProps {
   patient: {
@@ -79,6 +84,10 @@ export default function AIHealthRoadmapView({
   const [selectedSeason, setSelectedSeason] = useState<'all' | 'jar' | 'leto' | 'jesen' | 'zima'>('all');
   const [activeTab, setActiveTab] = useState<'timeline' | 'skincare' | 'analysis'>('timeline');
   const [showConfigModal, setShowConfigModal] = useState<boolean>(false);
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+  const [pdfSuccessMessage, setPdfSuccessMessage] = useState<string | null>(null);
+  const [showPdfPreviewModal, setShowPdfPreviewModal] = useState<boolean>(false);
+  const pdfDocumentRef = useRef<HTMLDivElement>(null);
 
   // Form state for fine-tuning
   const [skinType, setSkinType] = useState<string>('zmiešaná');
@@ -242,6 +251,33 @@ export default function AIHealthRoadmapView({
     window.print();
   };
 
+  const handleExportToPdf = async () => {
+    if (!roadmap) return;
+    if (!pdfDocumentRef.current) {
+      setErrorMsg('Tlačová šablóna nie je pripravená na export do PDF.');
+      return;
+    }
+
+    setIsExportingPdf(true);
+    setPdfSuccessMessage(null);
+    setErrorMsg(null);
+
+    try {
+      const todayIso = new Date().toISOString().split('T')[0];
+      const filename = generatePdfFilename('Plan_Liecby_12M', patient.name, todayIso);
+      await exportElementToPdf(pdfDocumentRef.current, filename, 'a4');
+      setPdfSuccessMessage(`Plán liečby bol úspešne vygenerovaný a stiahnutý (${filename}).`);
+      setTimeout(() => {
+        setPdfSuccessMessage(null);
+      }, 6000);
+    } catch (err: any) {
+      console.error('Chyba pri exporte do PDF:', err);
+      setErrorMsg('Nastala chyba pri generovaní PDF dokumentu. Skúste to prosím znova alebo použite systémovú tlač do PDF.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   // Sezónna ikona
   const getSeasonBadge = (season: 'jar' | 'leto' | 'jesen' | 'zima') => {
     switch (season) {
@@ -285,7 +321,7 @@ export default function AIHealthRoadmapView({
           <div className="flex flex-wrap items-center gap-2 print:hidden">
             <button
               onClick={() => setShowConfigModal(true)}
-              className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20"
+              className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer"
               title="Nastaviť parametre pleti, fototyp a primárne ciele"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-[#C5A059]" />
@@ -293,20 +329,50 @@ export default function AIHealthRoadmapView({
             </button>
 
             {roadmap && (
-              <button
-                onClick={handlePrint}
-                className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20"
-                title="Vytlačiť plán pre pacienta"
-              >
-                <Printer className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Tlačiť / PDF</span>
-              </button>
+              <>
+                <button
+                  onClick={handleExportToPdf}
+                  disabled={isExportingPdf}
+                  className="px-3.5 py-2 bg-[#C5A059] hover:bg-[#B38F46] text-[#2C2A29] font-black hover:text-white rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-md border border-[#E8E2D9]/30 disabled:opacity-50 cursor-pointer"
+                  title="Stiahnuť čistú, profesionálnu verziu 12-mesačného plánu v PDF formáte"
+                >
+                  {isExportingPdf ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Generujem PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5 text-[#2C2A29]" />
+                      <span>Exportovať do PDF</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setShowPdfPreviewModal(true)}
+                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer"
+                  title="Otvoriť náhľad dokumentu vhodného na tlač alebo zaslanie pacientovi"
+                >
+                  <Eye className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Náhľad PDF</span>
+                </button>
+
+                <button
+                  onClick={handlePrint}
+                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer"
+                  title="Vytlačiť plán pre pacienta"
+                >
+                  <Printer className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Tlačiť</span>
+                </button>
+              </>
             )}
 
             <button
               onClick={handleGenerateRoadmap}
               disabled={isLoading}
-              className="px-4 py-2 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="px-4 py-2 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold transition-all border border-white/20 shadow-xs flex items-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -315,7 +381,7 @@ export default function AIHealthRoadmapView({
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" />
+                  <Sparkles className="w-4 h-4 text-[#C5A059]" />
                   <span>{roadmap ? 'Preanalyzovať s Gemini' : 'Vygenerovať AI Plán Liečby'}</span>
                 </>
               )}
@@ -351,6 +417,22 @@ export default function AIHealthRoadmapView({
           </div>
         )}
       </div>
+
+      {/* SPRÁVY A OZNÁMENIA */}
+      {pdfSuccessMessage && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{pdfSuccessMessage}</span>
+          </div>
+          <button
+            onClick={() => setPdfSuccessMessage(null)}
+            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold px-2 py-0.5 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {errorMsg && (
         <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
@@ -437,25 +519,41 @@ export default function AIHealthRoadmapView({
               </button>
             </div>
 
-            {/* SEZÓNNY FILTER */}
-            {activeTab === 'timeline' && (
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-[10px] uppercase font-bold text-[#8C857B] mr-1">Sezóna:</span>
-                {(['all', 'jar', 'leto', 'jesen', 'zima'] as const).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setSelectedSeason(s)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                      selectedSeason === s
-                        ? 'bg-[#C5A059] text-white font-bold'
-                        : 'bg-white border border-[#E8E2D9] text-[#6B6357] hover:border-[#C5A059]'
-                    }`}
-                  >
-                    {s === 'all' ? 'Všetky' : s === 'jar' ? '🌸 Jar' : s === 'leto' ? '☀️ Leto' : s === 'jesen' ? '🍂 Jeseň' : '❄️ Zima'}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* SEZÓNNY FILTER */}
+              {activeTab === 'timeline' && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-[10px] uppercase font-bold text-[#8C857B] mr-1">Sezóna:</span>
+                  {(['all', 'jar', 'leto', 'jesen', 'zima'] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setSelectedSeason(s)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                        selectedSeason === s
+                          ? 'bg-[#C5A059] text-white font-bold'
+                          : 'bg-white border border-[#E8E2D9] text-[#6B6357] hover:border-[#C5A059]'
+                      }`}
+                    >
+                      {s === 'all' ? 'Všetky' : s === 'jar' ? '🌸 Jar' : s === 'leto' ? '☀️ Leto' : s === 'jesen' ? '🍂 Jeseň' : '❄️ Zima'}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={handleExportToPdf}
+                disabled={isExportingPdf}
+                className="px-3 py-1 bg-[#FAF4E9] hover:bg-[#F2E8D5] text-[#8A6827] hover:text-[#684C18] border border-[#E6D4B2] rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Stiahnuť oficiálny PDF plán liečby a ošetrení"
+              >
+                {isExportingPdf ? (
+                  <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-[#C5A059]" />
+                )}
+                <span>Exportovať do PDF</span>
+              </button>
+            </div>
           </div>
 
           {/* KATEGÓRIE FILTRA INTERVENCIÍ */}
@@ -1043,6 +1141,114 @@ export default function AIHealthRoadmapView({
               >
                 {isLoading ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                 <span>Uložiť & Spustiť AI generovanie</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. SKRYTÝ DOKUMENT PRE HTMl2CANVAS PDF EXPORT A PRE SYSTÉMOVÚ TLAČ */}
+      {roadmap && (
+        <div
+          style={{
+            position: 'fixed',
+            left: '-9999px',
+            top: 0,
+            zIndex: -999,
+            pointerEvents: 'none'
+          }}
+          className="print:static print:left-0 print:top-0 print:block"
+          aria-hidden="true"
+        >
+          <AIHealthRoadmapPdfDocument
+            ref={pdfDocumentRef}
+            roadmap={roadmap}
+            patient={patient}
+          />
+        </div>
+      )}
+
+      {/* 5. NÁHĽAD DOKUMENTU PRED EXPORTOM / TLAČOU (A4 PREVIEW MODAL) */}
+      {showPdfPreviewModal && roadmap && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-xs print:hidden animate-in fade-in">
+          <div className="bg-[#2C2A29] text-white rounded-2xl max-w-5xl w-full max-h-[95vh] flex flex-col shadow-2xl border border-[#C5A059]/40 overflow-hidden">
+            {/* Hlavička modálu */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#242221]">
+              <div className="flex items-center gap-2.5">
+                <FileText className="w-5 h-5 text-[#C5A059]" />
+                <div>
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <span>Náhľad dokumentu: 12-Mesačný Plán Liečby & Starostlivosti</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#C5A059] text-[#2C2A29]">
+                      A4 Tlačový formát
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-white/60">
+                    Čistá, vysoko profesionálna verzia určená na tlač a priame odovzdanie pacientovi
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportToPdf}
+                  disabled={isExportingPdf}
+                  className="px-3.5 py-1.5 bg-[#C5A059] hover:bg-[#B38F46] text-[#2C2A29] font-black hover:text-white rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Stiahnuť PDF súbor do počítača"
+                >
+                  {isExportingPdf ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Sťahujem PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5 text-[#2C2A29]" />
+                      <span>Stiahnuť PDF</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer"
+                  title="Vytlačiť cez tlačiareň"
+                >
+                  <Printer className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Tlačiť</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPdfPreviewModal(false)}
+                  className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer ml-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Telo modálu - zobrazenie A4 dokumentu */}
+            <div className="p-6 overflow-y-auto bg-[#403D39] flex justify-center">
+              <div className="shadow-2xl rounded-sm overflow-hidden bg-white max-w-[794px] w-full border border-[#D4C7B5]">
+                <AIHealthRoadmapPdfDocument
+                  roadmap={roadmap}
+                  patient={patient}
+                />
+              </div>
+            </div>
+
+            {/* Pätička modálu */}
+            <div className="p-3 border-t border-white/10 bg-[#242221] flex justify-between items-center text-xs text-white/60">
+              <span>Protokol SAY CLINIC • MUDr. Ján Mráz</span>
+              <button
+                type="button"
+                onClick={() => setShowPdfPreviewModal(false)}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-white/80 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                Zavrieť náhľad
               </button>
             </div>
           </div>
