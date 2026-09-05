@@ -1115,7 +1115,11 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     try {
       const todayIso = new Date().toISOString().split('T')[0];
       const filename = generatePdfFilename(DOC_TITLES[docType], patientName, todayIso);
-      await exportElementToPdf(printRef.current, filename);
+      await exportElementToPdf(printRef.current, filename, {
+        format: 'a4',
+        headerTitle: DOC_TITLES[docType],
+        patientName: patientName || 'Pacient',
+      });
     } catch (err) {
       console.error('Chyba pri generovaní PDF:', err);
       alert('Nastala chyba pri generovaní PDF dokumentu.');
@@ -3352,7 +3356,10 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
         <div className="lg:col-span-6 bg-[#FBF9F6] p-8 rounded-2xl border border-[#E8E2D9] shadow-sm flex flex-col print:p-0 print:border-none print:shadow-none print:bg-white print:block">
           
           <div className="flex justify-between items-center mb-4 print:hidden gap-3">
-             <h3 className="text-[10px] font-bold text-[#8C857B] uppercase tracking-widest">Náhľad dokumentu</h3>
+             <div className="flex items-center gap-2">
+               <h3 className="text-[10px] font-bold text-[#8C857B] uppercase tracking-widest">Náhľad dokumentu</h3>
+               <span className="text-[9px] bg-[#E8E2D9]/70 text-[#2C2A29] px-2 py-0.5 rounded font-mono font-medium">Formát A4 (210×297 mm)</span>
+             </div>
              <div className="flex items-center gap-2">
                <button 
                  type="button"
@@ -3362,11 +3369,11 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                >
                  {generatingPdf ? (
                    <>
-                     <span className="inline-block animate-spin">⏳</span> Generujem...
+                     <span className="inline-block animate-spin">⏳</span> Generujem A4 PDF...
                    </>
                  ) : (
                    <>
-                     <span>📄</span> Stiahnuť PDF
+                     <span>📄</span> Stiahnuť A4 PDF
                    </>
                  )}
                </button>
@@ -3381,7 +3388,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
           </div>
 
           {/* TLAČOVÝ A4 DOKUMENT */}
-          <div id="printable-a4" ref={printRef} className="bg-white border border-[#E8E2D9] p-10 shadow-sm text-xs leading-relaxed w-full max-w-[595px] mx-auto print:border-none print:shadow-none print:p-0 print:max-w-none print:w-full" style={{ minHeight: '842px' }}>
+          <div id="printable-a4" ref={printRef} className="bg-white border border-[#E8E2D9] p-10 shadow-sm text-xs leading-relaxed w-full max-w-[794px] mx-auto print:border-none print:shadow-none print:p-0 print:max-w-none print:w-full" style={{ minHeight: '1123px' }}>
             
             {/* --- Hlavička všeobecná s logom SAY BY MRAZ (Skrytá pri Dohode o cene a Informovanom súhlase s operáciou) --- */}
             {docType !== 'dohoda_o_cene' && docType !== 'suhlas_operacia' && (

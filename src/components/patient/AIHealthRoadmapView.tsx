@@ -265,7 +265,11 @@ export default function AIHealthRoadmapView({
     try {
       const todayIso = new Date().toISOString().split('T')[0];
       const filename = generatePdfFilename('Plan_Liecby_12M', patient.name, todayIso);
-      await exportElementToPdf(pdfDocumentRef.current, filename, 'a4');
+      await exportElementToPdf(pdfDocumentRef.current, filename, {
+        format: 'a4',
+        headerTitle: '12-Mesačný Plán Liečby & Starostlivosti',
+        patientName: patient.name,
+      });
       setPdfSuccessMessage(`Plán liečby bol úspešne vygenerovaný a stiahnutý (${filename}).`);
       setTimeout(() => {
         setPdfSuccessMessage(null);
