@@ -12,20 +12,24 @@ import {
   HeartHandshake, 
   AlertCircle, 
   CalendarPlus, 
-  Stethoscope
+  Stethoscope,
+  ShoppingBag
 } from 'lucide-react';
+import { CosmeticRoutineItem } from '@/data/patientPlanConfig';
 
 interface PatientPlanViewerProps {
   plan: PatientPlan;
   onUpdatePlan: (updated: PatientPlan) => void;
   onScheduleTreatment?: (treatment: ScheduledTreatment) => void;
+  onOpenInCosmeticsPOS?: (items: CosmeticRoutineItem[], patientId: string) => void;
   onClose?: () => void;
 }
 
 export default function PatientPlanViewer({
   plan,
   onUpdatePlan,
-  onScheduleTreatment
+  onScheduleTreatment,
+  onOpenInCosmeticsPOS
 }: PatientPlanViewerProps) {
   const [activeSection, setActiveSection] = useState<'all' | 'cosmetics' | 'schedule' | 'pre_op' | 'post_op'>('all');
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>(() => {
@@ -217,9 +221,28 @@ export default function PatientPlanViewer({
                 Klinicky overené produkty s obsahom antioxidantov, peptidov, ceramidov a minerálnych UV filtrov pre maximálny efekt estetických zákrokov.
               </p>
             </div>
-            <span className="text-xs font-bold text-[#C5A059] bg-[#C5A059]/10 px-3 py-1 rounded-full">
-              Klinický štandard SAY CLINIC
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {onOpenInCosmeticsPOS && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allItems = [
+                      ...(plan.cosmeticsRoutine?.morning || []),
+                      ...(plan.cosmeticsRoutine?.evening || [])
+                    ];
+                    onOpenInCosmeticsPOS(allItems, plan.patientId);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Vložiť všetky odporúčané produkty do pokladničného košíka na recepcii"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Kúpiť / Otvoriť v pokladni (POS)</span>
+                </button>
+              )}
+              <span className="text-xs font-bold text-[#C5A059] bg-[#C5A059]/10 px-3 py-1 rounded-full">
+                Klinický štandard SAY CLINIC
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

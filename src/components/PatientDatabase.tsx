@@ -87,6 +87,7 @@ interface UploadedPhoto {
 interface PatientDatabaseProps {
   onNavigateToGenerator?: (patient: Patient & { initialDocType?: any }) => void;
   onNavigateToAesthetics?: (patient: Patient) => void;
+  onNavigateToCosmetics?: (patient?: Patient, prefillItems?: any[]) => void;
   initialPatient?: Patient | null;
   onPatientsUpdated?: (patients: Patient[]) => void;
   calendarEvents?: CalendarEvent[];
@@ -97,6 +98,7 @@ interface PatientDatabaseProps {
 export default function PatientDatabase({ 
   onNavigateToGenerator, 
   onNavigateToAesthetics, 
+  onNavigateToCosmetics,
   initialPatient, 
   onPatientsUpdated,
   calendarEvents = [],
@@ -1528,6 +1530,17 @@ export default function PatientDatabase({
                             plan={currentActivePlan}
                             onUpdatePlan={handleUpdatePlan}
                             onScheduleTreatment={handleScheduleTreatmentFromPlan}
+                            onOpenInCosmeticsPOS={(items, patientId) => {
+                              const pat = patients.find(p => p.id === patientId) || selectedPatient || undefined;
+                              if (onNavigateToCosmetics) {
+                                onNavigateToCosmetics(pat, items.map(it => ({
+                                  name: it.productName,
+                                  brand: it.brand,
+                                  price: it.price,
+                                  quantity: 1
+                                })));
+                              }
+                            }}
                           />
                         ) : (
                           <div className="text-center py-16 px-4 bg-[#FBF9F6]/50 rounded-2xl border border-dashed border-[#E8E2D9] space-y-4">

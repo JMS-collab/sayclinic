@@ -95,7 +95,12 @@ VÝSTUP MUSÍ BYŤ ČISTÝ JSON zodpovedajúci rozhraniu:
   "doctorNote": string
 }
 
-Uveď konkrétne klinické produkty (napr. SAY Clinic Derm Gentle Cleanser, SAY CE Ferulic, SAY Cellular Renewal Retinol, Advanced Mineral Invisible Fluid SPF50+, Strataderm silikónový gél, Cicatrix Recovery Balm, Lipoelastic kompresívne prádlo).
+Uveď konkrétne klinické produkty výhradne z oficiálneho portfólia kliniky SAY CLINIC:
+- SkinCeuticals (C E Ferulic ~175€, Phloretin CF ~175€, H.A. Intensifier ~118€, Discoloration Defense ~112€, P-TIOX Peptidové sérum ~142€, Triple Lipid Restore 2:4:2 ~155€, A.G.E. Interrupter Advanced ~185€, Phyto Corrective ~85€, Retinol 0.3 ~98€, Ultra Facial Defense SPF 50+ ~42€).
+- La Roche-Posay (Anthelios UVMune 400 Invisible Fluid SPF 50+ ~21.50€, Anthelios Oil Control SPF 50+ ~21.50€, Cicaplast Baume B5+ ~17.50€, Cicaplast Gel B5 ~13.50€, Hyalu B5 Sérum ~39.50€, Mela B3 Sérum s Melasylom ~44.50€, Effaclar Duo+M ~19.50€, Toleriane Dermallergo ~23€, Lipikar Baume AP+M ~24.50€).
+- CeraVe (Hydratačný čistiaci gél ~14.50€, SA Zjemňujúci čistiaci gél ~16€, Čistiaci penivý gél ~14.50€, Hydratačný krém ~18€, Denný krém SPF 50 ~15.50€, Nočný krém PM ~14€, Resurfacing Retinol Sérum ~18.50€, Pokročilá regeneračná masť ~13€, Obnovujúci očný krém ~13€).
+- Vichy (Minéral 89 Hyaluron Booster ~24.50€, Minéral 89 72h krém ~23€, Liftactiv Vitamín C 15% ~38€, Liftactiv Retinol Specialist ~42€, Liftactiv Collagen Specialist ~38.50€, Capital Soleil UV-Clear SPF 50+ ~22.50€, Dercos šampón proti lupinám DS ~18.50€).
+- SAY Clinic Lab (SAY Cellular Renewal Elixir ~89€, SAY Advanced Mineral Invisible Fluid SPF 50+ ~42€, SAY Cicatrix Recovery Balm & Arnica ~38€, SAY Marine Pure Collagen Peptides ~65€).
 Buď medicínsky presný, dôrazný na bezpečnosť, zákaz fajčenia, vysadenie ASA, tlakové masáže jaziev a striktný zákaz UV žiarenia na jazvy 12 mesiacov.`;
 
         const userPrompt = `Vygeneruj plán pacienta pre:

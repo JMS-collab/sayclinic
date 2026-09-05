@@ -194,7 +194,7 @@ export default function CreatePatientPlanModal({
                   <span>✨</span> Ročný anti-aging
                 </div>
                 <p className="text-[10px] text-[#8C857B] mt-1 leading-tight">
-                  Kozmetika, botox, výplne, mezoterapia a frakčný CO2 laser.
+                  SkinCeuticals, LRP, CeraVe, Vichy, botox, výplne, mezoterapia a laser.
                 </p>
               </button>
 

@@ -102,6 +102,10 @@ export default function Home() {
   const [selectedPatient, setSelectedPatient] = useState<{ name: string; birthNumber: string } | null>(null);
   const [selectedPatientForFolder, setSelectedPatientForFolder] = useState<Patient | null>(null);
 
+  // Stav pre predvyplnenie POS z karty pacienta a plánu
+  const [posSelectedPatientId, setPosSelectedPatientId] = useState<string>('');
+  const [posPrefillItems, setPosPrefillItems] = useState<any[]>([]);
+
   // Zoznam pacientov a udalostí
   const [patients, setPatients] = useState<Patient[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
@@ -772,6 +776,16 @@ export default function Home() {
                   setSelectedPatientForFolder(patient);
                   changeTab('aesthetics');
                 }}
+                onNavigateToCosmetics={(patient, prefillItems) => {
+                  if (patient) {
+                    setSelectedPatientForFolder(patient);
+                    setPosSelectedPatientId(patient.id);
+                  }
+                  if (prefillItems) {
+                    setPosPrefillItems(prefillItems);
+                  }
+                  changeTab('cosmetics');
+                }}
                 initialPatient={selectedPatientForFolder}
                 onPatientsUpdated={(updatedList) => setPatients(updatedList)}
                 calendarEvents={calendarEvents}
@@ -801,6 +815,8 @@ export default function Home() {
               <CosmeticsPOSModule 
                 patients={patients}
                 onSaleCompleted={handleAddSale}
+                initialSelectedPatientId={posSelectedPatientId}
+                initialPrefillItems={posPrefillItems}
               />
             )}
 

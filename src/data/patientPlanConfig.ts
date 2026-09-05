@@ -102,73 +102,82 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
         {
           step: 1,
           category: 'Čistenie',
-          productName: 'Gentle Foaming Cleanser pH 5.5',
-          brand: 'SAY Clinic Derm',
+          productName: 'CeraVe Hydratačný čistiaci gél (Hydrating Cleanser)',
+          brand: 'CeraVe',
           usage: 'Ráno na vlhkú pokožku, jemne vmasírovať 60 sekúnd, opláchnuť vlažnou vodou.',
-          purpose: 'Odstránenie kožného mazu bez narušenia kožnej bariéry a mikrobiómu.',
-          price: 32
+          purpose: 'Šetrné odstránenie mazu bez narušenia kožnej bariéry vďaka 3 esenciálnym ceramidom.',
+          price: 14.50
         },
         {
           step: 2,
           category: 'Sérum / Antioxidant',
-          productName: 'CE Ferulic Triple Antioxidant Serum (15% Vit C)',
-          brand: 'SAY Clinic Formulations',
-          usage: '4-5 kvapiek na vyčistenú suchú tvár a krk.',
-          purpose: 'Neutralizácia voľných radikálov, stimulácia syntézy kolagénu a zjednotenie pigmentácií.',
-          price: 78
+          productName: 'C E Ferulic Triple Antioxidant Treatment',
+          brand: 'SkinCeuticals',
+          usage: '4-5 kvapiek na vyčistenú suchú tvár, krk a dekolt.',
+          purpose: 'Zlatý štandard antioxidantov (15% vit C + 1% vit E + 0.5% ferulová kyselina), neutralizácia voľných radikálov a stimulácia kolagénu.',
+          price: 175.00
         },
         {
           step: 3,
-          category: 'Hydratácia',
-          productName: 'Hydra-Barrier Ceramide & Hyaluron Cream',
-          brand: 'SAY Clinic Derm',
-          usage: 'Veľkosť hrášku rovnomerne rozotrieť na tvár.',
-          purpose: 'Posilnenie lipidovej bariéry a hĺbkové uzamknutie vlhkosti v stratum corneum.',
-          price: 49
+          category: 'Hydratácia & Bariéra',
+          productName: 'Triple Lipid Restore 2:4:2 Patentovaný bariérový krém',
+          brand: 'SkinCeuticals',
+          usage: 'Veľkosť hrášku rovnomerne rozotrieť na tvár a krk.',
+          purpose: 'Patentovaný pomer 2% ceramidov, 4% cholesterolu a 2% mastných kyselín pre maximálnu hustotu a elasticitu pleti.',
+          price: 155.00
         },
         {
           step: 4,
           category: 'SPF Ochrana',
-          productName: 'Advanced Mineral Invisible Fluid SPF 50+',
-          brand: 'SAY Clinic Protection',
-          usage: 'Každé ráno 2 prsty prípravku ako finálny krok, opakovať pred pobytom na slnku.',
-          purpose: '100% minerálna ochrana pred UVA/UVB a modrým svetlom, prevencia fotostarnutia.',
-          price: 39
+          productName: 'Anthelios UVMune 400 Invisible Fluid SPF 50+',
+          brand: 'La Roche-Posay',
+          usage: 'Každé ráno ako finálny krok starostlivosti, 2 prsty prípravku rovnomerne na tvár a krk.',
+          purpose: 'Revolučná ochrana pred ultra-dlhým UVA žiarením (Mexoryl 400), prevencia fotostarnutia a pigmentových škvŕn.',
+          price: 21.50
         }
       ],
       evening: [
         {
           step: 1,
           category: 'Čistenie',
-          productName: 'Gentle Foaming Cleanser pH 5.5',
-          brand: 'SAY Clinic Derm',
-          usage: 'Dvojité čistenie: odstránenie make-upu a SPF nánosu.',
-          purpose: 'Hĺbkové vyčistenie pórov pred aplikáciou aktívnych látok.',
-          price: 32
+          productName: 'CeraVe Hydratačný čistiaci gél (Hydrating Cleanser)',
+          brand: 'CeraVe',
+          usage: 'Dvojité večerné čistenie pre odstránenie SPF a mestských nečistôt.',
+          purpose: 'Hĺbkové a jemné prečistenie pórov bez vysušovania.',
+          price: 14.50
         },
         {
           step: 2,
-          category: 'Retinoidy & Peptidy',
-          productName: 'SAY Clinic Cellular Renewal Elixir (0.5% Encapsulated Retinol + Peptides)',
-          brand: 'SAY Clinic Luxury',
-          usage: 'Aplikovať večer na suchú pleť 3x týždenne (postupne zvýšiť na každý večer).',
-          purpose: 'Bunková obnova, stimulácia fibroblastov, redukcia hĺbky vrások a vyhladenie pórov.',
-          price: 86
+          category: 'Peptidy & Spevnenie',
+          productName: 'P-TIOX Pokročilé peptidové sérum proti mimickým vráskam',
+          brand: 'SkinCeuticals',
+          usage: '5 kvapiek na miesta s mimickými vráskami (čelo, glabela, okolie očí a úst).',
+          purpose: 'Inovácia 2025/2026 s Argireline Amplified pre relaxáciu mimických kontrakcií a vyhladenie reliéfu.',
+          price: 142.00
         },
         {
           step: 3,
+          category: 'Retinoidy & Bunková obnova',
+          productName: 'Retinol 0.3 Nočný obnovujúci krém',
+          brand: 'SkinCeuticals',
+          usage: 'Aplikovať večer na suchú pleť 3x týždenne (postupne zvyšovať frekvenciu).',
+          purpose: 'Čistý enkapsulovaný retinol stimuluje obnovu buniek, zjemňuje textúru a spevňuje dermis.',
+          price: 98.00
+        },
+        {
+          step: 4,
           category: 'Nočná regenerácia',
-          productName: 'Hydra-Barrier Ceramide Cream',
-          brand: 'SAY Clinic Derm',
-          usage: 'Nanesenie 15 minút po retinole pre upokojenie a hydratačný vankúš.',
-          purpose: 'Prevencia suchosti a iritácie spôsobenej retinolom.',
-          price: 49
+          productName: 'Minéral 89 72h Intenzívny hydratačný krém',
+          brand: 'Vichy',
+          usage: 'Nanesenie 15 minút po retinole ako ochranný a upokojujúci závoj.',
+          purpose: '72-hodinová hĺbková hydratácia so skvalánom a vulkanickou vodou Vichy pre regeneráciu počas noci.',
+          price: 23.00
         }
       ],
       specialWeeklyCare: [
-        'Enzymatický peeling 1x týždenne (večer namiesto retinolu) pre jemnú exfoliáciu odumretých buniek.',
-        'Hydratačná bio-celulózová maska s kyselinou hyalurónovou 1x týždenne po náročnom dni.',
-        'Vnútorná suplementácia: SAY Pure Marine Collagen Peptides 10,000mg každé ráno do vody.'
+        'Enzymatický peeling 1x týždenne večer namiesto retinolu pre šetrné odstránenie odumretých buniek.',
+        'Hydratačná maska s kyselinou hyalurónovou (Vichy Minéral 89 Booster) po intenzívnych procedúrach.',
+        'Vnútorná suplementácia: SAY Marine Pure Collagen Peptides 10,000mg každé ráno do vody.'
       ]
     },
     annualTreatments: [
@@ -384,49 +393,49 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
         {
           step: 1,
           category: 'Čistenie',
-          productName: 'Gentle Foaming Cleanser pH 5.5',
-          brand: 'SAY Clinic Derm',
-          usage: 'Vlažná sprcha, jemné umytie tela a okolia rany.',
-          purpose: 'Jemná hygiena bez iritácie.',
-          price: 32
+          productName: 'CeraVe Hydratačný čistiaci gél (Hydrating Cleanser)',
+          brand: 'CeraVe',
+          usage: 'Vlažná sprcha, šetrné omytie tela a okolia operačnej rany.',
+          purpose: 'Jemná hygiena s ceramidmi bez narušenia kožnej bariéry.',
+          price: 14.50
         },
         {
           step: 2,
-          category: 'Starostlivosť o rany a modriny',
-          productName: 'Cicatrix Recovery Balm & Arnica',
-          brand: 'SAY Clinic Surgical',
-          usage: 'Nanášať na oblasť hematómov a opuchov okolo prsníkov (nie priamo do otvorenej rany).',
-          purpose: 'Urýchlenie resorpcie podliatin a zníženie zápalového edému.',
-          price: 45
+          category: 'Starostlivosť o modriny',
+          productName: 'Cicatrix Recovery Balm & Arnica Montana',
+          brand: 'SAY Clinic Lab',
+          usage: 'Nanášať na oblasť hematómov a pooperačných opuchov okolo prsníkov (nie do otvorenej rany).',
+          purpose: 'Arnika a madecassoside pre rýchle vstrebávanie krvných podliatin a zníženie edému.',
+          price: 38.00
         },
         {
           step: 3,
           category: 'Starostlivosť o jazvy',
-          productName: 'Strataderm Medical Silicone Gel',
-          brand: 'Stratpharma Medical',
-          usage: 'Po zhojení rany (od 2. týždňa) tenká vrstva na jazvu, nechať zaschnúť.',
-          purpose: 'Bariérová ochrana a prevencia hypertrofického jazvenia.',
-          price: 38
+          productName: 'Cicaplast Gel B5 Pro-Recovery Masážny gél na jazvy',
+          brand: 'La Roche-Posay',
+          usage: 'Po zhojení rany (od 14. dňa) tenká vrstva na jazvu, jemná tlaková masáž.',
+          purpose: 'Ochranná silikónová textúra s 5% pantenolom a kyselinou hyalurónovou proti hypertrofii.',
+          price: 13.50
         }
       ],
       evening: [
         {
           step: 1,
           category: 'Hydratácia tela',
-          productName: 'Hydra-Barrier Ceramide Cream',
-          brand: 'SAY Clinic Derm',
-          usage: 'Natierať pokožku prsníkov pre zlepšenie elasticity namáhanej kože po vložení implantátu.',
-          purpose: 'Prevencia vzniku strií pri napnutí kože.',
-          price: 49
+          productName: 'Lipikar Baume AP+M Trojitý relipidačný balzam',
+          brand: 'La Roche-Posay',
+          usage: 'Natierať pokožku prsníkov a dekoltu pre zlepšenie elasticity namáhanej kože po vložení implantátov.',
+          purpose: 'Intenzívna obnova lipidov a prevencia vzniku strií pri napnutí tkaniva.',
+          price: 24.50
         },
         {
           step: 2,
-          category: 'Starostlivosť o jazvy',
-          productName: 'Strataderm Medical Silicone Gel',
-          brand: 'Stratpharma Medical',
-          usage: 'Večerná aplikácia po sprche na suchú jazvu.',
-          purpose: 'Nočná oklúzia a regenerácia tkaniva.',
-          price: 38
+          category: 'Bariérové hojenie',
+          productName: 'Cicaplast Baume B5+ Ultra-Regeneračný balzam',
+          brand: 'La Roche-Posay',
+          usage: 'Aplikácia večer na citlivé a napnuté miesta v okolí rezu.',
+          purpose: 'Prebiotický komplex Tribioma a madecassoside pre urýchlenie hojenia tkanív.',
+          price: 17.50
         }
       ],
       specialWeeklyCare: [
@@ -603,49 +612,58 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
         {
           step: 1,
           category: 'Čistenie',
-          productName: 'Gentle Foaming Cleanser pH 5.5',
-          brand: 'SAY Clinic Derm',
-          usage: 'Veľmi jemné omytie tváre okolo očí vlažnou vodou.',
-          purpose: 'Očista bez mechanického trenia viečok.',
-          price: 32
+          productName: 'CeraVe Hydratačný čistiaci gél (Hydrating Cleanser)',
+          brand: 'CeraVe',
+          usage: 'Veľmi jemné omytie tváre a okolia očí vlažnou vodou bez trenia.',
+          purpose: 'Šetrné čistenie s ceramidmi a kyselinou hyalurónovou bez podráždenia očí.',
+          price: 14.50
         },
         {
           step: 2,
-          category: 'Očný balzam na modriny',
-          productName: 'Cicatrix Recovery Balm & Arnica',
-          brand: 'SAY Clinic Surgical',
-          usage: 'Naniesť na oblasť pod očami a na líca (nie do oka!), kde steká hematóm.',
-          purpose: 'Rýchle vstrebanie podliatin a zníženie edému.',
-          price: 45
+          category: 'Starostlivosť o modriny',
+          productName: 'Cicatrix Recovery Balm & Arnica Montana',
+          brand: 'SAY Clinic Lab',
+          usage: 'Jemne naniesť na oblasť pod očami a líca (nie do spojovkového vaku), kde steká hematóm.',
+          purpose: 'Rýchla resorpcia podliatin a zníženie periorbitálneho edému.',
+          price: 38.00
         },
         {
           step: 3,
           category: 'Starostlivosť o jazvy',
-          productName: 'Strataderm Medical Silicone Gel',
-          brand: 'Stratpharma Medical',
-          usage: 'Po vybratí stehov tenučká vrstva na jazvu v záhybe viečka.',
-          purpose: 'Diskrétna silikónová ochrana hojacej sa jazvy.',
-          price: 38
+          productName: 'Cicaplast Gel B5 Pro-Recovery Masážny gél na jazvy',
+          brand: 'La Roche-Posay',
+          usage: 'Po vybratí stehov tenučká vrstva na jazvu v záhybe viečka, jemná bodová masáž.',
+          purpose: 'Diskrétna silikónová ochrana s pantenolom pre optimálne nenápadné zjazvenie.',
+          price: 13.50
         },
         {
           step: 4,
           category: 'SPF Ochrana',
-          productName: 'Advanced Mineral Invisible Fluid SPF 50+',
-          brand: 'SAY Clinic Protection',
-          usage: 'Minerálny UV filter na celé očné okolie.',
-          purpose: 'Prevencia pigmentovania jemnej kože viečok.',
-          price: 39
+          productName: 'Anthelios UVMune 400 Invisible Fluid SPF 50+',
+          brand: 'La Roche-Posay',
+          usage: 'Aplikácia na periorbitálnu oblasť (doplniť kvalitnými slnečnými okuliarmi UV400).',
+          purpose: 'Mexoryl 400 ochrana zabraňuje trvalej hyperpigmentácii hojacich sa viečok.',
+          price: 21.50
         }
       ],
       evening: [
         {
           step: 1,
-          category: 'Nočná starostlivosť o viečka',
-          productName: 'Strataderm Medical Silicone Gel',
-          brand: 'Stratpharma Medical',
-          usage: 'Aplikácia večer pred spaním na jazvy.',
-          purpose: 'Celonočná regenerácia jazvy.',
-          price: 38
+          category: 'Očný krém & Výživa',
+          productName: 'CeraVe Obnovujúci očný krém (Eye Repair Cream)',
+          brand: 'CeraVe',
+          usage: 'Jemné vklepanie končekom prstenníka na orbitálnu kosť pod okom.',
+          purpose: 'Redukcia tmavých kruhov a opuchov s morským komplexom a ceramidmi.',
+          price: 13.00
+        },
+        {
+          step: 2,
+          category: 'Nočná obnova jazvy',
+          productName: 'Cicaplast Baume B5+ Ultra-Regeneračný balzam',
+          brand: 'La Roche-Posay',
+          usage: 'Tenká vrstva na očné viečka a líca pred spaním.',
+          purpose: 'Hĺbková regenerácia a prevencia suchosti periorbitálnej zóny.',
+          price: 17.50
         }
       ],
       specialWeeklyCare: [
