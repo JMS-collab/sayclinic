@@ -28,6 +28,9 @@ export const WORKSPACE_SCOPES = [
   'https://www.googleapis.com/auth/drive.metadata.readonly',
   'https://www.googleapis.com/auth/drive.activity',
   'https://www.googleapis.com/auth/drive.appdata',
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.compose',
+  'https://www.googleapis.com/auth/gmail.modify',
 ];
 
 WORKSPACE_SCOPES.forEach((scope) => {

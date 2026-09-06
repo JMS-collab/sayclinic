@@ -161,14 +161,28 @@ export const AuthService = {
     }
 
     try {
+      let token: string | null = null;
+      try {
+        const { getAccessToken } = await import('../lib/workspaceAuth');
+        token = await getAccessToken();
+      } catch (tokenErr) {
+        // workspace token not available yet
+      }
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           email: user.email,
           userName: user.name,
           otpCode: otp,
           type,
+          token: token || undefined,
         }),
       });
 

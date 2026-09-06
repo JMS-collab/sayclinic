@@ -655,9 +655,15 @@ export default function Calendar({
     setIsSendingEmail(true);
 
     try {
-      await fetch('/api/gmail/send', {
+      const token = await getCalendarAuthToken(session);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch('/api/gmail/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           toEmail: email,
           subject: emailSubject,
@@ -668,12 +674,16 @@ export default function Calendar({
         })
       });
 
-      alert(`✉️ E-mail bol úspešne odoslaný na ${email}!`);
-      setOpenEmailEventId(null);
-    } catch (err) {
+      const resData = await res.json().catch(() => ({}));
+      if (res.ok && resData.success !== false) {
+        alert(`✉️ E-mail bol úspešne odoslaný cez Gmail na ${email}!`);
+        setOpenEmailEventId(null);
+      } else {
+        alert(resData.error || 'Nepodarilo sa odoslať e-mail. Skontrolujte pripojenie Google Workspace.');
+      }
+    } catch (err: any) {
       console.error(err);
-      alert('E-mail bol odoslaný.');
-      setOpenEmailEventId(null);
+      alert(err?.message || 'Chyba pri odosielaní e-mailu.');
     } finally {
       setIsSendingEmail(false);
     }
