@@ -376,36 +376,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setInfoMsg('');
   };
 
-  const handleGoogleWorkspaceLogin = async () => {
-    setIsSubmitting(true);
-    setErrorMsg('');
-    setInfoMsg('');
-    try {
-      const result = await googleSignIn();
-      if (!result?.user?.email) {
-        throw new Error('Nepodarilo sa získať e-mail z Google účtu.');
-      }
-
-      const googleEmail = result.user.email.toLowerCase();
-      const matchedUser = users.find(u => u.email.toLowerCase() === googleEmail);
-
-      if (matchedUser) {
-        // Používateľ je autorizovaný člen klinického tímu
-        onLoginSuccess(matchedUser, rememberMe);
-      } else {
-        // Používateľ sa prihlásil s Google účtom, ale nie je v tabuľke tímu
-        setErrorMsg(`Google účet (${googleEmail}) nie je priradený k personálu SAY CLINIC. Prihláste sa s účtom @sayclinic.sk.`);
-      }
-    } catch (err: any) {
-      console.error('Chyba Google prihlásenia:', err);
-      if (err?.code !== 'auth/popup-closed-by-user') {
-        setErrorMsg(err.message || 'Prihlásenie cez Google Workspace zlyhalo. Skúste znova.');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handlePasswordSubmit = async (e: React.FormEvent, force2FA: boolean = false) => {
     e.preventDefault();
     if (!selectedUser) return;

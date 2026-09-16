@@ -1155,6 +1155,13 @@ export default function PatientDatabase({
                         </button>
                       )}
                       <button 
+                        onClick={() => onNavigateToGenerator && onNavigateToGenerator({ ...selectedPatient, initialDocType: 'dermatologicke_vysetrenie' })} 
+                        className="text-[11px] bg-[#9333ea] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#7e22ce] transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Vytvoriť dermatologické vyšetrenie s dermatoskopiou, Fitzpatrick fototypom a MKCH diagnózami"
+                      >
+                        🩺 + Dermatológia
+                      </button>
+                      <button 
                         onClick={() => onNavigateToGenerator && onNavigateToGenerator({ ...selectedPatient, initialDocType: 'lekarsky_recept' })} 
                         className="text-[11px] bg-[#047857] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#065f46] transition-colors flex items-center gap-1 cursor-pointer"
                       >

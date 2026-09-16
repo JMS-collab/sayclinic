@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
 import { 
@@ -212,6 +212,50 @@ export default function Calendar({
     }
   };
 
+  /**
+   * Vykoná obojsmernú synchronizáciu:
+   * Stiahne najnovšie udalosti z Google Kalendára a inteligentne ich zlúči s lokálnymi udalosťami
+   */
+  const performTwoWaySync = useCallback(async (silent: boolean = false) => {
+    setIsSyncing(true);
+    if (!silent) setSyncStatusMsg(null);
+
+    try {
+      const result = await fetchGoogleCalendarEvents(session);
+      if (result) {
+        setCalendarEvents(prev => {
+          const merged = mergeCalendarEvents(prev, result.events, result.successfulCalendarIds);
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(merged));
+          return merged;
+        });
+
+        if (result.calendars && result.calendars.length > 0) {
+          setAvailableCalendars(result.calendars);
+          localStorage.setItem('say_clinic_calendars', JSON.stringify(result.calendars));
+        }
+
+        const now = new Date();
+        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        setLastSyncTime(timeStr);
+        if (!silent) {
+          setSyncStatusMsg(`Synchronizované o ${timeStr} (${result.events.length} udalostí)`);
+          setTimeout(() => setSyncStatusMsg(null), 4000);
+        }
+      } else if (!silent) {
+        setSyncStatusMsg('Synchronizácia neúspešná (overte prihlásenie)');
+        setTimeout(() => setSyncStatusMsg(null), 4000);
+      }
+    } catch (err) {
+      console.error('Chyba obojsmernej synchronizácie:', err);
+      if (!silent) {
+        setSyncStatusMsg('Chyba spojenia');
+        setTimeout(() => setSyncStatusMsg(null), 4000);
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [session]);
+
   useEffect(() => {
     const cachedEvents = localStorage.getItem('say_clinic_calendar_events');
     const cachedCalendars = localStorage.getItem('say_clinic_calendars');
@@ -263,53 +307,9 @@ export default function Calendar({
     }
 
     return () => unsub();
-  }, [session]);
+  }, [session, performTwoWaySync]);
 
   const isGoogleConnected = Boolean((session as any)?.accessToken || isWorkspaceConnected);
-
-  /**
-   * Vykoná obojsmernú synchronizáciu:
-   * Stiahne najnovšie udalosti z Google Kalendára a inteligentne ich zlúči s lokálnymi udalosťami
-   */
-  const performTwoWaySync = async (silent: boolean = false) => {
-    setIsSyncing(true);
-    if (!silent) setSyncStatusMsg(null);
-
-    try {
-      const result = await fetchGoogleCalendarEvents(session);
-      if (result) {
-        setCalendarEvents(prev => {
-          const merged = mergeCalendarEvents(prev, result.events, result.successfulCalendarIds);
-          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(merged));
-          return merged;
-        });
-
-        if (result.calendars && result.calendars.length > 0) {
-          setAvailableCalendars(result.calendars);
-          localStorage.setItem('say_clinic_calendars', JSON.stringify(result.calendars));
-        }
-
-        const now = new Date();
-        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-        setLastSyncTime(timeStr);
-        if (!silent) {
-          setSyncStatusMsg(`Synchronizované o ${timeStr} (${result.events.length} udalostí)`);
-          setTimeout(() => setSyncStatusMsg(null), 4000);
-        }
-      } else if (!silent) {
-        setSyncStatusMsg('Synchronizácia neúspešná (overte prihlásenie)');
-        setTimeout(() => setSyncStatusMsg(null), 4000);
-      }
-    } catch (err) {
-      console.error('Chyba obojsmernej synchronizácie:', err);
-      if (!silent) {
-        setSyncStatusMsg('Chyba spojenia');
-        setTimeout(() => setSyncStatusMsg(null), 4000);
-      }
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   // NAČÍTANIE ULOŽENÉHO ROZOSTUPU HODÍN Z LOCALSTORAGE
   useEffect(() => {

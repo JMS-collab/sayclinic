@@ -11,6 +11,9 @@ import {
 } from '../data/surgeryConsentCatalog';
 import { SurgeryConsentTemplateManager } from './SurgeryConsentTemplateManager';
 import PrescriptionModule from './PrescriptionModule';
+import DermatologyExamEditor from './dermatology/DermatologyExamEditor';
+import DermatologyExamPrintView from './dermatology/DermatologyExamPrintView';
+import { DermatologyExamData, INITIAL_DERMATOLOGY_DATA } from './dermatology/dermatologyTypes';
 import { Sliders, Save, RotateCcw, Check } from './Icons';
 import { InventoryService, InventoryItem } from '../services/inventoryService';
 
@@ -516,6 +519,7 @@ export const numberToSlovakWords = (num: number): string => {
 export type DocumentType = 
   | 'vstupne_vysetrenie'
   | 'kontrolne_vysetrenie'
+  | 'dermatologicke_vysetrenie'
   | 'cenova_ponuka'
   | 'dohoda_o_cene'
   | 'operacny_protokol'
@@ -530,6 +534,7 @@ export type DocumentType =
 export const DOC_TITLES: Record<DocumentType, string> = {
   vstupne_vysetrenie: 'Vstupné vyšetrenie',
   kontrolne_vysetrenie: 'Kontrolné vyšetrenie',
+  dermatologicke_vysetrenie: '🩺 Dermatologické vyšetrenie & Dermatoskopia',
   cenova_ponuka: 'Cenová ponuka',
   dohoda_o_cene: 'Dohoda o cene a podmienkach',
   operacny_protokol: 'Operačný protokol',
@@ -617,6 +622,9 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
   // PLATBY
   const [depositPaid, setDepositPaid] = useState<number>(0);
+
+  // DERMATOLOGICKÉ VYŠETRENIE
+  const [dermatologyData, setDermatologyData] = useState<DermatologyExamData>(INITIAL_DERMATOLOGY_DATA);
 
   // DOHODA O CENE - ROZŠÍRENÉ ŠPECIFICKÉ ÚDAJE
   const [patientCitizenship, setPatientCitizenship] = useState('Slovenská republika');
@@ -1150,12 +1158,16 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
       ? selectedItems.map((i) => i.name).join(', ') || DOC_TITLES[docType]
       : docType === 'kontrolne_vysetrenie'
       ? `Kontrola po: ${checkupData.operationName}`
+      : docType === 'dermatologicke_vysetrenie'
+      ? `Dermatologické vyšetrenie: ${dermatologyData.primaryDiagnosis.code || 'Z01.8'}`
       : manualProcedure || DOC_TITLES[docType];
 
     const recordNote = docType === 'vstupne_vysetrenie' 
       ? vvPlan 
       : docType === 'kontrolne_vysetrenie' 
       ? `Operácia: ${checkupData.operationName} (${checkupData.operationDate})\nSubjektívne: ${checkupData.subjective}\nObjektívne: ${checkupData.objective}\nOdporúčania:\n${checkupData.recommendations}` 
+      : docType === 'dermatologicke_vysetrenie'
+      ? `Dermatologické vyšetrenie & Dermatoskopia\nFototyp: ${dermatologyData.fitzpatrick}\nHlavná diagnóza: ${dermatologyData.primaryDiagnosis.code} - ${dermatologyData.primaryDiagnosis.name}\n${dermatologyData.secondaryDiagnoses.length > 0 ? `Vedľajšie diagnózy:\n${dermatologyData.secondaryDiagnoses.map(d => `• ${d.code} - ${d.name}`).join('\n')}\n` : ''}Koža: ${dermatologyData.skinHydration}, ${dermatologyData.skinTurgor}\nDermatoskopia (${dermatologyData.neviCountCategory}): ${dermatologyData.dermoscopySummary}\nLézie (${dermatologyData.examinedLesions.length}): ${dermatologyData.examinedLesions.map(l => `${l.location} (${l.sizeMm}) -> ${l.conclusion} [${l.recommendation}]`).join('; ')}\nTerapia: ${dermatologyData.localTherapy}\nRežim: ${dermatologyData.regimeRecommendations}\nKontrola: ${dermatologyData.nextCheckup}`
       : notes;
 
     // Uloženie operácie pre budúce kontroly tohto pacienta
@@ -1335,6 +1347,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const showAnesthesiaQ = docType === 'anesteziologicky_dotaznik';
   const showVV = docType === 'vstupne_vysetrenie';
   const showCheckup = docType === 'kontrolne_vysetrenie';
+  const showDerm = docType === 'dermatologicke_vysetrenie';
   const showNotes = docType === 'operacny_protokol' || docType === 'prepustacia_sprava';
   const showSurgeryConsent = docType === 'suhlas_operacia';
   const showAestheticConsent = docType === 'suhlas_aplikacia';
@@ -1864,6 +1877,15 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                   />
                 </div>
               </div>
+            )}
+
+            {/* SEKCIA: DERMATOLOGICKÉ VYŠETRENIE & DERMATOSKOPIA */}
+            {showDerm && (
+              <DermatologyExamEditor
+                data={dermatologyData}
+                onChange={setDermatologyData}
+                mkchDatabase={mkchDatabase}
+              />
             )}
 
             {/* SEKCIA: CENOVÁ PONUKA / DOHODA O CENE - ROZDELENÝ VÝBER PODĽA 5 KATEGÓRIÍ */}
@@ -3418,8 +3440,10 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                 <div className="bg-[#FBF9F6] p-4 rounded-xl mb-6 border border-[#E8E2D9] text-xs space-y-2">
                   <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Pacient / Klient:</strong> <span className="text-sm font-bold ml-2">{patientName || '---'}</span></p>
                   <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Rodné číslo:</strong> <span className="ml-2 font-mono">{birthNumber || '---'}</span></p>
-                  <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Diagnóza:</strong> <span className="ml-2">{diagnosis}</span></p>
-                  {!showPricing && !showAnesthesiaQ && !showVV && !showCheckup && manualProcedure && (
+                  {!showDerm && (
+                    <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Diagnóza:</strong> <span className="ml-2">{diagnosis}</span></p>
+                  )}
+                  {!showPricing && !showAnesthesiaQ && !showVV && !showCheckup && !showDerm && manualProcedure && (
                     <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Zákrok:</strong> <span className="ml-2 font-bold">{manualProcedure}</span></p>
                   )}
                 </div>
@@ -3427,6 +3451,15 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
             )}
 
             {/* DYNAMICKÝ OBSAH PODĽA TYPU */}
+            
+            {/* --- DERMATOLOGICKÉ VYŠETRENIE & DERMATOSKOPIA --- */}
+            {showDerm && (
+              <div className="mb-8">
+                <DermatologyExamPrintView
+                  data={dermatologyData}
+                />
+              </div>
+            )}
             
             {/* --- 0. Vstupné vyšetrenie --- */}
             {showVV && (

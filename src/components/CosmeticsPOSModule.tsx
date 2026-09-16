@@ -160,7 +160,7 @@ export function CosmeticsPOSModule({
     if (directMatch) return directMatch;
 
     return {
-      id: `PLAN-REC-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      id: `plan-rec-${routineItem.productName.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'custom'}`,
       brand: (routineItem.brand as CosmeticBrand) || 'SAY Clinic Lab',
       name: routineItem.productName,
       category: 'skincare',
