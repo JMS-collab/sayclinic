@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check } from 'lucide-react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
-import PatientDatabase, { Patient } from '../components/PatientDatabase';
+import PatientDatabase, { Patient, MOCK_PATIENTS } from '../components/PatientDatabase';
 import LoginForm, { UserAccount } from '../components/LoginForm';
 import { LiquidAvatar } from '../components/LiquidAvatar';
 import FinanceCRM from '../components/FinanceCRM';
@@ -107,7 +107,7 @@ export default function Home() {
   const [posPrefillItems, setPosPrefillItems] = useState<any[]>([]);
 
   // Zoznam pacientov a udalostí
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
 
   // Správa hesla používateľa (Modal zmeny hesla)
@@ -202,16 +202,28 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načítanie uložených pacientov z localStorage
+  // Načítanie uložených pacientov z localStorage (so zachovaním predvolených pacientov)
   useEffect(() => {
     const saved = localStorage.getItem('say_clinic_patients');
     if (saved) {
       try {
-        setPatients(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingNames = new Set(parsed.map((p: any) => p.name?.toLowerCase().trim()));
+          const missingDefaults = MOCK_PATIENTS.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
+          const combined = missingDefaults.length > 0 ? [...parsed, ...missingDefaults] : parsed;
+          setPatients(combined);
+          if (missingDefaults.length > 0) {
+            localStorage.setItem('say_clinic_patients', JSON.stringify(combined));
+          }
+          return;
+        }
       } catch (e) {
         console.error('Chyba načítania pacientov:', e);
       }
     }
+    setPatients(MOCK_PATIENTS);
+    localStorage.setItem('say_clinic_patients', JSON.stringify(MOCK_PATIENTS));
   }, []);
 
   // Načítanie kešovaných kalendárových udalostí

@@ -23,6 +23,7 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
   const [googleUser, setGoogleUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [driveData, setDriveData] = useState<{
     found: boolean;
@@ -78,6 +79,41 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
     }
   };
 
+  const handleCreateDriveFolder = async () => {
+    setIsCreatingFolder(true);
+    try {
+      let token = (await getAccessToken()) || effectiveToken;
+      if (!token) {
+        const signResult = await googleSignIn();
+        token = signResult?.accessToken || null;
+      }
+      if (!token) {
+        alert('Prihláste sa prosím do Google účtu.');
+        return;
+      }
+
+      const res = await fetch('/api/drive/create-patient', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ patientName }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchDriveFiles();
+      } else {
+        alert(`Chyba pri zakladaní zložky: ${data.error || 'Neznáma chyba'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Chyba komunikácie s Google Drive API.');
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  };
+
   if (!isConnected) {
     return (
       <div className="bg-[#FAF8F5] border border-[#E8E2D9] p-5 rounded-2xl text-center space-y-3">
@@ -114,42 +150,137 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
 
   if (!driveData || !driveData.found) {
     return (
-      <div className="bg-[#FBF9F6] border border-[#E8E2D9] p-4 rounded-xl text-xs text-[#8C857B] space-y-2">
-        <p className="font-bold text-[#2C2A29]">📂 Zložka na Google Disku nebola nájdená</p>
-        <p className="text-[11px]">
-          {driveData?.message || `V zložke "Klienti SAY" sa nenachádza podzložka pre mená: "${patientName}".`}
-        </p>
+      <div className="bg-[#FBF9F6] border border-[#E8E2D9] p-4 rounded-xl text-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="font-bold text-[#2C2A29] flex items-center gap-1.5">
+              <span>📂</span> Zložka na Google Disku ešte nebola nájdená
+            </p>
+            <p className="text-[11px] text-[#8C857B] mt-0.5">
+              V zložke <strong className="text-[#2C2A29]">Klienti SAY</strong> sa nenachádza priečinok pre: <strong>{patientName}</strong>.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCreateDriveFolder}
+            disabled={isCreatingFolder}
+            className="px-4 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-50"
+          >
+            <span>{isCreatingFolder ? '⏳' : '📁'}</span>
+            <span>{isCreatingFolder ? 'Vytváram v Drive...' : '+ Vytvoriť zložku & podzložky v Drive'}</span>
+          </button>
+        </div>
       </div>
     );
   }
 
+  // Rozdelenie na podzložky a bežné súbory
+  const subfoldersList = (driveData.files || []).filter((f) => f.mimeType === 'application/vnd.google-apps.folder');
+  const actualFiles = (driveData.files || []).filter((f) => f.mimeType !== 'application/vnd.google-apps.folder');
+
   // Odseparovanie Google Sheet súboru (kartotéky) od ostatných dokumentov/fotiek
-  const sheetFile = driveData.files.find((f) =>
+  const sheetFile = actualFiles.find((f) =>
     f.mimeType.includes('spreadsheet') || f.name.toLowerCase().includes('sheet') || f.name.toLowerCase().includes('kartoteka')
   );
-  const otherFiles = driveData.files.filter((f) => f.id !== sheetFile?.id);
+  const otherFiles = actualFiles.filter((f) => f.id !== sheetFile?.id);
+
+  // Zoznam požadovaných štandardných podzložiek
+  const STANDARD_SUBFOLDERS = [
+    { name: 'Fotodokumentácia', icon: '📸', desc: 'Pred/pooperačné fotografie' },
+    { name: 'Dokumentácia', icon: '📄', desc: 'Lekárske správy a nálezy' },
+    { name: 'Predoperačné vyšetrenia', icon: '🩸', desc: 'Odbery, EKG, interné vyšetrenia' },
+    { name: 'Súhlasy a protokoly', icon: '✍️', desc: 'Informované súhlasy & protokoly' },
+  ];
 
   return (
     <div className="bg-white border border-[#E8E2D9] rounded-2xl p-5 space-y-4 shadow-sm">
-      <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
+      <div className="flex flex-wrap justify-between items-center border-b border-[#E8E2D9] pb-3 gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-lg">📁</span>
+          <span className="text-xl">📁</span>
           <div>
-            <h3 className="font-brand text-sm font-bold text-[#2C2A29] uppercase">Google Drive Dokumentácia</h3>
-            <p className="text-[10px] text-[#8C857B] tracking-wider uppercase">Propojené so zložkou "Klienti SAY"</p>
+            <h3 className="font-brand text-sm font-bold text-[#2C2A29] uppercase">
+              Google Drive: Klienti SAY / {patientName}
+            </h3>
+            <p className="text-[10px] text-[#8C857B] tracking-wider uppercase">
+              Cloudové úložisko kliniky SAY CLINIC
+            </p>
           </div>
         </div>
 
-        {driveData.folderLink && (
-          <a
-            href={driveData.folderLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] font-bold text-[#C5A059] hover:underline uppercase tracking-wider flex items-center gap-1"
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCreateDriveFolder}
+            disabled={isCreatingFolder}
+            className="text-[10px] font-bold text-[#8C857B] hover:text-[#2C2A29] uppercase tracking-wider px-2 py-1 bg-[#FBF9F6] border border-[#E8E2D9] rounded-lg transition-colors"
+            title="Doplniť chýbajúce podzložky"
           >
-            Otvoriť celú zložku ↗
-          </a>
-        )}
+            {isCreatingFolder ? '⏳ Synchronizujem...' : '🔄 Obnoviť / Doplniť podzložky'}
+          </button>
+          {driveData.folderLink && (
+            <a
+              href={driveData.folderLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-bold text-[#C5A059] hover:underline uppercase tracking-wider flex items-center gap-1"
+            >
+              Otvoriť na Google Disku ↗
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Štandardné podzložky pacienta na Google Disku */}
+      <div>
+        <h4 className="text-[10px] uppercase font-bold text-[#8C857B] mb-2">Priečinky pacienta v Klienti SAY</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {STANDARD_SUBFOLDERS.map((std) => {
+            const foundSub = subfoldersList.find((sub) => sub.name.toLowerCase() === std.name.toLowerCase());
+            return (
+              <div
+                key={std.name}
+                className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                  foundSub ? 'bg-[#FBF9F6] border-[#E8E2D9] hover:border-[#C5A059]' : 'bg-stone-50 border-stone-200 opacity-70'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-base">{std.icon}</span>
+                    {foundSub ? (
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Vytvorená</span>
+                    ) : (
+                      <span className="text-[9px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded">Pripravená</span>
+                    )}
+                  </div>
+                  <h5 className="font-bold text-xs text-[#2C2A29]">{std.name}</h5>
+                  <p className="text-[10px] text-[#8C857B] mt-0.5 leading-tight">{std.desc}</p>
+                </div>
+
+                <div className="pt-2 mt-2 border-t border-[#E8E2D9]/60 flex justify-between items-center">
+                  {foundSub?.webViewLink ? (
+                    <a
+                      href={foundSub.webViewLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] font-bold text-[#C5A059] hover:underline flex items-center gap-1"
+                    >
+                      Otvoriť podzložku ↗
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleCreateDriveFolder}
+                      disabled={isCreatingFolder}
+                      className="text-[10px] font-bold text-[#8C857B] hover:text-[#2C2A29]"
+                    >
+                      + Vytvoriť
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Hlavné tlačidlo pre otváranie Google Sheet Kartotéky */}
@@ -171,16 +302,12 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
             Otvoriť Kartotéku ↗
           </a>
         </div>
-      ) : (
-        <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-[11px] text-amber-800">
-          ⚠️ V zložke pacienta sa nenašiel žiadny Google Sheet súbor.
-        </div>
-      )}
+      ) : null}
 
       {/* Ostatné súbory v zložke (PDF, fotky, nálezy) */}
       {otherFiles.length > 0 && (
         <div className="space-y-2 pt-2">
-          <h4 className="text-[10px] uppercase font-bold text-[#8C857B]">Ďalšie súbory v zložke ({otherFiles.length})</h4>
+          <h4 className="text-[10px] uppercase font-bold text-[#8C857B]">Súbory priamo v koreni zložky ({otherFiles.length})</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {otherFiles.map((file) => (
               <a
@@ -188,7 +315,7 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
                 href={file.webViewLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 p-2 rounded-lg border border-[#E8E2D9] hover:border-[#C5A059] bg-[#FBF9F6] transition-colors text-xs group"
+                className="flex items-center gap-2 p-2.5 rounded-lg border border-[#E8E2D9] hover:border-[#C5A059] bg-[#FBF9F6] transition-colors text-xs group"
               >
                 <span>📄</span>
                 <span className="truncate flex-1 font-medium text-[#2C2A29] group-hover:text-[#C5A059]">{file.name}</span>

@@ -3,11 +3,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { googleSignIn, subscribeWorkspaceAuth } from '@/lib/workspaceAuth';
-import { CheckCircle, AlertCircle, Cloud, CloudOff, Lock } from 'lucide-react';
 import PatientDriveFiles from './PatientDriveFiles';
 import { InventoryService, MaterialUsageLog, InventoryItem } from '../services/inventoryService';
 import { CalendarEvent, getPostOpTimeDiff } from '../data/calendarConfig';
-import { createGoogleCalendarEvent } from '../services/calendarSyncService';
 import SchedulePatientEventModal from './patient/SchedulePatientEventModal';
 import { PatientPlan, PRESET_PATIENT_PLANS, ScheduledTreatment } from '../data/patientPlanConfig';
 import PatientPlanViewer from './patient/PatientPlanViewer';
@@ -48,6 +46,18 @@ const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
       doctorName: 'MUDr. Ján Mráz',
       ...PRESET_PATIENT_PLANS.blepharoplasty_care
     } as PatientPlan
+  ],
+  P3: [
+    {
+      id: 'plan-demo-4',
+      patientId: 'P3',
+      patientName: 'Ján Mráz',
+      patientBirthNumber: '850721/7890',
+      createdAt: '2026-06-15T10:00:00.000Z',
+      updatedAt: '2026-06-15T10:00:00.000Z',
+      doctorName: 'MUDr. Ján Mráz',
+      ...PRESET_PATIENT_PLANS.face_annual_rejuvenation
+    } as PatientPlan
   ]
 };
 
@@ -74,9 +84,10 @@ export interface MedicalRecord {
   content: string;
 }
 
-const MOCK_PATIENTS: Patient[] = [
+export const MOCK_PATIENTS: Patient[] = [
   { id: 'P1', name: 'Mária Kováčová', birthNumber: '885512/6789', phone: '+421 905 123 456', email: 'maria.kovacova@email.sk', address: 'Slnečná 15, Banská Bystrica', dob: '12.05.1988', insurance: '24 (Dôvera)' },
   { id: 'P2', name: 'Ján Novák', birthNumber: '750314/1234', phone: '+421 948 987 654', email: 'novak.j@email.sk', address: 'Kvetná 8, Zvolen', dob: '14.03.1975', insurance: '25 (VšZP)' },
+  { id: 'P3', name: 'Ján Mráz', birthNumber: '850721/7890', phone: '+421 905 555 111', email: 'mraz@sayclinic.sk', address: 'Lazovná 43, Banská Bystrica', dob: '21.07.1985', insurance: '24 (Dôvera)' },
 ];
 
 const PHOTO_CATEGORIES = ['Konzultácia', 'Predoperačné', 'Pooperačné', '1. mesiac', '6. mesiac', '1 rok'];
@@ -89,7 +100,6 @@ interface UploadedPhoto {
 interface PatientDatabaseProps {
   onNavigateToGenerator?: (patient: Patient & { initialDocType?: any }) => void;
   onNavigateToAesthetics?: (patient: Patient) => void;
-  onNavigateToCosmetics?: (patient?: Patient, prefillItems?: any[]) => void;
   initialPatient?: Patient | null;
   onPatientsUpdated?: (patients: Patient[]) => void;
   calendarEvents?: CalendarEvent[];
@@ -100,7 +110,6 @@ interface PatientDatabaseProps {
 export default function PatientDatabase({ 
   onNavigateToGenerator, 
   onNavigateToAesthetics, 
-  onNavigateToCosmetics,
   initialPatient, 
   onPatientsUpdated,
   calendarEvents = [],
@@ -118,8 +127,6 @@ export default function PatientDatabase({
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [workspaceToken, setWorkspaceToken] = useState<string | null>(null);
-  const [driveError, setDriveError] = useState<string | null>(null);
-  const [isConnectingDrive, setIsConnectingDrive] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeWorkspaceAuth((user, token) => {
@@ -127,26 +134,6 @@ export default function PatientDatabase({
     });
     return () => unsub();
   }, []);
-
-  const isDriveConnected = Boolean(workspaceToken || (session as any)?.accessToken);
-
-  const handleConnectGoogleDrive = async (): Promise<string | null> => {
-    setDriveError(null);
-    setIsConnectingDrive(true);
-    try {
-      const res = await googleSignIn();
-      if (res?.accessToken) {
-        setWorkspaceToken(res.accessToken);
-        return res.accessToken;
-      }
-    } catch (err: any) {
-      console.error('Chyba prihlásenia do Google Drive:', err);
-      setDriveError('Pripojenie ku Google Drive zlyhalo. Uistite sa, že máte povolené vyskakovacie okná (popups) a autorizujte prístup k Disku.');
-    } finally {
-      setIsConnectingDrive(false);
-    }
-    return null;
-  };
 
   const [allPatientPlans, setAllPatientPlans] = useState<Record<string, PatientPlan[]>>(() => {
     if (typeof window !== 'undefined') {
@@ -238,19 +225,16 @@ export default function PatientDatabase({
     if (onAddCalendarEvent) {
       onAddCalendarEvent(newEvent);
     }
-
-    try {
-      const gRes = await createGoogleCalendarEvent(newEvent, session);
-      if (gRes.success && gRes.googleEventId) {
-        const syncedEvent: CalendarEvent = { ...newEvent, googleEventId: gRes.googleEventId, isGoogleSynced: true };
-        setStoredEvents(prev => {
-          const synced = prev.map(e => e.id === newEvent.id ? syncedEvent : e);
-          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(synced));
-          return synced;
+    if (session) {
+      try {
+        await fetch('/api/calendar/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newEvent)
         });
+      } catch (err) {
+        console.error('Chyba zápisu do Google Kalendára:', err);
       }
-    } catch (err) {
-      console.error('Chyba zápisu do Google Kalendára:', err);
     }
   };
 
@@ -289,6 +273,28 @@ export default function PatientDatabase({
     'P2': [
       { id: 'rec-p2-1', type: 'Operačný protokol', typeColor: 'bg-[#2C2A29]', title: 'Blefaroplastika horných viečok', doctor: 'MUDr. Ján Mráz', diagnosis: 'H02.8', date: '2026-05-18', content: 'Korekcia dermatochalázy horných viečok v lokálnej anestézii.\n\nExcízia prebytočnej kože 8mm obojstranne, parciálna resekcia mediálneho tukového vankúšika. Hemoctáza bipolárnou koaguláciou. Intrakutánna sutura Prolene 6-0.\n\nStehy odstránené na 6. deň, hojenie per primam bez komplikácií. Odporúčaná lokálna silikónová starostlivosť a striktná UV fotoprotekcia.' },
       { id: 'rec-p2-2', type: 'Vstupné vyšetrenie', typeColor: 'bg-[#C5A059]', title: 'Konzultácia - Solárne lézie & Textúra pleti', doctor: 'MUDr. Ján Mráz', diagnosis: 'L57.0', date: '2026-04-10', content: 'Vstupné dermatologické vyšetrenie.\nAnamnéza: častý pobyt na slnku bez SPF ochrany v minulosti.\n\nObjektívny nález: Solárne lentigá v oblasti líc a nosa, zhrubnutá stratum corneum, hlbšie frontálne vrásky.\n\nNavrhnutý plán: Príprava pleti v jarnom období (antioxidanty, SPF 50+), v jesennom/zimnom období aplikácia vaskulárneho/pigmentového lasera a frakčného resurfacingu.' }
+    ],
+    'P3': [
+      { 
+        id: 'rec-p3-1', 
+        type: 'Vstupné vyšetrenie', 
+        typeColor: 'bg-[#C5A059]', 
+        title: 'Vstupné vyšetrenie a osobná karta pacienta', 
+        doctor: 'MUDr. Ján Mráz', 
+        diagnosis: 'Z00.0', 
+        date: '2026-06-15', 
+        content: 'Vstupné komplexné posúdenie a založenie osobnej zdravotnej karty pacienta v systéme SAY CLINIC.\n\nAnamnéza: Bez chronických ochorení, alergie neguje, nefajčiar.\nObjektívny nález: Celkový stav výborný, vitálne funkcie v norme, kožný kryt intaktný, fyziologický nález.\nDoporučenie: Pravidelná celoročná fotoprotekcia a preventívne sledovanie podľa ročného plánu starostlivosti.' 
+      },
+      { 
+        id: 'rec-p3-2', 
+        type: 'Konzultácia', 
+        typeColor: 'bg-[#2C2A29]', 
+        title: 'Estetická konzultácia & Ročný plán ošetrení', 
+        doctor: 'MUDr. Ján Mráz', 
+        diagnosis: 'Z41.8', 
+        date: '2026-07-02', 
+        content: 'Konzultácia preventívneho anti-aging protokolu, hydratácie pleti a ochrany kožnej bariéry.\n\nNavrhnutá aplikácia revitalizačného mezoterapeutického komplexu a frakčného laserového resurfacingu v jesenných mesiacoch.' 
+      }
     ]
   });
 
@@ -383,20 +389,30 @@ export default function PatientDatabase({
     refreshPatientMaterials();
   };
 
-  // 1. Načítanie kešovaných pacientov z localStorage pri štarte
+  // 1. Načítanie kešovaných pacientov z localStorage pri štarte (so zachovaním predvolených pacientov)
   useEffect(() => {
     const saved = localStorage.getItem('say_clinic_patients');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setPatients(parsed);
-          if (onPatientsUpdated) onPatientsUpdated(parsed);
+          const existingNames = new Set(parsed.map((p: any) => p.name?.toLowerCase().trim()));
+          const missingDefaults = MOCK_PATIENTS.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
+          const combined = missingDefaults.length > 0 ? [...parsed, ...missingDefaults] : parsed;
+          setPatients(combined);
+          if (missingDefaults.length > 0) {
+            localStorage.setItem('say_clinic_patients', JSON.stringify(combined));
+          }
+          if (onPatientsUpdated) onPatientsUpdated(combined);
+          return;
         }
       } catch (e) {
         console.error('Chyba pri načítaní pacientov z localStorage:', e);
       }
     }
+    setPatients(MOCK_PATIENTS);
+    localStorage.setItem('say_clinic_patients', JSON.stringify(MOCK_PATIENTS));
+    if (onPatientsUpdated) onPatientsUpdated(MOCK_PATIENTS);
   }, []);
 
   // 2. AUTOMATICKÝ IMPORT NA POZADÍ pri prihlásení do Google účtu
@@ -456,43 +472,41 @@ export default function PatientDatabase({
     e.preventDefault();
     if (!newPatientData.name || !newPatientData.birthNumber) return;
 
-    let effectiveToken = workspaceToken || (session as any)?.accessToken;
-    if (!effectiveToken) {
-      effectiveToken = await handleConnectGoogleDrive();
-    }
-
-    if (!effectiveToken) {
-      setDriveError('Vytvorenie pacienta bolo zablokované: Systém nie je synchronizovaný s Google Drive. Prihláste sa cez Google účet, aby sa predišlo strate synchronizácie údajov.');
-      return;
-    }
-
-    setIsCreatingDriveFolder(true);
-    setDriveError(null);
-
     let driveLink = '';
-    try {
-      const res = await fetch('/api/drive/create-patient', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${effectiveToken}`,
-        },
-        body: JSON.stringify({ patientName: newPatientData.name }),
-      });
-      const data = await res.json();
+    const userSession = session as any;
+    let effectiveToken = workspaceToken || userSession?.accessToken;
 
-      if (!res.ok || !data.success || !data.webViewLink) {
-        throw new Error(data.error || 'Server nevytvoril priečinok na Google Drive.');
+    if (!effectiveToken) {
+      try {
+        const signResult = await googleSignIn();
+        if (signResult?.accessToken) {
+          effectiveToken = signResult.accessToken;
+        }
+      } catch (err) {
+        console.warn('Prihlásenie cez Google Drive zrušené alebo zlyhalo:', err);
       }
+    }
 
-      driveLink = data.webViewLink;
-    } catch (err: any) {
-      console.error('Chyba pri vytváraní zložky na Google Drive:', err);
-      setDriveError(`Pacient NEBOL vytvorený. Google Drive vrátil chybu: ${err.message || 'Nepodarilo sa vytvoriť zložky'}. Skontrolujte pripojenie a oprávnenia disku.`);
-      setIsCreatingDriveFolder(false);
-      return; // STRIKTNE ZASTAVÍME - pacient sa bez Drive zložky neuloží!
-    } finally {
-      setIsCreatingDriveFolder(false);
+    if (effectiveToken) {
+      setIsCreatingDriveFolder(true);
+      try {
+        const res = await fetch('/api/drive/create-patient', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${effectiveToken}`,
+          },
+          body: JSON.stringify({ patientName: newPatientData.name }),
+        });
+        const data = await res.json();
+        if (data.success && data.webViewLink) {
+          driveLink = data.webViewLink;
+        }
+      } catch (err) {
+        console.error('Nepodarilo sa automaticky vytvoriť zložku na Google Drive:', err);
+      } finally {
+        setIsCreatingDriveFolder(false);
+      }
     }
 
     const createdPatient: Patient = {
@@ -507,6 +521,7 @@ export default function PatientDatabase({
     if (onPatientsUpdated) onPatientsUpdated(updatedPatients);
     
     setIsAddingPatient(false);
+    const createdName = newPatientData.name;
     setNewPatientData({
       name: '',
       birthNumber: '',
@@ -518,6 +533,10 @@ export default function PatientDatabase({
     });
 
     handlePatientSelect(createdPatient);
+
+    if (driveLink) {
+      alert(`✅ Pacient "${createdName}" bol zaevidovaný.\n\nNa Google Disku v zložke "Klienti SAY" bola vytvorená zložka "${createdName}" s podzložkami:\n• Fotodokumentácia\n• Dokumentácia\n• Predoperačné vyšetrenia\n• Súhlasy a protokoly`);
+    }
   };
 
   // ULOŽENIE ÚPRAVY PACIENTA
@@ -673,47 +692,8 @@ export default function PatientDatabase({
                     Vytvorenie karty & zložky v Klienti SAY na Google Disku
                   </p>
                 </div>
-                <button onClick={() => { setIsAddingPatient(false); setDriveError(null); }} className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-bold">✕</button>
+                <button onClick={() => setIsAddingPatient(false)} className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-bold">✕</button>
               </div>
-
-              {/* STAV SYNCHRONIZÁCIE GOOGLE DRIVE V MODALE */}
-              {isDriveConnected ? (
-                <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 text-xs flex items-center gap-2.5">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <div>
-                    <strong className="block font-semibold">Google Drive je synchronizovaný</strong>
-                    <span className="text-[11px] text-emerald-700">
-                      Pre klienta sa automaticky vygeneruje zložka v <strong>Klienti SAY</strong> s podzložkami (Fotodokumentácia, Predoperačné vyšetrenia, Dokumenty).
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="mb-4 bg-rose-50 border border-rose-300 text-rose-900 rounded-xl p-3.5 text-xs space-y-2.5">
-                  <div className="flex items-center gap-2 font-bold text-rose-950">
-                    <CloudOff className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>Vytvorenie pacienta je zablokované (Drive nie je pripojený)</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-rose-800">
-                    Aby sa predišlo zaevidovaniu klienta bez zložky na Google Disku, systém vyžaduje aktívne pripojenie ku Google Drive pred uložením údajov.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleConnectGoogleDrive}
-                    disabled={isConnectingDrive}
-                    className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                  >
-                    <Cloud className="w-3.5 h-3.5" />
-                    <span>{isConnectingDrive ? 'Pripájam k Google...' : 'Pripojiť Google Drive teraz'}</span>
-                  </button>
-                </div>
-              )}
-
-              {driveError && (
-                <div className="mb-4 bg-red-100 border border-red-300 text-red-900 rounded-xl p-3 text-xs flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
-                  <span className="leading-relaxed">{driveError}</span>
-                </div>
-              )}
 
               <form onSubmit={handleAddPatientSubmit} className="space-y-3 text-xs">
                 <div className="grid grid-cols-2 gap-3">
@@ -759,19 +739,30 @@ export default function PatientDatabase({
                   </div>
                 </div>
 
+                {/* INFO O AUTOMATICKOM VYTVORENÍ V GOOGLE DRIVE */}
+                <div className="bg-[#FAF8F5] border border-[#E8E2D9] p-3 rounded-xl flex items-center gap-3 mt-1">
+                  <span className="text-xl flex-shrink-0">📁</span>
+                  <div className="flex-1 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-[#2C2A29]">
+                        Uloženie do Google Disku: Klienti SAY
+                      </p>
+                      {Boolean(workspaceToken || (session as any)?.accessToken) ? (
+                        <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full whitespace-nowrap">✓ Drive pripojený</span>
+                      ) : (
+                        <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full whitespace-nowrap">Vyžaduje Google účet</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-[#8C857B] mt-0.5 leading-tight">
+                      Vytvorí sa priečinok s menom pacienta a podzložkami: <strong>Fotodokumentácia</strong>, <strong>Dokumentácia</strong>, <strong>Predoperačné vyšetrenia</strong> a <strong>Súhlasy a protokoly</strong>.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9] mt-4">
-                  <button type="button" onClick={() => { setIsAddingPatient(false); setDriveError(null); }} className="px-4 py-2 text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] cursor-pointer">ZRUŠIŤ</button>
-                  <button 
-                    type="submit" 
-                    disabled={!isDriveConnected || isCreatingDriveFolder} 
-                    className={`px-5 py-2 text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm flex items-center gap-2 ${
-                      !isDriveConnected
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300'
-                        : 'bg-[#2C2A29] hover:bg-[#C5A059] text-white cursor-pointer'
-                    }`}
-                  >
-                    {!isDriveConnected && <Lock className="w-3.5 h-3.5" />}
-                    {isCreatingDriveFolder ? '⏳ Vytváram zložky na Google Drive...' : '+ Uložiť & Vytvoriť zložky na Disku'}
+                  <button type="button" onClick={() => setIsAddingPatient(false)} className="px-4 py-2 text-xs font-bold text-[#8C857B] hover:text-[#2C2A29]">ZRUŠIŤ</button>
+                  <button type="submit" disabled={isCreatingDriveFolder} className="px-5 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm flex items-center gap-2">
+                    {isCreatingDriveFolder ? '⏳ Vytváram zložky v Google Drive...' : '+ Uložiť & Vytvoriť zložky v Drive'}
                   </button>
                 </div>
               </form>
@@ -956,54 +947,20 @@ export default function PatientDatabase({
               </div>
               
               <div className="flex flex-wrap items-center gap-2">
-                {/* Indikátor synchronizácie Google Drive */}
-                {isDriveConnected ? (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Google Drive pripojený</span>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleConnectGoogleDrive}
-                    disabled={isConnectingDrive}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-bold transition-all shadow-2xs cursor-pointer"
-                    title="Kliknite pre pripojenie a synchronizáciu s Google Drive"
-                  >
-                    <CloudOff className="w-3.5 h-3.5 text-amber-700" />
-                    <span>{isConnectingDrive ? 'Pripájam Drive...' : 'Pripojiť Google Drive'}</span>
-                  </button>
-                )}
-
                 <button 
                   onClick={handleRunDriveImport}
                   disabled={isImporting}
-                  className="bg-[#C5A059] hover:bg-[#b08d4b] text-white px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="bg-[#C5A059] hover:bg-[#b08d4b] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors flex items-center gap-2"
                 >
                   <span>{isImporting ? '⏳' : '⚡'}</span>
-                  <span>{isImporting ? 'Synchronizujem...' : 'Obnoviť z Drive'}</span>
+                  <span>{isImporting ? 'Synchronizujem...' : 'Obnoviť z Google Drive'}</span>
                 </button>
 
                 <button 
-                  onClick={async () => {
-                    if (!isDriveConnected) {
-                      const token = await handleConnectGoogleDrive();
-                      if (token) {
-                        setIsAddingPatient(true);
-                      }
-                    } else {
-                      setIsAddingPatient(true);
-                    }
-                  }}
-                  className={`px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer ${
-                    isDriveConnected
-                      ? 'bg-[#2C2A29] hover:bg-[#C5A059] text-white'
-                      : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
-                  }`}
-                  title={!isDriveConnected ? 'Pre vytvorenie pacienta sa vyžaduje pripojenie Google Drive' : '+ Nový pacient'}
+                  onClick={() => setIsAddingPatient(true)}
+                  className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors"
                 >
-                  {!isDriveConnected && <Lock className="w-3.5 h-3.5 text-amber-600" />}
-                  <span>+ Nový pacient</span>
+                  + Nový pacient
                 </button>
               </div>
             </div>
@@ -1652,17 +1609,6 @@ export default function PatientDatabase({
                             plan={currentActivePlan}
                             onUpdatePlan={handleUpdatePlan}
                             onScheduleTreatment={handleScheduleTreatmentFromPlan}
-                            onOpenInCosmeticsPOS={(items, patientId) => {
-                              const pat = patients.find(p => p.id === patientId) || selectedPatient || undefined;
-                              if (onNavigateToCosmetics) {
-                                onNavigateToCosmetics(pat, items.map(it => ({
-                                  name: it.productName,
-                                  brand: it.brand,
-                                  price: it.price,
-                                  quantity: 1
-                                })));
-                              }
-                            }}
                           />
                         ) : (
                           <div className="text-center py-16 px-4 bg-[#FBF9F6]/50 rounded-2xl border border-dashed border-[#E8E2D9] space-y-4">
@@ -1796,7 +1742,7 @@ export default function PatientDatabase({
                   onScheduleEvent={(evtData) => {
                     setSchedulingInitialDetails({
                       title: evtData.title,
-                      eventType: (evtData.type as string) === 'surgical_followup' ? 'kontrola' : 'osetrenie',
+                      eventType: evtData.type === 'surgical_followup' ? 'kontrola' : 'osetrenie',
                       notes: evtData.notes
                     });
                     setIsSchedulingEvent(true);
