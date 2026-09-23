@@ -40,8 +40,11 @@ import {
   X,
   Sparkles,
   RotateCcw,
-  Trash2
+  Trash2,
+  Lock
 } from 'lucide-react';
+import { UserAccount } from './LoginForm';
+import { PermissionsService } from '../services/permissionsService';
 
 interface ExpenseItem {
   id: string;
@@ -57,13 +60,20 @@ interface FinanceCRMProps {
   sales?: SaleItem[];
   calendarEvents?: CalendarEvent[];
   patients?: Patient[];
+  currentUser?: UserAccount;
 }
 
 export default function FinanceCRM({ 
   sales = [], 
   calendarEvents = [], 
-  patients = [] 
+  patients = [],
+  currentUser
 }: FinanceCRMProps) {
+  // Prístupové práva podľa roly
+  const canViewPnl = PermissionsService.canUserDo(currentUser || null, 'view_clinic_pnl');
+  const canResetFinancials = PermissionsService.canUserDo(currentUser || null, 'reset_financial_data');
+  const canManageInvoices = PermissionsService.canUserDo(currentUser || null, 'manage_invoices');
+
   // Hlavné podzáložky
   const [activeSubTab, setActiveSubTab] = useState<'clients' | 'overview' | 'monthly_analytics' | 'invoices' | 'unit_economics' | 'credits'>('clients');
 
@@ -431,15 +441,17 @@ export default function FinanceCRM({
                 <h2 className="text-xl font-brand font-bold text-[#2C2A29] uppercase tracking-wide">
                   Finančné riadenie & Výsledky kliniky
                 </h2>
-                <button
-                  type="button"
-                  onClick={() => setShowResetConfirmModal(true)}
-                  title="Vynulovať testovacie údaje pre ostrú prevádzku"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-rose-200 bg-rose-50/90 hover:bg-rose-100 text-rose-800 text-[11px] font-bold transition-all shadow-2xs cursor-pointer ml-1"
-                >
-                  <RotateCcw className="w-3 h-3 text-rose-600" />
-                  <span>Vynulovať na ostro</span>
-                </button>
+                {canResetFinancials && (
+                  <button
+                    type="button"
+                    onClick={() => setShowResetConfirmModal(true)}
+                    title="Vynulovať testovacie údaje pre ostrú prevádzku"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-rose-200 bg-rose-50/90 hover:bg-rose-100 text-rose-800 text-[11px] font-bold transition-all shadow-2xs cursor-pointer ml-1"
+                  >
+                    <RotateCcw className="w-3 h-3 text-rose-600" />
+                    <span>Vynulovať na ostro</span>
+                  </button>
+                )}
               </div>
               <p className="text-xs text-[#8C857B]">
                 Prepojená spotreba skladu, tržby z operácií, zálohové faktúry, pohľadávky a kredit klientov
