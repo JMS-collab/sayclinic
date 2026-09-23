@@ -17,6 +17,9 @@ const MEMOJI_MAP: Record<string, string> = {
   u5: '/avatars/solivajsova.jpg?v=2',
   u6: '/avatars/foltani.jpg?v=2',
   u7: '/avatars/lenhartova.jpg?v=2',
+  u8: '/avatars/anesteziolog.jpg?v=1',
+  u9: '/avatars/anest_sestra.jpg?v=1',
+  u10: '/avatars/foltaniova.jpg?v=1',
 };
 
 export function LiquidAvatar({ id, name, role, className = "w-full h-full" }: AvatarProps) {

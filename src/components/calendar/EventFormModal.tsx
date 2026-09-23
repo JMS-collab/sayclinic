@@ -904,11 +904,13 @@ export default function EventFormModal({
                     🩺 Anesteziologická sestra
                   </label>
                   <select
-                    value={formData.anesthesiaNurse || 'Bc. Jana Malá'}
+                    value={formData.anesthesiaNurse || 'Anesteziologická sestra'}
                     onChange={e => setFormData(prev => ({ ...prev, anesthesiaNurse: e.target.value }))}
                     className="w-full border border-[#D9CFC0] p-1.5 rounded-lg bg-white text-xs"
                   >
+                    <option value="Anesteziologická sestra">Anesteziologická sestra</option>
                     <option value="Bc. Jana Malá">Bc. Jana Malá (Anest. sestra)</option>
+                    <option value="Viktória Foltániová">Viktória Foltániová</option>
                     <option value="Ema Foltáni">Ema Foltáni</option>
                     <option value="Sabina Lenhartová">Sabina Lenhartová</option>
                     <option value="Žiadna (lokálna anestézia)">Žiadna (lokálna anestézia)</option>
@@ -927,6 +929,7 @@ export default function EventFormModal({
                   >
                     <option value="Sabina Lenhartová">Sabina Lenhartová</option>
                     <option value="Ema Foltáni">Ema Foltáni</option>
+                    <option value="Viktória Foltániová">Viktória Foltániová</option>
                     <option value="Bc. Jana Malá">Bc. Jana Malá</option>
                     <option value="Externá inštrumentárka">Externá inštrumentárka</option>
                   </select>

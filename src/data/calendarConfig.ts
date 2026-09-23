@@ -263,8 +263,11 @@ export const CLINIC_STAFF: ClinicStaffMember[] = [
   { id: 'kovac', name: 'MUDr. Peter Kováč', role: 'Anesteziológ (OAIM)', type: 'anesthesiologist' },
   { id: 'novakova', name: 'MUDr. Viera Nováková', role: 'Anesteziologička', type: 'anesthesiologist' },
   { id: 'foltani', name: 'Ema Foltáni', role: 'Zdravotná sestra / Inštrumentárka', type: 'nurse' },
+  { id: 'foltaniova', name: 'Viktória Foltániová', role: 'Zdravotná sestra', type: 'nurse' },
   { id: 'lenhartova', name: 'Sabina Lenhartová', role: 'Inštrumentárka / Sestra', type: 'nurse' },
   { id: 'mala', name: 'Bc. Jana Malá', role: 'Anesteziologická sestra', type: 'nurse' },
+  { id: 'anesteziolog', name: 'Anesteziológ', role: 'Anesteziológ (OAIM)', type: 'anesthesiologist' },
+  { id: 'anest_sestra', name: 'Anesteziologická sestra', role: 'Anesteziologická sestra', type: 'nurse' },
   { id: 'mecerodova', name: 'Ing. Barbara Mecerodová, MBA', role: 'Klinický manažment', type: 'manager' },
   { id: 'solivajsova', name: 'Mgr. Elena Solivajsová', role: 'Recepcia & Manažment', type: 'manager' },
 ];

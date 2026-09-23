@@ -1,5 +1,3 @@
-import { google } from 'googleapis';
-
 export interface EmailAttachment {
   filename: string;
   content: string; // Base64 kódovaný obsah súboru
@@ -105,18 +103,20 @@ export async function sendEmailViaGmail(
       };
     }
 
-    // Inicializácia OAuth2 klienta
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: accessToken });
-
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
     // Získanie profilu odosielateľa pre korektnú adresu v hlavičke From
     let senderEmail = 'me';
     try {
-      const profile = await gmail.users.getProfile({ userId: 'me' });
-      if (profile.data.emailAddress) {
-        senderEmail = profile.data.emailAddress;
+      const profileRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json',
+        },
+      });
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        if (profileData.emailAddress) {
+          senderEmail = profileData.emailAddress;
+        }
       }
     } catch (profileErr) {
       console.warn('Nepodarilo sa načítať profil odosielateľa:', profileErr);
@@ -126,24 +126,30 @@ export async function sendEmailViaGmail(
     const rawRfc = createRfc2822Message(options, senderEmail !== 'me' ? senderEmail : undefined);
     const rawBase64Url = base64UrlEncode(rawRfc);
 
-    const res = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: rawBase64Url,
+    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        raw: rawBase64Url,
+      }),
     });
 
-    if (res.status !== 200 || !res.data.id) {
+    const resData = await res.json().catch(() => ({}));
+
+    if (!res.ok || !resData.id) {
       return {
         success: false,
-        error: `Gmail API vrátilo status ${res.status}`,
+        error: resData.error?.message || `Gmail API vrátilo status ${res.status}`,
       };
     }
 
     return {
       success: true,
-      messageId: res.data.id,
-      threadId: res.data.threadId || undefined,
+      messageId: resData.id,
+      threadId: resData.threadId || undefined,
     };
   } catch (err: any) {
     console.error('Chyba pri volaní Gmail API (sendEmailViaGmail):', err);

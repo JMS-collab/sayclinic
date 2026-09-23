@@ -97,12 +97,42 @@ export const SAY_CLINIC_USERS: UserAccount[] = [
     avatarBg: 'bg-[#2A4736]',
     avatarUrl: ''
   },
+  {
+    id: 'u8',
+    name: 'Anesteziológ',
+    email: 'anesteziolog@sayclinic.sk',
+    role: 'doctor',
+    title: 'Anesteziológ (OAIM)',
+    avatarBg: 'bg-[#2E3C48]',
+    avatarUrl: ''
+  },
+  {
+    id: 'u9',
+    name: 'Anesteziologická sestra',
+    email: 'anest.sestra@sayclinic.sk',
+    role: 'nurse',
+    title: 'Anesteziologická sestra',
+    avatarBg: 'bg-[#1E3A3A]',
+    avatarUrl: ''
+  },
+  {
+    id: 'u10',
+    name: 'Viktória Foltániová',
+    email: 'foltaniova@sayclinic.sk',
+    role: 'nurse',
+    title: 'Zdravotná sestra',
+    avatarBg: 'bg-[#2A4736]',
+    avatarUrl: ''
+  },
 ];
 
 const PRESET_PORTRAITS = [
   { label: 'iOS Memoji Mraz (Chirurg)', url: '/avatars/mraz.jpg?v=2' },
   { label: 'iOS Memoji Srokova (Lekár - Blond)', url: '/avatars/srokova.jpg?v=2' },
   { label: 'iOS Memoji Tran (Chirurg)', url: '/avatars/tran.jpg?v=2' },
+  { label: 'iOS Memoji Anesteziológ', url: '/avatars/anesteziolog.jpg?v=1' },
+  { label: 'iOS Memoji Anest. sestra', url: '/avatars/anest_sestra.jpg?v=1' },
+  { label: 'iOS Memoji Foltániová (Sestra)', url: '/avatars/foltaniova.jpg?v=1' },
   { label: 'iOS Memoji Mecerodova (Manažment - Blond)', url: '/avatars/mecerodova.jpg?v=2' },
   { label: 'iOS Memoji Solivajsova (Recepcia - Blond)', url: '/avatars/solivajsova.jpg?v=2' },
   { label: 'iOS Memoji Sestra (Operačná sála)', url: '/avatars/foltani.jpg?v=2' },
@@ -362,7 +392,15 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       return;
     }
 
-    const matchedUser = users.find(u => u.email.toLowerCase() === directEmail.trim().toLowerCase());
+    const searchEmail = directEmail.trim().toLowerCase();
+    const matchedUser = users.find(u => {
+      const email = u.email.toLowerCase();
+      if (email === searchEmail) return true;
+      if (u.id === 'u8' && (searchEmail === 'anesteziolog@sayclinic.sk' || searchEmail === 'anestezia@sayclinic.sk')) return true;
+      if (u.id === 'u9' && (searchEmail === 'anest.sestra@sayclinic.sk' || searchEmail === 'anesteziologicka.sestra@sayclinic.sk' || searchEmail === 'anesteziologickasestra@sayclinic.sk')) return true;
+      if (u.id === 'u10' && (searchEmail === 'foltaniova@sayclinic.sk' || searchEmail === 'viktoria.foltaniova@sayclinic.sk' || searchEmail === 'viktoria@sayclinic.sk')) return true;
+      return false;
+    });
     if (!matchedUser) {
       setErrorMsg('Používateľ s týmto e-mailom nebol v databáze SAY CLINIC nájdený.');
       return;

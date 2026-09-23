@@ -31,7 +31,39 @@ export const AuthService = {
     try {
       const stored = localStorage.getItem(CREDENTIALS_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed: StoredCredentials = JSON.parse(stored);
+        let hasChanges = false;
+        SAY_CLINIC_USERS.forEach(u => {
+          if (!parsed[u.id] || !parsed[u.email.toLowerCase()]) {
+            const cred = parsed[u.id] || {
+              passwordHash: DEFAULT_INITIAL_PASSWORD,
+              isCustomPassword: false,
+              updatedAt: new Date().toISOString(),
+            };
+            parsed[u.id] = cred;
+            parsed[u.email.toLowerCase()] = cred;
+            hasChanges = true;
+          }
+        });
+        // Aliases
+        if (!parsed['anestezia@sayclinic.sk'] && parsed['u8']) {
+          parsed['anestezia@sayclinic.sk'] = parsed['u8'];
+          hasChanges = true;
+        }
+        if (!parsed['anesteziologicka.sestra@sayclinic.sk'] && parsed['u9']) {
+          parsed['anesteziologicka.sestra@sayclinic.sk'] = parsed['u9'];
+          parsed['anesteziologickasestra@sayclinic.sk'] = parsed['u9'];
+          hasChanges = true;
+        }
+        if (!parsed['viktoria.foltaniova@sayclinic.sk'] && parsed['u10']) {
+          parsed['viktoria.foltaniova@sayclinic.sk'] = parsed['u10'];
+          parsed['viktoria@sayclinic.sk'] = parsed['u10'];
+          hasChanges = true;
+        }
+        if (hasChanges) {
+          localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(parsed));
+        }
+        return parsed;
       }
     } catch (e) {
       console.error('Chyba pri čítaní poverení:', e);
@@ -47,6 +79,19 @@ export const AuthService = {
       };
       initialCreds[u.email.toLowerCase()] = initialCreds[u.id];
     });
+
+    // E-mailové aliasy
+    if (initialCreds['u8']) {
+      initialCreds['anestezia@sayclinic.sk'] = initialCreds['u8'];
+    }
+    if (initialCreds['u9']) {
+      initialCreds['anesteziologicka.sestra@sayclinic.sk'] = initialCreds['u9'];
+      initialCreds['anesteziologickasestra@sayclinic.sk'] = initialCreds['u9'];
+    }
+    if (initialCreds['u10']) {
+      initialCreds['viktoria.foltaniova@sayclinic.sk'] = initialCreds['u10'];
+      initialCreds['viktoria@sayclinic.sk'] = initialCreds['u10'];
+    }
 
     try {
       localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(initialCreds));

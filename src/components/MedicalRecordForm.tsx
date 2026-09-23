@@ -281,9 +281,11 @@ export const SURGICAL_TEAM_PRESETS = {
     'MUDr. Ján Mráz',
     'Sabina Lenhartová',
     'Ema Foltáni',
+    'Viktória Foltániová',
     'Bc. Katarína Ondrušová'
   ],
   anesthesiologists: [
+    'Anesteziológ',
     'MUDr. Peter Kováč',
     'MUDr. Ivan Bella',
     'MUDr. Martin Hraško',
@@ -293,11 +295,14 @@ export const SURGICAL_TEAM_PRESETS = {
   instrumentalists: [
     'Sabina Lenhartová',
     'Ema Foltáni',
+    'Viktória Foltániová',
     'Bc. Katarína Ondrušová',
     'Mgr. Elena Solivajsová'
   ],
   anestNurses: [
+    'Anesteziologická sestra',
     'Ema Foltáni',
+    'Viktória Foltániová',
     'Sabina Lenhartová',
     'Bc. Andrea Kmeťová',
     'Bez anest. sestry (Lokálna anestézia)'

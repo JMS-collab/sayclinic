@@ -423,7 +423,7 @@ export default function Home() {
             <div className="text-right hidden sm:block">
               <p className="text-xs font-bold text-[#2C2A29]">{currentUser.name}</p>
               <p className="text-[9px] uppercase tracking-widest text-[#C5A059]">
-                {currentUser.role === 'ceo' ? 'CEO & Primár' : currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra'}
+                {currentUser.title || (currentUser.role === 'ceo' ? 'CEO & Primár' : currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra')}
               </p>
             </div>
             
