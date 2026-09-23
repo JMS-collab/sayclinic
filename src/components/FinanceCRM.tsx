@@ -77,6 +77,13 @@ export default function FinanceCRM({
   // Hlavné podzáložky
   const [activeSubTab, setActiveSubTab] = useState<'clients' | 'overview' | 'monthly_analytics' | 'invoices' | 'unit_economics' | 'credits'>('clients');
 
+  // Bezpečnostná poistka: ak používateľ nemá oprávnenie na P&L výkazy kliniky, nepovolíme mu tieto podzáložky
+  useEffect(() => {
+    if (!canViewPnl && (activeSubTab === 'overview' || activeSubTab === 'unit_economics')) {
+      setActiveSubTab('clients');
+    }
+  }, [canViewPnl, activeSubTab]);
+
   // Stavy pre dáta
   const [clientProfiles, setClientProfiles] = useState<PatientFinancialProfile[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -498,18 +505,20 @@ export default function FinanceCRM({
             )}
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('overview')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeSubTab === 'overview'
-                ? 'bg-[#2C2A29] text-white shadow-xs'
-                : 'text-[#8C857B] hover:text-[#2C2A29]'
-            }`}
-          >
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>P&L & Výsledky kliniky</span>
-          </button>
+          {canViewPnl && (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('overview')}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeSubTab === 'overview'
+                  ? 'bg-[#2C2A29] text-white shadow-xs'
+                  : 'text-[#8C857B] hover:text-[#2C2A29]'
+              }`}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>P&L & Výsledky kliniky</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -527,18 +536,20 @@ export default function FinanceCRM({
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('unit_economics')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeSubTab === 'unit_economics'
-                ? 'bg-[#2C2A29] text-white shadow-xs'
-                : 'text-[#8C857B] hover:text-[#2C2A29]'
-            }`}
-          >
-            <PieChart className="w-3.5 h-3.5" />
-            <span>Marže & Rentabilita</span>
-          </button>
+          {canViewPnl && (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('unit_economics')}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeSubTab === 'unit_economics'
+                  ? 'bg-[#2C2A29] text-white shadow-xs'
+                  : 'text-[#8C857B] hover:text-[#2C2A29]'
+              }`}
+            >
+              <PieChart className="w-3.5 h-3.5" />
+              <span>Marže & Rentabilita</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -962,7 +973,7 @@ export default function FinanceCRM({
       {/* ========================================================================= */}
       {/* 3. SUB-TAB: FINANČNÝ PREHĽAD & P&L VÝSLEDKY KLINIKY                       */}
       {/* ========================================================================= */}
-      {activeSubTab === 'overview' && (
+      {activeSubTab === 'overview' && canViewPnl && (
         <div className="space-y-6">
           
           {/* BANNER PRE PRECHOD NA DETAILNÚ MESAČNÚ VIZUALIZÁCIU A POŽIADAVKY */}
@@ -1392,7 +1403,7 @@ export default function FinanceCRM({
       {/* ========================================================================= */}
       {/* 4. SUB-TAB: MARŽE & RENTABILITA VÝKONOV (UNIT ECONOMICS)                   */}
       {/* ========================================================================= */}
-      {activeSubTab === 'unit_economics' && (
+      {activeSubTab === 'unit_economics' && canViewPnl && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl p-6 border border-[#E8E2D9] shadow-xs space-y-6">
             <div>

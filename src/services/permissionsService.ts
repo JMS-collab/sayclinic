@@ -150,7 +150,7 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
   // Prístup k medicínskej dokumentácii, pacientom, zákrokom, kalendáru a skladu materiálu
   // ŽIADNE citlivé celoklinické financie ani celkový P&L obrat kliniky
   doctor: {
-    allowedTabs: ['home', 'generator', 'patients', 'aesthetics', 'calendar', 'inventory', 'projects'],
+    allowedTabs: ['home', 'generator', 'patients', 'aesthetics', 'calendar', 'inventory'],
     specialPermissions: {
       view_financial_kpis: false,
       view_clinic_pnl: false,
@@ -178,7 +178,7 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
   // Sálová a ambulantná asistencia, zdravotná karta, harmonogram operácií, odpisovanie spotreby zo skladu
   // Prísne skryté finančné a cenové moduly
   nurse: {
-    allowedTabs: ['home', 'generator', 'patients', 'calendar', 'inventory', 'projects'],
+    allowedTabs: ['home', 'generator', 'patients', 'calendar', 'inventory'],
     specialPermissions: {
       view_financial_kpis: false,
       view_clinic_pnl: false,
@@ -189,7 +189,7 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
   }
 };
 
-const STORAGE_KEY = 'say_clinic_role_permissions_v1';
+const STORAGE_KEY = 'say_clinic_role_permissions_v2';
 const SIMULATED_ROLE_KEY = 'say_clinic_simulated_role';
 
 export const PermissionsService = {

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check } from 'lucide-react';
+import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check, Shield } from 'lucide-react';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient, MOCK_PATIENTS } from '../components/PatientDatabase';
 import LoginForm, { UserAccount } from '../components/LoginForm';
@@ -14,7 +14,14 @@ import { AestheticsModule } from '../components/AestheticsModule';
 import { CosmeticsPOSModule } from '../components/CosmeticsPOSModule';
 import ProjectManagement from '../components/ProjectManagement';
 import OperativeNotesWidget from '../components/OperativeNotesWidget';
+import RolePermissionsModal from '../components/RolePermissionsModal';
 import { AuthService } from '../services/authService';
+import { 
+  PermissionsService, 
+  TabId, 
+  RoleType, 
+  TABS_REGISTRY 
+} from '../services/permissionsService';
 
 export interface SaleItem {
   id: string;
@@ -141,6 +148,31 @@ export default function Home() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [passwordChangeStatus, setPasswordChangeStatus] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
+  // Stav pre správu oprávnení (RBAC Modal) a simuláciu roly
+  const [showRolePermissionsModal, setShowRolePermissionsModal] = useState(false);
+  const [permissionsVersion, setPermissionsVersion] = useState(0);
+  const [simulatedRole, setSimulatedRole] = useState<RoleType | null>(() => {
+    if (typeof window !== 'undefined') return PermissionsService.getSimulatedRole();
+    return null;
+  });
+
+  const isRealCeo = currentUser ? (currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1') : false;
+
+  // Počúvanie zmien oprávnení a simulácie rolí
+  useEffect(() => {
+    const handlePermissionsChanged = () => setPermissionsVersion(v => v + 1);
+    const handleRoleSimulated = (e: any) => {
+      setSimulatedRole(e.detail);
+      setPermissionsVersion(v => v + 1);
+    };
+    window.addEventListener('say_clinic_permissions_changed', handlePermissionsChanged);
+    window.addEventListener('say_clinic_role_simulated', handleRoleSimulated);
+    return () => {
+      window.removeEventListener('say_clinic_permissions_changed', handlePermissionsChanged);
+      window.removeEventListener('say_clinic_role_simulated', handleRoleSimulated);
+    };
+  }, []);
+
   // 1. ZACHOVANIE PRIHLÁSENÉHO POUŽÍVATEĽA PRI OBNOVENÍ / NÁVRATE SPÄŤ
   useEffect(() => {
     const sessionUser = AuthService.getCurrentSession();
@@ -149,12 +181,24 @@ export default function Home() {
     }
   }, []);
 
+  // Ochrana prístupu k záložke: ak používateľ nemá právo na aktuálnu záložku, vráti ho na domovskú obrazovku
+  useEffect(() => {
+    if (currentUser && !PermissionsService.canUserAccessTab(currentUser, activeTab as TabId)) {
+      setActiveTab('home');
+      window.history.replaceState({ tab: 'home' }, '', '#home');
+    }
+  }, [currentUser, activeTab, permissionsVersion, simulatedRole]);
+
   // 2. NAVIGÁCIA ŠÍPKAMI V PREHLIADAČI (POPSTATE LISTENER)
   useEffect(() => {
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '') as TabType;
       if (['home', 'generator', 'patients', 'aesthetics', 'cosmetics', 'finance', 'calendar', 'inventory', 'projects'].includes(hash)) {
-        setActiveTab(hash);
+        if (currentUser && !PermissionsService.canUserAccessTab(currentUser, hash as TabId)) {
+          setActiveTab('home');
+        } else {
+          setActiveTab(hash);
+        }
       } else {
         setActiveTab('home');
       }
@@ -164,10 +208,15 @@ export default function Home() {
     handlePopState(); // Načítanie pri prvom otvorení
 
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [currentUser, permissionsVersion, simulatedRole]);
 
-  // Funkcia pre prepínanie záložiek s zápisom do histórie prehliadača
+  // Funkcia pre prepínanie záložiek s zápisom do histórie prehliadača s overením oprávnenia
   const changeTab = (tab: TabType) => {
+    if (currentUser && !PermissionsService.canUserAccessTab(currentUser, tab as TabId)) {
+      setActiveTab('home');
+      window.history.pushState({ tab: 'home' }, '', '#home');
+      return;
+    }
     setActiveTab(tab);
     window.history.pushState({ tab }, '', `#${tab}`);
   };
@@ -344,6 +393,25 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FBF9F6]">
+      {/* SIMULAČNÁ LIŠTA (PRE CEO) */}
+      {simulatedRole && (
+        <div className="bg-amber-500 text-white px-6 py-2.5 flex items-center justify-between text-xs font-semibold shadow-md z-50 sticky top-0 print:hidden">
+          <div className="flex items-center gap-2">
+            <span className="animate-pulse">👁️</span>
+            <span>
+              Režim simulácie: Práve vidíte systém presne tak, ako profil <strong>{PermissionsService.getRoleTitle(simulatedRole)}</strong>.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => PermissionsService.setSimulatedRole(null)}
+            className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold underline cursor-pointer transition-colors"
+          >
+            Ukončiť náhľad (Späť k CEO)
+          </button>
+        </div>
+      )}
+
       {/* HLAVIČKA A PRECHOD NA HOMESCREEN CEZ LOGO */}
       <header className="bg-white border-b border-[#E8E2D9] sticky top-0 z-40 shadow-sm print:hidden">
         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -357,86 +425,27 @@ export default function Home() {
             />
           </div>
 
-          {/* NAVIGÁCIA */}
+          {/* DYNAMICKÁ NAVIGÁCIA PODĽA OPRÁVNENÍ PROFILU */}
           <nav className="flex flex-wrap gap-2 text-[11px] font-light uppercase tracking-wider text-[#8C857B]">
-            <button
-              onClick={() => changeTab('home')}
-              className={`px-3 py-2 transition-all ${
-                activeTab === 'home' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-              }`}
-            >
-              🏠 Prehľad (Home)
-            </button>
-            <button
-              onClick={() => {
-                setSelectedPatient(null);
-                changeTab('generator');
-              }}
-              className={`px-3 py-2 transition-all ${
-                activeTab === 'generator' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-              }`}
-            >
-              📄 Generátor Dokumentov
-            </button>
-            <button
-              onClick={() => {
-                setSelectedPatientForFolder(null);
-                changeTab('patients');
-              }}
-              className={`px-3 py-2 transition-all ${
-                activeTab === 'patients' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-              }`}
-            >
-              🗂️ Kartotéka Pacientov
-            </button>
-            <button
-              onClick={() => changeTab('aesthetics')}
-              className={`px-3 py-2 transition-all ${
-                activeTab === 'aesthetics' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-              }`}
-            >
-              💉 Botox & Výplne
-            </button>
-            <button
-              onClick={() => changeTab('cosmetics')}
-              className={`px-3 py-2 transition-all ${
-                activeTab === 'cosmetics' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-              }`}
-            >
-              🛍️ Predaj & Kozmetika
-            </button>
-            <button
-              onClick={() => changeTab('calendar')}
-              className={`px-3 py-2 transition-all ${
-                activeTab === 'calendar' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-              }`}
-            >
-              📅 Kalendár & Plánovanie
-            </button>
-            <button
-              onClick={() => changeTab('inventory')}
-              className={`px-3 py-2 transition-all ${
-                activeTab === 'inventory' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-              }`}
-            >
-              📦 Sklad & Materiál
-            </button>
-            <button
-              onClick={() => changeTab('finance')}
-              className={`px-3 py-2 transition-all ${
-                activeTab === 'finance' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-              }`}
-            >
-              📊 Financie & Výsledky
-            </button>
-            <button
-              onClick={() => changeTab('projects')}
-              className={`px-3 py-2 transition-all ${
-                activeTab === 'projects' ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
-              }`}
-            >
-              📑 Projekty & Úlohy
-            </button>
+            {TABS_REGISTRY.map((tabMeta) => {
+              if (!PermissionsService.canUserAccessTab(currentUser, tabMeta.id)) return null;
+              const isActive = activeTab === tabMeta.id;
+              return (
+                <button
+                  key={tabMeta.id}
+                  onClick={() => {
+                    if (tabMeta.id === 'generator') setSelectedPatient(null);
+                    if (tabMeta.id === 'patients') setSelectedPatientForFolder(null);
+                    changeTab(tabMeta.id);
+                  }}
+                  className={`px-3 py-2 transition-all ${
+                    isActive ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+                  }`}
+                >
+                  {tabMeta.icon} {tabMeta.label}
+                </button>
+              );
+            })}
           </nav>
 
           {/* PROFIL */}
@@ -461,6 +470,19 @@ export default function Home() {
               </p>
             </div>
             
+            {/* TLAČIDLO PRE SPRÁVU OPRÁVNENÍ (LEN PRE CEO) */}
+            {isRealCeo && (
+              <button
+                type="button"
+                onClick={() => setShowRolePermissionsModal(true)}
+                title="Správa oprávnení a rolí SAY CLINIC"
+                className="p-1.5 text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] rounded-lg border border-transparent hover:border-[#E8E2D9] transition-all flex items-center gap-1.5"
+              >
+                <Shield className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span className="hidden lg:inline text-[11px] font-bold text-[#2C2A29]">Oprávnenia</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => {
@@ -653,13 +675,23 @@ export default function Home() {
                     <p className="text-[10px] text-emerald-600 mt-1 font-semibold">Prepojené s Google Drive</p>
                   </div>
 
-                  <div className="bg-white border border-[#E8E2D9] p-4 rounded-xl shadow-sm">
-                    <p className="text-[10px] uppercase text-[#8C857B] font-bold">Dnešný predpokladovaný obrat</p>
-                    <p className="text-2xl font-bold text-[#2C2A29] mt-1">
-                      {sales.reduce((acc, s) => acc + s.amount, 0).toLocaleString('sk-SK')} €
-                    </p>
-                    <p className="text-[10px] text-[#8C857B] mt-1">Záznamy z CRM</p>
-                  </div>
+                  {PermissionsService.canUserDo(currentUser, 'view_financial_kpis') ? (
+                    <div className="bg-white border border-[#E8E2D9] p-4 rounded-xl shadow-sm">
+                      <p className="text-[10px] uppercase text-[#8C857B] font-bold">Dnešný predpokladovaný obrat</p>
+                      <p className="text-2xl font-bold text-[#2C2A29] mt-1">
+                        {sales.reduce((acc, s) => acc + s.amount, 0).toLocaleString('sk-SK')} €
+                      </p>
+                      <p className="text-[10px] text-[#8C857B] mt-1">Záznamy z CRM</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-[#E8E2D9] p-4 rounded-xl shadow-sm">
+                      <p className="text-[10px] uppercase text-[#8C857B] font-bold">Dnešný program výkonov</p>
+                      <p className="text-2xl font-bold text-[#2C2A29] mt-1">
+                        {todayEvents.length} výkonov
+                      </p>
+                      <p className="text-[10px] text-sky-600 mt-1 font-semibold">Harmonogram sály</p>
+                    </div>
+                  )}
 
                   {/* INTERAKTÍVNA KARTA PRE GOOGLE PREPOJENIE */}
                   <button
@@ -748,48 +780,60 @@ export default function Home() {
                         Rýchle Akcie
                       </h3>
                       <div className="grid grid-cols-1 gap-2 text-xs">
-                        <button 
-                          onClick={() => changeTab('aesthetics')}
-                          className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
-                        >
-                          <span>💉 Nová aplikácia Botoxu / Výplne</span>
-                          <span className="text-[#C5A059]">+</span>
-                        </button>
-                        <button 
-                          onClick={() => changeTab('cosmetics')}
-                          className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
-                        >
-                          <span>🛍️ Pultový predaj dermokozmetiky</span>
-                          <span className="text-[#C5A059]">+</span>
-                        </button>
-                        <button 
-                          onClick={() => { setSelectedPatient(null); changeTab('generator'); }}
-                          className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
-                        >
-                          <span>📄 Nový lekársky nález</span>
-                          <span className="text-[#C5A059]">+</span>
-                        </button>
-                        <button 
-                          onClick={() => { setSelectedPatientForFolder(null); changeTab('patients'); }}
-                          className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
-                        >
-                          <span>🗂️ Zaevidovať nového pacienta</span>
-                          <span className="text-[#C5A059]">+</span>
-                        </button>
-                        <button 
-                          onClick={() => changeTab('calendar')}
-                          className="w-full bg-[#2C2A29] text-white hover:bg-[#C5A059] p-3 rounded-xl text-left font-bold transition-all flex items-center justify-between"
-                        >
-                          <span>📅 Naplánovať operáciu v kalendári</span>
-                          <span>+</span>
-                        </button>
-                        <button 
-                          onClick={() => changeTab('projects')}
-                          className="w-full bg-[#FAF4E9] border border-[#E6D4B2] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
-                        >
-                          <span className="text-[#8A6827]">📑 Projekty & Delegovanie úloh (CEO)</span>
-                          <span className="text-[#C5A059] font-bold">➔</span>
-                        </button>
+                        {PermissionsService.canUserAccessTab(currentUser, 'aesthetics') && (
+                          <button 
+                            onClick={() => changeTab('aesthetics')}
+                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                          >
+                            <span>💉 Nová aplikácia Botoxu / Výplne</span>
+                            <span className="text-[#C5A059]">+</span>
+                          </button>
+                        )}
+                        {PermissionsService.canUserAccessTab(currentUser, 'cosmetics') && (
+                          <button 
+                            onClick={() => changeTab('cosmetics')}
+                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                          >
+                            <span>🛍️ Pultový predaj dermokozmetiky</span>
+                            <span className="text-[#C5A059]">+</span>
+                          </button>
+                        )}
+                        {PermissionsService.canUserAccessTab(currentUser, 'generator') && (
+                          <button 
+                            onClick={() => { setSelectedPatient(null); changeTab('generator'); }}
+                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                          >
+                            <span>📄 Nový lekársky nález</span>
+                            <span className="text-[#C5A059]">+</span>
+                          </button>
+                        )}
+                        {PermissionsService.canUserAccessTab(currentUser, 'patients') && (
+                          <button 
+                            onClick={() => { setSelectedPatientForFolder(null); changeTab('patients'); }}
+                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                          >
+                            <span>🗂️ Zaevidovať nového pacienta</span>
+                            <span className="text-[#C5A059]">+</span>
+                          </button>
+                        )}
+                        {PermissionsService.canUserAccessTab(currentUser, 'calendar') && (
+                          <button 
+                            onClick={() => changeTab('calendar')}
+                            className="w-full bg-[#2C2A29] text-white hover:bg-[#C5A059] p-3 rounded-xl text-left font-bold transition-all flex items-center justify-between"
+                          >
+                            <span>📅 Naplánovať operáciu v kalendári</span>
+                            <span>+</span>
+                          </button>
+                        )}
+                        {PermissionsService.canUserAccessTab(currentUser, 'projects') && (
+                          <button 
+                            onClick={() => changeTab('projects')}
+                            className="w-full bg-[#FAF4E9] border border-[#E6D4B2] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                          >
+                            <span className="text-[#8A6827]">📑 Projekty & Delegovanie úloh (CEO)</span>
+                            <span className="text-[#C5A059] font-bold">➔</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -841,7 +885,7 @@ export default function Home() {
             )}
 
             {/* ESTETICKÁ MEDICÍNA & FACE MAPPING */}
-            {activeTab === 'aesthetics' && (
+            {activeTab === 'aesthetics' && PermissionsService.canUserAccessTab(currentUser, 'aesthetics') && (
               <AestheticsModule 
                 patients={patients}
                 selectedPatientId={selectedPatientForFolder?.id || (patients.length > 0 ? patients[0].id : undefined)}
@@ -857,7 +901,7 @@ export default function Home() {
             )}
 
             {/* PREDAJ KOZMETIKY & POS */}
-            {activeTab === 'cosmetics' && (
+            {activeTab === 'cosmetics' && PermissionsService.canUserAccessTab(currentUser, 'cosmetics') && (
               <CosmeticsPOSModule 
                 patients={patients}
                 onSaleCompleted={handleAddSale}
@@ -881,23 +925,33 @@ export default function Home() {
               <InventoryCRM />
             )}
 
-            {/* FINANCIE */}
-            {activeTab === 'finance' && (
+            {/* FINANCIE - PRÍSTUPNÉ LEN PRE CEO A MANAŽMENT */}
+            {activeTab === 'finance' && PermissionsService.canUserAccessTab(currentUser, 'finance') && (
               <FinanceCRM 
                 sales={sales} 
                 calendarEvents={calendarEvents}
                 patients={patients}
+                currentUser={currentUser}
               />
             )}
 
-            {/* PROJEKTY & OPERATÍVNY MANAŽMENT (CEO) */}
-            {activeTab === 'projects' && (
+            {/* PROJEKTY & OPERATÍVNY MANAŽMENT (CEO & TÍM) */}
+            {activeTab === 'projects' && PermissionsService.canUserAccessTab(currentUser, 'projects') && (
               <ProjectManagement 
                 currentUser={currentUser}
               />
             )}
           </>
       </main>
+
+      {/* MODÁLNE OKNO PRE SPRÁVU OPRÁVNENÍ A ROLÍ (PRÍSTUPNÉ PRE CEO) */}
+      {currentUser && (
+        <RolePermissionsModal
+          isOpen={showRolePermissionsModal}
+          onClose={() => setShowRolePermissionsModal(false)}
+          currentUser={currentUser}
+        />
+      )}
     </div>
   );
 }
