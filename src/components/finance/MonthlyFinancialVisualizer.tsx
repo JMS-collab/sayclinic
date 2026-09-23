@@ -16,6 +16,7 @@ import {
   Invoice, 
   PatientFinancialProfile 
 } from '@/services/financeBillingService';
+import { InventoryService } from '@/services/inventoryService';
 import { CalendarEvent } from '@/data/calendarConfig';
 import { Patient } from '@/components/PatientDatabase';
 import { SaleItem } from '@/app/page';
@@ -50,7 +51,7 @@ export interface BillingRequirement {
   urgency: 'critical' | 'high' | 'medium' | 'normal';
   description: string;
   linkedInvoiceNumber?: string;
-  invoiceType?: 'advance' | 'standard';
+  invoiceType?: 'advance' | 'standard' | 'proforma';
 }
 
 interface MonthlyFinancialVisualizerProps {
@@ -59,6 +60,7 @@ interface MonthlyFinancialVisualizerProps {
   calendarEvents: CalendarEvent[];
   patients: Patient[];
   sales: SaleItem[];
+  expenses?: any[];
   onOpenInvoiceModal: (inv: Invoice) => void;
   onOpenInvoiceByNumber: (invNum: string) => void;
   onTriggerCreateInvoice: (patientName: string, procedureName: string, amount: number, type: 'advance' | 'standard') => void;
@@ -71,6 +73,7 @@ export default function MonthlyFinancialVisualizer({
   calendarEvents,
   patients,
   sales,
+  expenses = [],
   onOpenInvoiceModal,
   onOpenInvoiceByNumber,
   onTriggerCreateInvoice,
@@ -92,100 +95,107 @@ export default function MonthlyFinancialVisualizer({
     setIsMounted(true);
   }, []);
 
-  // 1. ZOSTAVENIE MESAČNÝCH DÁT: TRŽBY VS. VÝDAVKY
+  // 1. ZOSTAVENIE MESAČNÝCH DÁT: TRŽBY VS. VÝDAVKY (VÝLUČNE SKUTOČNÉ DÁTA Z PREVÁDZKY)
   const monthlyData = useMemo(() => {
-    // Základné reálne mesiace roka 2026
+    const yearToUse = 2026;
     const monthsMeta = [
-      { key: '2026-01', label: 'Jan 26', fullLabel: 'Január 2026', baseRev: 34200, baseExp: 21800, baseMat: 9200, baseStaff: 8500, baseRent: 4100 },
-      { key: '2026-02', label: 'Feb 26', fullLabel: 'Február 2026', baseRev: 38900, baseExp: 23400, baseMat: 10600, baseStaff: 8700, baseRent: 4100 },
-      { key: '2026-03', label: 'Mar 26', fullLabel: 'Marec 2026', baseRev: 45600, baseExp: 26100, baseMat: 12400, baseStaff: 9400, baseRent: 4300 },
-      { key: '2026-04', label: 'Apr 26', fullLabel: 'Apríl 2026', baseRev: 42100, baseExp: 25200, baseMat: 11500, baseStaff: 9400, baseRent: 4300 },
-      { key: '2026-05', label: 'Máj 26', fullLabel: 'Máj 2026', baseRev: 49800, baseExp: 28400, baseMat: 13900, baseStaff: 10200, baseRent: 4300 },
-      { key: '2026-06', label: 'Jún 26', fullLabel: 'Jún 2026', baseRev: 52300, baseExp: 29800, baseMat: 14600, baseStaff: 10800, baseRent: 4400 },
-      { key: '2026-07', label: 'Júl 26', fullLabel: 'Júl 2026', baseRev: 39400, baseExp: 24600, baseMat: 10200, baseStaff: 10000, baseRent: 4400 },
-      { key: '2026-08', label: 'Aug 26', fullLabel: 'August 2026', baseRev: 46700, baseExp: 27900, baseMat: 12800, baseStaff: 10500, baseRent: 4600 },
-      { key: '2026-09', label: 'Sep 26', fullLabel: 'September 2026 (Aktuálny)', baseRev: 0, baseExp: 0, baseMat: 0, baseStaff: 11000, baseRent: 4600 },
-      { key: '2026-10', label: 'Okt 26', fullLabel: 'Október 2026 (Prognóza)', baseRev: 48500, baseExp: 27200, baseMat: 12100, baseStaff: 10500, baseRent: 4600 },
-      { key: '2026-11', label: 'Nov 26', fullLabel: 'November 2026 (Prognóza)', baseRev: 54200, baseExp: 29500, baseMat: 13800, baseStaff: 11100, baseRent: 4600 },
-      { key: '2026-12', label: 'Dec 26', fullLabel: 'December 2026 (Prognóza)', baseRev: 61000, baseExp: 33400, baseMat: 15900, baseStaff: 12500, baseRent: 5000 },
+      { key: `${yearToUse}-01`, label: 'Jan 26', fullLabel: 'Január 2026' },
+      { key: `${yearToUse}-02`, label: 'Feb 26', fullLabel: 'Február 2026' },
+      { key: `${yearToUse}-03`, label: 'Mar 26', fullLabel: 'Marec 2026' },
+      { key: `${yearToUse}-04`, label: 'Apr 26', fullLabel: 'Apríl 2026' },
+      { key: `${yearToUse}-05`, label: 'Máj 26', fullLabel: 'Máj 2026' },
+      { key: `${yearToUse}-06`, label: 'Jún 26', fullLabel: 'Jún 2026' },
+      { key: `${yearToUse}-07`, label: 'Júl 26', fullLabel: 'Júl 2026' },
+      { key: `${yearToUse}-08`, label: 'Aug 26', fullLabel: 'August 2026' },
+      { key: `${yearToUse}-09`, label: 'Sep 26', fullLabel: 'September 2026' },
+      { key: `${yearToUse}-10`, label: 'Okt 26', fullLabel: 'Október 2026' },
+      { key: `${yearToUse}-11`, label: 'Nov 26', fullLabel: 'November 2026' },
+      { key: `${yearToUse}-12`, label: 'Dec 26', fullLabel: 'December 2026' },
     ];
 
-    // Integrujeme reálne septembrové dáta z aplikácie
-    let sepRealRevenue = 0;
-    let sepRealSurgeryRev = 0;
-    let sepRealAestheticRev = 0;
-    let sepRealDepositRev = 0;
-    let sepRealMaterialExp = 0;
-
-    invoices.forEach(inv => {
-      const invMonth = inv.paidDate?.slice(0, 7) || inv.issueDate?.slice(0, 7);
-      if (invMonth === '2026-09' || (!invMonth && inv.status === 'paid')) {
-        const amt = inv.paidAmount || (inv.status === 'paid' ? inv.totalAmount : 0);
-        sepRealRevenue += amt;
-        if (inv.type === 'advance') {
-          sepRealDepositRev += amt;
-        } else {
-          sepRealSurgeryRev += amt;
-        }
-      }
-    });
-
-    sales.forEach(sale => {
-      const sMonth = sale.timestamp?.slice(0, 7) || '2026-09';
-      if (sMonth === '2026-09') {
-        sepRealAestheticRev += sale.amount;
-        sepRealRevenue += sale.amount;
-      }
-    });
-
-    clientProfiles.forEach(prof => {
-      if (prof.procedureDate?.startsWith('2026-09') && prof.materialCost > 0) {
-        sepRealMaterialExp += prof.materialCost;
-      }
-    });
-
-    // Doplnenie základnej úrovne, aby september reflektoval aktuálny beh mesiaca
-    const sepFinalRevenue = Math.max(sepRealRevenue, 28500);
-    const sepFinalMaterial = Math.max(sepRealMaterialExp, 7650);
-    const sepFinalStaff = 10800;
-    const sepFinalRent = 4600;
-    const sepFinalExpense = sepFinalMaterial + sepFinalStaff + sepFinalRent;
+    const usageLogs = InventoryService.getUsageLogs();
+    const currentMonthKey = `${yearToUse}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
     const data = monthsMeta.map(m => {
-      let revenue = m.baseRev;
-      let expenses = m.baseExp;
-      let matCost = m.baseMat;
-      let staffCost = m.baseStaff;
-      let rentCost = m.baseRent;
+      let revenue = 0;
+      let surgeryRev = 0;
+      let aestheticRev = 0;
+      let depositRev = 0;
 
-      if (m.key === '2026-09') {
-        revenue = sepFinalRevenue;
-        matCost = sepFinalMaterial;
-        staffCost = sepFinalStaff;
-        rentCost = sepFinalRent;
-        expenses = sepFinalExpense;
-      }
+      let matCost = 0;
+      let staffCost = 0;
+      let rentCost = 0;
+      let otherExp = 0;
 
-      const netProfit = revenue - expenses;
+      // 1. Tržby z uhradených faktúr
+      invoices.forEach(inv => {
+        const invMonth = inv.paidDate?.slice(0, 7) || inv.issueDate?.slice(0, 7);
+        if (invMonth === m.key && (inv.status === 'paid' || (inv.paidAmount && inv.paidAmount > 0))) {
+          const amt = inv.paidAmount || (inv.status === 'paid' ? inv.totalAmount : 0);
+          revenue += amt;
+          if (inv.type === 'advance') {
+            depositRev += amt;
+          } else {
+            surgeryRev += amt;
+          }
+        }
+      });
+
+      // 2. Tržby z priamych predajov a estetických výkonov
+      sales.forEach(sale => {
+        const sMonth = (sale as any).timestamp?.slice(0, 7) || sale.date?.slice(0, 7);
+        if (sMonth === m.key) {
+          revenue += sale.amount;
+          aestheticRev += sale.amount;
+        }
+      });
+
+      // 3. Prevádzkové výdavky kliniky (nájom, energie, mzdy, réžia)
+      (expenses || []).forEach(exp => {
+        const expMonth = exp.date?.slice(0, 7);
+        if (expMonth === m.key) {
+          if (exp.category === 'Material' || exp.category === 'Implants') {
+            matCost += exp.amount;
+          } else if (exp.category === 'Salaries') {
+            staffCost += exp.amount;
+          } else if (exp.category === 'Rent' || exp.category === 'Utilities') {
+            rentCost += exp.amount;
+          } else {
+            otherExp += exp.amount;
+          }
+        }
+      });
+
+      // 4. Spotreba materiálu zo skladu
+      usageLogs.forEach((u: any) => {
+        const uMonth = u.date?.slice(0, 7);
+        if (uMonth === m.key) {
+          matCost += ((u.costAtUsage || 0) * (u.quantity || 0));
+        }
+      });
+
+      // 5. Materiál z profilov klientov
+      clientProfiles.forEach(prof => {
+        if (prof.procedureDate?.slice(0, 7) === m.key && prof.materialCost > 0) {
+          if (!prof.materialItemsCount || prof.materialItemsCount === 0) {
+            matCost += prof.materialCost;
+          }
+        }
+      });
+
+      const totalExpenses = matCost + staffCost + rentCost + otherExp;
+      const netProfit = revenue - totalExpenses;
       const marginPct = revenue > 0 ? parseFloat(((netProfit / revenue) * 100).toFixed(1)) : 0;
 
-      const isSep = m.key === '2026-09';
-      const surgeryRev = isSep && sepRealSurgeryRev > 0 
-        ? Math.max(sepRealSurgeryRev, Math.round(revenue * 0.72))
-        : Math.round(revenue * 0.72);
-      const aestheticRev = isSep && sepRealAestheticRev > 0
-        ? Math.max(sepRealAestheticRev, Math.round(revenue * 0.18))
-        : Math.round(revenue * 0.18);
-      const depositRev = isSep && sepRealDepositRev > 0
-        ? Math.max(sepRealDepositRev, Math.round(revenue * 0.10))
-        : Math.round(revenue * 0.10);
+      const isCurrent = m.key === currentMonthKey;
+      const isProjected = m.key > currentMonthKey;
 
       return {
         key: m.key,
         label: m.label,
-        fullLabel: m.fullLabel,
+        fullLabel: m.fullLabel + (isCurrent ? ' (Aktuálny)' : isProjected ? ' (Výhľad)' : ''),
         revenue,
-        expenses,
+        expenses: totalExpenses,
         netProfit,
         marginPct,
         materialExpense: matCost,
@@ -194,17 +204,16 @@ export default function MonthlyFinancialVisualizer({
         surgeryRevenue: surgeryRev,
         aestheticRevenue: aestheticRev,
         depositRevenue: depositRev,
-        isCurrent: isSep,
-        isProjected: m.key > '2026-09'
+        isCurrent,
+        isProjected
       };
     });
 
     // Filter rozsahu
     if (timeRange === '6m') {
-      return data.slice(3, 9); // Apríl - September 2026
+      return data.slice(3, 9); // Apríl - September
     }
     if (timeRange === 'quarterly') {
-      // Zlúčenie do Q1, Q2, Q3, Q4
       const quarters = [
         { label: 'Q1 2026 (Jan - Mar)', fullLabel: '1. Kvartál 2026', slice: data.slice(0, 3) },
         { label: 'Q2 2026 (Apr - Jún)', fullLabel: '2. Kvartál 2026', slice: data.slice(3, 6) },
@@ -235,8 +244,8 @@ export default function MonthlyFinancialVisualizer({
       });
     }
 
-    return data; // 12m
-  }, [timeRange, invoices, sales, clientProfiles]);
+    return data;
+  }, [timeRange, invoices, sales, clientProfiles, expenses]);
 
   // Metriky pre horné sumárne karty
   const periodSummary = useMemo(() => {
@@ -262,7 +271,7 @@ export default function MonthlyFinancialVisualizer({
   // 2. GENEROVANIE NADCHÁDZAJÚCICH POŽIADAVIEK FAKTURÁCIE KLIENTOV
   const billingRequirements = useMemo(() => {
     const reqs: BillingRequirement[] = [];
-    const today = new Date('2026-09-04'); // Zosynchronizované s referenčným časom aplikácie
+    const today = new Date();
 
     const getDaysDiff = (dateStr: string) => {
       const d = new Date(dateStr);
@@ -355,6 +364,7 @@ export default function MonthlyFinancialVisualizer({
     // Doplnenie prípadných nadchádzajúcich operácií priamo z kalendára
     calendarEvents.forEach(evt => {
       if (evt.type !== 'operacia' || !evt.patientName || evt.patientName === 'Personál kliniky') return;
+      if (evt.id && (evt.id.startsWith('seed-') || evt.id.startsWith('demo-'))) return;
       const alreadyInReqs = reqs.some(r => r.patientName.toLowerCase() === evt.patientName.toLowerCase());
       if (alreadyInReqs) return;
 
@@ -682,7 +692,7 @@ export default function MonthlyFinancialVisualizer({
                 {chartMode === 'comparison' ? (
                   <ComposedChart
                     data={monthlyData}
-                    onClick={(state) => {
+                    onClick={(state: any) => {
                       if (state && state.activePayload && state.activePayload[0]) {
                         setSelectedMonthKey(state.activePayload[0].payload.key);
                       }
@@ -1150,7 +1160,7 @@ export default function MonthlyFinancialVisualizer({
                           req.patientName, 
                           req.procedureName, 
                           req.amount, 
-                          req.invoiceType || 'standard'
+                          req.invoiceType === 'advance' ? 'advance' : 'standard'
                         )}
                         className="px-3 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1"
                         title="Vystaviť faktúru"

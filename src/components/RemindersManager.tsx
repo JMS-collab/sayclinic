@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { CalendarEvent } from './Calendar';
+import { matchesQuery, normalizeDigits } from '@/utils/fuzzySearch';
 
 export interface ReminderLog {
   eventId: string;
@@ -102,12 +103,16 @@ export default function RemindersManager({ events = [], patients = [] }: Reminde
         }
       }
 
-      // B) Vyhľadávanie podľa textu
+      // B) Vyhľadávanie podľa textu (bez diakritiky a s toleranciou preklepov)
       const currentPhone = getPatientPhone(evt);
       const matchesSearch = 
-        (evt.patientName && evt.patientName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (evt.title && evt.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (currentPhone && currentPhone.includes(searchTerm));
+        !searchTerm.trim() ||
+        (evt.patientName && matchesQuery(evt.patientName, searchTerm).match) ||
+        (evt.title && matchesQuery(evt.title, searchTerm).match) ||
+        (currentPhone && (
+          currentPhone.includes(searchTerm) ||
+          (normalizeDigits(searchTerm).length >= 3 && normalizeDigits(currentPhone).includes(normalizeDigits(searchTerm)))
+        ));
 
       return matchesScope && matchesSearch;
     })

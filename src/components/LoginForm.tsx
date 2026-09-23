@@ -662,7 +662,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               <div className="mt-4 flex flex-col items-center gap-3">
                 <button
                   type="button"
-                  onClick={handleGoogleWorkspaceLogin}
+                  onClick={() => handleGoogleWorkspaceLogin()}
                   disabled={isSubmitting}
                   className="inline-flex items-center justify-center gap-2.5 px-6 py-2.5 rounded-full backdrop-blur-xl bg-white/90 hover:bg-white text-[#2C2A29] border border-[#C5A059]/40 hover:border-[#C5A059] shadow-[0_4px_16px_rgba(0,0,0,0.06)] hover:shadow-[0_6px_22px_rgba(197,160,89,0.25)] transition-all transform hover:scale-[1.02] active:scale-[0.98] text-xs font-semibold cursor-pointer disabled:opacity-50"
                 >

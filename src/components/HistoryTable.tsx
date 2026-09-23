@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import PdfExportButton from './PdfExportButton';
+import { matchesQuery, normalizeDigits } from '@/utils/fuzzySearch';
 
 // Typ pre záznam ošetrenia
 export interface MedicalRecordItem {
@@ -59,9 +60,11 @@ export default function HistoryTable() {
   // Filtrovanie záznamov na základe vyhľadávania a statusu
   const filteredRecords = MOCK_RECORDS.filter((rec) => {
     const matchesSearch =
+      !searchTerm.trim() ||
+      matchesQuery(rec.patientName, searchTerm).match ||
+      (normalizeDigits(searchTerm).length >= 2 && normalizeDigits(rec.birthNumber).includes(normalizeDigits(searchTerm))) ||
       rec.birthNumber.includes(searchTerm) ||
-      rec.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rec.diagnosisCode.toLowerCase().includes(searchTerm.toLowerCase());
+      matchesQuery(rec.diagnosisCode, searchTerm).match;
 
     const matchesStatus =
       statusFilter === 'ALL' || rec.healthproStatus === statusFilter;

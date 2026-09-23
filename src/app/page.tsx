@@ -25,9 +25,7 @@ export interface SaleItem {
   amount: number;
 }
 
-const INITIAL_SALES: SaleItem[] = [
-  { id: 'S1', date: '2026-08-14', patientName: 'Ján Novák', doctorName: 'MUDr. Ján Mráz', serviceType: 'Augmentácia prsníkov', amount: 4100 },
-];
+const INITIAL_SALES: SaleItem[] = [];
 
 type TabType = 'home' | 'generator' | 'patients' | 'aesthetics' | 'cosmetics' | 'calendar' | 'inventory' | 'finance' | 'projects';
 
@@ -93,7 +91,31 @@ export default function Home() {
     return null;
   });
   const [activeTab, setActiveTab] = useState<TabType>('home');
-  const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
+  const [sales, setSales] = useState<SaleItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('say_clinic_sales_v1');
+        if (saved !== null) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {
+        console.error('Chyba načítania predajov:', e);
+      }
+    }
+    return INITIAL_SALES;
+  });
+
+  // Počúvanie zmien predajov
+  useEffect(() => {
+    const handleSalesChanged = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setSales(e.detail);
+      }
+    };
+    window.addEventListener('say_clinic_sales_changed', handleSalesChanged);
+    return () => window.removeEventListener('say_clinic_sales_changed', handleSalesChanged);
+  }, []);
 
   // Živý čas a dátum
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
@@ -231,7 +253,12 @@ export default function Home() {
     const cachedEvents = localStorage.getItem('say_clinic_calendar_events');
     if (cachedEvents) {
       try {
-        setCalendarEvents(JSON.parse(cachedEvents));
+        const parsed = JSON.parse(cachedEvents);
+        if (Array.isArray(parsed)) {
+          const realEvents = parsed.filter((e: any) => !e.id?.startsWith('seed-') && !e.id?.startsWith('demo-'));
+          setCalendarEvents(realEvents);
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(realEvents));
+        }
       } catch (e) {
         console.error('Chyba načítania kešovaných udalostí kalendára:', e);
       }
@@ -243,7 +270,14 @@ export default function Home() {
       ...newSale,
       id: `S-${Date.now()}`,
     };
-    setSales((prev) => [item, ...prev]);
+    setSales((prev) => {
+      const updated = [item, ...prev];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('say_clinic_sales_v1', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('say_clinic_sales_changed', { detail: updated }));
+      }
+      return updated;
+    });
   };
 
   const handleNavigateToGenerator = (patient: { 

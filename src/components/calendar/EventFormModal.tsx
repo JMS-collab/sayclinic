@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { filterAndRankPatients, matchesQuery } from '@/utils/fuzzySearch';
 import { 
   CalendarEvent, 
   EventType, 
@@ -77,6 +78,26 @@ export default function EventFormModal({
   });
 
   const [formData, setFormData] = useState<Partial<CalendarEvent>>(() => getInitialState(initialData));
+  const [allPatients, setAllPatients] = useState<any[]>([]);
+  const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('say_clinic_patients');
+      if (stored) {
+        setAllPatients(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const patientSuggestions = useMemo(() => {
+    if (!formData.patientName || formData.patientName.trim().length < 2 || !showPatientSuggestions) {
+      return [];
+    }
+    return filterAndRankPatients(allPatients, formData.patientName).slice(0, 5);
+  }, [allPatients, formData.patientName, showPatientSuggestions]);
 
   // Funkcia na automatické načítanie operácie z dokumentov pacienta
   const handleAutoLoadPostOpData = () => {
@@ -93,8 +114,8 @@ export default function EventFormModal({
         if (patientsRaw) {
           const patList = JSON.parse(patientsRaw);
           const foundPat = patList.find((p: any) => 
-            p.name?.toLowerCase().includes((formData.patientName || '').toLowerCase()) ||
-            (formData.patientName || '').toLowerCase().includes(p.name?.toLowerCase())
+            matchesQuery(p.name || '', formData.patientName || '').match ||
+            matchesQuery(formData.patientName || '', p.name || '').match
           );
           if (foundPat && recordsMap[foundPat.id]) {
             patientRecs = recordsMap[foundPat.id];
@@ -452,16 +473,56 @@ export default function EventFormModal({
           {formData.type !== 'volno' && (
             <div className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Meno pacienta *</label>
                   <input 
                     type="text" 
                     required 
-                    placeholder="Meno a priezvisko..."
+                    placeholder="Meno a priezvisko (aj bez diakritiky)..."
                     value={formData.patientName || ''} 
-                    onChange={e => setFormData(prev => ({ ...prev, patientName: e.target.value }))} 
-                    className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6] font-semibold" 
+                    onFocus={() => setShowPatientSuggestions(true)}
+                    onChange={e => {
+                      setFormData(prev => ({ ...prev, patientName: e.target.value }));
+                      setShowPatientSuggestions(true);
+                    }} 
+                    className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6] font-semibold text-xs" 
                   />
+                  {patientSuggestions.length > 0 && (
+                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-[#E8E2D9] rounded-xl shadow-lg overflow-hidden py-1 max-h-48 overflow-y-auto">
+                      <div className="px-3 py-1 text-[9px] font-bold text-[#8C857B] bg-[#FAF8F5] uppercase tracking-wider">
+                        Našepkávač (bez diakritiky & s toleranciou):
+                      </div>
+                      {patientSuggestions.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              patientName: p.name,
+                              patientPhone: p.phone || prev.patientPhone,
+                              patientEmail: p.email || prev.patientEmail,
+                              patientId: p.id,
+                            }));
+                            setShowPatientSuggestions(false);
+                          }}
+                          className="w-full text-left px-3 py-1.5 hover:bg-[#FAF8F5] flex items-center justify-between border-b border-[#E8E2D9]/40 last:border-b-0 transition-colors"
+                        >
+                          <div>
+                            <span className="text-xs font-bold text-[#2C2A29]">{p.name}</span>
+                            {p.birthNumber && (
+                              <span className="text-[10px] text-[#8C857B] ml-2">RČ: {p.birthNumber}</span>
+                            )}
+                          </div>
+                          {p._isFuzzyMatch && (
+                            <span className="text-[9px] bg-[#C5A059]/15 text-[#9C7D2B] px-1.5 py-0.5 rounded font-medium">
+                              Preklep
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Telefón pacienta</label>

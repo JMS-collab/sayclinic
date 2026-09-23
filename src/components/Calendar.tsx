@@ -263,25 +263,25 @@ export default function Calendar({
     if (cachedEvents) {
       try {
         const parsed = JSON.parse(cachedEvents);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const formatted: CalendarEvent[] = parsed.map((e: any) => ({
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((e: any) => !e.id?.startsWith('seed-') && !e.id?.startsWith('demo-'));
+          const formatted: CalendarEvent[] = cleaned.map((e: any) => ({
             ...e,
             roomId: e.roomId || (e.type === 'operacia' ? 'sala_say' : 'ambulancia'),
             type: (e.type || detectEventType(e.title)) as EventType
           }));
           setCalendarEvents(formatted);
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(formatted));
         } else {
-          const defEvents = generateDefaultEvents();
-          setCalendarEvents(defEvents);
-          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(defEvents));
+          setCalendarEvents([]);
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify([]));
         }
       } catch (e) {
         console.error('Chyba načítania:', e);
       }
     } else {
-      const defEvents = generateDefaultEvents();
-      setCalendarEvents(defEvents);
-      localStorage.setItem('say_clinic_calendar_events', JSON.stringify(defEvents));
+      setCalendarEvents([]);
+      localStorage.setItem('say_clinic_calendar_events', JSON.stringify([]));
     }
 
     if (cachedCalendars) {

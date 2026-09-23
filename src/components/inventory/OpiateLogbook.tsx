@@ -25,6 +25,7 @@ import {
   OpiateLogEntry, 
   OpiateMovementType 
 } from '../../services/inventoryService';
+import { matchesQuery, normalizeDigits } from '@/utils/fuzzySearch';
 
 interface PatientOption {
   id: string;
@@ -179,16 +180,19 @@ export default function OpiateLogbook() {
   // Filtrované záznamy knihy
   const filteredLogs = useMemo(() => {
     return logs.filter(l => {
-      const matchSearch = 
-        l.opiateName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (l.patientName && l.patientName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (l.patientBirthNumber && l.patientBirthNumber.includes(searchTerm)) ||
-        (l.procedureName && l.procedureName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (l.lotNumber && l.lotNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (l.prescribingDoctor && l.prescribingDoctor.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (l.administeringNurse && l.administeringNurse.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (l.deliveryNoteNumber && l.deliveryNoteNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (l.notes && l.notes.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchSearch = !searchTerm.trim() ||
+        matchesQuery(l.opiateName, searchTerm).match ||
+        (l.patientName && matchesQuery(l.patientName, searchTerm).match) ||
+        (l.patientBirthNumber && (
+          l.patientBirthNumber.includes(searchTerm) ||
+          (normalizeDigits(searchTerm).length >= 2 && normalizeDigits(l.patientBirthNumber).includes(normalizeDigits(searchTerm)))
+        )) ||
+        (l.procedureName && matchesQuery(l.procedureName, searchTerm).match) ||
+        (l.lotNumber && matchesQuery(l.lotNumber, searchTerm).match) ||
+        (l.prescribingDoctor && matchesQuery(l.prescribingDoctor, searchTerm).match) ||
+        (l.administeringNurse && matchesQuery(l.administeringNurse, searchTerm).match) ||
+        (l.deliveryNoteNumber && matchesQuery(l.deliveryNoteNumber, searchTerm).match) ||
+        (l.notes && matchesQuery(l.notes, searchTerm).match);
 
       const matchOpiate = selectedOpiateFilter === 'all' || l.opiateId === selectedOpiateFilter;
       const matchMovement = selectedMovementFilter === 'all' || l.movementType === selectedMovementFilter;

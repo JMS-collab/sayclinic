@@ -23,6 +23,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { Patient } from './PatientDatabase';
+import { filterAndRankPatients, matchesQuery } from '@/utils/fuzzySearch';
 import { 
   CosmeticProduct, 
   CosmeticBrand, 
@@ -66,6 +67,7 @@ export function CosmeticsPOSModule({
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
   const [selectedPatientId, setSelectedPatientId] = useState<string>(initialSelectedPatientId || '');
+  const [posPatientSearch, setPosPatientSearch] = useState<string>('');
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
   const [lastReceipt, setLastReceipt] = useState<any>(null);
   const [receiptSeq, setReceiptSeq] = useState<number>(10482);
@@ -198,17 +200,23 @@ export function CosmeticsPOSModule({
     addToCart(prod);
   };
 
-  // Filtrovaný katalóg
+  // Pacienti pre výber na pokladni (filtrovaní s toleranciou preklepov a bez diakritiky)
+  const searchedPatients = useMemo(() => {
+    if (!posPatientSearch.trim()) return patients;
+    return filterAndRankPatients(patients, posPatientSearch);
+  }, [patients, posPatientSearch]);
+
+  // Filtrovaný katalóg (s toleranciou preklepov a bez diakritiky)
   const filteredProducts = useMemo(() => {
     return catalog.filter(item => {
       const matchesBrand = selectedBrand === 'all' || item.brand === selectedBrand;
       const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-      const q = searchQuery.toLowerCase().trim();
+      const q = searchQuery.trim();
       const matchesSearch = !q || 
-        item.name.toLowerCase().includes(q) ||
-        item.brand.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q) ||
-        (item.keyIngredients && item.keyIngredients.some(k => k.toLowerCase().includes(q)));
+        matchesQuery(item.name, q).match ||
+        matchesQuery(item.brand, q).match ||
+        matchesQuery(item.description, q).match ||
+        (item.keyIngredients && item.keyIngredients.some(k => matchesQuery(k, q).match));
       
       return matchesBrand && matchesCategory && matchesSearch;
     });
@@ -738,18 +746,38 @@ export function CosmeticsPOSModule({
             </div>
 
             {/* Priradenie k pacientovi */}
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold text-[#8C857B] tracking-wider block">
-                Zákazník / Pacient kliniky:
-              </label>
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center">
+                <label className="text-[10px] uppercase font-bold text-[#8C857B] tracking-wider block">
+                  Zákazník / Pacient kliniky:
+                </label>
+                {selectedPatientId && (
+                  <button 
+                    type="button" 
+                    onClick={() => { setSelectedPatientId(''); setPosPatientSearch(''); }}
+                    className="text-[10px] text-[#8C857B] hover:text-[#2C2A29] underline"
+                  >
+                    Zrušiť výber
+                  </button>
+                )}
+              </div>
+              <input
+                type="text"
+                placeholder="Hľadať pacienta (aj bez diakritiky / preklepy)..."
+                value={posPatientSearch}
+                onChange={(e) => setPosPatientSearch(e.target.value)}
+                className="w-full text-xs p-2 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] text-[#2C2A29] placeholder-[#8C857B]/70 focus:outline-hidden focus:border-[#C5A059]"
+              />
               <select
                 value={selectedPatientId}
                 onChange={(e) => setSelectedPatientId(e.target.value)}
                 className="w-full text-xs font-medium p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
               >
                 <option value="">Pultový predaj (Neregistrovaný hosť)</option>
-                {patients.map(p => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.birthNumber || p.dob})</option>
+                {searchedPatients.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.birthNumber || (p as any).dob || 'bez RČ'})
+                  </option>
                 ))}
               </select>
             </div>

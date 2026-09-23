@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { matchesQuery } from '@/utils/fuzzySearch';
 import { 
   CalendarEvent, 
   EventType, 
@@ -114,8 +115,8 @@ export default function EventDetailModal({
             if (patientsRaw) {
               const patList = JSON.parse(patientsRaw);
               const foundPat = patList.find((p: any) => 
-                p.name?.toLowerCase().includes((event.patientName || '').toLowerCase()) ||
-                (event.patientName || '').toLowerCase().includes(p.name?.toLowerCase())
+                matchesQuery(p.name || '', event.patientName || '').match ||
+                matchesQuery(event.patientName || '', p.name || '').match
               );
               if (foundPat && recordsMap[foundPat.id]) {
                 patientRecs = recordsMap[foundPat.id];

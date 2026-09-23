@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
+import { Search, X, Sparkles } from 'lucide-react';
+import { filterAndRankPatients, RankedPatient } from '../utils/fuzzySearch';
 import { googleSignIn, subscribeWorkspaceAuth } from '@/lib/workspaceAuth';
 import PatientDriveFiles from './PatientDriveFiles';
 import { InventoryService, MaterialUsageLog, InventoryItem } from '../services/inventoryService';
@@ -100,6 +102,7 @@ interface UploadedPhoto {
 interface PatientDatabaseProps {
   onNavigateToGenerator?: (patient: Patient & { initialDocType?: any }) => void;
   onNavigateToAesthetics?: (patient: Patient) => void;
+  onNavigateToCosmetics?: (patient?: Patient | null, prefillItems?: any[]) => void;
   initialPatient?: Patient | null;
   onPatientsUpdated?: (patients: Patient[]) => void;
   calendarEvents?: CalendarEvent[];
@@ -110,6 +113,7 @@ interface PatientDatabaseProps {
 export default function PatientDatabase({ 
   onNavigateToGenerator, 
   onNavigateToAesthetics, 
+  onNavigateToCosmetics,
   initialPatient, 
   onPatientsUpdated,
   calendarEvents = [],
@@ -455,11 +459,9 @@ export default function PatientDatabase({
     }
   }, [session, workspaceToken]);
 
-  const filteredPatients = patients.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.birthNumber.includes(searchTerm) ||
-    p.phone.includes(searchTerm)
-  );
+  const filteredPatients = useMemo(() => {
+    return filterAndRankPatients(patients, searchTerm);
+  }, [patients, searchTerm]);
 
   const handlePatientSelect = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -965,64 +967,114 @@ export default function PatientDatabase({
               </div>
             </div>
 
-            <input 
-              type="text" 
-              placeholder="Vyhľadať pacienta po mene, RČ alebo telefóne..." 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-              className="w-full border border-[#E8E2D9] p-3 rounded-xl bg-[#FBF9F6] text-xs focus:ring-2 focus:ring-[#C5A059] outline-none" 
-            />
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredPatients.map(patient => (
-                <div 
-                  key={patient.id} 
-                  className="border border-[#E8E2D9] p-4 rounded-xl hover:border-[#C5A059] hover:shadow-md transition-all bg-white group flex flex-col justify-between"
-                >
-                  <div onClick={() => handlePatientSelect(patient)} className="cursor-pointer">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">{patient.name}</h3>
-                      <span className="text-[9px] bg-[#FBF9F6] px-2 py-1 rounded text-[#8C857B] font-bold border border-[#E8E2D9]">{patient.insurance}</span>
-                    </div>
-                    <p className="text-xs text-[#8C857B]">RČ: {patient.birthNumber}</p>
-                    <p className="text-xs text-[#8C857B]">Tel: {patient.phone}</p>
+            <div className="space-y-2">
+              <div className="relative flex items-center">
+                <Search className="w-4 h-4 text-[#8C857B] absolute left-3.5 pointer-events-none" />
+                <input 
+                  type="text" 
+                  placeholder="Vyhľadať pacienta po mene (aj bez diakritiky / s preklepom), RČ alebo telefóne..." 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                  className="w-full border border-[#E8E2D9] pl-10 pr-10 py-3 rounded-xl bg-[#FBF9F6] text-xs text-[#2C2A29] placeholder-[#8C857B]/70 focus:ring-2 focus:ring-[#C5A059] focus:bg-white outline-none transition-all shadow-2xs" 
+                />
+                {searchTerm && (
+                  <button 
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 p-1 text-[#8C857B] hover:text-[#2C2A29] rounded-full hover:bg-[#E8E2D9]/50 transition-colors"
+                    title="Zmazať vyhľadávanie"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {searchTerm.trim().length > 0 && (
+                <div className="flex flex-wrap items-center justify-between text-[11px] text-[#8C857B] px-1 gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Inteligentné vyhľadávanie: <strong>bez diakritiky & s toleranciou preklepov</strong></span>
                   </div>
+                  <span>
+                    Nájdených <strong>{filteredPatients.length}</strong> {filteredPatients.length === 1 ? 'pacient' : filteredPatients.length >= 2 && filteredPatients.length <= 4 ? 'pacienti' : 'pacientov'} z {patients.length}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {filteredPatients.length === 0 ? (
+              <div className="text-center py-12 px-4 border border-dashed border-[#E8E2D9] rounded-2xl bg-[#FAF8F5]">
+                <p className="text-sm font-bold text-[#2C2A29] mb-1">Žiadny pacient nebol nájdený</p>
+                <p className="text-xs text-[#8C857B] max-w-md mx-auto mb-4">
+                  Pre výraz <strong>„{searchTerm}“</strong> sme nenašli žiadnu zhodu. Skúste zadať časť priezviska, mena, rodné číslo bez lomítka alebo telefónne číslo.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="bg-[#2C2A29] text-white hover:bg-[#C5A059] px-4 py-2 rounded-xl text-xs font-semibold transition-colors shadow-2xs"
+                >
+                  Vymazať vyhľadávanie
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredPatients.map(patient => (
+                  <div 
+                    key={patient.id} 
+                    className="border border-[#E8E2D9] p-4 rounded-xl hover:border-[#C5A059] hover:shadow-md transition-all bg-white group flex flex-col justify-between"
+                  >
+                    <div onClick={() => handlePatientSelect(patient)} className="cursor-pointer">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">{patient.name}</h3>
+                          {patient._isFuzzyMatch && (
+                            <span className="text-[9px] bg-[#C5A059]/15 text-[#9C7D2B] px-1.5 py-0.5 rounded font-medium border border-[#C5A059]/30" title="Nájdené vďaka tolerancii preklepov">
+                              Preklep tolerovaný
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[9px] bg-[#FBF9F6] px-2 py-1 rounded text-[#8C857B] font-bold border border-[#E8E2D9]">{patient.insurance}</span>
+                      </div>
+                      <p className="text-xs text-[#8C857B]">RČ: {patient.birthNumber}</p>
+                      <p className="text-xs text-[#8C857B]">Tel: {patient.phone}</p>
+                    </div>
 
-                  <div className="mt-3 pt-3 border-t border-[#E8E2D9] flex justify-between items-center text-[10px] gap-1">
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingPatient(patient);
-                        }}
-                        className="text-[#8C857B] hover:text-[#C5A059] font-bold uppercase tracking-wider transition-colors flex items-center gap-1"
-                      >
-                        ✏️ Upraviť
-                      </button>
-
-                      {onNavigateToAesthetics && (
-                        <button
+                    <div className="mt-3 pt-3 border-t border-[#E8E2D9] flex justify-between items-center text-[10px] gap-1">
+                      <div className="flex items-center gap-2">
+                        <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            onNavigateToAesthetics(patient);
+                            setEditingPatient(patient);
                           }}
-                          className="text-[#C5A059] hover:text-[#9C7D2B] font-bold uppercase tracking-wider transition-colors flex items-center gap-1 border-l border-[#E8E2D9] pl-2"
+                          className="text-[#8C857B] hover:text-[#C5A059] font-bold uppercase tracking-wider transition-colors flex items-center gap-1"
                         >
-                          💉 Výplne & Botox
+                          ✏️ Upraviť
                         </button>
-                      )}
-                    </div>
 
-                    <button 
-                      onClick={() => handlePatientSelect(patient)}
-                      className="text-[#2C2A29] font-bold uppercase tracking-wider group-hover:text-[#C5A059]"
-                    >
-                      Otvoriť →
-                    </button>
+                        {onNavigateToAesthetics && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onNavigateToAesthetics(patient);
+                            }}
+                            className="text-[#C5A059] hover:text-[#9C7D2B] font-bold uppercase tracking-wider transition-colors flex items-center gap-1 border-l border-[#E8E2D9] pl-2"
+                          >
+                            💉 Výplne & Botox
+                          </button>
+                        )}
+                      </div>
+
+                      <button 
+                        onClick={() => handlePatientSelect(patient)}
+                        className="text-[#2C2A29] font-bold uppercase tracking-wider group-hover:text-[#C5A059]"
+                      >
+                        Otvoriť →
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           
@@ -1749,7 +1801,7 @@ export default function PatientDatabase({
                   onScheduleEvent={(evtData) => {
                     setSchedulingInitialDetails({
                       title: evtData.title,
-                      eventType: evtData.type === 'surgical_followup' ? 'kontrola' : 'osetrenie',
+                      eventType: (evtData.type as string) === 'surgical_followup' ? 'kontrola' : 'osetrenie',
                       notes: evtData.notes
                     });
                     setIsSchedulingEvent(true);

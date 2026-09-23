@@ -11,6 +11,7 @@ import {
   CreditTransaction 
 } from '@/services/financeBillingService';
 import { InventoryService } from '@/services/inventoryService';
+import { matchesQuery, normalizeDigits } from '@/utils/fuzzySearch';
 import InvoiceDetailModal from './finance/InvoiceDetailModal';
 import CreateInvoiceModal from './finance/CreateInvoiceModal';
 import ClientFinanceDetailModal from './finance/ClientFinanceDetailModal';
@@ -35,7 +36,11 @@ import {
   Building2, 
   ChevronRight,
   ShieldCheck,
-  BarChart3
+  BarChart3,
+  X,
+  Sparkles,
+  RotateCcw,
+  Trash2
 } from 'lucide-react';
 
 interface ExpenseItem {
@@ -46,13 +51,7 @@ interface ExpenseItem {
   amount: number;
 }
 
-const INITIAL_EXPENSES: ExpenseItem[] = [
-  { id: 'E1', date: '2026-08-01', title: 'Nákup implantátov Motiva Ergonomix (faktúra sklad)', category: 'Implants', amount: 2760 },
-  { id: 'E2', date: '2026-08-02', title: 'Nájomné priestorov Rudlovská cesta', category: 'Rent', amount: 1500 },
-  { id: 'E3', date: '2026-08-05', title: 'Zdravotnícky materiál, šitie a kanyly', category: 'Material', amount: 450 },
-  { id: 'E4', date: '2026-08-10', title: 'Energia a čisté priestory sály SAY', category: 'Utilities', amount: 320 },
-  { id: 'E5', date: '2026-08-15', title: 'Nákup toxínov Dysport & výplní Stylage', category: 'Material', amount: 1250 },
-];
+const INITIAL_EXPENSES: ExpenseItem[] = [];
 
 interface FinanceCRMProps {
   sales?: SaleItem[];
@@ -72,7 +71,24 @@ export default function FinanceCRM({
   const [clientProfiles, setClientProfiles] = useState<PatientFinancialProfile[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [creditLogs, setCreditLogs] = useState<CreditTransaction[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseItem[]>(INITIAL_EXPENSES);
+  const [expenses, setExpenses] = useState<ExpenseItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('say_clinic_expenses_v1');
+        if (saved !== null) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {
+        console.error('Chyba načítania výdavkov:', e);
+      }
+    }
+    return INITIAL_EXPENSES;
+  });
+
+  // Ostrý štart / Vynulovanie testovacích údajov
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
 
   // Počet nadchádzajúcich požiadaviek na fakturáciu pre odznak na záložke
   const upcomingBillingCount = useMemo(() => {
@@ -134,6 +150,19 @@ export default function FinanceCRM({
     // 3. Načítame kredity
     const cLogs = FinanceBillingService.getCreditLogs();
     setCreditLogs(cLogs);
+
+    // 4. Načítame výdavky
+    if (typeof window !== 'undefined') {
+      try {
+        const savedExp = localStorage.getItem('say_clinic_expenses_v1');
+        if (savedExp !== null) {
+          const parsed = JSON.parse(savedExp);
+          if (Array.isArray(parsed)) setExpenses(parsed);
+        }
+      } catch (e) {
+        console.error('Chyba načítania výdavkov:', e);
+      }
+    }
   };
 
   useEffect(() => {
@@ -148,17 +177,36 @@ export default function FinanceCRM({
     const handleCreditsChanged = (e: any) => {
       if (e.detail) setCreditLogs(e.detail);
     };
+    const handleExpensesChanged = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) setExpenses(e.detail);
+    };
 
     window.addEventListener('say_clinic_invoices_changed', handleInvoicesChanged);
     window.addEventListener('say_clinic_client_profiles_changed', handleProfilesChanged);
     window.addEventListener('say_clinic_credit_logs_changed', handleCreditsChanged);
+    window.addEventListener('say_clinic_expenses_changed', handleExpensesChanged);
 
     return () => {
       window.removeEventListener('say_clinic_invoices_changed', handleInvoicesChanged);
       window.removeEventListener('say_clinic_client_profiles_changed', handleProfilesChanged);
       window.removeEventListener('say_clinic_credit_logs_changed', handleCreditsChanged);
+      window.removeEventListener('say_clinic_expenses_changed', handleExpensesChanged);
     };
   }, [calendarEvents.length, patients.length]);
+
+  // Vynulovanie všetkých testovacích dát pre ostrý štart kliniky
+  const handleResetForProduction = () => {
+    FinanceBillingService.resetAllFinancialData();
+    setExpenses([]);
+    setInvoices([]);
+    setClientProfiles([]);
+    setCreditLogs([]);
+    setShowResetConfirmModal(false);
+    setResetSuccessMessage('Všetky testovacie finančné údaje a výsledky boli úspešne vynulované. Finančný modul je v čistom stave pripravený na ostrú prevádzku.');
+    setTimeout(() => {
+      setResetSuccessMessage(null);
+    }, 6000);
+  };
 
   // VÝPOČTY PRE FINANČNÝ PREHĽAD KLINIKY (P&L, SPOTREBA, PRÍJEM)
   const financials = useMemo(() => {
@@ -168,9 +216,7 @@ export default function FinanceCRM({
       .reduce((sum, i) => sum + i.paidAmount, 0);
 
     const posSalesRevenue = sales.reduce((sum, s) => sum + s.amount, 0);
-    const totalRevenue = Math.max(invoiceRevenue, posSalesRevenue) > 0 
-      ? invoiceRevenue + posSalesRevenue 
-      : 12450; // Konzistentný základ
+    const totalRevenue = invoiceRevenue + posSalesRevenue;
 
     // 2. Reálna skladová spotreba materiálu zo skladu
     const usageLogs = InventoryService.getUsageLogs();
@@ -196,7 +242,7 @@ export default function FinanceCRM({
 
     // 8. Celková hodnota tovaru viazaného v sklade
     const inventoryItems = InventoryService.getInventory();
-    const totalStockValue = inventoryItems.reduce((sum, item) => sum + (item.unitPrice * item.currentStock), 0);
+    const totalStockValue = inventoryItems.reduce((sum, item) => sum + ((item.costPerUnit || 0) * (item.quantity || 0)), 0);
 
     return {
       totalRevenue,
@@ -213,6 +259,36 @@ export default function FinanceCRM({
     };
   }, [invoices, sales, expenses, clientProfiles]);
 
+  // VÝPOČET JEDNOTKOVEJ EKONOMIKY (UNIT ECONOMICS) ZO SKUTOČNÝCH ZÁKROKOV
+  const procedureEconomics = useMemo(() => {
+    const groups: { [proc: string]: { count: number; totalPrice: number; totalMaterial: number; name: string } } = {};
+    clientProfiles.forEach(p => {
+      if (!p.procedureName) return;
+      const key = p.procedureName.trim();
+      if (!groups[key]) {
+        groups[key] = { count: 0, totalPrice: 0, totalMaterial: 0, name: key };
+      }
+      groups[key].count += 1;
+      groups[key].totalPrice += (p.totalAgreedPrice || 0);
+      groups[key].totalMaterial += (p.materialCost || 0);
+    });
+
+    return Object.values(groups).map(g => {
+      const avgPrice = g.totalPrice / (g.count || 1);
+      const avgMaterial = g.totalMaterial / (g.count || 1);
+      const avgProfit = avgPrice - avgMaterial;
+      const margin = avgPrice > 0 ? ((avgProfit / avgPrice) * 100).toFixed(1) : '0';
+      return {
+        name: g.name,
+        count: g.count,
+        avgPrice,
+        avgMaterial,
+        avgProfit,
+        margin
+      };
+    });
+  }, [clientProfiles]);
+
   // FILTROVANIE ZOZNAMU KLIENTOV
   const filteredClients = useMemo(() => {
     return clientProfiles.filter(p => {
@@ -222,13 +298,20 @@ export default function FinanceCRM({
       if (clientFilter === 'due' && p.balanceDue <= 0) return false;
       if (clientFilter === 'credit' && (p.clientCredit || 0) <= 0) return false;
 
-      // Vyhľadávanie
+      // Vyhľadávanie bez diakritiky a s toleranciou preklepov
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchName = p.patientName.toLowerCase().includes(q);
-        const matchProc = p.procedureName.toLowerCase().includes(q);
-        const matchDoc = p.doctorName.toLowerCase().includes(q);
-        return matchName || matchProc || matchDoc;
+        const matchName = matchesQuery(p.patientName, searchQuery).match;
+        const matchProc = matchesQuery(p.procedureName, searchQuery).match;
+        const matchDoc = matchesQuery(p.doctorName, searchQuery).match;
+        const matchRC = p.patientBirthNumber ? (
+          p.patientBirthNumber.includes(searchQuery.trim()) ||
+          (normalizeDigits(searchQuery).length >= 2 && normalizeDigits(p.patientBirthNumber).includes(normalizeDigits(searchQuery)))
+        ) : false;
+        const matchPhone = p.patientPhone ? (
+          matchesQuery(p.patientPhone, searchQuery).match ||
+          (normalizeDigits(searchQuery).length >= 3 && normalizeDigits(p.patientPhone).includes(normalizeDigits(searchQuery)))
+        ) : false;
+        return matchName || matchProc || matchDoc || matchRC || matchPhone;
       }
 
       return true;
@@ -259,10 +342,24 @@ export default function FinanceCRM({
       amount: parseFloat(expAmount) || 0,
     };
 
-    setExpenses([newExpense, ...expenses]);
+    const updated = [newExpense, ...expenses];
+    setExpenses(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('say_clinic_expenses_v1', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('say_clinic_expenses_changed', { detail: updated }));
+    }
     setExpTitle('');
     setExpAmount('');
     setShowAddExpense(false);
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    const updated = expenses.filter(e => e.id !== id);
+    setExpenses(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('say_clinic_expenses_v1', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('say_clinic_expenses_changed', { detail: updated }));
+    }
   };
 
   // Otvorenie detailu faktúry
@@ -330,9 +427,20 @@ export default function FinanceCRM({
               <Coins className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-brand font-bold text-[#2C2A29] uppercase tracking-wide">
-                Finančné riadenie & Výsledky kliniky
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-brand font-bold text-[#2C2A29] uppercase tracking-wide">
+                  Finančné riadenie & Výsledky kliniky
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirmModal(true)}
+                  title="Vynulovať testovacie údaje pre ostrú prevádzku"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-rose-200 bg-rose-50/90 hover:bg-rose-100 text-rose-800 text-[11px] font-bold transition-all shadow-2xs cursor-pointer ml-1"
+                >
+                  <RotateCcw className="w-3 h-3 text-rose-600" />
+                  <span>Vynulovať na ostro</span>
+                </button>
+              </div>
               <p className="text-xs text-[#8C857B]">
                 Prepojená spotreba skladu, tržby z operácií, zálohové faktúry, pohľadávky a kredit klientov
               </p>
@@ -434,6 +542,23 @@ export default function FinanceCRM({
           </button>
         </div>
       </div>
+
+      {/* OZNÁMENIE O VYNULOVANÍ ÚDAJOV PRE OSTRÚ PREVÁDZKU */}
+      {resetSuccessMessage && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between text-emerald-900 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span className="text-xs font-semibold">{resetSuccessMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setResetSuccessMessage(null)}
+            className="text-emerald-700 hover:text-emerald-900 p-1 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 1. SUB-TAB: ZOZNAM KLIENTOV (PLÁNOVANÍ & ODOPEROVANÍ) - HLAVNÁ POŽIADAVKA */}
@@ -595,15 +720,25 @@ export default function FinanceCRM({
 
               {/* HĽADANIE A AKČNÉ TLAČIDLÁ */}
               <div className="flex items-center gap-2">
-                <div className="relative flex-1 md:w-64">
-                  <Search className="w-4 h-4 text-[#8C857B] absolute left-3 top-2.5" />
+                <div className="relative flex-1 md:w-72">
+                  <Search className="w-4 h-4 text-[#8C857B] absolute left-3 top-2.5 pointer-events-none" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Hľadať klienta, zákrok, lekára..."
-                    className="w-full bg-[#FBF9F6] border border-[#E8E2D9] pl-9 pr-3 py-2 rounded-xl text-xs text-[#2C2A29] focus:outline-none focus:border-[#C5A059]"
+                    placeholder="Hľadať klienta (aj bez diakritiky), zákrok..."
+                    className="w-full bg-[#FBF9F6] border border-[#E8E2D9] pl-9 pr-8 py-2 rounded-xl text-xs text-[#2C2A29] focus:outline-none focus:border-[#C5A059]"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-2.5 text-[#8C857B] hover:text-[#2C2A29]"
+                      title="Zmazať"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
                 <button
@@ -790,6 +925,7 @@ export default function FinanceCRM({
           calendarEvents={calendarEvents}
           patients={patients}
           sales={sales}
+          expenses={expenses}
           onOpenInvoiceModal={(inv) => {
             setSelectedInvoice(inv);
             setIsInvoiceDetailOpen(true);
@@ -1072,10 +1208,22 @@ export default function FinanceCRM({
 
                     {/* PREVÁDZKOVÉ VÝDAVKY */}
                     {expenses.map(e => (
-                      <tr key={e.id} className="hover:bg-[#FBF9F6]">
+                      <tr key={e.id} className="hover:bg-[#FBF9F6] group">
                         <td className="py-2.5 text-[#8C857B] font-mono">{e.date}</td>
                         <td className="py-2.5 font-semibold text-rose-600">Prevádzka ({e.category})</td>
-                        <td className="py-2.5 text-[#2C2A29]">{e.title}</td>
+                        <td className="py-2.5 text-[#2C2A29]">
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{e.title}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteExpense(e.id)}
+                              title="Vymazať náklad"
+                              className="opacity-0 group-hover:opacity-100 p-1 text-[#8C857B] hover:text-rose-600 transition-opacity cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
                         <td className="py-2.5 text-right font-mono font-bold text-rose-600">
                           -{e.amount.toFixed(2)} €
                         </td>
@@ -1240,97 +1388,50 @@ export default function FinanceCRM({
                 Ziskovosť a rentabilita jednotlivých výkonov kliniky
               </h3>
               <p className="text-xs text-[#8C857B]">
-                Analýza tržieb, nákladov na spotrebovaný materiál (implantáty, liečivá, spotrebný materiál) a skutočnej marže
+                Reálna analýza tržieb, nákladov na spotrebovaný materiál zo skladu a skutočnej marže z evidovaných zákrokov
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              
-              {/* AUGMENTÁCIA PRSNÍKOV */}
-              <div className="p-5 rounded-2xl bg-[#FBF9F6] border border-[#E8E2D9] space-y-3">
-                <div className="flex justify-between items-start">
-                  <h4 className="font-bold text-sm text-[#2C2A29]">Augmentácia prsníkov</h4>
-                  <span className="text-xs font-mono font-bold text-[#C5A059] bg-[#FAF6EF] px-2 py-0.5 rounded-lg border border-[#E6D4B2]">
-                    Marža 66 %
-                  </span>
-                </div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-[#8C857B]">Priemerná cena výkonu:</span>
-                    <span className="font-mono font-bold">4 200 €</span>
+            {procedureEconomics.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {procedureEconomics.map((item, idx) => (
+                  <div key={idx} className="p-5 rounded-2xl bg-[#FBF9F6] border border-[#E8E2D9] space-y-3">
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-bold text-sm text-[#2C2A29]">{item.name}</h4>
+                      <span className="text-xs font-mono font-bold text-[#C5A059] bg-[#FAF6EF] px-2 py-0.5 rounded-lg border border-[#E6D4B2]">
+                        Marža {item.margin} %
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-[#8C857B]">Počet výkonov v CRM:</span>
+                        <span className="font-mono font-bold">{item.count}x</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#8C857B]">Priemerná dohodnutá cena:</span>
+                        <span className="font-mono font-bold">{item.avgPrice.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                      </div>
+                      <div className="flex justify-between text-rose-700">
+                        <span>Priemerný náklad na materiál:</span>
+                        <span className="font-mono font-semibold">-{item.avgMaterial.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t border-[#E8E2D9] text-emerald-800 font-bold">
+                        <span>Hrubý zisk na výkon:</span>
+                        <span className="font-mono text-base">+{item.avgProfit.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-rose-700">
-                    <span>Náklad: Motiva implantáty:</span>
-                    <span className="font-mono font-semibold">-1 380 €</span>
-                  </div>
-                  <div className="flex justify-between text-rose-700">
-                    <span>Náklad: Podprsenka & šitie:</span>
-                    <span className="font-mono font-semibold">-40.12 €</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-[#E8E2D9] text-emerald-800 font-bold">
-                    <span>Hrubý zisk na výkon:</span>
-                    <span className="font-mono text-base">+2 779.88 €</span>
-                  </div>
-                </div>
+                ))}
               </div>
-
-              {/* BLEFAROPLASTIKA */}
-              <div className="p-5 rounded-2xl bg-[#FBF9F6] border border-[#E8E2D9] space-y-3">
-                <div className="flex justify-between items-start">
-                  <h4 className="font-bold text-sm text-[#2C2A29]">Blefaroplastika viečok</h4>
-                  <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
-                    Marža 95 %
-                  </span>
-                </div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-[#8C857B]">Priemerná cena výkonu:</span>
-                    <span className="font-mono font-bold">950 €</span>
-                  </div>
-                  <div className="flex justify-between text-rose-700">
-                    <span>Náklad: Šitie PDS / Monocryl:</span>
-                    <span className="font-mono font-semibold">-25 €</span>
-                  </div>
-                  <div className="flex justify-between text-rose-700">
-                    <span>Náklad: Dermabond & kompresy:</span>
-                    <span className="font-mono font-semibold">-20 €</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-[#E8E2D9] text-emerald-800 font-bold">
-                    <span>Hrubý zisk na výkon:</span>
-                    <span className="font-mono text-base">+905.00 €</span>
-                  </div>
-                </div>
+            ) : (
+              <div className="p-12 text-center bg-[#FBF9F6] rounded-2xl border border-dashed border-[#E8E2D9] space-y-3">
+                <PieChart className="w-10 h-10 text-[#8C857B] mx-auto opacity-50" />
+                <h4 className="font-bold text-[#2C2A29] text-sm">Žiadne testovacie dáta v rentabilite výkonov</h4>
+                <p className="text-xs text-[#8C857B] max-w-md mx-auto">
+                  Všetky vymyslené údaje boli vynulované pre ostrú prevádzku. Akonáhle v systéme zaevidujete reálne zákroky pacientov a ich skladový materiál, jednotková rentabilita a maržovosť sa tu vypočíta automaticky.
+                </p>
               </div>
-
-              {/* LIPOSUKCIA PAL MICROAIRE */}
-              <div className="p-5 rounded-2xl bg-[#FBF9F6] border border-[#E8E2D9] space-y-3">
-                <div className="flex justify-between items-start">
-                  <h4 className="font-bold text-sm text-[#2C2A29]">Vibračná liposukcia PAL</h4>
-                  <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
-                    Marža 95 %
-                  </span>
-                </div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-[#8C857B]">Priemerná cena výkonu:</span>
-                    <span className="font-mono font-bold">2 800 €</span>
-                  </div>
-                  <div className="flex justify-between text-rose-700">
-                    <span>Náklad: Lipoelastic pás:</span>
-                    <span className="font-mono font-semibold">-42 €</span>
-                  </div>
-                  <div className="flex justify-between text-rose-700">
-                    <span>Náklad: Kanyly & sety:</span>
-                    <span className="font-mono font-semibold">-85 €</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-[#E8E2D9] text-emerald-800 font-bold">
-                    <span>Hrubý zisk na výkon:</span>
-                    <span className="font-mono text-base">+2 673.00 €</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -1447,6 +1548,55 @@ export default function FinanceCRM({
           handleTriggerCreateInvoice(patName, procName, amt, type);
         }}
       />
+
+      {/* MODAL: POTVRDENIE VYNULOVANIA PRE OSTRÚ PREVÁDZKU */}
+      {showResetConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full border border-rose-200 shadow-2xl space-y-6">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mx-auto">
+              <RotateCcw className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-brand font-bold text-[#2C2A29] uppercase tracking-wide">
+                Vynulovať finančné údaje na ostro?
+              </h3>
+              <p className="text-xs text-[#8C857B] leading-relaxed">
+                Tento krok definitívne vymaže všetky cvičné a vymyslené faktúry, zálohy, finančné profily, kredity a prevádzkové náklady z pamäte prehliadača.
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-left text-xs text-amber-900 mt-3 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                  Čo sa stane:
+                </div>
+                <ul className="list-disc list-inside text-[11px] text-amber-800 space-y-0.5 pl-1">
+                  <li>Tržby, faktúry a zálohy sa vynulujú na 0.00 €</li>
+                  <li>Evidencia prevádzkových výdavkov bude prázdna</li>
+                  <li>Počítadlo faktúr začne nanovo (napr. VF-2026-0001)</li>
+                  <li>Zákroky v kalendári a kartotéka pacientov ostanú zachované</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirmModal(false)}
+                className="flex-1 py-3 rounded-xl border border-[#E8E2D9] text-[#2C2A29] text-xs font-bold hover:bg-[#FBF9F6] transition-colors cursor-pointer"
+              >
+                Zrušiť
+              </button>
+              <button
+                type="button"
+                onClick={handleResetForProduction}
+                className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors shadow-sm cursor-pointer"
+              >
+                Áno, vynulovať na ostro
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

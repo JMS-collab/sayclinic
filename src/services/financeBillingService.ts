@@ -98,415 +98,67 @@ export interface CreditTransaction {
   recordedBy: string;
 }
 
-// Predvolené počiatočné faktúry a zálohové faktúry
-export const INITIAL_INVOICES: Invoice[] = [
-  {
-    id: 'inv-zf-1',
-    invoiceNumber: 'ZF-2026-0024',
-    type: 'advance',
-    patientId: 'P-KAT-KOV',
-    patientName: 'Katarína Kováčová',
-    patientBirthNumber: '915214/4512',
-    patientAddress: 'Kráľovohoľská 12, Banská Bystrica',
-    patientEmail: 'katarina.kovacova@gmail.com',
-    patientPhone: '+421 905 123 456',
-    issueDate: '2026-08-20',
-    dueDate: '2026-08-27',
-    paidDate: '2026-08-25',
-    status: 'paid',
-    paymentMethod: 'bank_transfer',
-    variableSymbol: '260024',
-    items: [
-      {
-        id: 'it-1',
-        description: 'Záloha na plánovanú operáciu: Augmentácia prsníkov Motiva 340cc (rezervácia termínu a operačnej sály)',
-        quantity: 1,
-        unit: 'pobyt/výkon',
-        unitPrice: 800,
-        vatRate: 0,
-        total: 800
-      }
-    ],
-    subtotal: 800,
-    vatAmount: 0,
-    totalAmount: 800,
-    paidAmount: 800,
-    remainingAmount: 0,
-    appliedCredit: 0,
-    linkedSurgeryEventId: 'seed-evt-1',
-    notes: 'Záloha pripísaná na účet Tatra banka dňa 25.08.2026. Zostáva doplatiť 3 400 € v deň nástupu na operáciu.',
-    createdBy: 'Ing. Barbara Mecerodová, MBA'
-  },
-  {
-    id: 'inv-fa-1',
-    invoiceNumber: 'FA-2026-0038',
-    type: 'standard',
-    patientId: 'P1',
-    patientName: 'Mária Kováčová',
-    patientBirthNumber: '885512/6789',
-    patientAddress: 'Slnečná 15, Banská Bystrica',
-    patientEmail: 'maria.kovacova@email.sk',
-    patientPhone: '+421 905 123 456',
-    issueDate: '2026-08-12',
-    dueDate: '2026-08-12',
-    deliveryDate: '2026-08-12',
-    paidDate: '2026-08-12',
-    status: 'paid',
-    paymentMethod: 'card',
-    variableSymbol: '260038',
-    items: [
-      {
-        id: 'it-2',
-        description: 'Augmentácia prsníkov silikónovými implantátmi Motiva Ergonomix (operatér MUDr. Ján Mráz)',
-        quantity: 1,
-        unit: 'výkon',
-        unitPrice: 3400,
-        vatRate: 0,
-        total: 3400
-      },
-      {
-        id: 'it-3',
-        description: 'Zálohová platba odpočítaná (ZF-2026-0012)',
-        quantity: 1,
-        unit: 'odpočet',
-        unitPrice: -800,
-        vatRate: 0,
-        total: -800
-      },
-      {
-        id: 'it-4',
-        description: 'Kompresívna pooperačná podprsenka Lipoelastic PI Ideal',
-        quantity: 1,
-        unit: 'ks',
-        unitPrice: 65,
-        vatRate: 20,
-        total: 65
-      },
-      {
-        id: 'it-5',
-        description: 'Celková anestézia TIVA vedená anesteziológom (OAIM)',
-        quantity: 1,
-        unit: 'anestézia',
-        unitPrice: 350,
-        vatRate: 0,
-        total: 350
-      },
-      {
-        id: 'it-6',
-        description: 'Dospávanie a observácia na pooperačnej izbe',
-        quantity: 1,
-        unit: 'pobyt',
-        unitPrice: 150,
-        vatRate: 0,
-        total: 150
-      }
-    ],
-    subtotal: 3165,
-    vatAmount: 13,
-    totalAmount: 3178,
-    paidAmount: 3178,
-    remainingAmount: 0,
-    appliedCredit: 0,
-    linkedSurgeryEventId: 'seed-evt-postop',
-    linkedRecordId: 'rec-1',
-    notes: 'Konečné vyúčtovanie po operácii. Pôvodná záloha 800 € bola riadne zúčtovaná.',
-    createdBy: 'Ing. Barbara Mecerodová, MBA'
-  },
-  {
-    id: 'inv-zf-2',
-    invoiceNumber: 'ZF-2026-0027',
-    type: 'advance',
-    patientName: 'Martina Bieliková',
-    patientPhone: '+421 911 789 123',
-    patientAddress: 'Námestie Slobody 4, Zvolen',
-    issueDate: '2026-08-28',
-    dueDate: '2026-09-02',
-    paidDate: '2026-09-01',
-    status: 'paid',
-    paymentMethod: 'card',
-    variableSymbol: '260027',
-    items: [
-      {
-        id: 'it-7',
-        description: 'Zálohová platba: Blefaroplastika horných viečok v lokálnej anestézii',
-        quantity: 1,
-        unit: 'výkon',
-        unitPrice: 200,
-        vatRate: 0,
-        total: 200
-      }
-    ],
-    subtotal: 200,
-    vatAmount: 0,
-    totalAmount: 200,
-    paidAmount: 200,
-    remainingAmount: 0,
-    appliedCredit: 0,
-    linkedSurgeryEventId: 'seed-evt-4',
-    notes: 'Zaplatené na recepcii kliniky platobným terminálom.',
-    createdBy: 'Mgr. Elena Solivajsová'
-  },
-  {
-    id: 'inv-zf-3',
-    invoiceNumber: 'ZF-2026-0031',
-    type: 'advance',
-    patientName: 'Elena Kmeťová',
-    patientPhone: '+421 908 654 321',
-    patientEmail: 'elena.kmetova@centrum.sk',
-    patientAddress: 'Partizánska cesta 28, Banská Bystrica',
-    issueDate: '2026-09-01',
-    dueDate: '2026-09-08',
-    status: 'unpaid',
-    paymentMethod: 'bank_transfer',
-    variableSymbol: '260031',
-    items: [
-      {
-        id: 'it-8',
-        description: 'Zálohová faktúra na plánovanú redukčnú mammaplastiku (modelácia s redukciou)',
-        quantity: 1,
-        unit: 'výkon',
-        unitPrice: 600,
-        vatRate: 0,
-        total: 600
-      }
-    ],
-    subtotal: 600,
-    vatAmount: 0,
-    totalAmount: 600,
-    paidAmount: 0,
-    remainingAmount: 600,
-    appliedCredit: 0,
-    notes: 'Čaká na úhradu prevodom. Splatnosť do 08.09.2026.',
-    createdBy: 'Ing. Barbara Mecerodová, MBA'
-  }
-];
+// Predvolené počiatočné faktúry a zálohové faktúry (Ostrá prevádzka - čistý štart)
+export const INITIAL_INVOICES: Invoice[] = [];
 
-// Predvolené počiatočné profily klientov (Plánovaní a Odoperovaní)
-export const INITIAL_CLIENT_PROFILES: PatientFinancialProfile[] = [
-  {
-    id: 'prof-1',
-    patientId: 'P1',
-    patientName: 'Mária Kováčová',
-    patientBirthNumber: '885512/6789',
-    patientPhone: '+421 905 123 456',
-    patientEmail: 'maria.kovacova@email.sk',
-    patientAddress: 'Slnečná 15, Banská Bystrica',
-    status: 'operated',
-    procedureName: 'Augmentácia prsníkov Motiva 320cc',
-    procedureDate: '2026-08-12',
-    doctorName: 'MUDr. Ján Mráz',
-    roomName: 'Operačné sály SAY',
-    anesthesiaType: 'TIVA',
-    totalAgreedPrice: 4200,
-    depositRequired: 800,
-    depositPaid: 800,
-    isDepositPaid: true,
-    clientCredit: 150, // Bonusový kredit na pooperačné laserové vyhladenie jazvy
-    totalBilled: 4200,
-    totalPaid: 4200,
-    balanceDue: 0,
-    materialCost: 1420.12, // Motiva implantáty (1380 €) + Lipoelastic podprsenka (39 €) + Mepore krytie (1.12 €)
-    materialItemsCount: 3,
-    netProcedureMargin: 2779.88,
-    marginPercentage: 66.2,
-    linkedRecordId: 'rec-1',
-    invoices: ['FA-2026-0038', 'ZF-2026-0012'],
-    notes: 'Operácia prebehla úspešne, pacientka má uhradené všetko. Kredit 150 € je aktívny na ďalšiu starostlivosť.'
-  },
-  {
-    id: 'prof-2',
-    patientId: 'P-KAT-KOV',
-    patientName: 'Katarína Kováčová',
-    patientBirthNumber: '915214/4512',
-    patientPhone: '+421 905 123 456',
-    patientEmail: 'katarina.kovacova@gmail.com',
-    patientAddress: 'Kráľovohoľská 12, Banská Bystrica',
-    status: 'planned',
-    procedureName: 'Augmentácia prsníkov (Motiva 340cc)',
-    procedureDate: new Date().toISOString().split('T')[0],
-    doctorName: 'MUDr. Ján Mráz',
-    roomName: 'Operačné sály SAY',
-    anesthesiaType: 'TIVA',
-    totalAgreedPrice: 4200,
-    depositRequired: 800,
-    depositPaid: 800,
-    isDepositPaid: true,
-    clientCredit: 0,
-    totalBilled: 800,
-    totalPaid: 800,
-    balanceDue: 3400, // Zostáva doplatiť
-    materialCost: 1419, // Pripravené implantáty Motiva 340cc (1380 €) + podprsenka (39 €)
-    materialItemsCount: 2,
-    netProcedureMargin: 2781,
-    marginPercentage: 66.2,
-    linkedEventId: 'seed-evt-1',
-    invoices: ['ZF-2026-0024'],
-    notes: 'Záloha 800 € je riadne uhradená. Doplatok 3 400 € bude vyrovnaný pri nástupe na kliniku.'
-  },
-  {
-    id: 'prof-3',
-    patientName: 'Martina Bieliková',
-    patientPhone: '+421 911 789 123',
-    patientAddress: 'Námestie Slobody 4, Zvolen',
-    status: 'planned',
-    procedureName: 'Blefaroplastika horných viečok',
-    procedureDate: new Date().toISOString().split('T')[0],
-    doctorName: 'MUDr. Zuzana Sroková',
-    roomName: 'Operačné sály Rudlová',
-    anesthesiaType: 'LA (Lokálna anestézia)',
-    totalAgreedPrice: 950,
-    depositRequired: 200,
-    depositPaid: 200,
-    isDepositPaid: true,
-    clientCredit: 50, // Darčekový poukaz uplatniteľný na zákrok
-    totalBilled: 200,
-    totalPaid: 200,
-    balanceDue: 700, // 950 - 200 - 50 = 700 €
-    materialCost: 45, // Vstrebateľné šitie a Dermabond lepidlo
-    materialItemsCount: 2,
-    netProcedureMargin: 905,
-    marginPercentage: 95.3,
-    linkedEventId: 'seed-evt-4',
-    invoices: ['ZF-2026-0027'],
-    notes: 'Záloha 200 € zaplatená, pacientka má kredit 50 €, k úhrade zostáva 700 €.'
-  },
-  {
-    id: 'prof-4',
-    patientId: 'P2',
-    patientName: 'Ján Novák',
-    patientBirthNumber: '750314/1234',
-    patientPhone: '+421 948 987 654',
-    patientEmail: 'novak.j@email.sk',
-    patientAddress: 'Kvetná 8, Zvolen',
-    status: 'operated',
-    procedureName: 'Korekcia vrások glabela a čelo (Dysport)',
-    procedureDate: '2026-09-02',
-    doctorName: 'MUDr. Ján Mráz',
-    roomName: 'Ambulancia',
-    anesthesiaType: 'Lokálne chladenie',
-    totalAgreedPrice: 220,
-    depositRequired: 0,
-    depositPaid: 0,
-    isDepositPaid: true,
-    clientCredit: 0,
-    totalBilled: 220,
-    totalPaid: 220,
-    balanceDue: 0,
-    materialCost: 145, // Dysport 500U vialka zo skladu
-    materialItemsCount: 1,
-    netProcedureMargin: 75,
-    marginPercentage: 34.1,
-    invoices: [],
-    notes: 'Ambulantné ošetrenie, platba v hotovosti na mieste.'
-  },
-  {
-    id: 'prof-5',
-    patientName: 'Elena Kmeťová',
-    patientPhone: '+421 908 654 321',
-    patientEmail: 'elena.kmetova@centrum.sk',
-    patientAddress: 'Partizánska cesta 28, Banská Bystrica',
-    status: 'planned',
-    procedureName: 'Redukčná mammaplastika s modeláciou',
-    procedureDate: new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0],
-    doctorName: 'MUDr. Ján Mráz',
-    roomName: 'Operačné sály SAY',
-    anesthesiaType: 'TIVA',
-    totalAgreedPrice: 3600,
-    depositRequired: 600,
-    depositPaid: 0,
-    isDepositPaid: false,
-    clientCredit: 0,
-    totalBilled: 600,
-    totalPaid: 0,
-    balanceDue: 3600,
-    materialCost: 125, // Šijací materiál, pooperačná podprsenka, elastické bandáže
-    materialItemsCount: 3,
-    netProcedureMargin: 3475,
-    marginPercentage: 96.5,
-    invoices: ['ZF-2026-0031'],
-    notes: 'Vystavená zálohová faktúra ZF-2026-0031, čakáme na úhradu prevodom.'
-  },
-  {
-    id: 'prof-6',
-    patientName: 'Simona Vargová',
-    patientPhone: '+421 917 555 444',
-    patientEmail: 'simona.vargova@gmail.com',
-    patientAddress: 'Ružová 19, Zvolen',
-    status: 'operated',
-    procedureName: 'Vibračná liposukcia brucha a bokov MicroAire PAL',
-    procedureDate: '2026-08-20',
-    doctorName: 'MUDr. Ján Mráz',
-    roomName: 'Operačné sály SAY',
-    anesthesiaType: 'TIVA + Tumescencia',
-    totalAgreedPrice: 2800,
-    depositRequired: 600,
-    depositPaid: 600,
-    isDepositPaid: true,
-    clientCredit: 100, // Preplatok z anestézie prenesený do kreditu
-    totalBilled: 2800,
-    totalPaid: 2800,
-    balanceDue: 0,
-    materialCost: 127, // Lipoelastic kompresívny pás (42 €) + kanyly a sterilné sety (85 €)
-    materialItemsCount: 2,
-    netProcedureMargin: 2673,
-    marginPercentage: 95.5,
-    invoices: ['FA-2026-0035'],
-    notes: 'Úplne vyrovnané. Kredit 100 € k dispozícii na LPG / lymfodrenážne ošetrenie.'
-  }
-];
+// Predvolené počiatočné profily klientov (Ostrá prevádzka - čistý štart)
+export const INITIAL_CLIENT_PROFILES: PatientFinancialProfile[] = [];
 
-export const INITIAL_CREDIT_LOGS: CreditTransaction[] = [
-  {
-    id: 'c-log-1',
-    patientId: 'P1',
-    patientName: 'Mária Kováčová',
-    date: '2026-08-12',
-    timestamp: '2026-08-12T14:30:00.000Z',
-    type: 'deposit_topup',
-    amount: 150,
-    balanceAfter: 150,
-    note: 'Bonusový kredit za komplexný operačný balík (určený na pooperačný laser)',
-    recordedBy: 'MUDr. Ján Mráz'
-  },
-  {
-    id: 'c-log-2',
-    patientId: 'prof-3',
-    patientName: 'Martina Bieliková',
-    date: '2026-08-25',
-    timestamp: '2026-08-25T11:00:00.000Z',
-    type: 'gift_voucher',
-    amount: 50,
-    balanceAfter: 50,
-    note: 'Uplatnený darčekový poukaz SAY CLINIC č. GC-8821',
-    recordedBy: 'Mgr. Elena Solivajsová'
-  },
-  {
-    id: 'c-log-3',
-    patientId: 'prof-6',
-    patientName: 'Simona Vargová',
-    date: '2026-08-20',
-    timestamp: '2026-08-20T16:00:00.000Z',
-    type: 'deposit_topup',
-    amount: 100,
-    balanceAfter: 100,
-    note: 'Presun preplatku z hospitalizácie do kreditu klienta na ďalšie ošetrenia',
-    recordedBy: 'Ing. Barbara Mecerodová, MBA'
-  }
-];
+// Predvolené transakcie kreditov (Ostrá prevádzka - čistý štart)
+export const INITIAL_CREDIT_LOGS: CreditTransaction[] = [];
 
 export class FinanceBillingService {
   private static STORAGE_KEY_INVOICES = 'say_clinic_invoices_v1';
   private static STORAGE_KEY_CLIENT_PROFILES = 'say_clinic_client_financial_profiles_v1';
   private static STORAGE_KEY_CREDIT_LOGS = 'say_clinic_credit_logs_v1';
+  private static STORAGE_KEY_CLEAN_INIT = 'say_clinic_finance_clean_v2';
+
+  // Overenie a vyčistenie starých demo dát pri prvom spustení ostrej verzie
+  public static checkAndMigrateCleanState(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      if (localStorage.getItem(this.STORAGE_KEY_CLEAN_INIT) !== 'true') {
+        localStorage.setItem(this.STORAGE_KEY_INVOICES, JSON.stringify([]));
+        localStorage.setItem(this.STORAGE_KEY_CLIENT_PROFILES, JSON.stringify([]));
+        localStorage.setItem(this.STORAGE_KEY_CREDIT_LOGS, JSON.stringify([]));
+        localStorage.setItem('say_clinic_expenses_v1', JSON.stringify([]));
+        localStorage.setItem('say_clinic_sales_v1', JSON.stringify([]));
+        localStorage.setItem(this.STORAGE_KEY_CLEAN_INIT, 'true');
+      }
+    } catch (e) {
+      console.error('Chyba migrácie ostrej verzie financií:', e);
+    }
+  }
+
+  // Kompletné vynulovanie všetkých finančných dát (Ostrý štart na požiadanie)
+  public static resetAllFinancialData(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(this.STORAGE_KEY_INVOICES, JSON.stringify([]));
+      localStorage.setItem(this.STORAGE_KEY_CLIENT_PROFILES, JSON.stringify([]));
+      localStorage.setItem(this.STORAGE_KEY_CREDIT_LOGS, JSON.stringify([]));
+      localStorage.setItem('say_clinic_expenses_v1', JSON.stringify([]));
+      localStorage.setItem('say_clinic_sales_v1', JSON.stringify([]));
+      localStorage.setItem(this.STORAGE_KEY_CLEAN_INIT, 'true');
+
+      window.dispatchEvent(new CustomEvent('say_clinic_invoices_changed', { detail: [] }));
+      window.dispatchEvent(new CustomEvent('say_clinic_client_profiles_changed', { detail: [] }));
+      window.dispatchEvent(new CustomEvent('say_clinic_credit_logs_changed', { detail: [] }));
+      window.dispatchEvent(new CustomEvent('say_clinic_sales_changed', { detail: [] }));
+      window.dispatchEvent(new CustomEvent('say_clinic_expenses_changed', { detail: [] }));
+    } catch (e) {
+      console.error('Chyba pri nulovaní finančných dát:', e);
+    }
+  }
 
   // Načítanie všetkých faktúr
   public static getInvoices(): Invoice[] {
     if (typeof window === 'undefined') return INITIAL_INVOICES;
+    this.checkAndMigrateCleanState();
     try {
       const saved = localStorage.getItem(this.STORAGE_KEY_INVOICES);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (saved !== null) {
+        return JSON.parse(saved);
       }
       localStorage.setItem(this.STORAGE_KEY_INVOICES, JSON.stringify(INITIAL_INVOICES));
       return INITIAL_INVOICES;
@@ -566,11 +218,11 @@ export class FinanceBillingService {
   // Načítanie finančných profilov klientov (Plánovaní a Odoperovaní)
   public static getClientProfiles(): PatientFinancialProfile[] {
     if (typeof window === 'undefined') return INITIAL_CLIENT_PROFILES;
+    this.checkAndMigrateCleanState();
     try {
       const saved = localStorage.getItem(this.STORAGE_KEY_CLIENT_PROFILES);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (saved !== null) {
+        return JSON.parse(saved);
       }
       localStorage.setItem(this.STORAGE_KEY_CLIENT_PROFILES, JSON.stringify(INITIAL_CLIENT_PROFILES));
       return INITIAL_CLIENT_PROFILES;
@@ -671,11 +323,11 @@ export class FinanceBillingService {
   // Načítanie knihy kreditných pohybov
   public static getCreditLogs(): CreditTransaction[] {
     if (typeof window === 'undefined') return INITIAL_CREDIT_LOGS;
+    this.checkAndMigrateCleanState();
     try {
       const saved = localStorage.getItem(this.STORAGE_KEY_CREDIT_LOGS);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (saved !== null) {
+        return JSON.parse(saved);
       }
       localStorage.setItem(this.STORAGE_KEY_CREDIT_LOGS, JSON.stringify(INITIAL_CREDIT_LOGS));
       return INITIAL_CREDIT_LOGS;
@@ -747,7 +399,7 @@ export class FinanceBillingService {
         const numPart = i.invoiceNumber.replace(prefix, '');
         return parseInt(numPart, 10) || 0;
       });
-    const maxNum = existing.length > 0 ? Math.max(...existing) : (type === 'advance' ? 31 : 38);
+    const maxNum = existing.length > 0 ? Math.max(...existing) : 0;
     const nextNum = maxNum + 1;
     return `${prefix}${nextNum.toString().padStart(4, '0')}`;
   }
@@ -761,6 +413,7 @@ export class FinanceBillingService {
     events.forEach(evt => {
       if (evt.type !== 'operacia' && evt.type !== 'osetrenie') return;
       if (!evt.patientName || evt.patientName === 'Personál kliniky') return;
+      if (evt.id && (evt.id.startsWith('seed-') || evt.id.startsWith('demo-'))) return;
 
       const matchedPatient = patients.find(p => 
         (evt.patientId && p.id === evt.patientId) || 
