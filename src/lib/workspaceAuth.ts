@@ -100,8 +100,17 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     notifyListeners();
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
-    console.error('Chyba prihlásenia do Google Drive:', error);
-    throw error;
+    // Ak používateľ okno prihlásenia zatvoril alebo bola požiadavka zrušená, nejde o chybu aplikácie
+    if (
+      error?.code === 'auth/popup-closed-by-user' ||
+      error?.code === 'auth/cancelled-popup-request' ||
+      error?.message?.includes('popup-closed-by-user') ||
+      error?.message?.includes('cancelled-popup-request')
+    ) {
+      return null;
+    }
+    console.warn('Upozornenie prihlásenia do Google Workspace / Drive:', error?.message || error);
+    return null;
   } finally {
     isSigningIn = false;
   }

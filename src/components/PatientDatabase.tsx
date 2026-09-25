@@ -13,6 +13,7 @@ import { PatientPlan, PRESET_PATIENT_PLANS, ScheduledTreatment } from '../data/p
 import PatientPlanViewer from './patient/PatientPlanViewer';
 import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
 import AIHealthRoadmapView from './patient/AIHealthRoadmapView';
+import { AuditLogService } from '../services/auditLogService';
 
 const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
   P1: [
@@ -467,6 +468,14 @@ export default function PatientDatabase({
     setSelectedPatient(patient);
     setActiveFolder('dokumenty');
     setActivePhotoCategory(null);
+    AuditLogService.log({
+      category: 'PATIENT_RECORD',
+      action: 'OTVORENIE ZDRAVOTNEJ KARTY',
+      details: `Otvorenie karty a zdravotnej zložky pacienta: ${patient.name} (${patient.birthNumber})`,
+      patientId: patient.id,
+      patientName: patient.name,
+      severity: 'info'
+    });
   };
 
   // VYTVORENIE PACIENTA S AUTOMATICKÝM VYTVORENÍM ZLOŽKY NA GOOGLE DRIVE
@@ -554,6 +563,15 @@ export default function PatientDatabase({
     if (selectedPatient && selectedPatient.id === editingPatient.id) {
       setSelectedPatient(editingPatient);
     }
+
+    AuditLogService.log({
+      category: 'PATIENT_RECORD',
+      action: 'ÚPRAVA ZDRAVOTNEJ KARTY',
+      details: `Aktualizácia údajov a anamnézy pacienta: ${editingPatient.name} (${editingPatient.birthNumber})`,
+      patientId: editingPatient.id,
+      patientName: editingPatient.name,
+      severity: 'info'
+    });
 
     setEditingPatient(null);
   };

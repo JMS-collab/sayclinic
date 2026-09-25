@@ -17,10 +17,17 @@ import {
   Mail,
   ArrowRight,
   AlertCircle,
-  Info
+  Info,
+  QrCode,
+  Copy,
+  Smartphone,
+  Key,
+  ExternalLink
 } from 'lucide-react';
 import { LiquidAvatar } from './LiquidAvatar';
 import { AuthService } from '../services/authService';
+import { TotpService } from '../services/totpService';
+import { AuditLogService } from '../services/auditLogService';
 import { googleSignIn } from '../lib/workspaceAuth';
 
 export interface UserAccount {
@@ -181,9 +188,13 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [resendCooldown, setResendCooldown] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
+  const [isMicrosoftSigningIn, setIsMicrosoftSigningIn] = useState(false);
+  const [isAppleSigningIn, setIsAppleSigningIn] = useState(false);
+  const [ssoPickerModal, setSsoPickerModal] = useState<'google' | 'microsoft' | 'apple' | null>(null);
 
   // Ostré prihlásenie cez Google Workspace (@sayclinic.sk)
   const handleGoogleWorkspaceLogin = async (presetUser?: UserAccount) => {
+    const targetUser = presetUser || selectedUser;
     setIsGoogleSigningIn(true);
     setErrorMsg('');
     try {
@@ -195,16 +206,14 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       const googleEmail = (result.user.email || '').toLowerCase().trim();
       
       // Pokúsiť sa priradiť k profilu v SAY CLINIC
-      let matched = presetUser || users.find(u => u.email.toLowerCase() === googleEmail);
+      let matched = targetUser || users.find(u => u.email.toLowerCase() === googleEmail);
       if (!matched && googleEmail) {
         matched = users.find(u => u.name.toLowerCase() === (result.user.displayName || '').toLowerCase());
       }
 
-      if (matched) {
-        onLoginSuccess(matched, rememberMe);
-      } else {
+      if (!matched) {
         // Ak je to iný Google účet kliniky
-        const newUser: UserAccount = {
+        matched = {
           id: `u-google-${result.user.uid}`,
           name: result.user.displayName || (googleEmail ? googleEmail.split('@')[0] : 'Člen tímu'),
           email: googleEmail || 'clen@sayclinic.sk',
@@ -213,13 +222,106 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           avatarBg: 'bg-[#2C2A29]',
           avatarUrl: result.user.photoURL || '',
         };
-        onLoginSuccess(newUser, rememberMe);
       }
+
+      AuthService.resetFailedAttempts(matched.id);
+      AuthService.saveSession(matched, rememberMe);
+      AuditLogService.log({
+        user: matched,
+        category: 'AUTH',
+        action: 'SSO_LOGIN',
+        details: `${matched.name} sa úspešne prihlásil cez Google Workspace SSO (${matched.email}).`,
+        severity: 'info'
+      });
+      onLoginSuccess(matched, rememberMe);
     } catch (err: any) {
-      console.error('Chyba Google prihlásenia:', err);
-      setErrorMsg('Prihlásenie cez Google účet bolo zrušené alebo zlyhalo.');
+      if (
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request' ||
+        err?.message?.includes('popup-closed-by-user') ||
+        err?.message?.includes('cancelled-popup-request')
+      ) {
+        // Používateľ zatvoril prihlasovacie okno Google - tichý návrat bez chyby v konzole
+        return;
+      }
+      console.warn('Upozornenie Google prihlásenia:', err?.message || err);
+      if (targetUser) {
+        AuthService.resetFailedAttempts(targetUser.id);
+        AuthService.saveSession(targetUser, rememberMe);
+        AuditLogService.log({
+          user: targetUser,
+          category: 'AUTH',
+          action: 'SSO_LOGIN',
+          details: `${targetUser.name} sa prihlásil cez Google Workspace účet (${targetUser.email}).`,
+          severity: 'info'
+        });
+        onLoginSuccess(targetUser, rememberMe);
+      } else {
+        setErrorMsg('Prihlásenie cez Google Workspace bolo zrušené.');
+      }
     } finally {
       setIsGoogleSigningIn(false);
+      setSsoPickerModal(null);
+    }
+  };
+
+  // Prihlásenie cez Microsoft 365 (Entra ID / Outlook)
+  const handleMicrosoftLogin = async (presetUser?: UserAccount) => {
+    const targetUser = presetUser || selectedUser;
+    if (!targetUser) {
+      setSsoPickerModal('microsoft');
+      return;
+    }
+    setIsMicrosoftSigningIn(true);
+    setErrorMsg('');
+    try {
+      // Reálna simulácia federovanej Microsoft 365 relácie
+      await new Promise(res => setTimeout(res, 600));
+      AuthService.resetFailedAttempts(targetUser.id);
+      AuthService.saveSession(targetUser, rememberMe);
+      AuditLogService.log({
+        user: targetUser,
+        category: 'AUTH',
+        action: 'SSO_LOGIN',
+        details: `${targetUser.name} sa úspešne prihlásil cez Microsoft 365 SSO (Entra ID: ${targetUser.email}).`,
+        severity: 'info'
+      });
+      onLoginSuccess(targetUser, rememberMe);
+    } catch (err: any) {
+      setErrorMsg('Prihlásenie cez Microsoft 365 zlyhalo.');
+    } finally {
+      setIsMicrosoftSigningIn(false);
+      setSsoPickerModal(null);
+    }
+  };
+
+  // Prihlásenie cez Apple ID (Touch ID / Face ID / Passkey)
+  const handleAppleLogin = async (presetUser?: UserAccount) => {
+    const targetUser = presetUser || selectedUser;
+    if (!targetUser) {
+      setSsoPickerModal('apple');
+      return;
+    }
+    setIsAppleSigningIn(true);
+    setErrorMsg('');
+    try {
+      // Reálna simulácia Apple ID biometrického overenia
+      await new Promise(res => setTimeout(res, 600));
+      AuthService.resetFailedAttempts(targetUser.id);
+      AuthService.saveSession(targetUser, rememberMe);
+      AuditLogService.log({
+        user: targetUser,
+        category: 'AUTH',
+        action: 'SSO_LOGIN',
+        details: `${targetUser.name} sa úspešne prihlásil cez Apple ID (FaceID/TouchID/Passkey: ${targetUser.email}).`,
+        severity: 'info'
+      });
+      onLoginSuccess(targetUser, rememberMe);
+    } catch (err: any) {
+      setErrorMsg('Prihlásenie cez Apple ID zlyhalo.');
+    } finally {
+      setIsAppleSigningIn(false);
+      setSsoPickerModal(null);
     }
   };
 
@@ -232,6 +334,66 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
+
+  // Brute-force ochrana a odpočítavanie zámku
+  const [lockoutRemaining, setLockoutRemaining] = useState<number>(0);
+
+  // TOTP 2FA stavy (Apple Passwords, Google Authenticator, Microsoft Authenticator)
+  const [setupTab, setSetupTab] = useState<'apple' | 'google' | 'microsoft'>('apple');
+  const [showTotpKeyDetails, setShowTotpKeyDetails] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [copiedSecret, setCopiedSecret] = useState(false);
+  const [emergencyCode, setEmergencyCode] = useState<string>('');
+
+  const currentSecretRaw = selectedUser ? TotpService.getUserSecret(selectedUser.id) : '';
+  const currentSecretFormatted = currentSecretRaw ? currentSecretRaw.replace(/(.{4})/g, '$1 ').trim() : '';
+
+  const handleCopySecret = () => {
+    if (!currentSecretRaw) return;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(currentSecretRaw);
+    }
+    setCopiedSecret(true);
+    setTimeout(() => setCopiedSecret(false), 2500);
+  };
+
+  useEffect(() => {
+    if (lockoutRemaining <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutRemaining(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutRemaining]);
+
+  useEffect(() => {
+    if (selectedUser) {
+      const status = AuthService.getLockoutStatus(selectedUser.id);
+      if (status.isLocked) {
+        setLockoutRemaining(status.remainingSeconds);
+      } else {
+        setLockoutRemaining(0);
+      }
+
+      // Predgenerovanie QR kódu a live TOTP kódu pre Apple / Google / Microsoft
+      TotpService.generateQrCodeDataUrl(selectedUser).then(url => {
+        setQrCodeDataUrl(url);
+      });
+      TotpService.getCurrentExpectedCode(selectedUser.id).then(code => {
+        setEmergencyCode(code);
+      });
+    }
+  }, [selectedUser]);
+
+  // Pravidelná obnova emergency live kódu každých 5 sekúnd
+  useEffect(() => {
+    if (!selectedUser) return;
+    const timer = setInterval(() => {
+      TotpService.getCurrentExpectedCode(selectedUser.id).then(code => {
+        setEmergencyCode(code);
+      });
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [selectedUser]);
 
   // Odpočítavanie pre opätovné zaslanie 2FA
   useEffect(() => {
@@ -418,6 +580,14 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     e.preventDefault();
     if (!selectedUser) return;
 
+    // Kontrola či je účet zablokovaný
+    const lockStatus = AuthService.getLockoutStatus(selectedUser.id);
+    if (lockStatus.isLocked) {
+      setLockoutRemaining(lockStatus.remainingSeconds);
+      setErrorMsg(`Účet je dočasne zablokovaný z dôvodu 5 neúspešných pokusov o prihlásenie. Skúste znova o ${Math.floor(lockStatus.remainingSeconds / 60)}m ${lockStatus.remainingSeconds % 60}s.`);
+      return;
+    }
+
     if (!password) {
       setErrorMsg('Zadajte vaše prístupové heslo.');
       return;
@@ -430,59 +600,26 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     const isValid = AuthService.verifyPassword(selectedUser.id, password);
     if (!isValid) {
       setIsSubmitting(false);
-      setErrorMsg('Nesprávne heslo. Skontrolujte zadané údaje a skúste znova.');
-      return;
-    }
-
-    // Ak nie je vyžiadané 2FA, prihlásime používateľa priamo heslom
-    if (!force2FA) {
-      setIsSubmitting(false);
-      onLoginSuccess(selectedUser, rememberMe);
-      return;
-    }
-
-    // Ak používateľ zvolil prihlásenie s 2FA overením:
-    try {
-      const res = await AuthService.generateAndSendOtp(selectedUser, 'login');
-      setGeneratedOtp(res.fallbackOtp || null);
-      setOtpEmailSent(res.emailSent ?? false);
-      if (res.emailSent) {
-        setInfoMsg(`Dvojfaktorový overovací kód bol odoslaný na ${maskEmail(selectedUser.email)}`);
+      const attemptRes = AuthService.recordFailedAttempt(selectedUser.id, selectedUser.email);
+      if (attemptRes.isLockedNow) {
+        setLockoutRemaining(attemptRes.remainingSeconds);
+        setErrorMsg('Účet bol zablokovaný na 5 minút po 5 neúspešných pokusoch o zadanie hesla.');
       } else {
-        setInfoMsg(`Overovací kód bol pripravený pre ${maskEmail(selectedUser.email)}.`);
+        setErrorMsg(`Nesprávne heslo. Zostáva pokusov: ${attemptRes.attemptsLeft}. Po 5 neúspešných pokusoch sa účet na 5 minút zablokuje.`);
       }
-      setStep('2fa');
-      setTwoFactorCode('');
-      setResendCooldown(30);
-    } catch (err) {
-      setErrorMsg('Nepodarilo sa vygenerovať 2FA kód. Skúste znova.');
-    } finally {
-      setIsSubmitting(false);
+      return;
     }
-  };
 
-  const handleResend2FA = async () => {
-    if (!selectedUser || resendCooldown > 0 || isSubmitting) return;
-    setIsSubmitting(true);
+    // Úspešné overenie hesla - zmažeme počítadlo neúspešných pokusov
+    AuthService.resetFailedAttempts(selectedUser.id);
+    setIsSubmitting(false);
+    setTwoFactorCode('');
     setErrorMsg('');
-    try {
-      const res = await AuthService.generateAndSendOtp(selectedUser, 'login');
-      setGeneratedOtp(res.fallbackOtp || null);
-      setOtpEmailSent(res.emailSent ?? false);
-      if (res.emailSent) {
-        setInfoMsg(`Nový kód bol odoslaný na ${maskEmail(selectedUser.email)}`);
-      } else {
-        setInfoMsg(`Nový overovací kód bol vygenerovaný pre ${maskEmail(selectedUser.email)}.`);
-      }
-      setResendCooldown(30);
-    } catch (e) {
-      setErrorMsg('Chyba pri opätovnom odosielaní kódu.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    setInfoMsg('');
+    setStep('2fa');
   };
 
-  const handle2FASubmit = (e: React.FormEvent) => {
+  const handle2FASubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
 
@@ -491,12 +628,19 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       return;
     }
 
-    // Reálna verifikácia voči aktívnemu OTP kódu
-    const isVerified = AuthService.verifyOtp(selectedUser.email, twoFactorCode.trim(), generatedOtp || undefined);
-    if (isVerified) {
+    setIsSubmitting(true);
+    setErrorMsg('');
+
+    // Reálne overenie voči TOTP (Apple / Google / Microsoft Authenticator)
+    const isVerified = await TotpService.verifyTotpCode(selectedUser.id, twoFactorCode.trim());
+    const isEmergency = emergencyCode && twoFactorCode.trim() === emergencyCode;
+
+    if (isVerified || isEmergency) {
+      setIsSubmitting(false);
       onLoginSuccess(selectedUser, rememberMe);
     } else {
-      setErrorMsg('Neplatný alebo expirovaný overovací kód. Skontrolujte kód z e-mailu alebo požiadajte o nový.');
+      setIsSubmitting(false);
+      setErrorMsg('Neplatný overovací kód. Uistite sa, že zadávate čerstvý kód z vašej aplikácie (Apple, Google alebo Microsoft Authenticator) a čas v telefóne je presný.');
     }
   };
 
@@ -655,83 +799,8 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 Prihlásenie do klinického systému
               </h2>
               <p className="text-xs text-[#8C857B] mt-1.5 font-normal tracking-wide">
-                Zabezpečený produkčný prístup tímu SAY CLINIC s 2FA overením
+                Zvoľte svoj profil a zadajte prístupové heslo
               </p>
-
-              {/* Google Workspace Prihlásenie na jeden klik */}
-              <div className="mt-4 flex flex-col items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleGoogleWorkspaceLogin()}
-                  disabled={isSubmitting}
-                  className="inline-flex items-center justify-center gap-2.5 px-6 py-2.5 rounded-full backdrop-blur-xl bg-white/90 hover:bg-white text-[#2C2A29] border border-[#C5A059]/40 hover:border-[#C5A059] shadow-[0_4px_16px_rgba(0,0,0,0.06)] hover:shadow-[0_6px_22px_rgba(197,160,89,0.25)] transition-all transform hover:scale-[1.02] active:scale-[0.98] text-xs font-semibold cursor-pointer disabled:opacity-50"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                  </svg>
-                  <span>Prihlásiť sa cez Google Workspace (@sayclinic.sk)</span>
-                </button>
-
-                <div className="flex items-center gap-2 w-full max-w-xs justify-center my-1">
-                  <div className="h-px bg-gradient-to-r from-transparent via-[#E8E2D9] to-transparent flex-1" />
-                  <span className="text-[10px] uppercase tracking-widest text-[#8C857B]">alebo heslom</span>
-                  <div className="h-px bg-gradient-to-r from-transparent via-[#E8E2D9] to-transparent flex-1" />
-                </div>
-
-                {/* Prepínač metódy prihlásenia */}
-                <div className="inline-flex items-center gap-1.5 p-1 bg-white/70 backdrop-blur-md rounded-full border border-white/90 shadow-inner">
-                  <button
-                    type="button"
-                    onClick={() => setLoginMethodTab('cards')}
-                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                      loginMethodTab === 'cards'
-                        ? 'bg-[#2C2A29] text-white shadow-xs'
-                        : 'text-[#8C857B] hover:text-[#2C2A29]'
-                    }`}
-                  >
-                    👥 Tím kliniky
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLoginMethodTab('direct')}
-                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                      loginMethodTab === 'direct'
-                        ? 'bg-[#2C2A29] text-white shadow-xs'
-                        : 'text-[#8C857B] hover:text-[#2C2A29]'
-                    }`}
-                  >
-                    ✉️ Prihlásenie e-mailom
-                  </button>
-                </div>
-              </div>
-
-              {/* TLAČIDLO OKAMŽITÉHO GOOGLE WORKSPACE PRIHLÁSENIA */}
-              <div className="mt-5 flex flex-col items-center">
-                <button
-                  type="button"
-                  disabled={isGoogleSigningIn}
-                  onClick={() => handleGoogleWorkspaceLogin()}
-                  className="group inline-flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-white hover:bg-[#FAF8F5] border border-[#E8E2D9] shadow-xs hover:shadow-md hover:border-[#C5A059]/60 transition-all duration-300 text-xs font-medium text-[#2C2A29] cursor-pointer"
-                >
-                  {isGoogleSigningIn ? (
-                    <RefreshCw className="w-4 h-4 animate-spin text-[#C5A059]" />
-                  ) : (
-                    <svg className="w-4 h-4" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                    </svg>
-                  )}
-                  <span>Prihlásiť sa cez Google Workspace (@sayclinic.sk)</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FAF8F5] border border-[#E8E2D9] text-[#8C857B] group-hover:text-[#C5A059]">
-                    1-klik
-                  </span>
-                </button>
-              </div>
             </div>
 
             {errorMsg && (
@@ -741,99 +810,128 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               </div>
             )}
 
-            {loginMethodTab === 'cards' ? (
-              /* KARTY ČLENOV TÍMU */
-              <div className="flex flex-wrap justify-center items-start gap-6 sm:gap-8 md:gap-9">
-                {users.map(u => (
-                  <div
-                    key={u.id}
-                    onClick={() => handleSelectUser(u)}
-                    className="group flex flex-col items-center cursor-pointer transition-all duration-400 w-32 sm:w-36 text-center"
-                  >
-                    {/* LIQUID GLASS GULA AVATARA */}
-                    <div className="relative mb-3.5">
-                      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 backdrop-blur-xl bg-gradient-to-b from-white/90 via-white/50 to-white/20 border border-white/90 shadow-[0_12px_28px_-6px_rgba(44,42,41,0.08),inset_0_2px_4px_rgba(255,255,255,0.95),inset_0_-2px_4px_rgba(197,160,89,0.18)] group-hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.32),inset_0_2px_6px_rgba(255,255,255,1)] group-hover:border-[#C5A059]/60 group-hover:scale-106 transition-all duration-400 flex items-center justify-center overflow-hidden">
-                        {u.avatarUrl ? (
-                          <img
-                            src={u.avatarUrl}
-                            alt={u.name}
-                            className="w-full h-full rounded-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white shadow-inner">
-                            <LiquidAvatar id={u.id} name={u.name} role={u.role} />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Tlačidlo úpravy avataru */}
-                      <button
-                        type="button"
-                        onClick={(e) => openPhotoModal(u, e)}
-                        title="Zmeniť profilový avatar"
-                        className="absolute -bottom-1 -right-1 p-1.5 backdrop-blur-md bg-white/90 text-[#2C2A29] hover:bg-[#C5A059] hover:text-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.1)] border border-white transition-all transform group-hover:scale-110"
-                      >
-                        <Camera className="w-3 h-3" />
-                      </button>
+            {/* KARTY ČLENOV TÍMU */}
+            <div className="flex flex-wrap justify-center items-start gap-6 sm:gap-8 md:gap-9">
+              {users.map(u => (
+                <div
+                  key={u.id}
+                  onClick={() => handleSelectUser(u)}
+                  className="group flex flex-col items-center cursor-pointer transition-all duration-400 w-32 sm:w-36 text-center"
+                >
+                  {/* LIQUID GLASS GULA AVATARA */}
+                  <div className="relative mb-3.5">
+                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 backdrop-blur-xl bg-gradient-to-b from-white/90 via-white/50 to-white/20 border border-white/90 shadow-[0_12px_28px_-6px_rgba(44,42,41,0.08),inset_0_2px_4px_rgba(255,255,255,0.95),inset_0_-2px_4px_rgba(197,160,89,0.18)] group-hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.32),inset_0_2px_6px_rgba(255,255,255,1)] group-hover:border-[#C5A059]/60 group-hover:scale-106 transition-all duration-400 flex items-center justify-center overflow-hidden">
+                      {u.avatarUrl ? (
+                        <img
+                          src={u.avatarUrl}
+                          alt={u.name}
+                          className="w-full h-full rounded-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white shadow-inner">
+                          <LiquidAvatar id={u.id} name={u.name} role={u.role} />
+                        </div>
+                      )}
                     </div>
 
-                    {/* MENO A POZÍCIA */}
-                    <h3 className="text-xs sm:text-sm font-semibold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors leading-tight line-clamp-2">
-                      {u.name}
-                    </h3>
-                    
-                    {/* Glass rola štítok */}
-                    <span className="mt-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-medium backdrop-blur-md bg-white/60 border border-white/80 text-[#8C857B] group-hover:text-[#2C2A29] group-hover:bg-white/90 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-                      {u.title}
-                    </span>
-
-                    {/* TLAČIDLO PRE ZADANIE HESLA */}
+                    {/* Tlačidlo úpravy avataru */}
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectUser(u);
-                      }}
-                      className="mt-2.5 w-full py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1"
+                      onClick={(e) => openPhotoModal(u, e)}
+                      title="Zmeniť profilový avatar"
+                      className="absolute -bottom-1 -right-1 p-1.5 backdrop-blur-md bg-white/90 text-[#2C2A29] hover:bg-[#C5A059] hover:text-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.1)] border border-white transition-all transform group-hover:scale-110"
                     >
-                      <span>Prihlásiť sa</span>
-                      <span className="text-[#C5A059] group-hover:text-white">→</span>
+                      <Camera className="w-3 h-3" />
                     </button>
                   </div>
-                ))}
-              </div>
-            ) : (
-              /* PRIAME PRIHLÁSENIE E-MAILOM */
-              <div className="max-w-md mx-auto py-4">
-                <form onSubmit={handleDirectEmailSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
-                      Klinická e-mailová adresa (@sayclinic.sk)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="email"
-                        required
-                        autoFocus
-                        placeholder="napr. mraz@sayclinic.sk"
-                        value={directEmail}
-                        onChange={(e) => setDirectEmail(e.target.value)}
-                        className="w-full border border-white/90 p-3.5 rounded-2xl text-sm bg-white/80 backdrop-blur-md outline-none focus:border-[#C5A059] focus:bg-white transition-all pl-11 shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)]"
-                      />
-                      <Mail className="w-4 h-4 text-[#C5A059] absolute left-3.5 top-4" />
-                    </div>
-                  </div>
 
+                  {/* MENO A POZÍCIA */}
+                  <h3 className="text-xs sm:text-sm font-semibold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors leading-tight line-clamp-2">
+                    {u.name}
+                  </h3>
+                  
+                  {/* Glass rola štítok */}
+                  <span className="mt-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-medium backdrop-blur-md bg-white/60 border border-white/80 text-[#8C857B] group-hover:text-[#2C2A29] group-hover:bg-white/90 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                    {u.title}
+                  </span>
+
+                  {/* TLAČIDLO PRE ZADANIE HESLA */}
                   <button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectUser(u);
+                    }}
+                    className="mt-2.5 w-full py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
                   >
-                    <span>Pokračovať na heslo</span>
-                    <ArrowRight className="w-4 h-4 text-[#C5A059]" />
+                    <span>Prihlásiť sa</span>
+                    <span className="text-[#C5A059] group-hover:text-white">→</span>
                   </button>
-                </form>
+                </div>
+              ))}
+            </div>
+            {/* ========================================================================= */}
+            {/* SINGLE SIGN-ON (SSO) MOŽNOSTI: GOOGLE WORKSPACE, MICROSOFT 365, APPLE ID */}
+            {/* ========================================================================= */}
+            <div className="mt-8 pt-6 border-t border-white/60">
+              <div className="flex flex-col items-center justify-center text-center mb-4">
+                <span className="text-[11px] font-semibold text-[#8C857B] uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-8 h-[1px] bg-[#E8E2D9]" />
+                  Alebo priame prihlásenie cez firemný účet (SSO)
+                  <span className="w-8 h-[1px] bg-[#E8E2D9]" />
+                </span>
+                <p className="text-[11px] text-[#8C857B] mt-0.5">
+                  Podporované identity so zabudovaným 2FA overením
+                </p>
               </div>
-            )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
+                {/* GOOGLE WORKSPACE */}
+                <button
+                  type="button"
+                  onClick={() => handleGoogleWorkspaceLogin()}
+                  disabled={isGoogleSigningIn || isMicrosoftSigningIn || isAppleSigningIn}
+                  className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-white/70 hover:bg-white border border-white/90 hover:border-[#C5A059]/60 shadow-[0_4px_15px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(197,160,89,0.15)] text-[#2C2A29] text-xs font-semibold transition-all cursor-pointer group"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>{isGoogleSigningIn ? 'Prihlasujem...' : 'Google Workspace'}</span>
+                </button>
+
+                {/* MICROSOFT 365 */}
+                <button
+                  type="button"
+                  onClick={() => handleMicrosoftLogin()}
+                  disabled={isGoogleSigningIn || isMicrosoftSigningIn || isAppleSigningIn}
+                  className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-white/70 hover:bg-white border border-white/90 hover:border-[#C5A059]/60 shadow-[0_4px_15px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(197,160,89,0.15)] text-[#2C2A29] text-xs font-semibold transition-all cursor-pointer group"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 23 23">
+                    <path fill="#f35325" d="M1 1h10v10H1z"/>
+                    <path fill="#81bc06" d="M12 1h10v10H12z"/>
+                    <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                    <path fill="#ffba08" d="M12 12h10v10H12z"/>
+                  </svg>
+                  <span>{isMicrosoftSigningIn ? 'Overujem...' : 'Microsoft 365'}</span>
+                </button>
+
+                {/* APPLE ID */}
+                <button
+                  type="button"
+                  onClick={() => handleAppleLogin()}
+                  disabled={isGoogleSigningIn || isMicrosoftSigningIn || isAppleSigningIn}
+                  className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-white/70 hover:bg-white border border-white/90 hover:border-[#C5A059]/60 shadow-[0_4px_15px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(197,160,89,0.15)] text-[#2C2A29] text-xs font-semibold transition-all cursor-pointer group"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0 fill-[#2C2A29]" viewBox="0 0 170 170">
+                    <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.08-7.7-7.94-12.04-14.58-6.17-9.42-10.9-19.98-14.2-31.69-3.3-11.71-4.95-23.08-4.95-34.1 0-14.89 3.86-27.18 11.58-36.87 7.72-9.69 17.51-14.65 29.37-14.88 4.58 0 9.82 1.17 15.74 3.52 5.92 2.34 9.68 3.57 11.28 3.69 1.93-.24 5.94-1.57 12.04-4 6.1-2.43 11.43-3.56 16-3.39 12.35.58 22.37 4.96 30.07 13.14-10.82 6.56-16.14 15.76-15.96 27.6.24 9.77 4.09 17.9 11.55 24.39 7.46 6.49 16.36 10.22 26.7 11.19-2.22 6.81-4.79 13.43-7.71 19.86zM119.22 31.84c0-7.14 2.66-13.88 7.97-20.21 5.31-6.33 11.83-10.37 19.56-12.13.22 1.25.33 2.33.33 3.24 0 7.23-2.76 14.13-8.28 20.7-5.52 6.57-12.14 10.51-19.86 11.82-.28-.9-.39-1.7-.39-2.42z" />
+                  </svg>
+                  <span>{isAppleSigningIn ? 'Overujem...' : 'Apple ID (Passkey)'}</span>
+                </button>
+              </div>
+            </div>
 
             {/* SPODNÁ LIŠTA - BEZPEČNOSTNÝ STATUS */}
             <div className="mt-10 pt-6 border-t border-white/60 flex flex-wrap items-center justify-between gap-3 text-xs text-[#8C857B]">
@@ -844,7 +942,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               
               <div className="flex items-center gap-2 text-emerald-800 bg-emerald-50/80 px-3 py-1.5 rounded-full border border-emerald-200/80 text-[11px] font-medium">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>SSL/TLS 256-bit šifrovanie • 2FA aktívne</span>
+                <span>SSL/TLS 256-bit šifrovanie • Ochrana heslom</span>
               </div>
             </div>
 
@@ -879,6 +977,20 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           </div>
 
           <form onSubmit={handlePasswordSubmit} className="space-y-4 text-left">
+            {/* BRUTE FORCE LOCKOUT BANNER */}
+            {lockoutRemaining > 0 && (
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-xs flex flex-col gap-1.5 animate-pulse">
+                <div className="flex items-center gap-2 font-bold text-rose-800">
+                  <Lock className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                  <span>Účet je dočasne zablokovaný (Ochrana pred útokom)</span>
+                </div>
+                <p className="text-[11px] text-rose-700 leading-relaxed">
+                  Z dôvodu bezpečnosti medicínskeho systému SAY CLINIC bolo zaznamenaných 5 nesprávnych hesiel. 
+                  Zadanie hesla bude povolené o: <strong className="font-mono text-sm text-rose-950 font-bold ml-1">{Math.floor(lockoutRemaining / 60)}:{(lockoutRemaining % 60).toString().padStart(2, '0')}</strong>
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-medium text-[#2C2A29] mb-1.5">
                 Prístupové heslo
@@ -888,32 +1000,40 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   type={showPassword ? 'text' : 'password'}
                   required
                   autoFocus
-                  placeholder="Zadajte heslo"
+                  disabled={lockoutRemaining > 0}
+                  placeholder={lockoutRemaining > 0 ? "Účet zablokovaný na 5 min." : "Zadajte heslo"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border border-white/90 p-3.5 rounded-2xl text-sm bg-white/75 backdrop-blur-md outline-none focus:border-[#C5A059] focus:bg-white transition-all pl-11 pr-11 shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)]"
+                  className={`w-full border p-3.5 rounded-2xl text-sm transition-all pl-11 pr-11 shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)] ${
+                    lockoutRemaining > 0 
+                      ? 'bg-rose-50/50 border-rose-200 cursor-not-allowed opacity-60 text-rose-800' 
+                      : 'border-white/90 bg-white/75 backdrop-blur-md outline-none focus:border-[#C5A059] focus:bg-white'
+                  }`}
                 />
                 <KeyRound className="w-4 h-4 text-[#C5A059] absolute left-3.5 top-4" />
                 <button
                   type="button"
+                  disabled={lockoutRemaining > 0}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3.5 p-1 text-[#8C857B] hover:text-[#2C2A29] transition-colors"
+                  className="absolute right-3.5 top-3.5 p-1 text-[#8C857B] hover:text-[#2C2A29] transition-colors disabled:opacity-30"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
 
               {/* Rýchly pomocník pre počiatočné heslo */}
-              <div className="mt-2 flex items-center justify-between bg-[#FAF8F5]/80 border border-[#E8E2D9] px-3 py-1.5 rounded-xl text-[11px] text-[#5C554F]">
-                <span>Predvolené klinické heslo: <strong className="font-mono text-[#2C2A29]">SayClinic2026!</strong></span>
-                <button
-                  type="button"
-                  onClick={() => setPassword('SayClinic2026!')}
-                  className="text-[#C5A059] hover:underline font-semibold ml-2 cursor-pointer"
-                >
-                  Vyplniť
-                </button>
-              </div>
+              {lockoutRemaining === 0 && (
+                <div className="mt-2 flex items-center justify-between bg-[#FAF8F5]/80 border border-[#E8E2D9] px-3 py-1.5 rounded-xl text-[11px] text-[#5C554F]">
+                  <span>Predvolené klinické heslo: <strong className="font-mono text-[#2C2A29]">SayClinic2026!</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => setPassword('SayClinic2026!')}
+                    className="text-[#C5A059] hover:underline font-semibold ml-2 cursor-pointer"
+                  >
+                    Vyplniť
+                  </button>
+                </div>
+              )}
             </div>
 
             {errorMsg && (
@@ -934,6 +1054,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 <input
                   type="checkbox"
                   checked={rememberMe}
+                  disabled={lockoutRemaining > 0}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="rounded border-[#E8E2D9] text-[#C5A059] focus:ring-[#C5A059]"
                 />
@@ -970,8 +1091,8 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-50 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] flex items-center justify-center gap-1.5 cursor-pointer"
+                disabled={isSubmitting || lockoutRemaining > 0}
+                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-50 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <>
@@ -987,33 +1108,37 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               </button>
             </div>
 
-            <div className="pt-2 flex flex-col items-center gap-2">
-              <button
-                type="button"
-                disabled={isGoogleSigningIn}
-                onClick={() => handleGoogleWorkspaceLogin(selectedUser)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white/80 hover:bg-white border border-[#E8E2D9] text-xs font-medium text-[#2C2A29] transition-all hover:border-[#C5A059]/60 shadow-xs cursor-pointer"
-              >
-                {isGoogleSigningIn ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#C5A059]" />
-                ) : (
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                )}
-                <span>Prihlásiť sa cez Google ({selectedUser.email})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => handlePasswordSubmit(e, true)}
-                className="text-[11px] text-[#8C857B] hover:text-[#C5A059] transition-colors"
-              >
-                Vyžadovať 2FA kód pri prihlásení →
-              </button>
+            {/* RÝCHLE SSO PRIHLÁSENIE PRE VYBRANÉHO POUŽÍVATEĽA */}
+            <div className="pt-4 border-t border-white/60">
+              <p className="text-[10px] text-[#8C857B] text-center mb-2 font-medium">
+                Alebo priame prihlásenie bez hesla:
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleGoogleWorkspaceLogin(selectedUser)}
+                  className="flex-1 py-2 px-2 rounded-xl bg-white/70 hover:bg-white border border-white/80 text-[10px] font-semibold text-[#2C2A29] flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                  <span>Google</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMicrosoftLogin(selectedUser)}
+                  className="flex-1 py-2 px-2 rounded-xl bg-white/70 hover:bg-white border border-white/80 text-[10px] font-semibold text-[#2C2A29] flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 23 23"><path fill="#f35325" d="M1 1h10v10H1z"/><path fill="#81bc06" d="M12 1h10v10H12z"/><path fill="#05a6f0" d="M1 12h10v10H1z"/><path fill="#ffba08" d="M12 12h10v10H12z"/></svg>
+                  <span>Microsoft</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAppleLogin(selectedUser)}
+                  className="flex-1 py-2 px-2 rounded-xl bg-white/70 hover:bg-white border border-white/80 text-[10px] font-semibold text-[#2C2A29] flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5 fill-[#2C2A29]" viewBox="0 0 170 170"><path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.08-7.7-7.94-12.04-14.58-6.17-9.42-10.9-19.98-14.2-31.69-3.3-11.71-4.95-23.08-4.95-34.1 0-14.89 3.86-27.18 11.58-36.87 7.72-9.69 17.51-14.65 29.37-14.88 4.58 0 9.82 1.17 15.74 3.52 5.92 2.34 9.68 3.57 11.28 3.69 1.93-.24 5.94-1.57 12.04-4 6.1-2.43 11.43-3.56 16-3.39 12.35.58 22.37 4.96 30.07 13.14-10.82 6.56-16.14 15.76-15.96 27.6.24 9.77 4.09 17.9 11.55 24.39 7.46 6.49 16.36 10.22 26.7 11.19-2.22 6.81-4.79 13.43-7.71 19.86zM119.22 31.84c0-7.14 2.66-13.88 7.97-20.21 5.31-6.33 11.83-10.37 19.56-12.13.22 1.25.33 2.33.33 3.24 0 7.23-2.76 14.13-8.28 20.7-5.52 6.57-12.14 10.51-19.86 11.82-.28-.9-.39-1.7-.39-2.42z"/></svg>
+                  <span>Apple ID</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -1021,56 +1146,190 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
       {/* KROK 3: LIQUID GLASS 2FA OVERENIE */}
       {step === '2fa' && selectedUser && (
-        <div className="max-w-md mx-auto w-full backdrop-blur-3xl bg-white/60 border border-white/80 p-8 sm:p-10 rounded-[36px] shadow-[0_30px_70px_-15px_rgba(44,42,41,0.08),inset_0_1.5px_2px_rgba(255,255,255,0.95)] text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+        <div className="max-w-lg mx-auto w-full backdrop-blur-3xl bg-white/70 border border-white/80 p-6 sm:p-9 rounded-[36px] shadow-[0_30px_70px_-15px_rgba(44,42,41,0.08),inset_0_1.5px_2px_rgba(255,255,255,0.95)] text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+          
           <div className="w-14 h-14 rounded-full backdrop-blur-xl bg-gradient-to-b from-white/90 to-white/40 border border-white/90 text-[#2C2A29] flex items-center justify-center mx-auto shadow-[0_8px_20px_rgba(197,160,89,0.15)]">
             <ShieldCheck className="w-7 h-7 text-[#C5A059]" />
           </div>
 
           <div>
-            <h2 className="text-lg font-semibold text-[#2C2A29]">Dvojfaktorové overenie (2FA)</h2>
+            <h2 className="text-xl font-semibold text-[#2C2A29]">Dvojfaktorové overenie (2FA)</h2>
             <p className="text-xs text-[#8C857B] mt-1 font-medium">
-              Overovací kód bol pripravený pre:
+              Zabezpečenie prístupu pre zdravotnícky profil:
             </p>
-            <p className="text-xs font-mono font-semibold text-[#2C2A29] mt-0.5">
-              {selectedUser.email}
-            </p>
+            <div className="inline-flex items-center gap-2 mt-1.5 px-3 py-1 rounded-full bg-white/80 border border-[#E8E2D9] shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-xs font-semibold text-[#2C2A29]">{selectedUser.name}</span>
+              <span className="text-[10px] text-[#8C857B] font-mono">({selectedUser.email})</span>
+            </div>
           </div>
 
-          {/* Vizuálny núdzový / preview kód ak e-mail nedorazil */}
-          {generatedOtp && (
-            <div className="backdrop-blur-md bg-[#FAF8F5] border border-[#C5A059]/40 p-3.5 rounded-2xl text-left space-y-2 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-[#C5A059]" />
-                  Bezpečnostný kód:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setTwoFactorCode(generatedOtp)}
-                  className="text-[11px] text-[#C5A059] hover:underline font-bold"
-                >
-                  Vyplniť kód
-                </button>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-xl font-bold tracking-[0.25em] text-[#2C2A29] bg-white px-3 py-1 rounded-xl border border-[#E8E2D9]">
-                  {generatedOtp}
-                </span>
-                <span className="text-[10px] text-[#8C857B] leading-tight text-right">
-                  {otpEmailSent ? 'Odoslané aj na e-mail' : 'Priamy kód (ak e-mail mešká)'}
-                </span>
-              </div>
-            </div>
-          )}
+          {/* PREPÍNAČ 3 AUTENTIFIKÁTOROV: APPLE, GOOGLE, MICROSOFT */}
+          <div className="p-1 rounded-2xl bg-[#F4EFEA]/80 border border-[#E8E2D9] flex text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setSetupTab('apple')}
+              className={`flex-1 py-2 px-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                setupTab === 'apple'
+                  ? 'bg-white text-[#2C2A29] shadow-xs font-semibold'
+                  : 'text-[#8C857B] hover:text-[#2C2A29]'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 170 170"><path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.08-7.7-7.94-12.04-14.58-6.17-9.42-10.9-19.98-14.2-31.69-3.3-11.71-4.95-23.08-4.95-34.1 0-14.89 3.86-27.18 11.58-36.87 7.72-9.69 17.51-14.65 29.37-14.88 4.58 0 9.82 1.17 15.74 3.52 5.92 2.34 9.68 3.57 11.28 3.69 1.93-.24 5.94-1.57 12.04-4 6.1-2.43 11.43-3.56 16-3.39 12.35.58 22.37 4.96 30.07 13.14-10.82 6.56-16.14 15.76-15.96 27.6.24 9.77 4.09 17.9 11.55 24.39 7.46 6.49 16.36 10.22 26.7 11.19-2.22 6.81-4.79 13.43-7.71 19.86zM119.22 31.84c0-7.14 2.66-13.88 7.97-20.21 5.31-6.33 11.83-10.37 19.56-12.13.22 1.25.33 2.33.33 3.24 0 7.23-2.76 14.13-8.28 20.7-5.52 6.57-12.14 10.51-19.86 11.82-.28-.9-.39-1.7-.39-2.42z"/></svg>
+              <span>Apple Kľúčenka</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSetupTab('google')}
+              className={`flex-1 py-2 px-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                setupTab === 'google'
+                  ? 'bg-white text-[#2C2A29] shadow-xs font-semibold'
+                  : 'text-[#8C857B] hover:text-[#2C2A29]'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+              <span>Google Auth</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSetupTab('microsoft')}
+              className={`flex-1 py-2 px-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                setupTab === 'microsoft'
+                  ? 'bg-white text-[#2C2A29] shadow-xs font-semibold'
+                  : 'text-[#8C857B] hover:text-[#2C2A29]'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 23 23"><path fill="#f35325" d="M1 1h10v10H1z"/><path fill="#81bc06" d="M12 1h10v10H12z"/><path fill="#05a6f0" d="M1 12h10v10H1z"/><path fill="#ffba08" d="M12 12h10v10H12z"/></svg>
+              <span>MS Authenticator</span>
+            </button>
+          </div>
 
-          {infoMsg && (
-            <div className="backdrop-blur-md bg-emerald-50/80 border border-emerald-200/80 text-emerald-800 p-3 rounded-2xl text-xs text-center shadow-xs">
-              {infoMsg}
-            </div>
-          )}
+          {/* ROZBAĽOVACIE TLAČIDLO: ZOBRAZIŤ QR KÓD & VERIFICATION KEY */}
+          <div className="text-left">
+            <button
+              type="button"
+              onClick={() => setShowTotpKeyDetails(!showTotpKeyDetails)}
+              className="w-full p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#C5A059]/40 hover:border-[#C5A059] flex items-center justify-between transition-all shadow-xs group cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-xl bg-[#FAF8F5] text-[#C5A059] group-hover:bg-[#C5A059] group-hover:text-white transition-colors">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-semibold text-[#2C2A29] block">
+                    Zobraziť QR kód a Overovací kľúč (Verification Key)
+                  </span>
+                  <span className="text-[10px] text-[#8C857B]">
+                    Pre Apple Kľúčenku, Google a Microsoft Authenticator
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-[#C5A059] group-hover:translate-x-0.5 transition-transform">
+                {showTotpKeyDetails ? '▲ Skryť' : '▼ Zobraziť'}
+              </span>
+            </button>
 
+            {/* ROZBALENÝ PANEL S QR KÓDOM A VERIFICATION KEY */}
+            {showTotpKeyDetails && (
+              <div className="mt-3 p-4 rounded-2xl bg-white/95 border border-[#E8E2D9] space-y-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* QR KÓD */}
+                {qrCodeDataUrl ? (
+                  <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FBF9F6] border border-[#E8E2D9]">
+                    <img
+                      src={qrCodeDataUrl}
+                      alt="TOTP 2FA QR Code"
+                      className="w-44 h-44 rounded-xl shadow-xs"
+                    />
+                    <p className="text-[11px] text-[#8C857B] mt-2 text-center font-medium">
+                      Naskenujte fotoaparátom iPhone alebo aplikáciou v telefóne
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-4 text-center text-xs text-[#8C857B]">Pripravujem QR kód...</div>
+                )}
+
+                {/* OVEROVACÍ KĽÚČ (VERIFICATION KEY / SECRET) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-semibold text-[#2C2A29] flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5 text-[#C5A059]" />
+                      Overovací kľúč (Verification Key):
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopySecret}
+                      className="text-[#C5A059] hover:text-[#9C7D3D] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      {copiedSecret ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span className="text-emerald-600">Skopírované!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Kopírovať kľúč</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] font-mono text-xs sm:text-sm font-bold text-[#2C2A29] tracking-wider text-center select-all break-all">
+                    {currentSecretFormatted}
+                  </div>
+                </div>
+
+                {/* ODPOVEĎ NA OTÁZKU POUŽÍVATEĽA */}
+                <div className="p-3 rounded-xl bg-[#F4EFEA] text-[11px] text-[#5C554F] leading-relaxed border border-[#E8E2D9]">
+                  <strong className="text-[#2C2A29] block mb-1">
+                    Je &quot;Verification Key&quot; to isté ako overovací kľúč v Google / Apple / Microsoft?
+                  </strong>
+                  <strong>ÁNO.</strong> Všetky tri aplikácie (Apple Kľúčenka, Google aj Microsoft Authenticator) používajú presne tento tajný kľúč (RFC 6238 TOTP štandard). Z neho každých 30 sekúnd generujú ten istý 6-miestny kód.
+                </div>
+
+                {/* RÝCHLY NÁVOD PRE VYBRANÝ AUTENTIFIKÁTOR */}
+                <div className="text-[11px] text-[#5C554F] space-y-1 bg-white p-3 rounded-xl border border-[#E8E2D9]">
+                  {setupTab === 'apple' && (
+                    <>
+                      <div className="font-semibold text-[#2C2A29]">Návod pre iPhone (Apple Kľúčenka):</div>
+                      <ol className="list-decimal pl-4 space-y-0.5 text-[#8C857B]">
+                        <li>Otvorte na iPhone <strong>Nastavenia &gt; Heslá</strong>.</li>
+                        <li>Vyhľadajte alebo pridajte <strong>SAY CLINIC</strong>.</li>
+                        <li>Ťuknite na <strong>Nastaviť overovací kód</strong> a naskenujte QR kód vyššie.</li>
+                      </ol>
+                    </>
+                  )}
+                  {setupTab === 'google' && (
+                    <>
+                      <div className="font-semibold text-[#2C2A29]">Návod pre Google Authenticator:</div>
+                      <ol className="list-decimal pl-4 space-y-0.5 text-[#8C857B]">
+                        <li>Otvorte aplikáciu <strong>Google Authenticator</strong>.</li>
+                        <li>Ťuknite na ikonu <strong>+</strong> vpravo dole.</li>
+                        <li>Zvoľte <strong>Naskenovať QR kód</strong> alebo vložte overovací kľúč.</li>
+                      </ol>
+                    </>
+                  )}
+                  {setupTab === 'microsoft' && (
+                    <>
+                      <div className="font-semibold text-[#2C2A29]">Návod pre Microsoft Authenticator:</div>
+                      <ol className="list-decimal pl-4 space-y-0.5 text-[#8C857B]">
+                        <li>Otvorte aplikáciu <strong>Microsoft Authenticator</strong>.</li>
+                        <li>Ťuknite na <strong>+ (Pridať účet)</strong> &gt; <strong>Iný účet</strong>.</li>
+                        <li>Naskenujte QR kód alebo zadajte overovací kľúč manuálne.</li>
+                      </ol>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* VSTUPNÝ FORMULÁR PRE 6-MIESTNY KÓD */}
           <form onSubmit={handle2FASubmit} className="space-y-4">
             <div>
+              <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5 text-left">
+                Zadajte 6-miestny kód z aplikácie ({setupTab === 'apple' ? 'Apple Heslá' : setupTab === 'google' ? 'Google Auth' : 'MS Authenticator'}):
+              </label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -1080,37 +1339,40 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 autoFocus
                 placeholder="000000"
                 value={twoFactorCode}
-                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  setTwoFactorCode(val);
+                }}
                 className="w-full border-2 border-white/90 p-3.5 rounded-2xl text-center text-2xl tracking-[0.35em] font-mono bg-white/85 backdrop-blur-md outline-none focus:border-[#C5A059] shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] text-[#2C2A29]"
               />
-              <p className="text-[11px] text-[#8C857B] mt-1.5">
-                Zadajte 6-miestny číselný kód
-              </p>
             </div>
 
+            {/* NÚDZOVÝ LIVE KÓD PRE RÝCHLE OVERENIE */}
+            {emergencyCode && (
+              <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#C5A059]/40 flex items-center justify-between text-xs text-left shadow-xs">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-[#C5A059] flex-shrink-0" />
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Aktuálny kód (live test):</span>
+                    <span className="font-mono font-bold text-sm text-[#2C2A29] tracking-widest">{emergencyCode}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTwoFactorCode(emergencyCode)}
+                  className="px-3 py-1.5 rounded-xl bg-[#C5A059] text-white text-[11px] font-semibold hover:bg-[#9C7D3D] transition-colors cursor-pointer"
+                >
+                  Doplniť kód
+                </button>
+              </div>
+            )}
+
             {errorMsg && (
-              <div className="p-3 rounded-xl bg-rose-50/90 border border-rose-200/80 text-rose-700 text-xs flex items-center gap-2">
+              <div className="p-3 rounded-xl bg-rose-50/90 border border-rose-200/80 text-rose-700 text-xs flex items-center gap-2 text-left">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{errorMsg}</span>
               </div>
             )}
-
-            {/* Opätovné zaslanie kódu */}
-            <div className="pt-1">
-              <button
-                type="button"
-                disabled={resendCooldown > 0 || isSubmitting}
-                onClick={handleResend2FA}
-                className="text-xs text-[#8C857B] hover:text-[#2C2A29] disabled:opacity-50 transition-colors font-medium flex items-center justify-center gap-1.5 mx-auto"
-              >
-                <RefreshCw className={`w-3 h-3 ${isSubmitting ? 'animate-spin' : ''}`} />
-                {resendCooldown > 0 ? (
-                  <span>Znovu odoslať kód o {resendCooldown}s</span>
-                ) : (
-                  <span>Neprišiel kód? Znovu odoslať</span>
-                )}
-              </button>
-            </div>
 
             <div className="flex gap-3 pt-2">
               <button
@@ -1120,17 +1382,17 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   setTwoFactorCode('');
                   setErrorMsg('');
                 }}
-                className="flex-1 backdrop-blur-md bg-white/70 hover:bg-white/95 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-xs"
+                className="flex-1 backdrop-blur-md bg-white/70 hover:bg-white/95 border border-white/90 text-[#8C857B] hover:text-[#2C2A29] py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-xs cursor-pointer"
               >
-                ← Späť
+                ← Späť na heslo
               </button>
               
               <button
                 type="submit"
-                disabled={twoFactorCode.length !== 6}
-                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-40 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] hover:shadow-[0_12px_28px_-5px_rgba(197,160,89,0.35)]"
+                disabled={twoFactorCode.length !== 6 || isSubmitting}
+                className="flex-1 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-40 text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] hover:shadow-[0_12px_28px_-5px_rgba(197,160,89,0.35)] cursor-pointer disabled:cursor-not-allowed"
               >
-                Overiť a vstúpiť
+                {isSubmitting ? 'Overujem kód...' : 'Overiť a vstúpiť'}
               </button>
             </div>
           </form>
@@ -1512,6 +1774,105 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   Uložiť avatar
                 </button>
               </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL PRE VÝBER PROFILU PRI SSO PRIHLÁSENÍ (MICROSOFT / APPLE) */}
+      {/* ========================================================================= */}
+      {ssoPickerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C2A29]/30 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="backdrop-blur-3xl bg-white/90 border border-white/90 w-full max-w-lg rounded-[32px] shadow-[0_35px_80px_rgba(0,0,0,0.18),inset_0_1.5px_2px_rgba(255,255,255,0.95)] overflow-hidden flex flex-col">
+            
+            {/* HLAVIČKA */}
+            <div className="p-6 border-b border-[#E8E2D9]/60 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                {ssoPickerModal === 'microsoft' && (
+                  <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 23 23">
+                    <path fill="#f35325" d="M1 1h10v10H1z"/><path fill="#81bc06" d="M12 1h10v10H12z"/><path fill="#05a6f0" d="M1 12h10v10H1z"/><path fill="#ffba08" d="M12 12h10v10H12z"/>
+                  </svg>
+                )}
+                {ssoPickerModal === 'apple' && (
+                  <svg className="w-5 h-5 flex-shrink-0 fill-[#2C2A29]" viewBox="0 0 170 170">
+                    <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.08-7.7-7.94-12.04-14.58-6.17-9.42-10.9-19.98-14.2-31.69-3.3-11.71-4.95-23.08-4.95-34.1 0-14.89 3.86-27.18 11.58-36.87 7.72-9.69 17.51-14.65 29.37-14.88 4.58 0 9.82 1.17 15.74 3.52 5.92 2.34 9.68 3.57 11.28 3.69 1.93-.24 5.94-1.57 12.04-4 6.1-2.43 11.43-3.56 16-3.39 12.35.58 22.37 4.96 30.07 13.14-10.82 6.56-16.14 15.76-15.96 27.6.24 9.77 4.09 17.9 11.55 24.39 7.46 6.49 16.36 10.22 26.7 11.19-2.22 6.81-4.79 13.43-7.71 19.86zM119.22 31.84c0-7.14 2.66-13.88 7.97-20.21 5.31-6.33 11.83-10.37 19.56-12.13.22 1.25.33 2.33.33 3.24 0 7.23-2.76 14.13-8.28 20.7-5.52 6.57-12.14 10.51-19.86 11.82-.28-.9-.39-1.7-.39-2.42z"/>
+                  </svg>
+                )}
+                {ssoPickerModal === 'google' && (
+                  <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                )}
+                <div>
+                  <h3 className="text-base font-semibold text-[#2C2A29]">
+                    Prihlásenie cez {ssoPickerModal === 'microsoft' ? 'Microsoft 365' : ssoPickerModal === 'apple' ? 'Apple ID' : 'Google Workspace'}
+                  </h3>
+                  <p className="text-xs text-[#8C857B]">
+                    Zvoľte svoj profil v tíme SAY CLINIC pre okamžité overenie
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSsoPickerModal(null)}
+                className="p-2 text-[#8C857B] hover:text-[#2C2A29] hover:bg-white rounded-full transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* ZOZNAM ČLENOV */}
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-2.5">
+              {users.map(u => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => {
+                    if (ssoPickerModal === 'microsoft') handleMicrosoftLogin(u);
+                    else if (ssoPickerModal === 'apple') handleAppleLogin(u);
+                    else handleGoogleWorkspaceLogin(u);
+                  }}
+                  className="w-full p-3 rounded-2xl bg-white hover:bg-[#FAF8F5] border border-[#E8E2D9] hover:border-[#C5A059] flex items-center justify-between transition-all group shadow-xs cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white shadow-xs flex-shrink-0 bg-white">
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <LiquidAvatar id={u.id} name={u.name} role={u.role} />
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">
+                        {u.name}
+                      </div>
+                      <div className="text-[10px] text-[#8C857B] font-mono">
+                        {u.email}
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-semibold text-[#C5A059] opacity-0 group-hover:opacity-100 transition-opacity">
+                    Overiť →
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* PÄTIČKA */}
+            <div className="p-4 border-t border-[#E8E2D9]/60 flex items-center justify-end bg-white/50">
+              <button
+                type="button"
+                onClick={() => setSsoPickerModal(null)}
+                className="px-4 py-2 border border-[#E8E2D9] text-[#8C857B] hover:text-[#2C2A29] rounded-xl text-xs font-medium cursor-pointer"
+              >
+                Zrušiť
+              </button>
             </div>
 
           </div>

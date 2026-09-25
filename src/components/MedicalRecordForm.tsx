@@ -16,6 +16,7 @@ import DermatologyExamPrintView from './dermatology/DermatologyExamPrintView';
 import { DermatologyExamData, INITIAL_DERMATOLOGY_DATA } from './dermatology/dermatologyTypes';
 import { Sliders, Save, RotateCcw, Check } from './Icons';
 import { InventoryService, InventoryItem } from '../services/inventoryService';
+import { AuditLogService } from '../services/auditLogService';
 
 export interface ServiceCategory {
   id: string;
@@ -1132,6 +1133,13 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
         format: 'a4',
         headerTitle: DOC_TITLES[docType],
         patientName: patientName || 'Pacient',
+      });
+      AuditLogService.log({
+        category: 'DOCUMENT',
+        action: 'EXPORT_PDF_DOKUMENTU',
+        details: `Export zdravotného záznamu do PDF: "${DOC_TITLES[docType]}" pre pacienta ${patientName || 'Neznámy'} (r.č. ${birthNumber || '-'})`,
+        patientName: patientName || 'Neznámy',
+        severity: 'info'
       });
     } catch (err) {
       console.error('Chyba pri generovaní PDF:', err);

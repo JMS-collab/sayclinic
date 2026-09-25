@@ -72,8 +72,13 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
     setIsSigningIn(true);
     try {
       await googleSignIn();
-    } catch (err) {
-      console.error('Prihlásenie zlyhalo:', err);
+    } catch (err: any) {
+      if (
+        err?.code !== 'auth/popup-closed-by-user' &&
+        err?.code !== 'auth/cancelled-popup-request'
+      ) {
+        console.warn('Prihlásenie nebolo dokončené:', err?.message || err);
+      }
     } finally {
       setIsSigningIn(false);
     }

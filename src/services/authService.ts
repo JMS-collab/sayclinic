@@ -1,4 +1,5 @@
 import { UserAccount, SAY_CLINIC_USERS } from '../components/LoginForm';
+import { AuditLogService } from './auditLogService';
 
 // Predvolené heslá pre tím SAY CLINIC pri prvom produkčnom štarte
 // Používatelia si môžu heslo kedykoľvek zmeniť.
@@ -22,6 +23,9 @@ export interface ActiveSession {
 const CREDENTIALS_KEY = 'say_clinic_credentials_v1';
 const SESSION_KEY = 'say_clinic_user';
 const OTP_STORE_KEY = 'say_clinic_active_otps';
+const LOCKOUT_KEY = 'say_clinic_lockouts_v1';
+export const MAX_FAILED_ATTEMPTS = 5;
+export const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minút blokovania po 5 zlých pokusoch
 
 export const AuthService = {
   // Inicializácia prihlasovacích údajov v úložisku
@@ -280,6 +284,95 @@ export const AuthService = {
     return false;
   },
 
+  // Kontrola stavu zablokovania účtu (Brute-Force ochrana)
+  getLockoutStatus(identifier: string): { isLocked: boolean; remainingSeconds: number; attemptsLeft: number } {
+    if (typeof window === 'undefined') return { isLocked: false, remainingSeconds: 0, attemptsLeft: MAX_FAILED_ATTEMPTS };
+    try {
+      const lockouts = JSON.parse(localStorage.getItem(LOCKOUT_KEY) || '{}');
+      const key = identifier.toLowerCase();
+      const record = lockouts[key];
+      if (!record) return { isLocked: false, remainingSeconds: 0, attemptsLeft: MAX_FAILED_ATTEMPTS };
+
+      const now = Date.now();
+      if (record.lockedUntil && record.lockedUntil > now) {
+        const remainingSeconds = Math.ceil((record.lockedUntil - now) / 1000);
+        return { isLocked: true, remainingSeconds, attemptsLeft: 0 };
+      }
+
+      // Ak uplynul lockout alebo pokusy boli staršie ako 15 minút, vyčistíme
+      if (record.lastAttempt && now - record.lastAttempt > 15 * 60 * 1000) {
+        delete lockouts[key];
+        localStorage.setItem(LOCKOUT_KEY, JSON.stringify(lockouts));
+        return { isLocked: false, remainingSeconds: 0, attemptsLeft: MAX_FAILED_ATTEMPTS };
+      }
+
+      const attemptsLeft = Math.max(0, MAX_FAILED_ATTEMPTS - (record.attempts || 0));
+      return { isLocked: false, remainingSeconds: 0, attemptsLeft };
+    } catch (e) {
+      return { isLocked: false, remainingSeconds: 0, attemptsLeft: MAX_FAILED_ATTEMPTS };
+    }
+  },
+
+  // Zaznamenanie neúspešného pokusu o heslo
+  recordFailedAttempt(identifier: string, emailHint?: string): { isLockedNow: boolean; remainingSeconds: number; attemptsLeft: number } {
+    if (typeof window === 'undefined') return { isLockedNow: false, remainingSeconds: 0, attemptsLeft: MAX_FAILED_ATTEMPTS };
+    try {
+      const lockouts = JSON.parse(localStorage.getItem(LOCKOUT_KEY) || '{}');
+      const key = identifier.toLowerCase();
+      const now = Date.now();
+      const current = lockouts[key] || { attempts: 0, lastAttempt: now };
+
+      current.attempts = (current.attempts || 0) + 1;
+      current.lastAttempt = now;
+
+      let isLockedNow = false;
+      let remainingSeconds = 0;
+
+      if (current.attempts >= MAX_FAILED_ATTEMPTS) {
+        current.lockedUntil = now + LOCKOUT_DURATION_MS;
+        isLockedNow = true;
+        remainingSeconds = Math.ceil(LOCKOUT_DURATION_MS / 1000);
+
+        AuditLogService.log({
+          user: { id: identifier, name: emailHint || identifier, role: 'neoverený', email: emailHint || identifier },
+          category: 'SECURITY',
+          action: 'BRUTE_FORCE_BLOKOVANIE',
+          details: `Účet zablokovaný na 5 minút po ${MAX_FAILED_ATTEMPTS} neúspešných pokusoch o zadanie hesla.`,
+          severity: 'critical'
+        });
+      } else {
+        AuditLogService.log({
+          user: { id: identifier, name: emailHint || identifier, role: 'neoverený', email: emailHint || identifier },
+          category: 'AUTH',
+          action: 'NEÚSPEŠNÝ POKUS O PRIHLÁSENIE',
+          details: `Nesprávne heslo (pokus ${current.attempts}/${MAX_FAILED_ATTEMPTS}).`,
+          severity: 'warning'
+        });
+      }
+
+      lockouts[key] = current;
+      localStorage.setItem(LOCKOUT_KEY, JSON.stringify(lockouts));
+
+      const attemptsLeft = Math.max(0, MAX_FAILED_ATTEMPTS - current.attempts);
+      return { isLockedNow, remainingSeconds, attemptsLeft };
+    } catch (e) {
+      return { isLockedNow: false, remainingSeconds: 0, attemptsLeft: MAX_FAILED_ATTEMPTS };
+    }
+  },
+
+  // Vymazanie počítadla neúspešných pokusov po úspešnom prihlásení
+  resetFailedAttempts(identifier: string) {
+    if (typeof window === 'undefined') return;
+    try {
+      const lockouts = JSON.parse(localStorage.getItem(LOCKOUT_KEY) || '{}');
+      const key = identifier.toLowerCase();
+      if (lockouts[key]) {
+        delete lockouts[key];
+        localStorage.setItem(LOCKOUT_KEY, JSON.stringify(lockouts));
+      }
+    } catch (e) {}
+  },
+
   // Uloženie aktívnej relácie
   saveSession(user: UserAccount, rememberMe: boolean = true) {
     if (typeof window === 'undefined') return;
@@ -287,11 +380,24 @@ export const AuthService = {
       user,
       loginTime: Date.now(),
       rememberMe,
-      expiresAt: rememberMe ? Date.now() + 30 * 86400000 : Date.now() + 12 * 3600000, // 30 dní alebo 12 hodín
+      expiresAt: rememberMe ? Date.now() + 30 * 86400000 : Date.now() + 12 * 3600000,
     };
 
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
     localStorage.setItem('say_clinic_session_meta', JSON.stringify(session));
+
+    // Reset lockoutu pre tohto používateľa
+    this.resetFailedAttempts(user.id);
+    this.resetFailedAttempts(user.email);
+
+    // Záznam do GDPR auditu
+    AuditLogService.log({
+      user,
+      category: 'AUTH',
+      action: 'ÚSPEŠNÉ PRIHLÁSENIE',
+      details: `${user.name} (${user.title}) sa úspešne prihlásil do systému SAY CLINIC.`,
+      severity: 'info'
+    });
   },
 
   // Získanie existujúcej platnej relácie
@@ -306,7 +412,7 @@ export const AuthService = {
         const meta: ActiveSession = JSON.parse(metaJson);
         if (meta.expiresAt && meta.expiresAt < Date.now()) {
           // Relácia vypršala
-          this.clearSession();
+          this.clearSession(null, 'Platnosť relácie vypršala');
           return null;
         }
       }
@@ -319,8 +425,19 @@ export const AuthService = {
   },
 
   // Odhlásenie
-  clearSession() {
+  clearSession(user?: UserAccount | null, reason: string = 'Používateľské odhlásenie') {
     if (typeof window === 'undefined') return;
+    
+    if (user) {
+      AuditLogService.log({
+        user,
+        category: 'AUTH',
+        action: 'ODHLÁSENIE',
+        details: `${user.name} bol odhlásený zo systému (${reason}).`,
+        severity: 'info'
+      });
+    }
+
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem('say_clinic_session_meta');
   },
