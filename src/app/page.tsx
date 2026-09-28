@@ -158,13 +158,11 @@ export default function Home() {
     };
   }, []);
 
-  // 1. ZACHOVANIE PRIHLÁSENÉHO POUŽÍVATEĽA A DÁT PRI MOUNTE NA KLIENTSKOM PREHLIADAČI
+  // 1. STRIKTNÁ BEZPEČNOSŤ: ŽIADNY TICHÝ AUTO-LOGIN (PRI KAŽDOM OTVORENÍ VYŽADOVAŤ OVERENIE)
   useEffect(() => {
     setIsMounted(true);
-    const sessionUser = AuthService.getCurrentSession();
-    if (sessionUser) {
-      setCurrentUser(sessionUser);
-    }
+    // Pri každom otvorení aplikácie sa vyžaduje overenie (Passkey / Heslo + 2FA),
+    // žiadne automatické preskočenie prihlasovacieho portálu bez interakcie.
     const savedRole = PermissionsService.getSimulatedRole();
     if (savedRole) {
       setSimulatedRole(savedRole);

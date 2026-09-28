@@ -272,11 +272,11 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         AuthService.saveSession(targetUser, rememberMe, 'PASSKEY BIOMETRIA (1-KLIK)');
         onLoginSuccess(targetUser, rememberMe);
       } else {
-        setErrorMsg(res.message || 'Biometrické overenie cez Passkey zlyhalo. Použite prosím zadanie hesla.');
+        setErrorMsg(res.message || 'Biometrické overenie cez Passkey zlyhalo. Použite prosím prihlásenie heslom a 2FA.');
       }
     } catch (err: any) {
       console.warn('Passkey chyba:', err);
-      setErrorMsg('Biometrické overenie zlyhalo. Použite prosím zadanie hesla.');
+      setErrorMsg('Biometrické overenie zlyhalo. Použite prosím prihlásenie heslom a 2FA.');
     } finally {
       setIsPasskeyAuthenticating(false);
     }
@@ -296,7 +296,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         setErrorMsg(res.message || 'Biometrické overenie neprebehlo.');
       }
     } catch (err: any) {
-      setErrorMsg('Biometrické overenie zlyhalo. Môžete použiť prihlásenie heslom bez biometrie.');
+      setErrorMsg('Biometrické overenie zlyhalo. Použite prosím 2FA overovací kód.');
     } finally {
       setIsPasskeyAuthenticating(false);
     }
@@ -323,12 +323,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     }
   };
 
-  // Pokračovať s heslom bez biometrie (klinický fallback)
-  const handleBypassPasskeyWithPassword = (targetUser: UserAccount) => {
-    AuthService.resetFailedAttempts(targetUser.id);
-    AuthService.saveSession(targetUser, rememberMe, 'HESLO (KLINICKÝ FALLBACK)');
-    onLoginSuccess(targetUser, rememberMe);
-  };
 
   // Potvrdenie prepojenia neznámeho osobného Google účtu s klinickým profilom
   const handleConfirmLinkPersonalEmail = (e: React.FormEvent) => {
@@ -766,12 +760,14 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       return;
     }
 
-    // Krok Heslo + Biometria Passkey namiesto povinného 6-miestneho TOTP kľúča
+    // Krok Heslo + Biometria Passkey
     setStep('passkey');
     if (PasskeyService.hasPasskey(selectedUser.id)) {
       setTimeout(() => {
         triggerPasskeyVerification(selectedUser);
       }, 150);
+    } else {
+      setErrorMsg('Na tomto zariadení zatiaľ nemáte aktivovaný Passkey (Touch ID / Face ID). Pre vstup do systému aktivujte Passkey alebo zadajte 2FA overovací kód.');
     }
   };
 
@@ -1395,10 +1391,14 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               <div className="flex flex-wrap items-center gap-2 pt-0.5">
                 <button
                   type="button"
-                  onClick={() => handleBypassPasskeyWithPassword(selectedUser)}
-                  className="px-3 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#3F3936] text-white text-[11px] font-semibold transition-all shadow-xs cursor-pointer"
+                  onClick={() => {
+                    setStep('2fa');
+                    setErrorMsg('');
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#3F3936] text-white text-[11px] font-semibold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  Vstúpiť okamžite heslom →
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Zadať 2FA kód →</span>
                 </button>
                 <button
                   type="button"
@@ -1481,13 +1481,17 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               </button>
             )}
 
-            {/* ŠTANDARDNÝ KLINICKÝ FALLBACK HESLOM */}
+            {/* ZÁLOHOVÉ OVERENIE CEZ 2FA (APPLE / GOOGLE / MICROSOFT AUTHENTICATOR) */}
             <button
               type="button"
-              onClick={() => handleBypassPasskeyWithPassword(selectedUser)}
+              onClick={() => {
+                setStep('2fa');
+                setErrorMsg('');
+              }}
               className="w-full py-3 px-3 rounded-2xl bg-white hover:bg-[#FAF4E8] border border-[#E8E2D9] text-[#2C2A29] text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Vstúpiť do SAY CLINIC heslom (klinický fallback) →</span>
+              <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
+              <span>Nemáte Passkey? Overiť pomocou 2FA kódu →</span>
             </button>
           </div>
 
