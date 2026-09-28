@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementačný plán pre nekompromisné biometrické overovanie (Face ID / Touch ID / PIN) pri každom otvorení aplikácie, odstránenie tichého auto-loginu a vyriešenie iFrame bezpečnostných obmedzení.",
+  "updatedAt":  "2026-09-28T18:32:57.902109414Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

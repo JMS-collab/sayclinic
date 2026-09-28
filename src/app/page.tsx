@@ -416,10 +416,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FBF9F6]">
-      {/* 60-MINÚTOVÝ AUTO-LOGOUT GUARD (GDPR & HIPAA BEZPEČNOSŤ) */}
+      {/* 15-MINÚTOVÝ AUTO-LOGOUT GUARD (GDPR & ZDRAVOTNÍCKA BEZPEČNOSŤ V AMBULANCII) */}
       <AutoLogoutGuard
         currentUser={currentUser}
-        inactivityLimitMinutes={60}
+        inactivityLimitMinutes={15}
         warningCountdownSeconds={120}
         onLogout={(reason) => handleLogout(reason)}
       />

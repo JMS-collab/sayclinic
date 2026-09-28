@@ -121,6 +121,16 @@ export const AuthService = {
     return record.passwordHash === enteredPass;
   },
 
+  // Zistenie, či používateľ stále používa predvolené počiatočné heslo kliniky
+  isUsingDefaultPassword(identifier: string): boolean {
+    if (typeof window === 'undefined') return false;
+    const creds = this.initCredentials();
+    const idKey = identifier.toLowerCase();
+    const record = creds[idKey] || creds[identifier];
+    if (!record) return true;
+    return !record.isCustomPassword || record.passwordHash === DEFAULT_INITIAL_PASSWORD;
+  },
+
   // Zmena hesla používateľa
   changePassword(identifier: string, oldPass: string, newPass: string): { success: boolean; message: string } {
     if (typeof window === 'undefined') return { success: false, message: 'Nedostupný prehliadač.' };
@@ -374,7 +384,7 @@ export const AuthService = {
   },
 
   // Uloženie aktívnej relácie
-  saveSession(user: UserAccount, rememberMe: boolean = true) {
+  saveSession(user: UserAccount, rememberMe: boolean = true, method: string = 'HESLO + PASSKEY') {
     if (typeof window === 'undefined') return;
     const session: ActiveSession = {
       user,
@@ -395,7 +405,7 @@ export const AuthService = {
       user,
       category: 'AUTH',
       action: 'ÚSPEŠNÉ PRIHLÁSENIE',
-      details: `${user.name} (${user.title}) sa úspešne prihlásil do systému SAY CLINIC.`,
+      details: `${user.name} (${user.title}) sa úspešne prihlásil do systému SAY CLINIC (${method}).`,
       severity: 'info'
     });
   },

@@ -22,12 +22,14 @@ import {
   Copy,
   Smartphone,
   Key,
-  ExternalLink
+  ExternalLink,
+  Fingerprint
 } from 'lucide-react';
 import { LiquidAvatar } from './LiquidAvatar';
 import { AuthService } from '../services/authService';
 import { TotpService } from '../services/totpService';
 import { AuditLogService } from '../services/auditLogService';
+import { PasskeyService } from '../services/passkeyService';
 import { googleSignIn } from '../lib/workspaceAuth';
 
 export interface UserAccount {
@@ -151,7 +153,7 @@ interface LoginFormProps {
   onLoginSuccess: (user: UserAccount, rememberMe?: boolean) => void;
 }
 
-type AuthStep = 'select_user' | 'password' | '2fa' | 'reset_password';
+type AuthStep = 'select_user' | 'password' | 'passkey' | '2fa' | 'reset_password';
 
 function maskEmail(email: string): string {
   const parts = email.split('@');
@@ -167,13 +169,21 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [step, setStep] = useState<AuthStep>('select_user');
   const [loginMethodTab, setLoginMethodTab] = useState<'cards' | 'direct'>('cards');
 
-  // Správa vlastných fotografií (Modal)
+  // Správa vlastných fotografií a účtov (Modal)
   const [photoModalUser, setPhotoModalUser] = useState<UserAccount | null>(null);
-  const [activePhotoTab, setActivePhotoTab] = useState<'upload' | 'url' | 'presets'>('upload');
+  const [activePhotoTab, setActivePhotoTab] = useState<'upload' | 'url' | 'presets' | 'accounts'>('upload');
   const [urlInput, setUrlInput] = useState('');
   const [tempPreviewUrl, setTempPreviewUrl] = useState<string | null>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoSuccessToast, setPhotoSuccessToast] = useState<string | null>(null);
+  const [newLinkedEmailInput, setNewLinkedEmailInput] = useState('');
+  const [accountRefreshTrigger, setAccountRefreshTrigger] = useState(0);
+
+  // Prepojenie osobného Google účtu s profilom v SAY CLINIC
+  const [linkPersonalModal, setLinkPersonalModal] = useState<{ googleEmail: string; googleUser: any } | null>(null);
+  const [linkSelectedUser, setLinkSelectedUser] = useState<UserAccount | null>(null);
+  const [linkPassword, setLinkPassword] = useState('');
+  const [linkError, setLinkError] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -190,9 +200,168 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
   const [isMicrosoftSigningIn, setIsMicrosoftSigningIn] = useState(false);
   const [isAppleSigningIn, setIsAppleSigningIn] = useState(false);
+  const [isPasskeyAuthenticating, setIsPasskeyAuthenticating] = useState(false);
+  const [isPasskeyRegistering, setIsPasskeyRegistering] = useState(false);
   const [ssoPickerModal, setSsoPickerModal] = useState<'google' | 'microsoft' | 'apple' | null>(null);
 
-  // Ostré prihlásenie cez Google Workspace (@sayclinic.sk)
+  // Vynútená zmena predvoleného počiatočného hesla pre ostrú prevádzku
+  const [forcePasswordChangeUser, setForcePasswordChangeUser] = useState<UserAccount | null>(null);
+  const [newMandatoryPass, setNewMandatoryPass] = useState('');
+  const [confirmMandatoryPass, setConfirmMandatoryPass] = useState('');
+  const [showMandatoryPass, setShowMandatoryPass] = useState(false);
+  const [mandatoryPassError, setMandatoryPassError] = useState('');
+
+  const handleSaveMandatoryPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forcePasswordChangeUser) return;
+    setMandatoryPassError('');
+
+    if (newMandatoryPass.length < 8) {
+      setMandatoryPassError('Nové heslo musí mať minimálne 8 znakov.');
+      return;
+    }
+    if (!/[A-Z]/.test(newMandatoryPass)) {
+      setMandatoryPassError('Heslo musí obsahovať aspoň jedno veľké písmeno.');
+      return;
+    }
+    if (!/[0-9]/.test(newMandatoryPass)) {
+      setMandatoryPassError('Heslo musí obsahovať aspoň jedno číslo.');
+      return;
+    }
+    if (newMandatoryPass !== confirmMandatoryPass) {
+      setMandatoryPassError('Zadané heslá sa nezhodujú.');
+      return;
+    }
+
+    const res = AuthService.setNewPassword(forcePasswordChangeUser.id, newMandatoryPass);
+    if (!res.success) {
+      setMandatoryPassError(res.message || 'Nepodarilo sa uložiť nové heslo.');
+      return;
+    }
+
+    AuditLogService.log({
+      user: forcePasswordChangeUser,
+      category: 'SECURITY',
+      action: 'ZMENA_PREDVOLENÉHO_HESLA',
+      details: `${forcePasswordChangeUser.name} úspešne nahradil počiatočné predvolené heslo vlastným silným heslom pre ostrú prevádzku.`,
+      severity: 'info'
+    });
+
+    const target = forcePasswordChangeUser;
+    setForcePasswordChangeUser(null);
+    setNewMandatoryPass('');
+    setConfirmMandatoryPass('');
+    setPassword('');
+    setStep('passkey');
+    if (PasskeyService.hasPasskey(target.id)) {
+      setTimeout(() => triggerPasskeyVerification(target), 200);
+    }
+  };
+
+  // Bleskové 1-klikové prihlásenie cez Passkey (Face ID / Touch ID / Windows Hello)
+  const handlePasskeyLogin = async (userToAuth?: UserAccount) => {
+    const targetUser = userToAuth || selectedUser;
+    if (!targetUser) return;
+
+    setIsPasskeyAuthenticating(true);
+    setErrorMsg('');
+    try {
+      const res = await PasskeyService.authenticateWithPasskey(targetUser);
+      if (res.success) {
+        AuthService.resetFailedAttempts(targetUser.id);
+        AuthService.saveSession(targetUser, rememberMe, 'PASSKEY BIOMETRIA (1-KLIK)');
+        onLoginSuccess(targetUser, rememberMe);
+      } else {
+        setErrorMsg(res.message || 'Biometrické overenie cez Passkey zlyhalo. Použite prosím zadanie hesla.');
+      }
+    } catch (err: any) {
+      console.warn('Passkey chyba:', err);
+      setErrorMsg('Biometrické overenie zlyhalo. Použite prosím zadanie hesla.');
+    } finally {
+      setIsPasskeyAuthenticating(false);
+    }
+  };
+
+  // Overenie biometrie v kroku 'passkey' po zadaní správneho hesla
+  const triggerPasskeyVerification = async (targetUser: UserAccount) => {
+    setIsPasskeyAuthenticating(true);
+    setErrorMsg('');
+    try {
+      const res = await PasskeyService.verifyBiometricLogin(targetUser);
+      if (res.success) {
+        AuthService.resetFailedAttempts(targetUser.id);
+        AuthService.saveSession(targetUser, rememberMe, 'HESLO + PASSKEY BIOMETRIA');
+        onLoginSuccess(targetUser, rememberMe);
+      } else {
+        setErrorMsg(res.message || 'Biometrické overenie neprebehlo.');
+      }
+    } catch (err: any) {
+      setErrorMsg('Biometrické overenie zlyhalo. Môžete použiť prihlásenie heslom bez biometrie.');
+    } finally {
+      setIsPasskeyAuthenticating(false);
+    }
+  };
+
+  // Aktivácia nového Passkey (Touch ID / Face ID) pre vybraného používateľa
+  const handleRegisterAndLoginPasskey = async (targetUser: UserAccount) => {
+    setIsPasskeyRegistering(true);
+    setErrorMsg('');
+    try {
+      const res = await PasskeyService.registerPasskey(targetUser);
+      if (res.success) {
+        setAccountRefreshTrigger(prev => prev + 1);
+        AuthService.resetFailedAttempts(targetUser.id);
+        AuthService.saveSession(targetUser, rememberMe, 'HESLO + NOVÝ PASSKEY');
+        onLoginSuccess(targetUser, rememberMe);
+      } else {
+        setErrorMsg(res.message || 'Nepodarilo sa aktivovať Passkey.');
+      }
+    } catch (err: any) {
+      setErrorMsg('Aktivácia Passkey zlyhala.');
+    } finally {
+      setIsPasskeyRegistering(false);
+    }
+  };
+
+  // Pokračovať s heslom bez biometrie (klinický fallback)
+  const handleBypassPasskeyWithPassword = (targetUser: UserAccount) => {
+    AuthService.resetFailedAttempts(targetUser.id);
+    AuthService.saveSession(targetUser, rememberMe, 'HESLO (KLINICKÝ FALLBACK)');
+    onLoginSuccess(targetUser, rememberMe);
+  };
+
+  // Potvrdenie prepojenia neznámeho osobného Google účtu s klinickým profilom
+  const handleConfirmLinkPersonalEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkPersonalModal || !linkSelectedUser) return;
+    setLinkError('');
+
+    const isPassValid = AuthService.verifyPassword(linkSelectedUser.id, linkPassword);
+    if (!isPassValid) {
+      setLinkError('Nesprávne heslo k profilu SAY CLINIC.');
+      return;
+    }
+
+    PasskeyService.linkPersonalEmail(linkSelectedUser.id, linkPersonalModal.googleEmail);
+    setAccountRefreshTrigger(prev => prev + 1);
+    AuthService.resetFailedAttempts(linkSelectedUser.id);
+    AuthService.saveSession(linkSelectedUser, rememberMe, `PREPOJENÝ OSOBNÝ GOOGLE (${linkPersonalModal.googleEmail})`);
+    
+    AuditLogService.log({
+      user: linkSelectedUser,
+      category: 'AUTH',
+      action: 'PREPOJENIE_OSOBNÉHO_ÚČTU',
+      details: `${linkSelectedUser.name} prepojil osobný Google účet (${linkPersonalModal.googleEmail}) s klinickým profilom.`,
+      severity: 'info',
+    });
+
+    onLoginSuccess(linkSelectedUser, rememberMe);
+    setLinkPersonalModal(null);
+    setLinkPassword('');
+    setLinkSelectedUser(null);
+  };
+
+  // Ostré prihlásenie cez Google Workspace (@sayclinic.sk alebo autorizovaný osobný @gmail.com účet na whiteliste)
   const handleGoogleWorkspaceLogin = async (presetUser?: UserAccount) => {
     const targetUser = presetUser || selectedUser;
     setIsGoogleSigningIn(true);
@@ -205,32 +374,45 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       }
       const googleEmail = (result.user.email || '').toLowerCase().trim();
       
-      // Pokúsiť sa priradiť k profilu v SAY CLINIC
-      let matched = targetUser || users.find(u => u.email.toLowerCase() === googleEmail);
-      if (!matched && googleEmail) {
-        matched = users.find(u => u.name.toLowerCase() === (result.user.displayName || '').toLowerCase());
+      // 1. Overiť, či patrí email autorizovanému profilu v SAY CLINIC (whitelist)
+      let matched = PasskeyService.findUserByEmail(users, googleEmail);
+
+      // Ak bol kliknutý konkrétny profil, overíme zhodu s prihláseným Google účtom
+      if (targetUser) {
+        const isTargetMatch = 
+          targetUser.email.toLowerCase() === googleEmail || 
+          (PasskeyService.getLinkedPersonalEmails()[targetUser.id] || []).includes(googleEmail);
+        
+        if (isTargetMatch) {
+          matched = targetUser;
+        } else if (matched && matched.id !== targetUser.id) {
+          // Používateľ je autorizovaný personál, ale iná osoba ako vybraná karta - prihlásime ho pod jeho skutočnou identitou
+        } else {
+          matched = null;
+        }
       }
 
+      // 2. ZERO-TRUST OCHRANA: Ak Google email NIE JE na whiteliste personálu SAY CLINIC
       if (!matched) {
-        // Ak je to iný Google účet kliniky
-        matched = {
-          id: `u-google-${result.user.uid}`,
-          name: result.user.displayName || (googleEmail ? googleEmail.split('@')[0] : 'Člen tímu'),
-          email: googleEmail || 'clen@sayclinic.sk',
-          role: googleEmail.includes('mraz') ? 'ceo' : 'doctor',
-          title: 'Google Workspace Používateľ',
-          avatarBg: 'bg-[#2C2A29]',
-          avatarUrl: result.user.photoURL || '',
-        };
+        AuditLogService.log({
+          user: { id: 'blocked_ext', name: result.user.displayName || 'Neznámy externý používateľ', email: googleEmail, role: 'external', title: 'Neautorizovaný prístup' } as any,
+          category: 'SECURITY',
+          action: 'NEAUTORIZOVANÝ_PRÍSTUP_BLOKOVANÝ',
+          details: `KRITICKÝ INCIDENT: Externý Google účet (${googleEmail}) sa pokúsil o neoprávnený prístup do systému SAY CLINIC. Účet nie je na whiteliste personálu. Prístup bol okamžite zamietnutý.`,
+          severity: 'critical'
+        });
+        setErrorMsg(`Prístup zamietnutý (Zero-Trust): Google účet ${googleEmail} nie je autorizovaný personál SAY CLINIC. Pokus o prístup bol zaznamenaný do bezpečnostného auditu.`);
+        setIsGoogleSigningIn(false);
+        return;
       }
 
       AuthService.resetFailedAttempts(matched.id);
-      AuthService.saveSession(matched, rememberMe);
+      AuthService.saveSession(matched, rememberMe, `GOOGLE WORKSPACE SSO (${googleEmail})`);
       AuditLogService.log({
         user: matched,
         category: 'AUTH',
         action: 'SSO_LOGIN',
-        details: `${matched.name} sa úspešne prihlásil cez Google Workspace SSO (${matched.email}).`,
+        details: `${matched.name} sa úspešne prihlásil cez autorizovaný Google Workspace (${googleEmail}).`,
         severity: 'info'
       });
       onLoginSuccess(matched, rememberMe);
@@ -241,24 +423,12 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         err?.message?.includes('popup-closed-by-user') ||
         err?.message?.includes('cancelled-popup-request')
       ) {
-        // Používateľ zatvoril prihlasovacie okno Google - tichý návrat bez chyby v konzole
+        // Používateľ zatvoril prihlasovacie okno Google - tichý návrat
         return;
       }
       console.warn('Upozornenie Google prihlásenia:', err?.message || err);
-      if (targetUser) {
-        AuthService.resetFailedAttempts(targetUser.id);
-        AuthService.saveSession(targetUser, rememberMe);
-        AuditLogService.log({
-          user: targetUser,
-          category: 'AUTH',
-          action: 'SSO_LOGIN',
-          details: `${targetUser.name} sa prihlásil cez Google Workspace účet (${targetUser.email}).`,
-          severity: 'info'
-        });
-        onLoginSuccess(targetUser, rememberMe);
-      } else {
-        setErrorMsg('Prihlásenie cez Google Workspace bolo zrušené.');
-      }
+      // V OSTRÝCH PRAVIDLÁCH: Žiadne automatické prepúšťanie v catch bloku!
+      setErrorMsg('Prihlásenie cez Google Workspace zlyhalo alebo nebolo autorizované.');
     } finally {
       setIsGoogleSigningIn(false);
       setSsoPickerModal(null);
@@ -272,56 +442,28 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       setSsoPickerModal('microsoft');
       return;
     }
-    setIsMicrosoftSigningIn(true);
-    setErrorMsg('');
-    try {
-      // Reálna simulácia federovanej Microsoft 365 relácie
-      await new Promise(res => setTimeout(res, 600));
-      AuthService.resetFailedAttempts(targetUser.id);
-      AuthService.saveSession(targetUser, rememberMe);
-      AuditLogService.log({
-        user: targetUser,
-        category: 'AUTH',
-        action: 'SSO_LOGIN',
-        details: `${targetUser.name} sa úspešne prihlásil cez Microsoft 365 SSO (Entra ID: ${targetUser.email}).`,
-        severity: 'info'
-      });
-      onLoginSuccess(targetUser, rememberMe);
-    } catch (err: any) {
-      setErrorMsg('Prihlásenie cez Microsoft 365 zlyhalo.');
-    } finally {
-      setIsMicrosoftSigningIn(false);
-      setSsoPickerModal(null);
-    }
+    // Presmerovanie na bezpečné overenie heslom alebo Passkey
+    setSelectedUser(targetUser);
+    setStep('password');
+    setSsoPickerModal(null);
   };
 
   // Prihlásenie cez Apple ID (Touch ID / Face ID / Passkey)
   const handleAppleLogin = async (presetUser?: UserAccount) => {
-    const targetUser = presetUser || selectedUser;
-    if (!targetUser) {
-      setSsoPickerModal('apple');
-      return;
-    }
     setIsAppleSigningIn(true);
-    setErrorMsg('');
     try {
-      // Reálna simulácia Apple ID biometrického overenia
-      await new Promise(res => setTimeout(res, 600));
-      AuthService.resetFailedAttempts(targetUser.id);
-      AuthService.saveSession(targetUser, rememberMe);
-      AuditLogService.log({
-        user: targetUser,
-        category: 'AUTH',
-        action: 'SSO_LOGIN',
-        details: `${targetUser.name} sa úspešne prihlásil cez Apple ID (FaceID/TouchID/Passkey: ${targetUser.email}).`,
-        severity: 'info'
-      });
-      onLoginSuccess(targetUser, rememberMe);
-    } catch (err: any) {
-      setErrorMsg('Prihlásenie cez Apple ID zlyhalo.');
+      const targetUser = presetUser || selectedUser;
+      if (!targetUser) {
+        setSsoPickerModal('apple');
+        return;
+      }
+      // Apple ID priamo využíva biometrický Passkey štandard (Touch ID / Face ID)
+      setSelectedUser(targetUser);
+      setStep('passkey');
+      setSsoPickerModal(null);
+      await triggerPasskeyVerification(targetUser);
     } finally {
       setIsAppleSigningIn(false);
-      setSsoPickerModal(null);
     }
   };
 
@@ -616,7 +758,21 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setTwoFactorCode('');
     setErrorMsg('');
     setInfoMsg('');
-    setStep('2fa');
+
+    // ZERO-TRUST POISTKA: Ak používateľ stále používa predvolené štartovacie heslo (SayClinic2026!),
+    // v ostrej prevádzke ho systém okamžite prinúti nastaviť si vlastné silné heslo:
+    if (AuthService.isUsingDefaultPassword(selectedUser.id)) {
+      setForcePasswordChangeUser(selectedUser);
+      return;
+    }
+
+    // Krok Heslo + Biometria Passkey namiesto povinného 6-miestneho TOTP kľúča
+    setStep('passkey');
+    if (PasskeyService.hasPasskey(selectedUser.id)) {
+      setTimeout(() => {
+        triggerPasskeyVerification(selectedUser);
+      }, 150);
+    }
   };
 
   const handle2FASubmit = async (e: React.FormEvent) => {
@@ -855,6 +1011,34 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                     {u.title}
                   </span>
 
+                  {/* Štítok typu účtu (Firemný @sayclinic.sk vs Osobný účet) */}
+                  {PasskeyService.isCorporateAccount(u.id, u.email) ? (
+                    <span className="mt-1 px-2 py-0.5 rounded-full text-[8px] font-semibold bg-[#FAF4E8] text-[#8C6D2B] border border-[#E8DCBE]">
+                      Firemný @sayclinic.sk
+                    </span>
+                  ) : (
+                    <span className="mt-1 px-2 py-0.5 rounded-full text-[8px] font-medium bg-[#F1F6F3] text-[#2D6647] border border-[#D2E4DA]">
+                      Osobný účet
+                    </span>
+                  )}
+
+                  {/* 1-klikové prihlásenie cez Passkey, ak je na tomto zariadení k dispozícii */}
+                  {PasskeyService.hasPasskey(u.id) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePasskeyLogin(u);
+                      }}
+                      disabled={isPasskeyAuthenticating}
+                      className="mt-2 w-full py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#FAF4E8] to-[#FFFBF5] hover:from-[#F3E7CD] hover:to-[#FAF4E8] border border-[#C5A059]/60 text-[#8C6D2B] text-[9.5px] font-semibold shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="Prihlásiť sa 1 klikom cez Touch ID / Face ID"
+                    >
+                      <Fingerprint className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>{isPasskeyAuthenticating && selectedUser?.id === u.id ? 'Overujem...' : '1-klik Touch ID'}</span>
+                    </button>
+                  )}
+
                   {/* TLAČIDLO PRE ZADANIE HESLA */}
                   <button
                     type="button"
@@ -862,10 +1046,10 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                       e.stopPropagation();
                       handleSelectUser(u);
                     }}
-                    className="mt-2.5 w-full py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    className={`${PasskeyService.hasPasskey(u.id) ? 'mt-1.5 bg-white/70 hover:bg-white text-[#2C2A29] border border-[#E8E2D9]' : 'mt-2.5 bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white'} w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer`}
                   >
-                    <span>Prihlásiť sa</span>
-                    <span className="text-[#C5A059] group-hover:text-white">→</span>
+                    <span>Heslo</span>
+                    <span className="text-[#C5A059]">→</span>
                   </button>
                 </div>
               ))}
@@ -988,6 +1172,34 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   Z dôvodu bezpečnosti medicínskeho systému SAY CLINIC bolo zaznamenaných 5 nesprávnych hesiel. 
                   Zadanie hesla bude povolené o: <strong className="font-mono text-sm text-rose-950 font-bold ml-1">{Math.floor(lockoutRemaining / 60)}:{(lockoutRemaining % 60).toString().padStart(2, '0')}</strong>
                 </p>
+              </div>
+            )}
+
+            {/* PASSKEY 1-KLIKOVÁ BIOMETRIA BANNER */}
+            {PasskeyService.hasPasskey(selectedUser.id) && lockoutRemaining === 0 && (
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#FAF4E8] via-[#FFFDF9] to-[#FAF4E8] border border-[#C5A059]/60 shadow-xs flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-white shadow-xs text-[#C5A059]">
+                    <Fingerprint className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-xs font-semibold text-[#2C2A29] block">
+                      Aktivovaný Passkey (Touch ID / Face ID)
+                    </span>
+                    <span className="text-[10px] text-[#8C857B]">
+                      Prihláste sa bleskovo priložením prsta bez hesla
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handlePasskeyLogin(selectedUser)}
+                  disabled={isPasskeyAuthenticating}
+                  className="px-3.5 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-semibold shadow-xs hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Fingerprint className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>{isPasskeyAuthenticating ? 'Overujem...' : '1-klik Touch ID'}</span>
+                </button>
               </div>
             )}
 
@@ -1144,7 +1356,169 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         </div>
       )}
 
-      {/* KROK 3: LIQUID GLASS 2FA OVERENIE */}
+      {/* ========================================================================= */}
+      {/* KROK: LIQUID GLASS PASSKEY (TOUCH ID / FACE ID BIOMETRIA)                */}
+      {/* ========================================================================= */}
+      {step === 'passkey' && selectedUser && (
+        <div className="max-w-lg mx-auto w-full backdrop-blur-3xl bg-white/75 border border-white/90 p-6 sm:p-9 rounded-[36px] shadow-[0_30px_70px_-15px_rgba(44,42,41,0.08),inset_0_1.5px_2px_rgba(255,255,255,0.95)] text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+          
+          <div className="w-16 h-16 rounded-full backdrop-blur-xl bg-gradient-to-b from-white/90 to-[#FAF4E8] border border-[#C5A059]/40 text-[#C5A059] flex items-center justify-center mx-auto shadow-[0_10px_25px_rgba(197,160,89,0.2)]">
+            <Fingerprint className="w-8 h-8" />
+          </div>
+
+          <div>
+            <h2 className="text-xl font-semibold text-[#2C2A29]">Biometrické overenie Passkey</h2>
+            <p className="text-xs text-[#8C857B] mt-1 font-medium">
+              Overenie totožnosti pre zdravotnícky profil bez opisovania kódov:
+            </p>
+            <div className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full bg-white/90 border border-[#E8E2D9] shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-xs font-semibold text-[#2C2A29]">{selectedUser.name}</span>
+              {PasskeyService.isCorporateAccount(selectedUser.id, selectedUser.email) ? (
+                <span className="px-1.5 py-0.5 rounded-full text-[8.5px] font-semibold bg-[#FAF4E8] text-[#8C6D2B] border border-[#E8DCBE]">
+                  Firemný @sayclinic.sk
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded-full text-[8.5px] font-medium bg-[#F1F6F3] text-[#2D6647] border border-[#D2E4DA]">
+                  Osobný účet
+                </span>
+              )}
+            </div>
+          </div>
+
+          {errorMsg && (
+            <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200/90 text-[#8C6D2B] text-xs flex flex-col gap-2.5 text-left shadow-xs">
+              <div className="flex items-center gap-2 text-amber-800 font-medium">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600" />
+                <span>{errorMsg}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => handleBypassPasskeyWithPassword(selectedUser)}
+                  className="px-3 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#3F3936] text-white text-[11px] font-semibold transition-all shadow-xs cursor-pointer"
+                >
+                  Vstúpiť okamžite heslom →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRegisterAndLoginPasskey(selectedUser)}
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-100/50 border border-amber-300 text-amber-900 text-[11px] font-semibold transition-all shadow-xs cursor-pointer"
+                >
+                  Aktivovať Passkey zariadenia
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* HLAVNÝ INTERAKTÍVNY BIOMETRICKÝ SKENER */}
+          <div className="py-2 flex flex-col items-center justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                if (PasskeyService.hasPasskey(selectedUser.id)) {
+                  triggerPasskeyVerification(selectedUser);
+                } else {
+                  handleRegisterAndLoginPasskey(selectedUser);
+                }
+              }}
+              disabled={isPasskeyAuthenticating || isPasskeyRegistering}
+              className={`relative group p-6 rounded-full transition-all duration-500 cursor-pointer ${
+                isPasskeyAuthenticating || isPasskeyRegistering
+                  ? 'bg-[#FAF4E8] shadow-[0_0_40px_rgba(197,160,89,0.4)] scale-105'
+                  : 'bg-white/80 hover:bg-white shadow-[0_12px_30px_rgba(44,42,41,0.08)] hover:shadow-[0_16px_40px_rgba(197,160,89,0.3)] hover:scale-105 border border-[#C5A059]/40 hover:border-[#C5A059]'
+              }`}
+            >
+              {/* Animovaný pulzujúci kruh pri overovaní */}
+              {(isPasskeyAuthenticating || isPasskeyRegistering) && (
+                <span className="absolute inset-0 rounded-full border-2 border-[#C5A059] animate-ping opacity-60" />
+              )}
+              
+              <div className="w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-b from-[#FFFDF9] to-[#F5ECE0] text-[#C5A059]">
+                {isPasskeyAuthenticating || isPasskeyRegistering ? (
+                  <RefreshCw className="w-8 h-8 animate-spin" />
+                ) : (
+                  <Fingerprint className="w-9 h-9 transition-transform group-hover:scale-110" />
+                )}
+              </div>
+            </button>
+
+            <p className="text-xs font-semibold text-[#2C2A29] mt-3">
+              {isPasskeyAuthenticating
+                ? 'Priložte prst na Touch ID alebo sa pozrite do kamery Face ID...'
+                : isPasskeyRegistering
+                ? 'Aktivácia Passkey prebieha...'
+                : PasskeyService.hasPasskey(selectedUser.id)
+                ? 'Dotknite sa Touch ID alebo kliknite pre overenie'
+                : 'Kliknite sem pre aktiváciu Passkey pre toto zariadenie'}
+            </p>
+            <p className="text-[10px] text-[#8C857B] mt-0.5">
+              Rýchle bezpečné prihlásenie bez potreby mobilu či 6-miestnych kódov
+            </p>
+          </div>
+
+          {/* TLAČIDLÁ A MOŽNOSTI */}
+          <div className="space-y-2.5 pt-2">
+            {PasskeyService.hasPasskey(selectedUser.id) ? (
+              <button
+                type="button"
+                onClick={() => triggerPasskeyVerification(selectedUser)}
+                disabled={isPasskeyAuthenticating || isPasskeyRegistering}
+                className="w-full bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                <Fingerprint className="w-4 h-4 text-[#C5A059]" />
+                <span>{isPasskeyAuthenticating ? 'Prebieha biometrické overenie...' : 'Overiť cez Touch ID / Face ID'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleRegisterAndLoginPasskey(selectedUser)}
+                disabled={isPasskeyRegistering}
+                className="w-full bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white py-3.5 rounded-2xl text-xs font-semibold transition-all shadow-[0_10px_25px_-5px_rgba(44,42,41,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                <Sparkles className="w-4 h-4 text-[#C5A059]" />
+                <span>{isPasskeyRegistering ? 'Aktivujem Passkey...' : 'Aktivovať Touch ID / Face ID pre tento počítač'}</span>
+              </button>
+            )}
+
+            {/* ŠTANDARDNÝ KLINICKÝ FALLBACK HESLOM */}
+            <button
+              type="button"
+              onClick={() => handleBypassPasskeyWithPassword(selectedUser)}
+              className="w-full py-3 px-3 rounded-2xl bg-white hover:bg-[#FAF4E8] border border-[#E8E2D9] text-[#2C2A29] text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Vstúpiť do SAY CLINIC heslom (klinický fallback) →</span>
+            </button>
+          </div>
+
+          {/* SPODNÁ LIŠTA - SPÄŤ ALEBO NÚDZOVÝ KÓD */}
+          <div className="pt-3 border-t border-[#E8E2D9]/70 flex items-center justify-between text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setStep('password');
+                setErrorMsg('');
+              }}
+              className="text-[#8C857B] hover:text-[#2C2A29] font-medium transition-colors"
+            >
+              ← Späť na heslo
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setStep('2fa');
+                setErrorMsg('');
+              }}
+              className="text-[#C5A059] hover:underline font-medium"
+            >
+              Zadať záložný 6-miestny kód (2FA)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* KROK 3: LIQUID GLASS 2FA OVERENIE (ZÁLOŽNÉ TOTP) */}
       {step === '2fa' && selectedUser && (
         <div className="max-w-lg mx-auto w-full backdrop-blur-3xl bg-white/70 border border-white/80 p-6 sm:p-9 rounded-[36px] shadow-[0_30px_70px_-15px_rgba(44,42,41,0.08),inset_0_1.5px_2px_rgba(255,255,255,0.95)] text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
           
@@ -1468,21 +1842,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   {isSubmitting ? 'Odosielam...' : 'Odoslať overovací kód'}
                 </button>
               </div>
-
-              {/* Rýchla obnova bez e-mailu */}
-              <div className="pt-3 border-t border-white/60 text-center">
-                <button
-                  type="button"
-                  onClick={handleQuickResetToDefault}
-                  className="w-full py-2.5 px-3 rounded-2xl bg-[#FAF8F5] hover:bg-white border border-[#C5A059]/50 text-[#2C2A29] text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>Obnoviť na predvolené heslo (SayClinic2026!)</span>
-                </button>
-                <p className="text-[10px] text-[#8C857B] mt-1">
-                  Umožní okamžité prihlásenie bez čakania na e-mailovú správu.
-                </p>
-              </div>
             </form>
           ) : (
             <form onSubmit={handleConfirmNewPassword} className="space-y-4 text-left">
@@ -1579,6 +1938,22 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         </div>
       )}
 
+      {/* OSTRÁ PREVÁDZKA: ZERO-TRUST STATUS BADGE */}
+      <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 text-[11px] text-[#5C554F] font-medium">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50/90 border border-emerald-200/80 text-emerald-800 shadow-xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="font-semibold">Ostrá prevádzka aktívna</span>
+          <span className="text-emerald-400">•</span>
+          <span>Zero-Trust Whitelist</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/70 border border-[#E8E2D9] text-[#8C857B] shadow-xs">
+          <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059]" />
+          <span>Auto-Lock 15 min</span>
+          <span>•</span>
+          <span>Biometria Passkey</span>
+        </div>
+      </div>
+
       {/* ========================================================================= */}
       {/* DIALÓG NA ZMENU / PRIDANIE AVATARU (LIQUID GLASS) */}
       {/* ========================================================================= */}
@@ -1634,7 +2009,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                       : 'border-transparent text-[#8C857B] hover:text-[#2C2A29]'
                   }`}
                 >
-                  iOS Memoji
+                  Memoji
                 </button>
                 <button
                   type="button"
@@ -1645,7 +2020,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                       : 'border-transparent text-[#8C857B] hover:text-[#2C2A29]'
                   }`}
                 >
-                  Nahrať vlastnú
+                  Nahrať
                 </button>
                 <button
                   type="button"
@@ -1656,7 +2031,18 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                       : 'border-transparent text-[#8C857B] hover:text-[#2C2A29]'
                   }`}
                 >
-                  URL odkaz
+                  URL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePhotoTab('accounts')}
+                  className={`flex-1 py-2.5 border-b-2 font-medium transition-all ${
+                    activePhotoTab === 'accounts'
+                      ? 'border-[#C5A059] text-[#2C2A29] font-semibold'
+                      : 'border-transparent text-[#8C857B] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  Účet & Passkey
                 </button>
               </div>
 
@@ -1745,6 +2131,127 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 </div>
               )}
 
+              {/* 4. ÚČTY & PASSKEY */}
+              {activePhotoTab === 'accounts' && (
+                <div className="space-y-4 text-left">
+                  {/* TYP ÚČTU */}
+                  <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9]">
+                    <div className="text-[10px] font-semibold text-[#8C857B] uppercase tracking-wider mb-1">
+                      Typ účtu
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {PasskeyService.isCorporateAccount(photoModalUser.id, photoModalUser.email) ? (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[#FAF4E8] text-[#8C6D2B] border border-[#E8DCBE]">
+                          Oficiálny firemný účet @sayclinic.sk
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#F1F6F3] text-[#2D6647] border border-[#D2E4DA]">
+                          Klinický profil personálu (osobný účet / Passkey)
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10.5px] text-[#8C857B] mt-2 font-mono">
+                      Email profilu: {photoModalUser.email}
+                    </div>
+                  </div>
+
+                  {/* PREPOJENÉ OSOBNÉ GOOGLE ÚČTY */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-[#2C2A29]">
+                      Prepojené osobné Google účty (@gmail.com)
+                    </label>
+                    <p className="text-[11px] text-[#8C857B] leading-relaxed">
+                      Umožňujú prihlásenie 1 klikom cez vaše osobné Google konto priamo do tohto profilu.
+                    </p>
+
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {(PasskeyService.getLinkedPersonalEmails()[photoModalUser.id] || []).length === 0 && (
+                        <p className="text-xs text-[#8C857B] italic py-1">Zatiaľ nie je priradený žiadny osobný email.</p>
+                      )}
+                      {(PasskeyService.getLinkedPersonalEmails()[photoModalUser.id] || []).map((email, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#E8E2D9] text-xs">
+                          <span className="font-mono text-[#2C2A29] truncate">{email}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              PasskeyService.unlinkPersonalEmail(photoModalUser.id, email);
+                              setAccountRefreshTrigger(prev => prev + 1);
+                            }}
+                            className="text-rose-600 hover:text-rose-700 p-1 cursor-pointer flex-shrink-0"
+                            title="Zmazať prepojenie"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <input
+                        type="email"
+                        placeholder="meno.priezvisko@gmail.com"
+                        value={newLinkedEmailInput}
+                        onChange={(e) => setNewLinkedEmailInput(e.target.value)}
+                        className="flex-1 border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white outline-none focus:border-[#C5A059]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newLinkedEmailInput.trim()) {
+                            PasskeyService.linkPersonalEmail(photoModalUser.id, newLinkedEmailInput.trim());
+                            setNewLinkedEmailInput('');
+                            setAccountRefreshTrigger(prev => prev + 1);
+                          }
+                        }}
+                        className="px-3 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Pridať
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* PASSKEY NA TOMTO ZARIADENÍ */}
+                  <div className="pt-2 border-t border-[#E8E2D9]/70 space-y-2">
+                    <label className="block text-xs font-semibold text-[#2C2A29]">
+                      Passkeys na tomto zariadení (Touch ID / Face ID)
+                    </label>
+                    {PasskeyService.hasPasskey(photoModalUser.id) ? (
+                      <div className="p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Fingerprint className="w-4 h-4 text-emerald-700" />
+                          <span className="text-emerald-900 font-medium">Passkey je aktívny na tomto zariadení</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            PasskeyService.removePasskey(photoModalUser.id);
+                            setAccountRefreshTrigger(prev => prev + 1);
+                          }}
+                          className="text-xs text-rose-600 hover:underline cursor-pointer"
+                        >
+                          Odstrániť
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] flex items-center justify-between">
+                        <span className="text-xs text-[#8C857B]">Passkey zatiaľ nie je zaregistrovaný</span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await PasskeyService.registerPasskey(photoModalUser);
+                            setAccountRefreshTrigger(prev => prev + 1);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Fingerprint className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>Aktivovať Touch ID</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {/* PÄTIČKA */}
@@ -1764,17 +2271,213 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   onClick={() => setPhotoModalUser(null)}
                   className="px-4 py-2 border border-[#E8E2D9] text-[#8C857B] hover:text-[#2C2A29] rounded-xl text-xs font-medium"
                 >
+                  Zavrieť
+                </button>
+                {activePhotoTab !== 'accounts' && (
+                  <button
+                    type="button"
+                    onClick={() => handleSavePhoto(tempPreviewUrl || '')}
+                    className="px-4 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-medium transition-colors shadow-sm cursor-pointer"
+                  >
+                    Uložiť avatar
+                  </button>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL PRE PREPOJENIE NEZNÁMEHO OSOBNÉHO GOOGLE ÚČTU S PROFILOM KLINIKY     */}
+      {/* ========================================================================= */}
+      {linkPersonalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C2A29]/30 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="backdrop-blur-3xl bg-white/95 border border-white/90 w-full max-w-md rounded-[32px] shadow-[0_35px_80px_rgba(0,0,0,0.18),inset_0_1.5px_2px_rgba(255,255,255,0.95)] overflow-hidden flex flex-col p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D9]/70">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[#FAF4E8] text-[#C5A059]">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[#2C2A29]">
+                    Prepojenie osobného účtu
+                  </h3>
+                  <p className="text-xs text-[#8C857B]">
+                    Google: <strong className="font-mono text-[#2C2A29]">{linkPersonalModal.googleEmail}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLinkPersonalModal(null)}
+                className="p-1.5 text-[#8C857B] hover:text-[#2C2A29] rounded-full hover:bg-white transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[#5C554F] leading-relaxed">
+              Tento osobný Google účet zatiaľ nie je priradený k žiadnemu členovi tímu SAY CLINIC. Zvoľte svoj profil a zadajte klinické heslo pre trvalé prepojenie:
+            </p>
+
+            {linkError && (
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{linkError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmLinkPersonalEmail} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                  Váš profil v klinike
+                </label>
+                <select
+                  required
+                  value={linkSelectedUser?.id || ''}
+                  onChange={(e) => {
+                    const found = users.find(u => u.id === e.target.value);
+                    setLinkSelectedUser(found || null);
+                  }}
+                  className="w-full border border-[#E8E2D9] p-3 rounded-2xl text-xs bg-white text-[#2C2A29] outline-none focus:border-[#C5A059]"
+                >
+                  <option value="">-- Vyberte svoj profil --</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.title})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                  Klinické prístupové heslo
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Zadajte heslo k profilu"
+                  value={linkPassword}
+                  onChange={(e) => setLinkPassword(e.target.value)}
+                  className="w-full border border-[#E8E2D9] p-3 rounded-2xl text-xs bg-white text-[#2C2A29] outline-none focus:border-[#C5A059]"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setLinkPersonalModal(null)}
+                  className="flex-1 py-3 rounded-2xl border border-[#E8E2D9] text-[#8C857B] hover:text-[#2C2A29] text-xs font-medium transition-all"
+                >
                   Zrušiť
                 </button>
                 <button
-                  type="button"
-                  onClick={() => handleSavePhoto(tempPreviewUrl || '')}
-                  className="px-4 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-medium transition-colors shadow-sm"
+                  type="submit"
+                  disabled={!linkSelectedUser || !linkPassword}
+                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-[#2C2A29] to-[#3F3936] hover:from-[#C5A059] hover:to-[#9C7D3D] disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
                 >
-                  Uložiť avatar
+                  Prepojiť a vstúpiť
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* ZERO-TRUST OCHRANA: VYNÚTENÁ ZMENA PREDVOLENÉHO HESLA                      */}
+      {/* ========================================================================= */}
+      {forcePasswordChangeUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C2A29]/50 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="backdrop-blur-3xl bg-white/95 border border-white/90 w-full max-w-md rounded-[32px] shadow-[0_35px_80px_rgba(0,0,0,0.2),inset_0_1.5px_2px_rgba(255,255,255,0.95)] overflow-hidden flex flex-col p-6 sm:p-8 space-y-5 animate-in zoom-in-95 duration-200">
+            
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-[#C5A059] flex items-center justify-center flex-shrink-0 shadow-inner">
+                <KeyRound className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[9.5px] font-bold uppercase tracking-wider mb-1">
+                  <span>Zero-Trust Bezpečnosť</span>
+                </div>
+                <h3 className="text-base font-bold text-[#2C2A29]">Nastavte si osobné heslo</h3>
+                <p className="text-xs text-[#8C857B]">{forcePasswordChangeUser.name}</p>
+              </div>
             </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] text-xs text-[#5C554F] leading-relaxed">
+              Váš profil stále používa počiatočné predvolené heslo kliniky (<strong>SayClinic2026!</strong>). Pre <strong>100% bezpečnosť ostrej prevádzky</strong> si prosím zadajte vlastné tajné heslo, ktoré budete poznať iba vy.
+            </div>
+
+            {mandatoryPassError && (
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{mandatoryPassError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveMandatoryPassword} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-[#2C2A29] uppercase tracking-wider block">
+                  Nové osobné heslo
+                </label>
+                <div className="relative">
+                  <input
+                    type={showMandatoryPass ? 'text' : 'password'}
+                    value={newMandatoryPass}
+                    onChange={e => setNewMandatoryPass(e.target.value)}
+                    placeholder="Minimálne 8 znakov (číslo, veľké písmeno)"
+                    required
+                    className="w-full pl-4 pr-10 py-3 rounded-2xl bg-white border border-[#E8E2D9] focus:border-[#C5A059] focus:ring-2 focus:ring-[#C5A059]/20 text-xs text-[#2C2A29] outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMandatoryPass(!showMandatoryPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8C857B] hover:text-[#2C2A29]"
+                  >
+                    {showMandatoryPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-[#2C2A29] uppercase tracking-wider block">
+                  Potvrdenie nového hesla
+                </label>
+                <input
+                  type={showMandatoryPass ? 'text' : 'password'}
+                  value={confirmMandatoryPass}
+                  onChange={e => setConfirmMandatoryPass(e.target.value)}
+                  placeholder="Zopakujte nové heslo"
+                  required
+                  className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E8E2D9] focus:border-[#C5A059] focus:ring-2 focus:ring-[#C5A059]/20 text-xs text-[#2C2A29] outline-none transition-all"
+                />
+              </div>
+
+              <div className="text-[10px] text-[#8C857B] space-y-1 pl-1">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${newMandatoryPass.length >= 8 ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                  <span>Minimálne 8 znakov</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(newMandatoryPass) ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                  <span>Aspoň jedno veľké písmeno</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${/[0-9]/.test(newMandatoryPass) ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                  <span>Aspoň jedno číslo</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#9C7D3D] text-white text-xs font-semibold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
+                <span>Uložiť bezpečné heslo a pokračovať</span>
+              </button>
+            </form>
 
           </div>
         </div>
