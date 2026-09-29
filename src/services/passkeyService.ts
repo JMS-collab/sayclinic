@@ -240,18 +240,19 @@ export const PasskeyService = {
 
       return {
         success: false,
-        message: 'Biometrické overenie neposkytlo platný podpis zariadenia.',
+        message: 'Biometrické overenie neposkytlo platný podpis zariadenia. Prihláste sa heslom.',
       };
     } catch (err: any) {
-      console.warn('WebAuthn biometrické overenie zlyhalo:', err?.message || err);
-      const isIframe = typeof window !== 'undefined' && window.self !== window.top;
-      let message = 'Biometrické overenie Touch ID / Face ID zlyhalo.';
-      if (err?.name === 'NotAllowedError') {
-        message = isIframe
-          ? 'Prehliadač v testovacom iFrame nepovolil biometriu. Otvorte aplikáciu v samostatnom okne alebo použite 2FA kód.'
-          : 'Biometrické overenie bolo zrušené používateľom.';
+      const errStr = (err?.message || '').toLowerCase();
+      console.warn('WebAuthn biometrické overenie:', err?.message || err);
+      // Ak na zariadení nie je nájdený passkey, odstránime zastaraný záznam pre toto zariadenie
+      if (errStr.includes('no passkey') || errStr.includes('no credential') || err?.name === 'NotAllowedError') {
+        this.removePasskey(user.id);
       }
-      return { success: false, message };
+      return {
+        success: false,
+        message: 'Na tomto zariadení nie je dostupný Passkey (Touch ID / Face ID). Prihláste sa prosím vaším heslom.',
+      };
     }
   },
 

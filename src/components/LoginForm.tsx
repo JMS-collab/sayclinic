@@ -252,10 +252,9 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setNewMandatoryPass('');
     setConfirmMandatoryPass('');
     setPassword('');
-    setStep('passkey');
-    if (PasskeyService.hasPasskey(target.id)) {
-      setTimeout(() => triggerPasskeyVerification(target), 200);
-    }
+    // Prihlásenie používateľa s novým heslom
+    AuthService.saveSession(target, rememberMe, 'HESLO (NOVÉ NASTAVENÉ)');
+    onLoginSuccess(target, rememberMe);
   };
 
   // Bleskové 1-klikové prihlásenie cez Passkey (Face ID / Touch ID / Windows Hello)
@@ -272,11 +271,13 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         AuthService.saveSession(targetUser, rememberMe, 'PASSKEY BIOMETRIA (1-KLIK)');
         onLoginSuccess(targetUser, rememberMe);
       } else {
-        setErrorMsg(res.message || 'Biometrické overenie cez Passkey zlyhalo. Použite prosím prihlásenie heslom a 2FA.');
+        setErrorMsg(res.message || 'Na tomto zariadení nie je nájdený Passkey. Zadajte prosím heslo.');
+        setStep('password');
       }
     } catch (err: any) {
       console.warn('Passkey chyba:', err);
-      setErrorMsg('Biometrické overenie zlyhalo. Použite prosím prihlásenie heslom a 2FA.');
+      setErrorMsg('Na tomto zariadení nie je dostupný Passkey. Zadajte prosím vaše heslo.');
+      setStep('password');
     } finally {
       setIsPasskeyAuthenticating(false);
     }
@@ -454,11 +455,14 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         setSsoPickerModal('apple');
         return;
       }
-      // Apple ID priamo využíva biometrický Passkey štandard (Touch ID / Face ID)
       setSelectedUser(targetUser);
-      setStep('passkey');
       setSsoPickerModal(null);
-      await triggerPasskeyVerification(targetUser);
+      if (PasskeyService.hasPasskey(targetUser.id)) {
+        await handlePasskeyLogin(targetUser);
+      } else {
+        setStep('password');
+        setInfoMsg('Na tomto zariadení zatiaľ nie je zaregistrovaný Passkey pre Apple Touch ID / Face ID. Prihláste sa prosím heslom.');
+      }
     } finally {
       setIsAppleSigningIn(false);
     }
@@ -774,15 +778,9 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       return;
     }
 
-    // Krok Heslo + Biometria Passkey
-    setStep('passkey');
-    if (PasskeyService.hasPasskey(selectedUser.id)) {
-      setTimeout(() => {
-        triggerPasskeyVerification(selectedUser);
-      }, 150);
-    } else {
-      setErrorMsg('Na tomto zariadení zatiaľ nemáte aktivovaný Passkey (Touch ID / Face ID). Pre vstup do systému aktivujte Passkey alebo zadajte 2FA overovací kód.');
-    }
+    // Úspešné overenie heslom - okamžitý vstup do systému SAY CLINIC
+    AuthService.saveSession(selectedUser, rememberMe, 'HESLO');
+    onLoginSuccess(selectedUser, rememberMe);
   };
 
   const handle2FASubmit = async (e: React.FormEvent) => {
