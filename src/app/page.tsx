@@ -19,6 +19,7 @@ import AutoLogoutGuard from '../components/AutoLogoutGuard';
 import AuditLogModal from '../components/AuditLogModal';
 import { AuthService } from '../services/authService';
 import { AuditLogService } from '../services/auditLogService';
+import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { 
   PermissionsService, 
   TabId, 
@@ -254,7 +255,7 @@ export default function Home() {
 
     const res = AuthService.changePassword(currentUser.id, oldPassword, newPassword);
     if (res.success) {
-      setPasswordChangeStatus({ type: 'success', message: 'Heslo bolo úspešne zmenené.' });
+      setPasswordChangeStatus({ type: 'success', message: 'Heslo bolo úspešne zmenené a platí na všetkých počítačoch kliniky.' });
       setTimeout(() => {
         setShowChangePasswordModal(false);
         setPasswordChangeStatus(null);
@@ -315,6 +316,40 @@ export default function Home() {
     }
   }, []);
 
+  // Centrálna real-time synchronizácia pre všetky počítače v sieti SAY CLINIC
+  useEffect(() => {
+    RealtimeSyncService.init();
+
+    const unsubPatients = RealtimeSyncService.subscribe('patients', (updated) => {
+      if (Array.isArray(updated) && updated.length > 0) {
+        setPatients(updated);
+      }
+    });
+
+    const unsubEvents = RealtimeSyncService.subscribe('calendar_events', (updated) => {
+      if (Array.isArray(updated)) {
+        setCalendarEvents(updated);
+      }
+    });
+
+    const unsubSales = RealtimeSyncService.subscribe('sales', (updated) => {
+      if (Array.isArray(updated)) {
+        setSales(updated);
+      }
+    });
+
+    const unsubProjects = RealtimeSyncService.subscribe('projects', (updated) => {
+      // Projekty sa spravujú v komponente ProjectManagement
+    });
+
+    return () => {
+      unsubPatients();
+      unsubEvents();
+      unsubSales();
+      unsubProjects();
+    };
+  }, []);
+
   const handleAddSale = (newSale: Omit<SaleItem, 'id'>) => {
     const item: SaleItem = {
       ...newSale,
@@ -325,6 +360,7 @@ export default function Home() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('say_clinic_sales_v1', JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent('say_clinic_sales_changed', { detail: updated }));
+        RealtimeSyncService.publish('sales', updated, currentUser?.id);
       }
       return updated;
     });
@@ -355,6 +391,7 @@ export default function Home() {
     setCalendarEvents((prev) => {
       const updated = [newEvent, ...prev];
       localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+      RealtimeSyncService.publish('calendar_events', updated, currentUser?.id);
       return updated;
     });
   };
@@ -366,7 +403,9 @@ export default function Home() {
     try {
       const existingStr = localStorage.getItem('say_clinic_projects');
       const existing = existingStr ? JSON.parse(existingStr) : [];
-      localStorage.setItem('say_clinic_projects', JSON.stringify([newProj, ...existing]));
+      const updatedProjects = [newProj, ...existing];
+      localStorage.setItem('say_clinic_projects', JSON.stringify(updatedProjects));
+      RealtimeSyncService.publish('projects', updatedProjects, currentUser?.id);
     } catch (e) {
       console.error('Chyba ukladania prekonvertovaného projektu:', e);
     }

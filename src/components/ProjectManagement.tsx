@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { RealtimeSyncService } from '../services/realtimeSyncService';
 import {
   FolderKanban,
   ListTodo,
@@ -497,10 +498,21 @@ export default function ProjectManagement({ currentUser }: ProjectManagementProp
   useEffect(() => {
     try {
       localStorage.setItem('say_clinic_projects', JSON.stringify(projects));
+      RealtimeSyncService.publish('projects', projects, currentUser.id);
     } catch (e) {
       console.error('Chyba ukladania projektov:', e);
     }
-  }, [projects]);
+  }, [projects, currentUser.id]);
+
+  // Real-time odber zmien projektov z ostatných počítačov
+  useEffect(() => {
+    const unsub = RealtimeSyncService.subscribe('projects', (updated) => {
+      if (Array.isArray(updated)) {
+        setProjects(updated);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Is CEO permission check
   const isCeo = currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';

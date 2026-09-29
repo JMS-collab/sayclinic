@@ -2,6 +2,7 @@
 import { MaterialUsageLog, InventoryService } from './inventoryService';
 import { CalendarEvent } from '../data/calendarConfig';
 import { Patient } from '../components/PatientDatabase';
+import { RealtimeSyncService } from './realtimeSyncService';
 
 export type InvoiceType = 'standard' | 'advance' | 'proforma';
 export type InvoiceStatus = 'paid' | 'unpaid' | 'overdue' | 'cancelled';
@@ -174,6 +175,7 @@ export class FinanceBillingService {
     try {
       localStorage.setItem(this.STORAGE_KEY_INVOICES, JSON.stringify(invoices));
       window.dispatchEvent(new CustomEvent('say_clinic_invoices_changed', { detail: invoices }));
+      RealtimeSyncService.publish('invoices', invoices);
     } catch (e) {
       console.error('Chyba ukladania faktúr:', e);
     }

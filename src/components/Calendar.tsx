@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
+import { RealtimeSyncService } from '../services/realtimeSyncService';
 
 import { 
   CalendarEvent,
@@ -309,6 +310,16 @@ export default function Calendar({
     return () => unsub();
   }, [session, performTwoWaySync]);
 
+  // Real-time odber udalostí kalendára z ostatných počítačov
+  useEffect(() => {
+    const unsub = RealtimeSyncService.subscribe('calendar_events', (updated) => {
+      if (Array.isArray(updated)) {
+        setCalendarEvents(updated);
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const isGoogleConnected = Boolean((session as any)?.accessToken || isWorkspaceConnected);
 
   // NAČÍTANIE ULOŽENÉHO ROZOSTUPU HODÍN Z LOCALSTORAGE
@@ -487,6 +498,7 @@ export default function Calendar({
     setCalendarEvents(prev => {
       const updated = prev.map(e => e.id === eventId ? { ...e, isDepositPaid: isPaid } : e);
       localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+      RealtimeSyncService.publish('calendar_events', updated);
       return updated;
     });
   };
@@ -506,6 +518,7 @@ export default function Calendar({
     setCalendarEvents(prev => {
       const updated = prev.map(evt => evt.id === cancellingEvent.id ? cancelledEvent : evt);
       localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+      RealtimeSyncService.publish('calendar_events', updated);
       return updated;
     });
 
@@ -545,6 +558,7 @@ export default function Calendar({
     setCalendarEvents(prev => {
       const updated = prev.map(evt => evt.id === eventData.id ? updatedEvent : evt);
       localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+      RealtimeSyncService.publish('calendar_events', updated);
       return updated;
     });
 
@@ -869,6 +883,7 @@ export default function Calendar({
     const updatedEvents = [created, ...calendarEvents];
     setCalendarEvents(updatedEvents);
     localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updatedEvents));
+    RealtimeSyncService.publish('calendar_events', updatedEvents);
 
     if (onAddEvent) onAddEvent(created);
     setIsSaving(false);
@@ -936,6 +951,7 @@ export default function Calendar({
           return item;
         });
         localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+        RealtimeSyncService.publish('calendar_events', updated);
         return updated;
       });
 
@@ -1015,6 +1031,7 @@ export default function Calendar({
             return item;
           });
           localStorage.setItem('say_clinic_calendar_events', JSON.stringify(updated));
+          RealtimeSyncService.publish('calendar_events', updated);
           return updated;
         });
 

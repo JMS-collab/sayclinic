@@ -325,12 +325,15 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
 
   // Potvrdenie prepojenia neznámeho osobného Google účtu s klinickým profilom
-  const handleConfirmLinkPersonalEmail = (e: React.FormEvent) => {
+  const handleConfirmLinkPersonalEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!linkPersonalModal || !linkSelectedUser) return;
     setLinkError('');
 
-    const isPassValid = AuthService.verifyPassword(linkSelectedUser.id, linkPassword);
+    let isPassValid = AuthService.verifyPassword(linkSelectedUser.id, linkPassword);
+    if (!isPassValid) {
+      isPassValid = await AuthService.verifyPasswordAsync(linkSelectedUser.id, linkPassword);
+    }
     if (!isPassValid) {
       setLinkError('Nesprávne heslo k profilu SAY CLINIC.');
       return;
@@ -540,6 +543,13 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
+  // Centrálna synchronizácia hesiel zo servera pri otvorení prihlasovania (zabezpečuje rovnaké heslo na všetkých počítačoch)
+  useEffect(() => {
+    AuthService.syncWithServer().catch(err => {
+      console.warn('Nepodarilo sa stiahnuť centrálne heslá zo servera:', err);
+    });
+  }, []);
+
   // Načítanie uložených fotografií z LocalStorage
   useEffect(() => {
     try {
@@ -732,8 +742,12 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setIsSubmitting(true);
     setErrorMsg('');
 
-    // Reálne overenie voči databáze poverení
-    const isValid = AuthService.verifyPassword(selectedUser.id, password);
+    // Reálne overenie voči databáze poverení (lokálne + centrálne na serveri pre iné počítače)
+    let isValid = AuthService.verifyPassword(selectedUser.id, password);
+    if (!isValid) {
+      // Asynchrónne overenie voči serveru (ak bolo heslo zmenené na inom počítači kliniky)
+      isValid = await AuthService.verifyPasswordAsync(selectedUser.id, password);
+    }
     if (!isValid) {
       setIsSubmitting(false);
       const attemptRes = AuthService.recordFailedAttempt(selectedUser.id, selectedUser.email);

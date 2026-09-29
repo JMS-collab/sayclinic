@@ -1,4 +1,6 @@
 // Správa skladu, spotreby materiálu a objednávok pre SAY CLINIC
+import { RealtimeSyncService } from './realtimeSyncService';
+
 export type InventoryCategory = 
   | 'estetika' 
   | 'implantaty' 
@@ -640,6 +642,7 @@ export class InventoryService {
     try {
       localStorage.setItem(this.STORAGE_KEY_INVENTORY, JSON.stringify(items));
       window.dispatchEvent(new CustomEvent('say_clinic_inventory_changed', { detail: items }));
+      RealtimeSyncService.publish('inventory', items);
     } catch (e) {
       console.error('Chyba ukladania skladu:', e);
     }
@@ -668,6 +671,7 @@ export class InventoryService {
     try {
       localStorage.setItem(this.STORAGE_KEY_LOGS, JSON.stringify(logs));
       window.dispatchEvent(new CustomEvent('say_clinic_material_usage_logged', { detail: logs }));
+      RealtimeSyncService.publish('inventory_logs', logs);
     } catch (e) {
       console.error('Chyba ukladania logov spotreby:', e);
     }
@@ -900,6 +904,7 @@ export class InventoryService {
     try {
       localStorage.setItem(this.STORAGE_KEY_OPIATES, JSON.stringify(items));
       window.dispatchEvent(new CustomEvent('say_clinic_opiates_changed', { detail: items }));
+      RealtimeSyncService.publish('opiates', items);
     } catch (e) {
       console.error('Chyba ukladania katalógu opiátov:', e);
     }
@@ -926,6 +931,7 @@ export class InventoryService {
     try {
       localStorage.setItem(this.STORAGE_KEY_OPIATE_LOGS, JSON.stringify(logs));
       window.dispatchEvent(new CustomEvent('say_clinic_opiate_logs_changed', { detail: logs }));
+      RealtimeSyncService.publish('opiate_logs', logs);
     } catch (e) {
       console.error('Chyba ukladania knihy opiátov:', e);
     }

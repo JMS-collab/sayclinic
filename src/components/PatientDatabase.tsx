@@ -14,6 +14,7 @@ import PatientPlanViewer from './patient/PatientPlanViewer';
 import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
 import AIHealthRoadmapView from './patient/AIHealthRoadmapView';
 import { AuditLogService } from '../services/auditLogService';
+import { RealtimeSyncService } from '../services/realtimeSyncService';
 
 const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
   P1: [
@@ -164,6 +165,7 @@ export default function PatientDatabase({
     };
     setAllPatientPlans(newAll);
     localStorage.setItem('say_clinic_patient_plans', JSON.stringify(newAll));
+    RealtimeSyncService.publish('patient_plans', newAll);
     setSelectedPlanId(newPlan.id);
     setActiveFolder('plany');
   };
@@ -178,6 +180,7 @@ export default function PatientDatabase({
     };
     setAllPatientPlans(newAll);
     localStorage.setItem('say_clinic_patient_plans', JSON.stringify(newAll));
+    RealtimeSyncService.publish('patient_plans', newAll);
   };
 
   // STAV PRE PLÁNOVANIE TERMÍNOV PRIAMO Z KARTY PACIENTA
@@ -337,14 +340,45 @@ export default function PatientDatabase({
     }
   }, []);
 
-  // Uloženie záznamov do localStorage pri zmene
+  // Uloženie záznamov do localStorage pri zmene a real-time vysielanie ostatným počítačom
   useEffect(() => {
     try {
       localStorage.setItem('say_clinic_patient_records', JSON.stringify(patientRecords));
+      if (patientRecords && Object.keys(patientRecords).length > 0) {
+        RealtimeSyncService.publish('patient_records', patientRecords);
+      }
     } catch (e) {
       console.error('Chyba pri ukladaní záznamov do localStorage:', e);
     }
   }, [patientRecords]);
+
+  // Real-time odber pacientov, záznamov a liečebných plánov z ostatných počítačov v sieti kliniky
+  useEffect(() => {
+    const unsubPatients = RealtimeSyncService.subscribe('patients', (updated) => {
+      if (Array.isArray(updated) && updated.length > 0) {
+        setPatients(updated);
+        if (onPatientsUpdated) onPatientsUpdated(updated);
+      }
+    });
+
+    const unsubRecs = RealtimeSyncService.subscribe('patient_records', (updated) => {
+      if (updated && typeof updated === 'object') {
+        setPatientRecords(prev => ({ ...prev, ...updated }));
+      }
+    });
+
+    const unsubPlans = RealtimeSyncService.subscribe('patient_plans', (updated) => {
+      if (updated && typeof updated === 'object') {
+        setAllPatientPlans(prev => ({ ...prev, ...updated }));
+      }
+    });
+
+    return () => {
+      unsubPatients();
+      unsubRecs();
+      unsubPlans();
+    };
+  }, [onPatientsUpdated]);
 
   // Načítanie a sledovanie spotrebovaného materiálu pre vybraného pacienta
   const refreshPatientMaterials = () => {
@@ -529,6 +563,7 @@ export default function PatientDatabase({
     const updatedPatients = [createdPatient, ...patients];
     setPatients(updatedPatients);
     localStorage.setItem('say_clinic_patients', JSON.stringify(updatedPatients));
+    RealtimeSyncService.publish('patients', updatedPatients);
     if (onPatientsUpdated) onPatientsUpdated(updatedPatients);
     
     setIsAddingPatient(false);
@@ -558,6 +593,7 @@ export default function PatientDatabase({
     const updatedPatients = patients.map(p => p.id === editingPatient.id ? editingPatient : p);
     setPatients(updatedPatients);
     localStorage.setItem('say_clinic_patients', JSON.stringify(updatedPatients));
+    RealtimeSyncService.publish('patients', updatedPatients);
     if (onPatientsUpdated) onPatientsUpdated(updatedPatients);
 
     if (selectedPatient && selectedPatient.id === editingPatient.id) {
@@ -624,6 +660,7 @@ export default function PatientDatabase({
           const uniqueNew = importedList.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
           const updatedAll = [...uniqueNew, ...prev];
           localStorage.setItem('say_clinic_patients', JSON.stringify(updatedAll));
+          RealtimeSyncService.publish('patients', updatedAll);
           if (onPatientsUpdated) onPatientsUpdated(updatedAll);
           return updatedAll;
         });
