@@ -549,6 +549,13 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
   // Centrálna synchronizácia hesiel zo servera pri otvorení prihlasovania (zabezpečuje rovnaké heslo na všetkých počítačoch)
   useEffect(() => {
+    // Odstrániť zastarané passkey záznamy v prehliadači, ktoré spôsobovali chybové hlásenie "no passkeys available on the device"
+    try {
+      localStorage.removeItem('say_clinic_passkeys_v1');
+    } catch {
+      // ignore
+    }
+
     AuthService.syncWithServer().catch(err => {
       console.warn('Nepodarilo sa stiahnuť centrálne heslá zo servera:', err);
     });
@@ -1030,23 +1037,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                     </span>
                   )}
 
-                  {/* 1-klikové prihlásenie cez Passkey, ak je na tomto zariadení k dispozícii */}
-                  {PasskeyService.hasPasskey(u.id) && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePasskeyLogin(u);
-                      }}
-                      disabled={isPasskeyAuthenticating}
-                      className="mt-2 w-full py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#FAF4E8] to-[#FFFBF5] hover:from-[#F3E7CD] hover:to-[#FAF4E8] border border-[#C5A059]/60 text-[#8C6D2B] text-[9.5px] font-semibold shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      title="Prihlásiť sa 1 klikom cez Touch ID / Face ID"
-                    >
-                      <Fingerprint className="w-3.5 h-3.5 text-[#C5A059]" />
-                      <span>{isPasskeyAuthenticating && selectedUser?.id === u.id ? 'Overujem...' : '1-klik Touch ID'}</span>
-                    </button>
-                  )}
-
                   {/* TLAČIDLO PRE ZADANIE HESLA */}
                   <button
                     type="button"
@@ -1054,9 +1044,9 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                       e.stopPropagation();
                       handleSelectUser(u);
                     }}
-                    className={`${PasskeyService.hasPasskey(u.id) ? 'mt-1.5 bg-white/70 hover:bg-white text-[#2C2A29] border border-[#E8E2D9]' : 'mt-2.5 bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white'} w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer`}
+                    className="mt-2.5 bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
                   >
-                    <span>Heslo</span>
+                    <span>Zadať heslo</span>
                     <span className="text-[#C5A059]">→</span>
                   </button>
                 </div>
@@ -1183,34 +1173,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               </div>
             )}
 
-            {/* PASSKEY 1-KLIKOVÁ BIOMETRIA BANNER */}
-            {PasskeyService.hasPasskey(selectedUser.id) && lockoutRemaining === 0 && (
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#FAF4E8] via-[#FFFDF9] to-[#FAF4E8] border border-[#C5A059]/60 shadow-xs flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-white shadow-xs text-[#C5A059]">
-                    <Fingerprint className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <span className="text-xs font-semibold text-[#2C2A29] block">
-                      Aktivovaný Passkey (Touch ID / Face ID)
-                    </span>
-                    <span className="text-[10px] text-[#8C857B]">
-                      Prihláste sa bleskovo priložením prsta bez hesla
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handlePasskeyLogin(selectedUser)}
-                  disabled={isPasskeyAuthenticating}
-                  className="px-3.5 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-semibold shadow-xs hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Fingerprint className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>{isPasskeyAuthenticating ? 'Overujem...' : '1-klik Touch ID'}</span>
-                </button>
-              </div>
-            )}
-
             <div>
               <label className="block text-xs font-medium text-[#2C2A29] mb-1.5">
                 Prístupové heslo
@@ -1240,20 +1202,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-
-              {/* Rýchly pomocník pre počiatočné heslo */}
-              {lockoutRemaining === 0 && (
-                <div className="mt-2 flex items-center justify-between bg-[#FAF8F5]/80 border border-[#E8E2D9] px-3 py-1.5 rounded-xl text-[11px] text-[#5C554F]">
-                  <span>Predvolené klinické heslo: <strong className="font-mono text-[#2C2A29]">SayClinic2026!</strong></span>
-                  <button
-                    type="button"
-                    onClick={() => setPassword('SayClinic2026!')}
-                    className="text-[#C5A059] hover:underline font-semibold ml-2 cursor-pointer"
-                  >
-                    Vyplniť
-                  </button>
-                </div>
-              )}
             </div>
 
             {errorMsg && (
@@ -1326,39 +1274,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   </>
                 )}
               </button>
-            </div>
-
-            {/* RÝCHLE SSO PRIHLÁSENIE PRE VYBRANÉHO POUŽÍVATEĽA */}
-            <div className="pt-4 border-t border-white/60">
-              <p className="text-[10px] text-[#8C857B] text-center mb-2 font-medium">
-                Alebo priame prihlásenie bez hesla:
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleGoogleWorkspaceLogin(selectedUser)}
-                  className="flex-1 py-2 px-2 rounded-xl bg-white/70 hover:bg-white border border-white/80 text-[10px] font-semibold text-[#2C2A29] flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-                  <span>Google</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMicrosoftLogin(selectedUser)}
-                  className="flex-1 py-2 px-2 rounded-xl bg-white/70 hover:bg-white border border-white/80 text-[10px] font-semibold text-[#2C2A29] flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 23 23"><path fill="#f35325" d="M1 1h10v10H1z"/><path fill="#81bc06" d="M12 1h10v10H12z"/><path fill="#05a6f0" d="M1 12h10v10H1z"/><path fill="#ffba08" d="M12 12h10v10H12z"/></svg>
-                  <span>Microsoft</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAppleLogin(selectedUser)}
-                  className="flex-1 py-2 px-2 rounded-xl bg-white/70 hover:bg-white border border-white/80 text-[10px] font-semibold text-[#2C2A29] flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5 fill-[#2C2A29]" viewBox="0 0 170 170"><path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.08-7.7-7.94-12.04-14.58-6.17-9.42-10.9-19.98-14.2-31.69-3.3-11.71-4.95-23.08-4.95-34.1 0-14.89 3.86-27.18 11.58-36.87 7.72-9.69 17.51-14.65 29.37-14.88 4.58 0 9.82 1.17 15.74 3.52 5.92 2.34 9.68 3.57 11.28 3.69 1.93-.24 5.94-1.57 12.04-4 6.1-2.43 11.43-3.56 16-3.39 12.35.58 22.37 4.96 30.07 13.14-10.82 6.56-16.14 15.76-15.96 27.6.24 9.77 4.09 17.9 11.55 24.39 7.46 6.49 16.36 10.22 26.7 11.19-2.22 6.81-4.79 13.43-7.71 19.86zM119.22 31.84c0-7.14 2.66-13.88 7.97-20.21 5.31-6.33 11.83-10.37 19.56-12.13.22 1.25.33 2.33.33 3.24 0 7.23-2.76 14.13-8.28 20.7-5.52 6.57-12.14 10.51-19.86 11.82-.28-.9-.39-1.7-.39-2.42z"/></svg>
-                  <span>Apple ID</span>
-                </button>
-              </div>
             </div>
           </form>
         </div>
