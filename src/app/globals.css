@@ -62,4 +62,14 @@
     box-shadow: none !important;
     background: #ffffff !important;
   }
+
+  /* When printing an A6 prescription, suppress A4 printable documents and margins */
+  body:has(#sevt-a6-prescription-document) #printable-a4,
+  body:has(#sevt-a6-prescription-document) .printable-document {
+    display: none !important;
+  }
+  body:has(#sevt-a6-prescription-document) {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 }

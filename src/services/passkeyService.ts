@@ -168,8 +168,12 @@ export const PasskeyService = {
         message: `Biometrický Passkey (${deviceLabel}) bol úspešne aktivovaný pre ${user.name}.`,
       };
     } catch (err: any) {
-      console.warn('Registrácia Passkey zlyhala:', err);
       const isIframe = typeof window !== 'undefined' && window.self !== window.top;
+      if (err?.name === 'NotAllowedError' && isIframe) {
+        console.info('Registrácia Passkey: iFrame nepovolil WebAuthn, odporúča sa samostatné okno alebo 2FA.');
+      } else {
+        console.warn('Registrácia Passkey zlyhala:', err?.message || err);
+      }
       let message = 'Aktivácia Passkey bola zrušená alebo zlyhala.';
       if (err?.name === 'NotAllowedError') {
         message = isIframe
