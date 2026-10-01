@@ -33,12 +33,13 @@ import { PasskeyService } from '../services/passkeyService';
 import { DevicePinAuth } from './DevicePinAuth';
 import { DevicePinService } from '../services/devicePinService';
 import { googleSignIn } from '../lib/workspaceAuth';
+import { UserService } from '../services/userService';
 
 export interface UserAccount {
   id: string;
   name: string;
   email: string;
-  role: 'doctor' | 'manager' | 'nurse' | 'ceo';
+  role: 'doctor' | 'manager' | 'nurse' | 'ceo' | 'receptionist';
   title: string;
   avatarBg: string;
   avatarUrl?: string;
@@ -97,7 +98,7 @@ export const SAY_CLINIC_USERS: UserAccount[] = [
     role: 'nurse',
     title: 'Zdravotná sestra',
     avatarBg: 'bg-[#2A4736]',
-    avatarUrl: ''
+    avatarUrl: '/avatars/foltani.jpg?v=3'
   },
   {
     id: 'u7',
@@ -115,7 +116,7 @@ export const SAY_CLINIC_USERS: UserAccount[] = [
     role: 'doctor',
     title: 'Anesteziológ (OAIM)',
     avatarBg: 'bg-[#2E3C48]',
-    avatarUrl: ''
+    avatarUrl: '/avatars/anesteziolog.jpg?v=3'
   },
   {
     id: 'u9',
@@ -130,10 +131,10 @@ export const SAY_CLINIC_USERS: UserAccount[] = [
     id: 'u10',
     name: 'Viktória Foltániová',
     email: 'foltaniova@sayclinic.sk',
-    role: 'nurse',
-    title: 'Zdravotná sestra',
-    avatarBg: 'bg-[#2A4736]',
-    avatarUrl: ''
+    role: 'receptionist',
+    title: 'Recepčná & Koordinátorka',
+    avatarBg: 'bg-[#4C1D95]',
+    avatarUrl: '/avatars/foltaniova.jpg?v=3'
   },
 ];
 

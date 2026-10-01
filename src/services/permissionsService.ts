@@ -1,6 +1,6 @@
 import { UserAccount } from '../components/LoginForm';
 
-export type RoleType = 'ceo' | 'doctor' | 'manager' | 'nurse';
+export type RoleType = 'ceo' | 'doctor' | 'manager' | 'nurse' | 'receptionist';
 
 export type TabId = 
   | 'home' 
@@ -222,13 +222,25 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
       view_clinic_pnl: false,
       manage_invoices: true,
       reset_financial_data: false,
+      manage_permissions: true,
+    }
+  },
+
+  // 4. ZDRAVOTNÁ SESTRA (Ema Foltáni, Sabina Lenhartová, anest. sestra)
+  nurse: {
+    allowedTabs: ['home', 'patients', 'prescriptions', 'generator', 'calendar', 'inventory'],
+    specialPermissions: {
+      view_financial_kpis: false,
+      view_clinic_pnl: false,
+      manage_invoices: false,
+      reset_financial_data: false,
       manage_permissions: false,
     }
   },
 
-  // 4. ZDRAVOTNÁ SESTRA (Ema Foltáni, Sabina Lenhartová, Viktória Foltániová, anest. sestra)
-  nurse: {
-    allowedTabs: ['home', 'patients', 'prescriptions', 'generator', 'calendar', 'inventory'],
+  // 5. RECEPČNÁ & KOORDINÁTORKA (Viktória Foltániová)
+  receptionist: {
+    allowedTabs: ['home', 'patients', 'calendar'],
     specialPermissions: {
       view_financial_kpis: false,
       view_clinic_pnl: false,
@@ -239,10 +251,16 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
   }
 };
 
-const STORAGE_KEY = 'say_clinic_role_permissions_v2';
+const STORAGE_KEY = 'say_clinic_role_permissions_v3';
 const SIMULATED_ROLE_KEY = 'say_clinic_simulated_role';
 
 export const PermissionsService = {
+  // Overí, či má používateľ právo spravovať systém (CEO a Manažment)
+  canUserManageSystem(user: UserAccount | null): boolean {
+    if (!user) return false;
+    return user.role === 'ceo' || user.role === 'manager' || user.email === 'mraz@sayclinic.sk' || user.id === 'u1';
+  },
+
   // Načítanie aktuálnych oprávnení rolí z úložiska
   getAllPermissions(): Record<RoleType, RolePermissionConfig> {
     if (typeof window === 'undefined') {
@@ -258,6 +276,7 @@ export const PermissionsService = {
           doctor: { ...RECOMMENDED_ROLE_PERMISSIONS.doctor, ...parsed.doctor },
           manager: { ...RECOMMENDED_ROLE_PERMISSIONS.manager, ...parsed.manager },
           nurse: { ...RECOMMENDED_ROLE_PERMISSIONS.nurse, ...parsed.nurse },
+          receptionist: { ...RECOMMENDED_ROLE_PERMISSIONS.receptionist, ...parsed.receptionist },
         };
       }
     } catch (e) {
@@ -286,21 +305,21 @@ export const PermissionsService = {
     return RECOMMENDED_ROLE_PERMISSIONS;
   },
 
-  // Získanie efektívnej roly používateľa (s podporou dočasného náhľadu/simulácie pre CEO)
+  // Získanie efektívnej roly používateľa (s podporou dočasného náhľadu/simulácie pre CEO a manažment)
   getEffectiveRole(user: UserAccount | null): RoleType {
     if (!user) return 'nurse';
-    // Ak je používateľ CEO a má aktívnu simuláciu inej roly
-    const isCeo = user.role === 'ceo' || user.email === 'mraz@sayclinic.sk' || user.id === 'u1';
-    if (isCeo && typeof window !== 'undefined') {
+    // Ak je používateľ CEO / Manažér a má aktívnu simuláciu inej roly
+    const canSimulate = user.role === 'ceo' || user.role === 'manager' || user.email === 'mraz@sayclinic.sk' || user.id === 'u1';
+    if (canSimulate && typeof window !== 'undefined') {
       const sim = localStorage.getItem(SIMULATED_ROLE_KEY) as RoleType | null;
-      if (sim && (sim === 'ceo' || sim === 'doctor' || sim === 'manager' || sim === 'nurse')) {
+      if (sim && (sim === 'ceo' || sim === 'doctor' || sim === 'manager' || sim === 'nurse' || sim === 'receptionist')) {
         return sim;
       }
     }
     return user.role;
   },
 
-  // Nastavenie náhľadu roly (pre CEO)
+  // Nastavenie náhľadu roly (pre CEO a manažment)
   setSimulatedRole(role: RoleType | null): void {
     if (typeof window === 'undefined') return;
     if (role === null) {
@@ -353,8 +372,9 @@ export const PermissionsService = {
     switch (role) {
       case 'ceo': return 'CEO & Primár';
       case 'doctor': return 'Lekár / Chirurg';
-      case 'manager': return 'Klinický Manažment & Recepcia';
+      case 'manager': return 'Klinický Manažment';
       case 'nurse': return 'Zdravotná sestra';
+      case 'receptionist': return 'Recepčná & Koordinátorka';
     }
   },
 
@@ -365,6 +385,7 @@ export const PermissionsService = {
       case 'doctor': return 'bg-sky-50 text-sky-800 border-sky-200';
       case 'manager': return 'bg-amber-50 text-amber-900 border-amber-200';
       case 'nurse': return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      case 'receptionist': return 'bg-purple-50 text-purple-900 border-purple-200';
     }
   }
 };

@@ -676,16 +676,16 @@ export default function Home() {
               </p>
             </div>
             
-            {/* TLAČIDLO PRE SPRÁVU OPRÁVNENÍ (LEN PRE CEO) */}
-            {isRealCeo && (
+            {/* TLAČIDLO PRE SPRÁVU OPRÁVNENÍ A PERSONÁLU (PRE CEO A MANAŽMENT) */}
+            {(isRealCeo || currentUser.role === 'manager') && (
               <button
                 type="button"
                 onClick={() => setShowRolePermissionsModal(true)}
-                title="Správa oprávnení a rolí SAY CLINIC"
+                title="Správa oprávnení, rolí a profilov personálu SAY CLINIC"
                 className="p-1.5 text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] rounded-lg border border-transparent hover:border-[#E8E2D9] transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <Shield className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span className="hidden lg:inline text-[11px] font-bold text-[#2C2A29]">Oprávnenia</span>
+                <span className="hidden lg:inline text-[11px] font-bold text-[#2C2A29]">Oprávnenia & Tím</span>
               </button>
             )}
 

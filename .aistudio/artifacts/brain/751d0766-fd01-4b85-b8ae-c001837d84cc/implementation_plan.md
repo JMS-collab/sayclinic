@@ -1,132 +1,114 @@
-# Implementačný plán: AI Klinický súhrn klienta (Časová os, Riziká & Odporúčania)
+# Implementačný plán: Správa oprávnení & Profilov tímu (CEO + Manažment) a Genmoji avatary
 
-Tento plán špecifikuje implementáciu inteligentného AI klinického súhrnu pre **Centrum pacienta** a bočný panel `PatientTimelineSidebar`. Systém pomocou Gemini 3.8 Flash automaticky analyzuje kompletnú dostupnú históriu pacienta (anamnézu, lekárske správy, operácie, botox/výplne, termíny, recepty a súbory z Google Drive) a vytvorí vysoko štruktúrovaný, okamžite zrozumiteľný súhrn pre lekára počas vyšetrenia.
+Tento plán špecifikuje rozšírenie správy oprávnení a rolí pre **CEO a Manažment**, integrované pridávanie a úpravu profilov personálu priamo v okne oprávnení, zavedenie samostatnej roly **Recepčná** pre Viktóriu s prístupom do kartotéky a kalendára, a aktualizáciu štýlových Genmoji avatarov pre Viktóriu, Emu a anesteziológa.
 
 ---
 
 ## Používateľské rozhodnutia & Potvrdené preferencie
 
 > [!IMPORTANT]
-> Na základe Vašich priamych odpovedí boli stanovené tieto kľúčové princípy:
+> Na základe Vašich priamych odpovedí boli schválené tieto kľúčové riešenia:
 
-1. **Vždy čerstvá aktualizácia**: AI súhrn sa automaticky generuje a udržiava čerstvý pri otvorení karty a pri každej zmene v dokumentácii (pridanie správy, poznámky, receptu, termínu), s možnosťou manuálneho okamžitého prepočtu (tlačidlo *Aktualizovať AI súhrn*).
-2. **Kompletné dátové zdroje**: Do analýzy vstupujú všetky dostupné informácie o klientovi:
-   - Základné klientske a anamnestické dáta (vek, pohlavie, poisťovňa, známe diagnózy)
-   - Lekárske správy, nálezy, prepúšťacie správy a operačné protokoly
-   - Záznamy z estetickej medicíny (aplikácie botulotoxínu a dermálnych výplní, jednotky, šarže, lokality)
-   - Vystavené lekárske recepty a lieková história
-   - História a plánované termíny operačných sál a kontrol
-   - Zoznam a metadáta dokumentov z priečinka pacienta na Google Drive
-   - Operatívne poznámky tímu a doterajšie alergie
-3. **Štruktúrované zobrazenie v bočnom paneli**:
-   - 🚨 **Kritické riziká & Alergie** (červený/jantárový varovný blok na vrchu: liekové alergie, kontraindikácie, riziká hojenia, predchádzajúce komplikácie)
-   - ⏱️ **Inteligentná chronologická časová os** (zjednotený časový sled kľúčových míľnikov od najnovších po najstaršie)
-   - 💡 **Klinické odporúčania & Ďalšie kroky** (konkrétne odporúčania pre ošetrujúceho lekára na základe celkovej histórie)
+1. **Prístup k oprávneniam a správe profilov výhradne pre CEO a Manažment**:
+   - Tlačidlo a správa oprávnení v hornej lište je prístupná pre roly `ceo` a `manager`.
+   - CEO a manažment môžu meniť maticu oprávnení, simulovať pohľady a priamo spravovať personál.
+2. **Zlúčenie správy profilov do existujúceho okna Pravomoci a role**:
+   - V okne oprávnení pribudne plnohodnotná záložka pre **Správu personálu a profilov**.
+   - Možnosť pridávať nových zamestnancov, upravovať mená, funkcie, emaily, role a avatary.
+3. **Nová samostatná rola „Recepčná“**:
+   - Vytvorenie roly `receptionist` v systéme oprávnení.
+   - Predvolený prístup: `home` (Prehľad), `patients` (Kartotéka) a `calendar` (Kalendár). Bez prístupu k P&L, financiám a správe systému.
+   - Viktória Foltániová bude priradená ako Recepčná.
+4. **Vizuálny štýl avatarov – Genmoji**:
+   - Zachovanie existujúceho 3D Genmoji/Memoji štýlu:
+     - **Viktória (Recepčná)**: 3D Genmoji tvár s dlhými čiernymi vlasmi a modernými okuliarmi.
+     - **Ema (Zdravotná sestra)**: 3D Genmoji tvár s čiernymi vlasmi a v zdravotníckom odeve.
+     - **Anesteziológ**: 3D Genmoji tvár bieleho Európana s krátkymi vlasmi v anesteziologickom odeve.
 
 ---
 
 ## 1. Prehľad & Hlavný koncept
 
-- **Čo to robí**: Bočný panel pacienta sa mení zo statického zoznamu na živý **AI Clinical Intelligence Panel**. Lekár jedným pohľadom získa syntézu všetkých roztrúsených informácií bez nutnosti otvárať jednotlivé PDF súbory, zložky alebo externé disky.
-- **Cieľová skupina**: Ošetrujúci lekári (plastický chirurg, dermatológ), zdravotné sestry a koordinátorky SAY CLINIC počas ambulantného vyšetrenia, predoperačnej konzultácie alebo kontroly.
-- **Kľúčová hodnota**: Maximálna bezpečnosť pacienta (okamžité odhalenie kontraindikácií), úspora času (lekár nemusí čítať 10 rôznych správ) a kontinuita starostlivosti.
+- **Cieľ**: Dať vedeniu kliniky (CEO MUDr. Ján Mráz a Manažment Ing. Barbara Mecerodová) plnú autonómiu pri správe prístupových práv, tvorbe tímových účtov a úprave osobných údajov personálu bez nutnosti zásahu programátora.
+- **Rola Recepčná**: Recepcia potrebuje okamžitý prehľad o prichádzajúcich klientoch (Kartotéka) a objednávaní termínov na konzultácie a operácie (Kalendár), pričom medicínske protokoly či interné financie zostávajú chránené.
 
 ---
 
 ## 2. Používateľská skúsenosť & Vizuálny dizajn (Frontend Design)
 
-### Kľúčové toky lekára
-1. **Otvorenie karty pacienta**: V bočnom paneli sa zobrazí prémiový blok AI súhrnu. Ak už bol pre pacienta vygenerovaný a dáta sa nezmenili, načíta sa z lokálnej vyrovnávacej pamäte s časovou pečiatkou (napr. *Aktualizované dnes o 11:20*).
-2. **Automatická detekcia zmien**: Ak lekár vystaví nový recept, pridá záznam alebo naplánuje operáciu, v paneli sa diskrétne zobrazí indikátor synchronizácie a AI súhrn sa čerstvo prepočíta na pozadí.
-3. **Manuálne prepočítanie**: Tlačidlo *„Obnoviť AI súhrn“* s jemnou rotáciou ikony pre prípad, že pribudli externé súbory na Google Drive.
-
-### Vizuálna hierarchia a dizajn (SAY CLINIC Elegance)
-- **Zero-Pill & Anti-Slop Disciplína**: Vyhýbame sa krikľavým bublinám. Používame čisté typografické členenie, jemné farebné tóny a jasné ohraničenia:
-  - **Varovný blok rizikových faktorov**: Tlmený krémovo-červenkastý podklad (`bg-rose-50/70 border border-rose-200/80`), jasné červené odrážky pre liekové alergie (Penicilín, Mesocain), jantárové pre interné riziká (keloidy, hypertenzia, antikoncepcia).
-  - **Klinická časová os (Timeline)**: Vertikálna linka vo farbe `#E8E2D9` s decentnými uzlami podľa typu udalosti (operácia, kontrola, botox, recept, externý dokument).
-  - **Odporúčania pre lekára**: Elegantný zlatistý blok (`border-l-2 border-[#C5A059] bg-[#FAF8F5] p-3 text-xs`) so zhrnutím ďalších potrebných krokov (napr. *„Vysadiť HAK 4 týždne pred plánovanou augmentáciou, skontrolovať koagulácie“*).
-- **Stav načítavania (Skeleton State)**: Žiadne skákajúce rozhranie – pri generovaní sa zobrazuje decentný pulzujúci skelet s textom *„Gemini AI analyzuje dokumentáciu a Google Drive súbory...“*.
+### Používateľský tok pre CEO a Manažéra
+1. **Otvorenie správy z hlavičky**:
+   - Pri prihlásenom CEO alebo manažérovi svieti v hlavičke ikona `🛡️ Oprávnenia & Tím`.
+2. **Okno „Oprávnenia & Personál SAY CLINIC“**:
+   - Záložka 1: **Matica oprávnení** (nastavenie záložiek pre CEO, Lekár, Manažér, Sestra, Recepčná).
+   - Záložka 2: **Členovia tímu & Profily** (karty zamestnancov s ich Genmoji avatarom, rolou, emailom a tlačidlami *Upraviť* a *Pridať člena tímu*).
+   - Záložka 3: **Testovanie rolí (Simulácia)** (okamžitý náhľad, ako systém vidí lekár, sestra či recepčná).
+3. **Formulár úpravy profilu**:
+   - Editácia celého mena a titulu.
+   - Zmena roly (CEO, Lekár, Manažment, Sestra, Recepčná).
+   - Výber / zmena Genmoji avatara alebo nahratie vlastnej fotografie.
+   - Nastavenie prihlasovacieho emailu.
 
 ---
 
 ## 3. Produktové a technické rozhodnutia
 
-- **Model**: `gemini-3.8-flash` cez `@google/genai` (rýchla odozva do 2 sekúnd, vysoká medicínska presnosť pri syntéze anamnézy a štruktúrovanom JSON výstupe).
-- **Backend Proxy**: Bezpečný serverový route `/api/ai/patient-summary` chránený serverovým kľúčom `GEMINI_API_KEY` (kľúč nikdy neopustí server).
-- **Cache & Zmeny**: Každý vygenerovaný súhrn sa ukladá lokálne s kontrolným hashom/dátumom posledných záznamov pacienta. Pri zmene záznamov alebo požiadavke sa okamžite vyvolá nová syntéza.
-- **Fallback pri nedostupnosti**: Ak by API zlyhalo alebo nebolo online pripojenie, panel plynule prejde na lokálny deterministický súhrn (posledné záznamy a evidované alergie z lokálnej databázy).
+- **Rozšírenie `RoleType`**:
+  - `export type RoleType = 'ceo' | 'doctor' | 'manager' | 'nurse' | 'receptionist';`
+  - V `permissionsService.ts` definovaná predvolená konfigurácia pre `receptionist`:
+    - `allowedTabs: ['home', 'patients', 'calendar']`
+    - `specialPermissions`: všetky na `false`.
+- **Perzistencia profilov**:
+  - Tímové profily sa ukladajú v `say_clinic_custom_users_v1` a inicializujú zo `SAY_CLINIC_USERS`.
+  - Zmeny v profile (meno, rola, avatar) sa okamžite prejavia v celom systéme (hlavička, autor zápisov, prihlasovanie).
+- **Vizuálne Genmoji aktíva**:
+  - Vygenerovanie a nastavenie precíznych 3D Genmoji portrétov:
+    - `/public/avatars/foltaniova.jpg` – Viktória: čierne dlhé vlasy, štýlové okuliare, úsmev, recepcia.
+    - `/public/avatars/foltani.jpg` – Ema: čierne vlasy, zdravotnícka halena.
+    - `/public/avatars/anesteziolog.jpg` – Anesteziológ: biely európan, krátke vlasy, OAIM úbor.
 
 ---
 
-## 4. Technická architektúra & Dátový tok
+## 4. Technická architektúra & Dátová stratégia
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        Centrum Pacienta (UI)                           │
-│   (PatientDatabase.tsx / PatientTimelineSidebar.tsx)                  │
+│                        Hlavička Aplikácie (Header)                     │
+│    (Viditeľné pre currentUser.role === 'ceo' || 'manager')             │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │ 1. Zhromaždenie dát pacienta
+                                    │ Otvorenie modalu
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Aggregator dát klienta:                                                │
-│  - Profil (vek, diagnózy, kontakt)                                    │
-│  - Lekárske správy & operácie (patientRecords)                        │
-│  - Botox & výplne (aestheticSessions)                                 │
-│  - Recepty (prescriptions)                                            │
-│  - Kalendár sál & kontroly (calendarEvents)                           │
-│  - Google Drive zoznam súborov (Google Drive API / metadata)          │
-│  - Existujúce klinické poznámky                                       │
+│                    RolePermissionsModal.tsx                            │
+│  ┌───────────────────────┬──────────────────────┬───────────────────┐  │
+│  │ 1. Matica oprávnení   │ 2. Profily tímu (NEW)│ 3. Simulácia rolí │  │
+│  │  (CEO/Dr/Mgr/Sestra/  │  - Pridať člena      │  (Testovanie      │  │
+│  │   Recepčná)           │  - Upraviť profil    │   pohľadov)       │  │
+│  │                       │  - Zmena Genmoji     │                   │  │
+│  └───────────────────────┴──────────────────────┴───────────────────┘  │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │ 2. POST /api/ai/patient-summary
+                                    │ Ukladanie zmien
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Next.js Server Route: /api/ai/patient-summary                          │
-│  - Validácia relácie a vstupných dát                                   │
-│  - Príprava medicínskeho systémového promptu                          │
-│  - Gemini 3.8 Flash (@google/genai SDK)                               │
-│  - Štruktúrovaný výstup: { risks, timeline, recommendations }          │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │ 3. JSON odpoveď
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ Zobrazenie v PatientTimelineSidebar:                                   │
-│  - 🚨 Blok kritických alergií a klinických rizikových faktorov        │
-│  - ⏱️ Syntetizovaná vertikálna časová os výkonov                      │
-│  - 💡 Odporúčania pre ďalší postup a predoperačnú prípravu             │
-│  - Možnosť 1-klik pridania novej klinickej poznámky do systému        │
+│  - PermissionsService (say_clinic_role_permissions_v1)                 │
+│  - AuthService & UserService (say_clinic_custom_users_v1)             │
+│  - LiquidAvatar (MEMOJI_MAP s novými Genmoji portrétmi)                │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Dátová štruktúra výstupu AI:
-```ts
-export interface AIPatientSummary {
-  patientId: string;
-  generatedAt: string;
-  criticalAlerts: {
-    allergies: { substance: string; reaction: string; severity: 'critical' | 'warning' }[];
-    contraindications: string[];
-    surgicalRisks: string[];
-  };
-  timelineMilestones: {
-    date: string;
-    category: 'surgery' | 'aesthetic' | 'consultation' | 'prescription' | 'document' | 'external_drive';
-    title: string;
-    summary: string;
-    doctorOrSource?: string;
-  }[];
-  clinicalRecommendations: string[];
-  generalStatus: string;
-}
-```
-
 ---
 
-## 5. Kroky implementácie po schválení
+## 5. Kroky realizácie po schválení
 
-1. **Vytvorenie API Endpointu**: `/src/app/api/ai/patient-summary/route.ts` s volaním `gemini-3.8-flash`, detailným medicínskym promptom a typovaným JSON výstupom.
-2. **Rozšírenie zberu dát**: V `PatientDatabase.tsx` a `PatientTimelineSidebar.tsx` agregovať dáta o pacientovi vrátane Drive metadát, záznamov, botoxu, receptov a kalendára.
-3. **Redizajn `PatientTimelineSidebar.tsx`**:
-   - Vytvorenie čistých štruktúrovaných sekcií pre kritické riziká, časovú os a odporúčania.
-   - Stav načítavania, tlačidlo okamžitého obnovenia a indikátor poslednej aktualizácie.
-   - Možnosť prepínania medzi AI súhrnom a podrobným manuálnym zoznamom poznámok.
-4. **Kompilácia a verifikácia**: Testovanie odozvy, overenie spracovania reálnych klientskych dát a kontrola stavu bez chýb (`compile_applet`).
+1. **Doplnenie Genmoji obrázkov**:
+   - Vytvorenie a umiestnenie 3D Genmoji avatarov pre Viktóriu (čierne dlhé vlasy a okuliare), Emu (čierne vlasy) a Anesteziológa (biely európan, krátke vlasy) do `/public/avatars/`.
+2. **Aktualizácia `permissionsService.ts`**:
+   - Pridanie roly `receptionist` do typov a matice predvolených oprávnení (`['home', 'patients', 'calendar']`).
+3. **Rozšírenie `RolePermissionsModal.tsx`**:
+   - Prístupnosť pre `isRealCeo || currentUser.role === 'manager'`.
+   - Implementácia interaktívnej záložky **Profily tímu** s možnosťou úpravy mena, titulu, roly, emailu a pridania nového člena.
+4. **Prepojenie v `page.tsx` a `LoginForm.tsx`**:
+   - Zobrazenie tlačidla Oprávnenia aj pre manažéra.
+   - Aktualizácia predvoleného profilu Viktórie na rolu Recepčná.
+5. **Verifikácia a testovanie**:
+   - Preverenie prepínania rolí, ukladania profilov a zobrazenia avatarov bez chýb kompilácie.

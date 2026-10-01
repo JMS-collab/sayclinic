@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementačný plán pre AI klinický súhrn klienta: prepojenie kompletnej anamnézy, lekárskych záznamov, estetických sedení a Google Drive súborov do štruktúrovanej časovej osi, rizikových varovaní a odporúčaní pomocou Gemini 3.8 Flash.",
-  "updatedAt":  "2026-10-01T18:42:39.360624797Z",
+  "summary":  "Implementačný plán pre správu oprávnení a profilov tímu pre CEO a Manažment, zavedenie novej roly Recepčná (Viktória), úpravu profilov a generovanie štýlových Genmoji avatarov (Viktória s okuliarmi a dlhými čiernymi vlasmi, Ema s čiernymi vlasmi, anesteziológ biely Európan s krátkymi vlasmi).",
+  "updatedAt":  "2026-10-01T18:56:03.672451979Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

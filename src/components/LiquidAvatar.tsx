@@ -5,8 +5,9 @@ import React, { useState } from 'react';
 interface AvatarProps {
   id: string;
   name: string;
-  role: 'doctor' | 'manager' | 'nurse' | 'ceo';
+  role: 'doctor' | 'manager' | 'nurse' | 'ceo' | 'receptionist';
   className?: string;
+  avatarUrl?: string;
 }
 
 const MEMOJI_MAP: Record<string, string> = {
@@ -15,16 +16,16 @@ const MEMOJI_MAP: Record<string, string> = {
   u3: '/avatars/tran.jpg?v=2',
   u4: '/avatars/mecerodova.jpg?v=2',
   u5: '/avatars/solivajsova.jpg?v=2',
-  u6: '/avatars/foltani.jpg?v=2',
+  u6: '/avatars/foltani.jpg?v=3',
   u7: '/avatars/lenhartova.jpg?v=2',
-  u8: '/avatars/anesteziolog.jpg?v=1',
+  u8: '/avatars/anesteziolog.jpg?v=3',
   u9: '/avatars/anest_sestra.jpg?v=1',
-  u10: '/avatars/foltaniova.jpg?v=1',
+  u10: '/avatars/foltaniova.jpg?v=3',
 };
 
-export function LiquidAvatar({ id, name, role, className = "w-full h-full" }: AvatarProps) {
+export function LiquidAvatar({ id, name, role, className = "w-full h-full", avatarUrl }: AvatarProps) {
   const [imgError, setImgError] = useState(false);
-  const memojiSrc = MEMOJI_MAP[id] || '/avatars/mraz.jpg';
+  const memojiSrc = avatarUrl || MEMOJI_MAP[id] || '/avatars/mraz.jpg';
 
   if (!imgError) {
     return (
