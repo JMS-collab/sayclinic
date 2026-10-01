@@ -30,6 +30,8 @@ import { AuthService } from '../services/authService';
 import { TotpService } from '../services/totpService';
 import { AuditLogService } from '../services/auditLogService';
 import { PasskeyService } from '../services/passkeyService';
+import { DevicePinAuth } from './DevicePinAuth';
+import { DevicePinService } from '../services/devicePinService';
 import { googleSignIn } from '../lib/workspaceAuth';
 
 export interface UserAccount {
@@ -153,7 +155,7 @@ interface LoginFormProps {
   onLoginSuccess: (user: UserAccount, rememberMe?: boolean) => void;
 }
 
-type AuthStep = 'select_user' | 'password' | 'passkey' | '2fa' | 'reset_password';
+type AuthStep = 'select_user' | 'password' | 'device_pin' | 'passkey' | '2fa' | 'reset_password';
 
 function maskEmail(email: string): string {
   const parts = email.split('@');
@@ -785,9 +787,8 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       return;
     }
 
-    // Úspešné overenie heslom - okamžitý vstup do systému SAY CLINIC
-    AuthService.saveSession(selectedUser, rememberMe, 'HESLO');
-    onLoginSuccess(selectedUser, rememberMe);
+    // Úspešné primárne overenie heslom - prechod na overenie 4-miestneho PINu viazaného na zariadenie (machineId)
+    setStep('device_pin');
   };
 
   const handle2FASubmit = async (e: React.FormEvent) => {
@@ -986,7 +987,14 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               {users.map(u => (
                 <div
                   key={u.id}
-                  onClick={() => handleSelectUser(u)}
+                  onClick={() => {
+                    if (DevicePinService.isEligibleForSameDayPinOnly(u.id)) {
+                      setSelectedUser(u);
+                      setStep('device_pin');
+                    } else {
+                      handleSelectUser(u);
+                    }
+                  }}
                   className="group flex flex-col items-center cursor-pointer transition-all duration-400 w-32 sm:w-36 text-center"
                 >
                   {/* LIQUID GLASS GULA AVATARA */}
@@ -1037,82 +1045,49 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                     </span>
                   )}
 
-                  {/* TLAČIDLO PRE ZADANIE HESLA */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSelectUser(u);
-                    }}
-                    className="mt-2.5 bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <span>Zadať heslo</span>
-                    <span className="text-[#C5A059]">→</span>
-                  </button>
+                  {/* AK JE POUŽÍVATEĽ DNES OVERENÝ HESLOM NA TEJTO STANICI: RÝCHLY PIN BEZ HESLA */}
+                  {DevicePinService.isEligibleForSameDayPinOnly(u.id) ? (
+                    <div className="mt-2.5 w-full space-y-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedUser(u);
+                          setStep('device_pin');
+                        }}
+                        className="bg-gradient-to-r from-[#C5A059] to-[#9C7D3D] hover:from-[#B89248] hover:to-[#8A6C30] text-white w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        title="Dnes už overené heslom – stačí rýchly 4-miestny PIN"
+                      >
+                        <KeyRound className="w-3 h-3" />
+                        <span>Rýchly PIN (dnes)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectUser(u);
+                        }}
+                        className="text-[9px] text-[#8C857B] hover:text-[#2C2A29] underline transition-colors cursor-pointer w-full text-center"
+                      >
+                        alebo heslom
+                      </button>
+                    </div>
+                  ) : (
+                    /* ŠTANDARDNÉ TLAČIDLO PRE ZADANIE HESLA */
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectUser(u);
+                      }}
+                      className="mt-2.5 bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <span>Zadať heslo</span>
+                      <span className="text-[#C5A059]">→</span>
+                    </button>
+                  )}
                 </div>
               ))}
-            </div>
-            {/* ========================================================================= */}
-            {/* SINGLE SIGN-ON (SSO) MOŽNOSTI: GOOGLE WORKSPACE, MICROSOFT 365, APPLE ID */}
-            {/* ========================================================================= */}
-            <div className="mt-8 pt-6 border-t border-white/60">
-              <div className="flex flex-col items-center justify-center text-center mb-4">
-                <span className="text-[11px] font-semibold text-[#8C857B] uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-8 h-[1px] bg-[#E8E2D9]" />
-                  Alebo priame prihlásenie cez firemný účet (SSO)
-                  <span className="w-8 h-[1px] bg-[#E8E2D9]" />
-                </span>
-                <p className="text-[11px] text-[#8C857B] mt-0.5">
-                  Podporované identity so zabudovaným 2FA overením
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
-                {/* GOOGLE WORKSPACE */}
-                <button
-                  type="button"
-                  onClick={() => handleGoogleWorkspaceLogin()}
-                  disabled={isGoogleSigningIn || isMicrosoftSigningIn || isAppleSigningIn}
-                  className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-white/70 hover:bg-white border border-white/90 hover:border-[#C5A059]/60 shadow-[0_4px_15px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(197,160,89,0.15)] text-[#2C2A29] text-xs font-semibold transition-all cursor-pointer group"
-                >
-                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span>{isGoogleSigningIn ? 'Prihlasujem...' : 'Google Workspace'}</span>
-                </button>
-
-                {/* MICROSOFT 365 */}
-                <button
-                  type="button"
-                  onClick={() => handleMicrosoftLogin()}
-                  disabled={isGoogleSigningIn || isMicrosoftSigningIn || isAppleSigningIn}
-                  className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-white/70 hover:bg-white border border-white/90 hover:border-[#C5A059]/60 shadow-[0_4px_15px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(197,160,89,0.15)] text-[#2C2A29] text-xs font-semibold transition-all cursor-pointer group"
-                >
-                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 23 23">
-                    <path fill="#f35325" d="M1 1h10v10H1z"/>
-                    <path fill="#81bc06" d="M12 1h10v10H12z"/>
-                    <path fill="#05a6f0" d="M1 12h10v10H1z"/>
-                    <path fill="#ffba08" d="M12 12h10v10H12z"/>
-                  </svg>
-                  <span>{isMicrosoftSigningIn ? 'Overujem...' : 'Microsoft 365'}</span>
-                </button>
-
-                {/* APPLE ID */}
-                <button
-                  type="button"
-                  onClick={() => handleAppleLogin()}
-                  disabled={isGoogleSigningIn || isMicrosoftSigningIn || isAppleSigningIn}
-                  className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-white/70 hover:bg-white border border-white/90 hover:border-[#C5A059]/60 shadow-[0_4px_15px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(197,160,89,0.15)] text-[#2C2A29] text-xs font-semibold transition-all cursor-pointer group"
-                >
-                  <svg className="w-4 h-4 flex-shrink-0 fill-[#2C2A29]" viewBox="0 0 170 170">
-                    <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.08-7.7-7.94-12.04-14.58-6.17-9.42-10.9-19.98-14.2-31.69-3.3-11.71-4.95-23.08-4.95-34.1 0-14.89 3.86-27.18 11.58-36.87 7.72-9.69 17.51-14.65 29.37-14.88 4.58 0 9.82 1.17 15.74 3.52 5.92 2.34 9.68 3.57 11.28 3.69 1.93-.24 5.94-1.57 12.04-4 6.1-2.43 11.43-3.56 16-3.39 12.35.58 22.37 4.96 30.07 13.14-10.82 6.56-16.14 15.76-15.96 27.6.24 9.77 4.09 17.9 11.55 24.39 7.46 6.49 16.36 10.22 26.7 11.19-2.22 6.81-4.79 13.43-7.71 19.86zM119.22 31.84c0-7.14 2.66-13.88 7.97-20.21 5.31-6.33 11.83-10.37 19.56-12.13.22 1.25.33 2.33.33 3.24 0 7.23-2.76 14.13-8.28 20.7-5.52 6.57-12.14 10.51-19.86 11.82-.28-.9-.39-1.7-.39-2.42z" />
-                  </svg>
-                  <span>{isAppleSigningIn ? 'Overujem...' : 'Apple ID (Passkey)'}</span>
-                </button>
-              </div>
             </div>
 
             {/* SPODNÁ LIŠTA - BEZPEČNOSTNÝ STATUS */}
@@ -1277,6 +1252,25 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             </div>
           </form>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* KROK: 4-MIESTNY PIN AUTORIZÁCIE ZARIADENIA (machineId)                    */}
+      {/* ========================================================================= */}
+      {step === 'device_pin' && selectedUser && (
+        <DevicePinAuth
+          user={selectedUser}
+          rememberMe={rememberMe}
+          onSuccess={() => {
+            DevicePinService.recordSameDayAuth(selectedUser.id);
+            AuthService.saveSession(selectedUser, rememberMe, 'PIN ZARIADENIA (DENNÝ VSTUP)');
+            onLoginSuccess(selectedUser, rememberMe);
+          }}
+          onCancel={() => {
+            setStep('select_user');
+            setErrorMsg('');
+          }}
+        />
       )}
 
       {/* ========================================================================= */}

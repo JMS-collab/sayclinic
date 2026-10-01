@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check, Shield, ShieldAlert } from 'lucide-react';
+import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check, Shield, ShieldAlert, Monitor, Cpu } from 'lucide-react';
+import { DevicePinService } from '../services/devicePinService';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient, MOCK_PATIENTS } from '../components/PatientDatabase';
 import LoginForm, { UserAccount } from '../components/LoginForm';
@@ -134,6 +135,11 @@ export default function Home() {
   const [showOldPass, setShowOldPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [passwordChangeStatus, setPasswordChangeStatus] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+  const [securityModalTab, setSecurityModalTab] = useState<'password' | 'pin'>('password');
+  const [newPin, setNewPin] = useState('');
+  const [confirmNewPin, setConfirmNewPin] = useState('');
+  const [showNewPin, setShowNewPin] = useState(false);
+  const [pinChangeStatus, setPinChangeStatus] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
   // Stav pre správu oprávnení (RBAC Modal) a simuláciu roly
   const [showRolePermissionsModal, setShowRolePermissionsModal] = useState(false);
@@ -265,6 +271,49 @@ export default function Home() {
       }, 1500);
     } else {
       setPasswordChangeStatus({ type: 'error', message: res.message });
+    }
+  };
+
+  const handleSaveNewPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPinChangeStatus(null);
+    if (!currentUser) return;
+
+    if (!/^\d{4}$/.test(newPin)) {
+      setPinChangeStatus({ type: 'error', message: 'PIN musí obsahovať presne 4 číslice (0-9).' });
+      return;
+    }
+
+    if (newPin !== confirmNewPin) {
+      setPinChangeStatus({ type: 'error', message: 'Zadané PIN kódy sa nezhodujú.' });
+      return;
+    }
+
+    try {
+      const saved = await DevicePinService.saveDevicePin(currentUser.id, newPin);
+      if (saved) {
+        setPinChangeStatus({ 
+          type: 'success', 
+          message: `Nový 4-miestny PIN bol úspešne aktivovaný pre stanicu ${DevicePinService.getMachineName()}.` 
+        });
+        AuditLogService.log({
+          user: currentUser,
+          category: 'AUTH',
+          action: 'DEVICE_PIN_ZMENA',
+          details: `${currentUser.name} zmenil svoj osobný PIN pre pracovnú stanicu (${DevicePinService.getMachineName()} • ${DevicePinService.getMachineId()}).`,
+          severity: 'info',
+        });
+        setTimeout(() => {
+          setNewPin('');
+          setConfirmNewPin('');
+          setShowChangePasswordModal(false);
+          setPinChangeStatus(null);
+        }, 1500);
+      } else {
+        setPinChangeStatus({ type: 'error', message: 'Nepodarilo sa uložiť PIN do pamäte zariadenia.' });
+      }
+    } catch (err: any) {
+      setPinChangeStatus({ type: 'error', message: err?.message || 'Chyba pri ukladaní PINu.' });
     }
   };
 
@@ -612,102 +661,235 @@ export default function Home() {
               </button>
             </div>
 
-            <form onSubmit={handleChangePasswordSubmit} className="p-6 space-y-4">
-              {passwordChangeStatus && (
-                <div
-                  className={`p-3 rounded-2xl text-xs flex items-center gap-2 ${
-                    passwordChangeStatus.type === 'success'
-                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                      : 'bg-rose-50 text-rose-700 border border-rose-200'
-                  }`}
-                >
-                  {passwordChangeStatus.type === 'success' ? (
-                    <Check className="w-4 h-4 flex-shrink-0 text-emerald-600" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
-                  )}
-                  <span>{passwordChangeStatus.message}</span>
-                </div>
-              )}
+            {/* ZÁLOŽKY: HESLO ÚČTU vs. OSOBNÝ PIN STANICE */}
+            <div className="px-6 pt-3 flex gap-2 border-b border-[#E8E2D9]">
+              <button
+                type="button"
+                onClick={() => {
+                  setSecurityModalTab('password');
+                  setPasswordChangeStatus(null);
+                  setPinChangeStatus(null);
+                }}
+                className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  securityModalTab === 'password'
+                    ? 'border-[#C5A059] text-[#2C2A29]'
+                    : 'border-transparent text-[#8C857B] hover:text-[#2C2A29]'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Heslo účtu</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSecurityModalTab('pin');
+                  setPasswordChangeStatus(null);
+                  setPinChangeStatus(null);
+                }}
+                className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  securityModalTab === 'pin'
+                    ? 'border-[#C5A059] text-[#2C2A29]'
+                    : 'border-transparent text-[#8C857B] hover:text-[#2C2A29]'
+                }`}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                <span>Osobný PIN stanice</span>
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
-                  Aktuálne (pôvodné) heslo
-                </label>
-                <div className="relative">
-                  <input
-                    type={showOldPass ? 'text' : 'password'}
-                    required
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    placeholder="Zadajte súčasné heslo"
-                    className="w-full border border-[#E8E2D9] p-3 rounded-xl text-sm outline-none focus:border-[#C5A059] pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowOldPass(!showOldPass)}
-                    className="absolute right-3 top-3 text-[#8C857B] hover:text-[#2C2A29]"
+            {securityModalTab === 'password' ? (
+              <form onSubmit={handleChangePasswordSubmit} className="p-6 space-y-4">
+                {passwordChangeStatus && (
+                  <div
+                    className={`p-3 rounded-2xl text-xs flex items-center gap-2 ${
+                      passwordChangeStatus.type === 'success'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}
                   >
-                    {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+                    {passwordChangeStatus.type === 'success' ? (
+                      <Check className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                    )}
+                    <span>{passwordChangeStatus.message}</span>
+                  </div>
+                )}
 
-              <div>
-                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
-                  Nové heslo (min. 6 znakov)
-                </label>
-                <div className="relative">
+                <div>
+                  <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                    Aktuálne (pôvodné) heslo
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showOldPass ? 'text' : 'password'}
+                      required
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      placeholder="Zadajte súčasné heslo"
+                      className="w-full border border-[#E8E2D9] p-3 rounded-xl text-sm outline-none focus:border-[#C5A059] pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOldPass(!showOldPass)}
+                      className="absolute right-3 top-3 text-[#8C857B] hover:text-[#2C2A29]"
+                    >
+                      {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                    Nové heslo (min. 6 znakov)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewPass ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Zadajte nové bezpečné heslo"
+                      className="w-full border border-[#E8E2D9] p-3 rounded-xl text-sm outline-none focus:border-[#C5A059] pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPass(!showNewPass)}
+                      className="absolute right-3 top-3 text-[#8C857B] hover:text-[#2C2A29]"
+                    >
+                      {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                    Potvrdenie nového hesla
+                  </label>
                   <input
-                    type={showNewPass ? 'text' : 'password'}
+                    type="password"
                     required
                     minLength={6}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Zadajte nové bezpečné heslo"
-                    className="w-full border border-[#E8E2D9] p-3 rounded-xl text-sm outline-none focus:border-[#C5A059] pr-10"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="Zopakujte nové heslo"
+                    className="w-full border border-[#E8E2D9] p-3 rounded-xl text-sm outline-none focus:border-[#C5A059]"
                   />
+                </div>
+
+                <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setShowNewPass(!showNewPass)}
-                    className="absolute right-3 top-3 text-[#8C857B] hover:text-[#2C2A29]"
+                    onClick={() => setShowChangePasswordModal(false)}
+                    className="flex-1 py-3 border border-[#E8E2D9] text-[#8C857B] hover:text-[#2C2A29] rounded-xl text-xs font-semibold hover:bg-gray-50 transition-all cursor-pointer"
                   >
-                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    Zrušiť
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-semibold transition-all shadow-md cursor-pointer"
+                  >
+                    Uložiť nové heslo
                   </button>
                 </div>
-              </div>
+              </form>
+            ) : (
+              <form onSubmit={handleSaveNewPin} className="p-6 space-y-4">
+                {/* INFO O STANICI */}
+                <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-2xl p-3 text-xs space-y-1">
+                  <div className="flex items-center justify-between font-semibold text-[#2C2A29]">
+                    <span className="flex items-center gap-1.5">
+                      <Monitor className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>{DevicePinService.getMachineName()}</span>
+                    </span>
+                    <span className="text-[10px] text-[#8C857B] font-mono bg-white px-2 py-0.5 rounded border border-[#E8E2D9]">
+                      {DevicePinService.getMachineId()}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#8C857B]">
+                    Tento 4-miestny PIN je viazaný na toto konkrétne zariadenie pre rýchle 2FA overenie v ambulancii.
+                  </p>
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
-                  Potvrdenie nového hesla
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  placeholder="Zopakujte nové heslo"
-                  className="w-full border border-[#E8E2D9] p-3 rounded-xl text-sm outline-none focus:border-[#C5A059]"
-                />
-              </div>
+                {pinChangeStatus && (
+                  <div
+                    className={`p-3 rounded-2xl text-xs flex items-center gap-2 ${
+                      pinChangeStatus.type === 'success'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}
+                  >
+                    {pinChangeStatus.type === 'success' ? (
+                      <Check className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                    )}
+                    <span>{pinChangeStatus.message}</span>
+                  </div>
+                )}
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowChangePasswordModal(false)}
-                  className="flex-1 py-3 border border-[#E8E2D9] text-[#8C857B] hover:text-[#2C2A29] rounded-xl text-xs font-semibold hover:bg-gray-50 transition-all"
-                >
-                  Zrušiť
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-3 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-semibold transition-all shadow-md"
-                >
-                  Uložiť nové heslo
-                </button>
-              </div>
-            </form>
+                <div>
+                  <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                    Nový 4-miestny PIN (číslice 0-9)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewPin ? 'text' : 'password'}
+                      required
+                      maxLength={4}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={newPin}
+                      onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="Napr. 4826"
+                      className="w-full border border-[#E8E2D9] p-3 rounded-xl text-lg font-mono font-bold tracking-widest outline-none focus:border-[#C5A059] pr-10 text-center"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPin(!showNewPin)}
+                      className="absolute right-3 top-3.5 text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
+                    >
+                      {showNewPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#2C2A29] mb-1.5">
+                    Potvrďte nový 4-miestny PIN
+                  </label>
+                  <input
+                    type={showNewPin ? 'text' : 'password'}
+                    required
+                    maxLength={4}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={confirmNewPin}
+                    onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    placeholder="Zopakujte 4 číslice"
+                    className="w-full border border-[#E8E2D9] p-3 rounded-xl text-lg font-mono font-bold tracking-widest outline-none focus:border-[#C5A059] text-center"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowChangePasswordModal(false)}
+                    className="flex-1 py-3 border border-[#E8E2D9] text-[#8C857B] hover:text-[#2C2A29] rounded-xl text-xs font-semibold hover:bg-gray-50 transition-all cursor-pointer"
+                  >
+                    Zrušiť
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={newPin.length !== 4 || confirmNewPin.length !== 4}
+                    className="flex-1 py-3 bg-[#2C2A29] hover:bg-[#C5A059] disabled:opacity-40 text-white rounded-xl text-xs font-semibold transition-all shadow-md cursor-pointer"
+                  >
+                    Aktivovať PIN stanice
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

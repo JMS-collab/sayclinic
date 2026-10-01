@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementačný plán pre nekompromisné biometrické overovanie (Face ID / Touch ID / PIN) pri každom otvorení aplikácie, odstránenie tichého auto-loginu a vyriešenie iFrame bezpečnostných obmedzení.",
-  "updatedAt":  "2026-09-28T18:32:57.902109414Z",
-  "requestFeedback":  true,
-  "userFacing":  true
+  "summary": "Revidovaný implementačný plán pre zdravotnícky štandard 2FA: PIN viazaný na kryptograficky autorizovaný počítač ambulancie so striktným auditným logovaním a ochranou pred odcudzením prístupu.",
+  "updatedAt": "2026-09-29T16:35:20.502518362Z",
+  "requestFeedback": true,
+  "userFacing": true
 }
