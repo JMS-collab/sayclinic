@@ -2,10 +2,11 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
-import { Search, X, Sparkles } from 'lucide-react';
+import { Search, X, Sparkles, Clock, PanelRightOpen, PanelRightClose, ShieldAlert } from 'lucide-react';
 import { filterAndRankPatients, RankedPatient } from '../utils/fuzzySearch';
 import { googleSignIn, subscribeWorkspaceAuth } from '@/lib/workspaceAuth';
 import PatientDriveFiles from './PatientDriveFiles';
+import PatientTimelineSidebar from './PatientTimelineSidebar';
 import { InventoryService, MaterialUsageLog, InventoryItem } from '../services/inventoryService';
 import { CalendarEvent, getPostOpTimeDiff } from '../data/calendarConfig';
 import SchedulePatientEventModal from './patient/SchedulePatientEventModal';
@@ -103,6 +104,7 @@ interface UploadedPhoto {
 
 interface PatientDatabaseProps {
   onNavigateToGenerator?: (patient: Patient & { initialDocType?: any }) => void;
+  onNavigateToPrescriptions?: (patient: Patient) => void;
   onNavigateToAesthetics?: (patient: Patient) => void;
   onNavigateToCosmetics?: (patient?: Patient | null, prefillItems?: any[]) => void;
   initialPatient?: Patient | null;
@@ -110,24 +112,50 @@ interface PatientDatabaseProps {
   calendarEvents?: CalendarEvent[];
   onAddCalendarEvent?: (event: CalendarEvent) => void;
   onNavigateToCalendar?: () => void;
+  activePatient?: Patient | null;
+  onSetActivePatient?: (patient: Patient | null) => void;
 }
 
 export default function PatientDatabase({ 
   onNavigateToGenerator, 
+  onNavigateToPrescriptions,
   onNavigateToAesthetics, 
   onNavigateToCosmetics,
   initialPatient, 
   onPatientsUpdated,
   calendarEvents = [],
   onAddCalendarEvent,
-  onNavigateToCalendar
+  onNavigateToCalendar,
+  activePatient,
+  onSetActivePatient
 }: PatientDatabaseProps) {
   const { data: session } = useSession();
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || activePatient || null);
   const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy' | 'terminy' | 'plany' | 'roadmap'>('dokumenty');
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+
+  // STAV PRE SKLADACÍ BOČNÝ PANEL ČASOVEJ OSI A ALERGIÍ PACIENTA
+  const [isTimelineOpen, setIsTimelineOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('say_clinic_timeline_open_state');
+      if (saved !== null) return saved === 'true';
+    }
+    return true; // Predvolene otvorený pre okamžitý prehľad
+  });
+
+  const toggleTimeline = () => {
+    setIsTimelineOpen(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('say_clinic_timeline_open_state', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   // STAV PRE PLÁNY PACIENTA (ROČNÝ ESTETICKÝ & PRED/POOPERAČNÝ PLÁN)
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
@@ -322,8 +350,10 @@ export default function PatientDatabase({
   useEffect(() => {
     if (initialPatient) {
       setSelectedPatient(initialPatient);
+    } else if (activePatient) {
+      setSelectedPatient(activePatient);
     }
-  }, [initialPatient]);
+  }, [initialPatient, activePatient]);
 
   // Načítanie zdravotných záznamov z localStorage
   useEffect(() => {
@@ -500,6 +530,9 @@ export default function PatientDatabase({
 
   const handlePatientSelect = (patient: Patient) => {
     setSelectedPatient(patient);
+    if (onSetActivePatient) {
+      onSetActivePatient(patient);
+    }
     setActiveFolder('dokumenty');
     setActivePhotoCategory(null);
     AuditLogService.log({
@@ -1073,26 +1106,38 @@ export default function PatientDatabase({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredPatients.map(patient => (
-                  <div 
-                    key={patient.id} 
-                    className="border border-[#E8E2D9] p-4 rounded-xl hover:border-[#C5A059] hover:shadow-md transition-all bg-white group flex flex-col justify-between"
-                  >
-                    <div onClick={() => handlePatientSelect(patient)} className="cursor-pointer">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-bold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">{patient.name}</h3>
-                          {patient._isFuzzyMatch && (
-                            <span className="text-[9px] bg-[#C5A059]/15 text-[#9C7D2B] px-1.5 py-0.5 rounded font-medium border border-[#C5A059]/30" title="Nájdené vďaka tolerancii preklepov">
-                              Preklep tolerovaný
-                            </span>
-                          )}
+                {filteredPatients.map(patient => {
+                  const isCurrentActive = activePatient && activePatient.id === patient.id;
+                  return (
+                    <div 
+                      key={patient.id} 
+                      className={`border p-4 rounded-xl hover:shadow-md transition-all group flex flex-col justify-between ${
+                        isCurrentActive 
+                          ? 'border-[#C5A059] bg-[#FAF8F5] ring-2 ring-[#C5A059]/30 shadow-xs' 
+                          : 'border-[#E8E2D9] hover:border-[#C5A059] bg-white'
+                      }`}
+                    >
+                      <div onClick={() => handlePatientSelect(patient)} className="cursor-pointer">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">{patient.name}</h3>
+                            {isCurrentActive && (
+                              <span className="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                                Rozpracovaný
+                              </span>
+                            )}
+                            {patient._isFuzzyMatch && (
+                              <span className="text-[9px] bg-[#C5A059]/15 text-[#9C7D2B] px-1.5 py-0.5 rounded font-medium border border-[#C5A059]/30" title="Nájdené vďaka tolerancii preklepov">
+                                Preklep tolerovaný
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[9px] bg-[#FBF9F6] px-2 py-1 rounded text-[#8C857B] font-bold border border-[#E8E2D9]">{patient.insurance}</span>
                         </div>
-                        <span className="text-[9px] bg-[#FBF9F6] px-2 py-1 rounded text-[#8C857B] font-bold border border-[#E8E2D9]">{patient.insurance}</span>
+                        <p className="text-xs text-[#8C857B]">RČ: {patient.birthNumber}</p>
+                        <p className="text-xs text-[#8C857B]">Tel: {patient.phone}</p>
                       </div>
-                      <p className="text-xs text-[#8C857B]">RČ: {patient.birthNumber}</p>
-                      <p className="text-xs text-[#8C857B]">Tel: {patient.phone}</p>
-                    </div>
 
                     <div className="mt-3 pt-3 border-t border-[#E8E2D9] flex justify-between items-center text-[10px] gap-1">
                       <div className="flex items-center gap-2">
@@ -1105,6 +1150,19 @@ export default function PatientDatabase({
                         >
                           ✏️ Upraviť
                         </button>
+
+                        {onNavigateToPrescriptions && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onNavigateToPrescriptions(patient);
+                            }}
+                            className="text-emerald-700 hover:text-emerald-800 font-bold uppercase tracking-wider transition-colors flex items-center gap-1 border-l border-[#E8E2D9] pl-2"
+                            title="Vystaviť lekársky recept ŠEVT 14 282 2s"
+                          >
+                            💊 Recept
+                          </button>
+                        )}
 
                         {onNavigateToAesthetics && (
                           <button
@@ -1127,7 +1185,8 @@ export default function PatientDatabase({
                       </button>
                     </div>
                   </div>
-                ))}
+                );
+              })}
               </div>
             )}
           </div>
@@ -1139,63 +1198,207 @@ export default function PatientDatabase({
               ← Späť na zoznam pacientov
             </button>
 
-            <div className="bg-[#FBF9F6] border border-[#E8E2D9] p-5 rounded-xl flex flex-col md:flex-row justify-between gap-4">
+            {/* HLAVNÁ IDENTIFIKÁCIA PACIENTA */}
+            <div className="bg-[#FBF9F6] border border-[#E8E2D9] p-5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-xs">
               <div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">{selectedPatient.name}</h2>
+                  <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase tracking-wide">
+                    {selectedPatient.name}
+                  </h2>
                   <button 
+                    type="button"
                     onClick={() => setEditingPatient(selectedPatient)}
-                    className="text-xs bg-white border border-[#E8E2D9] px-2.5 py-1 rounded-lg text-[#8C857B] hover:text-[#C5A059] font-bold shadow-sm transition-colors"
+                    className="text-xs bg-white border border-[#E8E2D9] px-2.5 py-1 rounded-lg text-[#8C857B] hover:text-[#C5A059] font-bold shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
                   >
-                    ✏️ Upraviť
+                    ✏️ Upraviť profil
                   </button>
-                  <button
-                    onClick={() => handleOpenScheduleModal()}
-                    className="text-xs bg-sky-700 hover:bg-sky-800 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-                    title="Naplánovať termín alebo pooperačnú kontrolu priamo do kalendára"
+                  <button 
+                    type="button"
+                    onClick={toggleTimeline}
+                    className={`text-xs px-2.5 py-1 rounded-lg border font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                      isTimelineOpen 
+                        ? 'bg-[#2C2A29] text-white border-[#2C2A29]' 
+                        : 'bg-white border-[#E8E2D9] text-[#8C857B] hover:text-[#C5A059] hover:border-[#C5A059]'
+                    }`}
+                    title={isTimelineOpen ? 'Skryť bočný panel časovej osi' : 'Zobraziť časovú os a riziká'}
                   >
-                    <span>📅</span> + Naplánovať termín / kontrolu
+                    <Clock className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>{isTimelineOpen ? 'Časová os (Otvorená)' : 'Časová os & Riziká'}</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      setActiveFolder('roadmap');
-                      setActivePhotoCategory(null);
-                    }}
-                    className="text-xs bg-gradient-to-r from-[#2C2A29] to-[#3D3A38] hover:from-[#C5A059] hover:to-[#B38F46] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border border-[#C5A059]/40"
-                    title="12-mesačný personalizovaný plán liečby a ošetrení vygenerovaný modelom Gemini"
-                  >
-                    <span>✨</span> AI Plán Liečby
-                  </button>
-                  <button
-                    onClick={() => setIsCreatingPlan(true)}
-                    className="text-xs bg-[#C5A059] hover:bg-[#b38d45] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-                    title="Vytvoriť ročný estetický alebo pred/pooperačný plán starostlivosti"
-                  >
-                    <span>📋</span> + Plán starostlivosti
-                  </button>
-                  {onNavigateToAesthetics && (
-                    <button
-                      onClick={() => onNavigateToAesthetics(selectedPatient)}
-                      className="text-xs bg-gradient-to-r from-[#C5A059] to-[#B38F46] text-white px-3 py-1 rounded-lg font-bold shadow-sm hover:opacity-95 transition-all flex items-center gap-1.5"
-                    >
-                      💉 Aplikovať výplne / Botox (Face Mapping)
-                    </button>
+                  {activePatient && activePatient.id === selectedPatient.id && (
+                    <span className="text-[10px] bg-emerald-600 text-white px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                      Aktívny v celom systéme
+                    </span>
                   )}
                 </div>
-                <p className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold mt-1">Karta pacienta</p>
+                <p className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold mt-1">
+                  Zdravotná karta & 360° Centrum pacienta
+                </p>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-2 text-xs">
-                <div><span className="text-[#8C857B] block text-[9px] uppercase">Rodné číslo:</span><span className="font-semibold">{selectedPatient.birthNumber}</span></div>
-                <div><span className="text-[#8C857B] block text-[9px] uppercase">Dátum nar.:</span><span className="font-semibold">{selectedPatient.dob}</span></div>
-                <div><span className="text-[#8C857B] block text-[9px] uppercase">Poisťovňa:</span><span className="font-semibold">{selectedPatient.insurance}</span></div>
-                <div><span className="text-[#8C857B] block text-[9px] uppercase">Telefón:</span><span className="font-semibold">{selectedPatient.phone}</span></div>
-                <div><span className="text-[#8C857B] block text-[9px] uppercase">Email:</span><span className="font-semibold">{selectedPatient.email}</span></div>
-                <div><span className="text-[#8C857B] block text-[9px] uppercase">Bydlisko:</span><span className="font-semibold">{selectedPatient.address}</span></div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs bg-white p-3 rounded-xl border border-[#E8E2D9] shadow-2xs">
+                <div><span className="text-[#8C857B] block text-[9px] uppercase font-bold">Rodné číslo:</span><span className="font-mono font-bold text-[#2C2A29]">{selectedPatient.birthNumber}</span></div>
+                <div><span className="text-[#8C857B] block text-[9px] uppercase font-bold">Dátum nar.:</span><span className="font-semibold text-[#2C2A29]">{selectedPatient.dob || '—'}</span></div>
+                <div><span className="text-[#8C857B] block text-[9px] uppercase font-bold">Poisťovňa:</span><span className="font-semibold text-[#2C2A29]">{selectedPatient.insurance}</span></div>
+                <div><span className="text-[#8C857B] block text-[9px] uppercase font-bold">Telefón:</span><span className="font-semibold text-[#2C2A29]">{selectedPatient.phone}</span></div>
+                <div><span className="text-[#8C857B] block text-[9px] uppercase font-bold">Email:</span><span className="font-semibold text-[#2C2A29] truncate max-w-[140px] block">{selectedPatient.email || '—'}</span></div>
+                <div><span className="text-[#8C857B] block text-[9px] uppercase font-bold">Bydlisko:</span><span className="font-semibold text-[#2C2A29] truncate max-w-[140px] block">{selectedPatient.address}</span></div>
               </div>
             </div>
 
-            {/* PREPOJENIE SO ZLOŽKOU "KLIENTI SAY" NA GOOGLE DRIVE */}
-            <PatientDriveFiles patientName={selectedPatient.name} />
+            {/* KOMPAKTNÉ 360° CENTRUM RÝCHLYCH KLINICKÝCH AKCIÍ PACIENTA */}
+            <div className="bg-white border border-[#E8E2D9] rounded-2xl p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-[#E8E2D9] pb-2">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#C5A059] flex items-center gap-1.5">
+                  <span>⚡</span>
+                  <span>Rýchle akcie pre pacienta (1-Click Hub)</span>
+                </span>
+                <span className="text-[10px] text-[#8C857B]">
+                  Kliknutím prejdete do príslušného modulu s predvyplnenými údajmi
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                {/* 1. Vystaviť recept ŠEVT */}
+                <button
+                  type="button"
+                  onClick={() => onNavigateToPrescriptions?.(selectedPatient)}
+                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-emerald-600 hover:bg-emerald-50/40 text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
+                  title="Vystaviť a vytlačiť lekársky recept ŠEVT pre tohto pacienta"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xl p-1.5 bg-emerald-100 rounded-lg text-emerald-800">💊</span>
+                    <span className="text-xs text-emerald-600 font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-emerald-800">Vystaviť recept</p>
+                    <p className="text-[10px] text-[#8C857B]">ŠEVT 14 282 2s</p>
+                  </div>
+                </button>
+
+                {/* 2. Aplikovať výplne / Botox */}
+                <button
+                  type="button"
+                  onClick={() => onNavigateToAesthetics?.(selectedPatient)}
+                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-[#C5A059] hover:bg-[#FAF8F5] text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
+                  title="Aplikovať botulotoxín alebo dermálnu výplň v interaktívnej mape tváre"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xl p-1.5 bg-[#C5A059]/15 rounded-lg text-[#C5A059]">💉</span>
+                    <span className="text-xs text-[#C5A059] font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-[#C5A059]">Výplne & Botox</p>
+                    <p className="text-[10px] text-[#8C857B]">Face Mapping</p>
+                  </div>
+                </button>
+
+                {/* 3. Lekárska správa / Nález */}
+                <button
+                  type="button"
+                  onClick={() => onNavigateToGenerator?.(selectedPatient)}
+                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-[#2C2A29] hover:bg-gray-50 text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
+                  title="Vystaviť operačný protokol, prepúšťaciu správu alebo nález"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xl p-1.5 bg-gray-100 rounded-lg text-[#2C2A29]">📄</span>
+                    <span className="text-xs text-[#2C2A29] font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#2C2A29]">Lekárska správa</p>
+                    <p className="text-[10px] text-[#8C857B]">Protokol & nález</p>
+                  </div>
+                </button>
+
+                {/* 4. Termín & Kontrola */}
+                <button
+                  type="button"
+                  onClick={() => handleOpenScheduleModal()}
+                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-sky-600 hover:bg-sky-50/40 text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
+                  title="Naplánovať termín zákroku alebo pooperačnej kontroly do kalendára sál"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xl p-1.5 bg-sky-100 rounded-lg text-sky-800">📅</span>
+                    <span className="text-xs text-sky-600 font-bold group-hover:translate-x-0.5 transition-transform">+</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-sky-800">Termín / Sála</p>
+                    <p className="text-[10px] text-[#8C857B]">Harmonogram</p>
+                  </div>
+                </button>
+
+                {/* 5. Plán liečby & Ročný balík */}
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingPlan(true)}
+                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-amber-600 hover:bg-amber-50/40 text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
+                  title="Vytvoriť ročný estetický alebo pred/pooperačný plán starostlivosti"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xl p-1.5 bg-amber-100 rounded-lg text-amber-800">📋</span>
+                    <span className="text-xs text-amber-600 font-bold group-hover:translate-x-0.5 transition-transform">+</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-amber-800">Plán liečby</p>
+                    <p className="text-[10px] text-[#8C857B]">Ročný plán</p>
+                  </div>
+                </button>
+
+                {/* 6. Predaj kozmetiky & POS */}
+                <button
+                  type="button"
+                  onClick={() => onNavigateToCosmetics?.(selectedPatient)}
+                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-purple-600 hover:bg-purple-50/40 text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
+                  title="Otvoriť pokladňu POS a predať pooperačnú kozmetiku pacientke"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xl p-1.5 bg-purple-100 rounded-lg text-purple-800">🛍️</span>
+                    <span className="text-xs text-purple-600 font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-purple-800">Predaj kozmetiky</p>
+                    <p className="text-[10px] text-[#8C857B]">Pokladňa POS</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* SEKCIA ZLOŽKY PACIENTA S BOČNOU ČASOVOU OSOU (TIMELINE) */}
+            <div className={`grid grid-cols-1 ${isTimelineOpen ? 'xl:grid-cols-12' : ''} gap-6 items-start`}>
+              
+              {/* ĽAVÁ ČASŤ (ZLOŽKY & DOKUMENTÁCIA) */}
+              <div className={`${isTimelineOpen ? 'xl:col-span-8' : 'w-full'} space-y-4 min-w-0`}>
+                
+                {/* AK JE PANEL ZBALENÝ, ZOBRAZÍ SA KOMPAKTNÁ LIŠTA PRE RÝCHLE ROZBALENIE */}
+                {!isTimelineOpen && (
+                  <div className="bg-[#FAF8F5] border border-[#E8E2D9] p-3 rounded-xl flex items-center justify-between shadow-2xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg bg-[#2C2A29] text-[#C5A059] flex items-center justify-center font-bold">
+                        <Clock className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-[#2C2A29] block">
+                          Časová os, výkony a alergie pacienta
+                        </span>
+                        <span className="text-[10px] text-[#8C857B]">
+                          Bočný panel je skrytý. Rozbalením získate okamžitý prehľad o alergiách a histórii zákrokov.
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsTimelineOpen(true)}
+                      className="px-3 py-1.5 rounded-lg bg-white border border-[#C5A059] text-[#2C2A29] hover:bg-[#FAF8F5] font-bold text-xs transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                    >
+                      <PanelRightOpen className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>Rozbaliť časovú os</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* PREPOJENIE SO ZLOŽKOU "KLIENTI SAY" NA GOOGLE DRIVE */}
+                <PatientDriveFiles patientName={selectedPatient.name} />
 
             {(() => {
               const patientEvents = storedEvents.filter(evt => 
@@ -1269,10 +1472,17 @@ export default function PatientDatabase({
                         🩺 + Dermatológia
                       </button>
                       <button 
-                        onClick={() => onNavigateToGenerator && onNavigateToGenerator({ ...selectedPatient, initialDocType: 'lekarsky_recept' })} 
+                        onClick={() => {
+                          if (onNavigateToPrescriptions && selectedPatient) {
+                            onNavigateToPrescriptions(selectedPatient);
+                          } else if (onNavigateToGenerator) {
+                            onNavigateToGenerator({ ...selectedPatient, initialDocType: 'lekarsky_recept' });
+                          }
+                        }}
                         className="text-[11px] bg-[#047857] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#065f46] transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Vystaviť lekársky recept ŠEVT 14 282 2s pre tohto pacienta"
                       >
-                        💊 + Vystaviť recept (A6)
+                        💊 + Vystaviť recept (ŠEVT)
                       </button>
                       <button 
                         onClick={() => handleOpenScheduleModal()} 
@@ -1866,7 +2076,24 @@ export default function PatientDatabase({
               )}
             </div>
           </div>
-        )}
+
+          {/* PRAVÁ ČASŤ: SKLADACÍ BOČNÝ PANEL S ČASOVOU OSOU (STICKY) */}
+          {isTimelineOpen && (
+            <div className="xl:col-span-4 sticky top-24 space-y-4 min-w-0">
+              <PatientTimelineSidebar
+                patient={selectedPatient}
+                records={patientRecords[selectedPatient.id] || []}
+                onClose={() => setIsTimelineOpen(false)}
+                onNavigateToRecord={(_recId) => {
+                  setActiveFolder('dokumenty');
+                }}
+              />
+            </div>
+          )}
+
+        </div>
+      </div>
+    )}
 
         {/* MODAL: RÝCHLY VÝDAJ MATERIÁLU NA PACIENTA */}
         {isDispensingMaterial && selectedPatient && (

@@ -6,6 +6,7 @@ import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check, Shield, ShieldAlert
 import { DevicePinService } from '../services/devicePinService';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient, MOCK_PATIENTS } from '../components/PatientDatabase';
+import ActivePatientBar from '../components/ActivePatientBar';
 import LoginForm, { UserAccount } from '../components/LoginForm';
 import { LiquidAvatar } from '../components/LiquidAvatar';
 import FinanceCRM from '../components/FinanceCRM';
@@ -21,11 +22,14 @@ import AuditLogModal from '../components/AuditLogModal';
 import { AuthService } from '../services/authService';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
+import PrescriptionModule from '../components/PrescriptionModule';
 import { 
   PermissionsService, 
   TabId, 
   RoleType, 
-  TABS_REGISTRY 
+  TABS_REGISTRY,
+  NAVIGATION_PILLARS,
+  TabMeta
 } from '../services/permissionsService';
 
 export interface SaleItem {
@@ -39,7 +43,7 @@ export interface SaleItem {
 
 const INITIAL_SALES: SaleItem[] = [];
 
-type TabType = 'home' | 'generator' | 'patients' | 'aesthetics' | 'cosmetics' | 'calendar' | 'inventory' | 'finance' | 'projects';
+type TabType = TabId;
 
 function buildProjectFromNote(noteText: string, currentUser: UserAccount) {
   const isCeoUser = currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';
@@ -116,7 +120,16 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   // Stav pre vybraného pacienta z Kartotéky pre Generátor alebo detail
-  const [selectedPatient, setSelectedPatient] = useState<{ name: string; birthNumber: string } | null>(null);
+  const [activePatient, setActivePatient] = useState<Patient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<{ 
+    name: string; 
+    birthNumber: string; 
+    phone?: string; 
+    email?: string; 
+    address?: string; 
+    insurance?: string; 
+    initialDocType?: any;
+  } | null>(null);
   const [selectedPatientForFolder, setSelectedPatientForFolder] = useState<Patient | null>(null);
 
   // Stav pre predvyplnenie POS z karty pacienta a plánu
@@ -348,6 +361,30 @@ export default function Home() {
     localStorage.setItem('say_clinic_patients', JSON.stringify(MOCK_PATIENTS));
   }, []);
 
+  // Obnovenie rozpracovaného pacienta zo session storage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('say_clinic_active_patient_session_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id) {
+          setActivePatient(parsed);
+          setSelectedPatientForFolder(parsed);
+          setSelectedPatient({
+            name: parsed.name,
+            birthNumber: parsed.birthNumber,
+            phone: parsed.phone,
+            email: parsed.email,
+            address: parsed.address,
+            insurance: parsed.insurance
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // Načítanie kešovaných kalendárových udalostí
   useEffect(() => {
     const cachedEvents = localStorage.getItem('say_clinic_calendar_events');
@@ -415,6 +452,34 @@ export default function Home() {
     });
   };
 
+  // Správa aktívneho rozpracovaného pacienta (Active Patient Session)
+  const handleSetActivePatient = (patient: Patient | null) => {
+    setActivePatient(patient);
+    setSelectedPatientForFolder(patient);
+    if (patient) {
+      setSelectedPatient({
+        name: patient.name,
+        birthNumber: patient.birthNumber,
+        phone: patient.phone,
+        email: patient.email,
+        address: patient.address,
+        insurance: patient.insurance
+      });
+      try {
+        localStorage.setItem('say_clinic_active_patient_session_v1', JSON.stringify(patient));
+      } catch {
+        // ignore
+      }
+    } else {
+      setSelectedPatient(null);
+      try {
+        localStorage.removeItem('say_clinic_active_patient_session_v1');
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   const handleNavigateToGenerator = (patient: { 
     name: string; 
     birthNumber: string; 
@@ -425,13 +490,21 @@ export default function Home() {
     initialDocType?: any;
   }) => {
     setSelectedPatient(patient);
+    // Nastaviť ako aktívneho rozpracovaného pacienta, ak je v zozname pacientov
+    const found = patients.find(p => p.birthNumber === patient.birthNumber || p.name.toLowerCase() === patient.name.toLowerCase());
+    if (found) {
+      handleSetActivePatient(found);
+    }
     changeTab('generator');
   };
 
-  const handleOpenPatientFromCalendar = (patientId: string) => {
-    const found = patients.find(p => p.id === patientId);
+  const handleOpenPatientFromCalendar = (patientId: string, patientName?: string) => {
+    let found = patients.find(p => p.id === patientId);
+    if (!found && patientName) {
+      found = patients.find(p => p.name.toLowerCase() === patientName.toLowerCase());
+    }
     if (found) {
-      setSelectedPatientForFolder(found);
+      handleSetActivePatient(found);
     }
     changeTab('patients');
   };
@@ -542,25 +615,89 @@ export default function Home() {
             />
           </div>
 
-          {/* DYNAMICKÁ NAVIGÁCIA PODĽA OPRÁVNENÍ PROFILU */}
-          <nav className="flex flex-wrap gap-2 text-[11px] font-light uppercase tracking-wider text-[#8C857B]">
-            {TABS_REGISTRY.map((tabMeta) => {
-              if (!PermissionsService.canUserAccessTab(currentUser, tabMeta.id)) return null;
-              const isActive = activeTab === tabMeta.id;
+          {/* DYNAMICKÁ SEKCIONÁLNA NAVIGÁCIA (4 LOGICKÉ PILIERE KLINIKY) */}
+          <nav className="flex flex-wrap items-center gap-2 text-[11px] tracking-wider">
+            {NAVIGATION_PILLARS.map((pillar) => {
+              const accessibleTabs = pillar.tabs
+                .map(tabId => TABS_REGISTRY.find(t => t.id === tabId))
+                .filter((t): t is TabMeta => Boolean(t && PermissionsService.canUserAccessTab(currentUser, t.id)));
+
+              if (accessibleTabs.length === 0) return null;
+
+              const isPillarActive = accessibleTabs.some(t => t.id === activeTab);
+
+              // 1. Jedno-položkový pilier (napr. Prehľad / Home)
+              if (accessibleTabs.length === 1) {
+                const tabMeta = accessibleTabs[0];
+                const isActive = activeTab === tabMeta.id;
+                return (
+                  <button
+                    key={tabMeta.id}
+                    onClick={() => changeTab(tabMeta.id)}
+                    className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 font-medium border ${
+                      isActive
+                        ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-xs'
+                        : 'bg-[#FAF8F5] hover:bg-[#F3EFEA] text-[#2C2A29] border-[#E8E2D9]'
+                    }`}
+                    title={tabMeta.description}
+                  >
+                    <span>{tabMeta.icon}</span>
+                    <span className="uppercase text-[11px] font-bold">{pillar.label}</span>
+                  </button>
+                );
+              }
+
+              // 2. Viac-položkový pilier (Medicína & Pacienti, Prevádzka, Manažment)
               return (
-                <button
-                  key={tabMeta.id}
-                  onClick={() => {
-                    if (tabMeta.id === 'generator') setSelectedPatient(null);
-                    if (tabMeta.id === 'patients') setSelectedPatientForFolder(null);
-                    changeTab(tabMeta.id);
-                  }}
-                  className={`px-3 py-2 transition-all ${
-                    isActive ? 'text-[#2C2A29] border-b-2 border-[#C5A059] font-semibold' : 'hover:text-[#2C2A29]'
+                <div 
+                  key={pillar.id}
+                  className={`flex items-center p-0.5 rounded-xl border transition-all ${
+                    isPillarActive
+                      ? 'bg-[#FAF8F5] border-[#C5A059]/70 shadow-xs'
+                      : 'bg-white/80 border-[#E8E2D9] hover:border-[#C5A059]/40'
                   }`}
                 >
-                  {tabMeta.icon} {tabMeta.label}
-                </button>
+                  {/* Nenápadný štítok sekcie pre veľké monitory */}
+                  <span className="hidden xl:inline-flex items-center gap-1 pl-2 pr-1.5 text-[9px] font-bold uppercase tracking-wider text-[#8C857B] select-none border-r border-[#E8E2D9] mr-1">
+                    <span>{pillar.icon}</span>
+                    <span>{pillar.label.split('&')[0].trim()}</span>
+                  </span>
+
+                  {/* Tlačidlá záložiek piliera */}
+                  <div className="flex items-center gap-0.5 flex-wrap">
+                    {accessibleTabs.map((tabMeta) => {
+                      const isActive = activeTab === tabMeta.id;
+                      const shortLabel = tabMeta.id === 'prescriptions' ? 'Recepty' :
+                                         tabMeta.id === 'patients' ? 'Kartotéka' :
+                                         tabMeta.id === 'aesthetics' ? 'Botox & Výplne' :
+                                         tabMeta.id === 'generator' ? 'Dokumenty' :
+                                         tabMeta.id === 'calendar' ? 'Kalendár' :
+                                         tabMeta.id === 'cosmetics' ? 'Pokladňa' :
+                                         tabMeta.id === 'inventory' ? 'Sklad' :
+                                         tabMeta.id === 'finance' ? 'Financie' :
+                                         tabMeta.id === 'projects' ? 'Projekty' : tabMeta.label;
+
+                      return (
+                        <button
+                          key={tabMeta.id}
+                          onClick={() => changeTab(tabMeta.id)}
+                          className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 text-[11px] uppercase tracking-wider ${
+                            isActive
+                              ? 'bg-white text-[#2C2A29] font-bold shadow-xs border border-[#C5A059]'
+                              : 'text-[#5F5953] hover:text-[#2C2A29] hover:bg-white/60 font-medium'
+                          }`}
+                          title={`${tabMeta.label} – ${tabMeta.description}`}
+                        >
+                          <span>{tabMeta.icon}</span>
+                          <span className="font-semibold">{shortLabel}</span>
+                          {tabMeta.id === 'prescriptions' && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 ml-0.5" title="Priamy prístup k receptom ŠEVT"></span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
           </nav>
@@ -637,6 +774,29 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      {/* PERSISTENTNÁ LIŠTA ROZPRACOVANÉHO PACIENTA (PRE CELÝ KLINICKÝ SYSTÉM) */}
+      <ActivePatientBar
+        activePatient={activePatient}
+        allPatients={patients}
+        currentTab={activeTab}
+        onNavigateToTab={(tab, extra) => {
+          if (extra?.initialDocType && activePatient) {
+            setSelectedPatient({
+              name: activePatient.name,
+              birthNumber: activePatient.birthNumber,
+              phone: activePatient.phone,
+              email: activePatient.email,
+              address: activePatient.address,
+              insurance: activePatient.insurance,
+              initialDocType: extra.initialDocType
+            });
+          }
+          changeTab(tab);
+        }}
+        onSelectPatient={(p) => handleSetActivePatient(p)}
+        onClearActivePatient={() => handleSetActivePatient(null)}
+      />
 
       {/* MODAL PRE ZMENU HESLA PRIHLÁSENÉHO POUŽÍVATEĽA */}
       {showChangePasswordModal && (
@@ -1061,10 +1221,19 @@ export default function Home() {
                             <span className="text-[#C5A059]">+</span>
                           </button>
                         )}
+                        {PermissionsService.canUserAccessTab(currentUser, 'prescriptions') && (
+                          <button 
+                            onClick={() => { setSelectedPatient(null); changeTab('prescriptions'); }}
+                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-emerald-600 p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer"
+                          >
+                            <span>💊 Vystaviť recept Rp. (ŠEVT)</span>
+                            <span className="text-emerald-600 font-bold">+</span>
+                          </button>
+                        )}
                         {PermissionsService.canUserAccessTab(currentUser, 'generator') && (
                           <button 
                             onClick={() => { setSelectedPatient(null); changeTab('generator'); }}
-                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer"
                           >
                             <span>📄 Nový lekársky nález</span>
                             <span className="text-[#C5A059]">+</span>
@@ -1073,7 +1242,7 @@ export default function Home() {
                         {PermissionsService.canUserAccessTab(currentUser, 'patients') && (
                           <button 
                             onClick={() => { setSelectedPatientForFolder(null); changeTab('patients'); }}
-                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer"
                           >
                             <span>🗂️ Zaevidovať nového pacienta</span>
                             <span className="text-[#C5A059]">+</span>
@@ -1082,7 +1251,7 @@ export default function Home() {
                         {PermissionsService.canUserAccessTab(currentUser, 'calendar') && (
                           <button 
                             onClick={() => changeTab('calendar')}
-                            className="w-full bg-[#2C2A29] text-white hover:bg-[#C5A059] p-3 rounded-xl text-left font-bold transition-all flex items-center justify-between"
+                            className="w-full bg-[#2C2A29] text-white hover:bg-[#C5A059] p-3 rounded-xl text-left font-bold transition-all flex items-center justify-between cursor-pointer"
                           >
                             <span>📅 Naplánovať operáciu v kalendári</span>
                             <span>+</span>
@@ -1091,7 +1260,7 @@ export default function Home() {
                         {PermissionsService.canUserAccessTab(currentUser, 'projects') && (
                           <button 
                             onClick={() => changeTab('projects')}
-                            className="w-full bg-[#FAF4E9] border border-[#E6D4B2] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                            className="w-full bg-[#FAF4E9] border border-[#E6D4B2] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer"
                           >
                             <span className="text-[#8A6827]">📑 Projekty & Delegovanie úloh (CEO)</span>
                             <span className="text-[#C5A059] font-bold">➔</span>
@@ -1121,10 +1290,27 @@ export default function Home() {
               />
             )}
 
-            {/* KARTOTÉKA PACIENTOV */}
+            {/* LEKÁRSKE RECEPTY ŠEVT 14 282 2s */}
+            {activeTab === 'prescriptions' && PermissionsService.canUserAccessTab(currentUser, 'prescriptions') && (
+              <PrescriptionModule
+                initialPatient={activePatient || selectedPatientForFolder || (selectedPatient ? {
+                  id: 'temp',
+                  name: selectedPatient.name,
+                  birthNumber: selectedPatient.birthNumber || '',
+                  address: selectedPatient.address || '',
+                  insurance: selectedPatient.insurance || 'VšZP'
+                } : undefined)}
+              />
+            )}
+
+            {/* KARTOTÉKA PACIENTOV (360° CENTRUM PACIENTA) */}
             {activeTab === 'patients' && (
               <PatientDatabase 
                 onNavigateToGenerator={handleNavigateToGenerator} 
+                onNavigateToPrescriptions={(patient) => {
+                  handleSetActivePatient(patient);
+                  changeTab('prescriptions');
+                }}
                 onNavigateToAesthetics={(patient) => {
                   setSelectedPatientForFolder(patient);
                   changeTab('aesthetics');
@@ -1140,6 +1326,8 @@ export default function Home() {
                   changeTab('cosmetics');
                 }}
                 initialPatient={selectedPatientForFolder}
+                activePatient={activePatient}
+                onSetActivePatient={handleSetActivePatient}
                 onPatientsUpdated={(updatedList) => setPatients(updatedList)}
                 calendarEvents={calendarEvents}
                 onAddCalendarEvent={handleAddCalendarEvent}

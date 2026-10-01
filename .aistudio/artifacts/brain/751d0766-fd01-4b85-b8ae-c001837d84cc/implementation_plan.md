@@ -1,88 +1,125 @@
-# Zdravotnícky štandard 2FA: Klinický PIN viazaný na autorizovaný počítač + Audit Log
+# Implementačný plán: Vertikálna časová os (Timeline) & Klinický panel pacienta
 
-Bezpečnostný koncept dvojfaktorového overenia (2FA) navrhnutý v súlade s medicínskymi štandardmi ochrany osobných a zdravotných údajov pacientov (GDPR a zákon o zdravotnej starostlivosti). Spája vysokú bezpečnosť s plynulou prácou lekára v ambulancii bez nutnosti vyťahovať telefón či prepisovať 6-ciferné kódy.
+Tento plán špecifikuje vizuálne a funkčné vylepšenie **Centra pacienta** v komponente `PatientDatabase` o inteligentný skladací bočný panel s vertikálnou časovou osou (timeline). Panel zabezpečuje lekárovi okamžitý prehľad o alergiách, rizikách, histórii zákrokov a umožňuje rýchle pridávanie klinických poznámok počas vyšetrenia.
 
-## Používateľské rozhodnutia a potvrdené voľby
+---
+
+## Používateľské rozhodnutia & Potvrdené preferencie
 
 > [!IMPORTANT]
-> **Splnenie zdravotníckeho štandardu 2FA (Znalosť + Držba autorizovaného hardvéru):**
-> 1. **Faktor znalosti (Something you know)**: Silné prístupové heslo + osobný 4-miestny klinický PIN.
-> 2. **Faktor držby (Something you have)**: Fyzicky overený a autorizovaný počítač ambulancie kliniky (viazaný kryptografickým tokenom zariadenia).
+> Na základe Vašich odpovedí v úvodnom dialógu sú záväzne zapracované nasledujúce rozhodnutia:
 
-- **Potvrdená forma overenia**: Rýchly 4-miestny osobný PIN viazaný výhradne na autorizovaný počítač ambulancie.
-- **Autorizácia nového počítača**: Nové zariadenie vyžaduje zadanie hesla + PINu na autorizáciu pracoviska; po autorizácii zostáva stanica overená na 30 dní.
-- **Striktný klinický audit log**: Každá autorizácia nového počítača, úspešné prihlásenie, zlyhanie a pokus o zadanie PINu sú nezmazateľne zaznamenané s identifikáciou stanice a používateľa.
-
----
-
-## 1. Analýza bezpečnosti pre zdravotnícky systém
-
-| Bezpečnostný aspekt | Bežné riešenia (SMS / Mobil) | Riešenie SAY CLINIC (Viazaný PIN + Hardvér stanice) | Zdravotnícky štandard |
-| :--- | :--- | :--- | :--- |
-| **Rýchlosť pri pacientovi** | Pomalé (lekár hľadá mobil, čaká na SMS/kód) | **Okamžité (2 sekundy)** na klávesnici | Spĺňa komfort ostrej prevádzky |
-| **Ochrana pred vzdialeným útokom** | Útočník potrebuje získať mobil | **Útočník sa nedostane bez fyzického prístupu k autorizovanému PC kliniky** | Maximálna ochrana pred online útokom |
-| **Auditovateľnosť (Kto a kde)** | Často bez identifikácie stanice | **Záznam konkrétneho počítača a ambulancie v AuditLogu** | 100% súlad s GDPR a auditom |
-| **Ochrana pred odpozorovaním** | Žiadna | **Maska bodkami + lockout po 5 pokusoch na 5 minút** | Zamedzenie shoulder-surfingu |
+- **Umiestnenie panelu**: Skladací bočný panel (Collapsible Sidebar) s plynulým prepínačom rozbalenia/skrytia, ktorý pri otvorení zaberá pravú časť obrazovky (`xl:col-span-4`) a pri zbalení uvoľní plnú šírku pre zložky a fotodokumentáciu.
+- **Kľúčové kategórie na časovej osi**:
+  1. *Alergie a rizikové varovania* fixne umiestnené v hornej časti osi s výraznou červeno-jantárovou indikáciou (Penicilín, keloidné jazvy, antikoagulanciá).
+  2. *Chirurgické výkony a zákroky* (operačné protokoly, augmentácie, blefaroplastiky).
+  3. *Aplikácie estetickej medicíny* (Botox, kyselina hyalurónová, mezoterapia z modulu estetiky).
+  4. *Klinické poznámky a odporúčania ošetrujúceho lekára*.
+- **Interaktivita & Efektivita**: Možnosť rýchleho filtrovania udalostí podľa typu (Všetko / Zákroky / Alergie & Riziká / Poznámky) a vstavaný formulár na pridanie novej klinickej poznámky na 1 klik priamo počas ambulantného vyšetrenia.
 
 ---
 
-## 2. Používateľský workflow lekára a sestry
+## 1. Prehľad & Hlavná pridaná hodnota
 
-1. **Bežná práca na autorizovanom počítači v ambulancii**:
-   - Lekár klikne na svoj profil, zadá heslo a okamžite pracuje. Zariadenie je overené ako dôveryhodné pracovisko SAY CLINIC.
-2. **Prvé prihlásenie na novom počítači / notebooku**:
-   - Lekár zadá heslo. Systém identifikuje neznáme zariadenie a vyzve na autorizáciu stanice osobným 4-miestnym PINom.
-   - Po zadaní PINu sa do pamäte stanice zapíše kryptografický kľúč autorizovaného pracoviska kliniky s platnosťou 30 dní.
-   - Do klinického audit logu sa zapíše udalosť: *„MUDr. Ján Mráz autorizoval nové pracovisko (Názov stanice) pomocou klinického PINu.“*
-3. **Možnosť okamžitého odvolania autorizácie**:
-   - Ak personál stratí notebook alebo končí zmena na dočasnom počítači, v profile jedným klikom zruší autorizáciu daného zariadenia.
+- **Cieľ**: Poskytnúť operatérovi alebo dermatológovi pri otvorení karty pacienta 360° chronologický kontext bez nutnosti zdĺhavého preklikávania jednotlivých záložiek dokumentácie.
+- **Používateľská skupina**: Lekári (MUDr. Mráz, MUDr. Sroková), sestry a ambulantný personál SAY CLINIC.
+- **Kľúčová hodnota**:
+  - Bezpečnosť pacienta: Okamžite viditeľné alergie a kontraindikácie na očiach počas celej doby vyšetrenia.
+  - Rýchlosť: Okamžité zapísanie poznámky (napr. *„Pacientka hlási mierny opuch vpravo, odporučený Wobenzym, kontrola o 5 dní“*) bez opustenia obrazovky.
 
 ---
 
-## 3. Technická architektúra a synchronizácia
+## 2. Používateľská skúsenosť & Vizuálny dizajn (UX / UI)
+
+### Priestorové rozvrhnutie (Layout Architecture)
+Karta pacienta po otvorení získa flexibilný 2-stĺpcový grid:
+- **Ľavá hlavná časť (`xl:col-span-8` alebo plná šírka pri zbalení)**: Záložky zložky pacienta (Dokumenty, AI Plán liečby, Fotodokumentácia, Predoperačné vyšetrenia, Minutý materiál, Termíny).
+- **Pravý bočný panel (`xl:col-span-4`)**: Pripnutý vertikálny timeline panel (`sticky top-28`):
+  - Hlavička s počítadlom záznamov a tlačidlom na skrytie panelu.
+  - Sekcia *Kritické alergie a riziká* s možnosťou rýchleho pridania nového varovania.
+  - Segmentový prepínač filtrov (Všetko · Zákroky · Poznámky).
+  - Tlačidlo `+ Pridať poznámku` s rýchlym rozbaľovacím editorom.
+  - Samotná vertikálna časová os s dizajnovou zlatou líniou, uzlovými bodmi a dátumovými pečiatkami.
+
+### Vizuálny jazyk & Princípy Frontend Design
+- **Paleta**:
+  - Pozadie panelu: `#FAF8F5` s jemným okrajom `#E8E2D9`.
+  - Alergie: Jemné červené pozadie `#FEF2F2`, text `#991B1B`, orámovanie `#FCA5A5`.
+  - Zlaté akcenty kliniky: `#C5A059` na línii časovej osi a aktívnych stavoch.
+  - Typografia: Čistá hierarchia bez rušivých candy odznakov; dátumy v tabuľkovom formáte `font-mono tabular-nums`.
+- **Indikátor zbaleného stavu**:
+  - Ak lekár panel skryje, na pravej hrane zložky zostane visieť diskrétna plávajúca záložka:
+    `[⏱️ Časová os · ⚠️ 1 alergia · 4 výkony]`, ktorej kliknutím sa panel okamžite rozbalí.
+
+---
+
+## 3. Kľúčové produktové rozhodnutia & Komponenty
+
+1. **Agregácia dát z viacerých modulov**:
+   - Časová os dynamicky spája:
+     - Lekárske záznamy pacienta (`patientRecords[selectedPatient.id]`).
+     - Aplikácie botoxu a výplní z estetického modulu (`say_clinic_aesthetic_sessions`).
+     - Rýchle klinické poznámky a špecifické alergie pacienta (`say_clinic_patient_clinical_timeline_v1`).
+2. **Perzistencia a Realtime synchronizácia**:
+   - Všetky novovytvorené klinické poznámky a pridané alergie sa okamžite ukladajú do lokálneho úložiska a publikujú cez `RealtimeSyncService`, aby boli viditeľné na všetkých staniciach kliniky.
+3. **Plynulý prechod a responzivita**:
+   - Na notebookoch a tabletoch je panel plne prispôsobivý, s možnosťou posunu (scroll) nezávisle od hlavnej zložky.
+
+---
+
+## 4. Technická architektúra & Dátový model
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                          LoginForm (Klient)                            │
+│                        PatientDatabase.tsx                             │
 │                                                                        │
-│  1. Zadanie hesla                                                      │
-│       │                                                                │
-│       ▼                                                                │
-│  Má prehliadač platný autorizačný token stanice kliniky?               │
-│  ├── ÁNO (autorizovaný PC ambulancie) ──> Okamžitý vstup do systému    │
-│  └── NIE (neznámy počítač) ────────────> 2. Zadanie 4-miestneho PINu   │
-│                                                   │                    │
-│                                                   ▼                    │
-│                                   Overenie PIN voči serveru            │
-│                                   + Vygenerovanie viazaného tokenu PC  │
-│                                   + Zápis do klinického AuditLogu      │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│             Centrálny server (/api/auth/credentials)                   │
-│                                                                        │
-│  - Perzistentné ukladanie hesiel a osobných PINov v hashovanej podobe  │
-│  - Zoznam autorizovaných zariadení a ich platnosti                    │
-│  - Okamžitá synchronizácia naprieč všetkými počítačmi kliniky          │
+│  ┌─────────────────────────────────┐  ┌─────────────────────────────┐  │
+│  │     Hlavná zložka pacienta      │  │ Skladací bočný panel        │  │
+│  │      (xl:col-span-8)            │  │ (xl:col-span-4 / sticky)    │  │
+│  │                                 │  │                             │  │
+│  │  • Dokumenty & Správy           │  │  ⚠️ Alergie & Riziká        │  │
+│  │  • AI Roadmap (12M)             │  │  ─────────────────────────  │  │
+│  │  • Plány & Starostlivosť        │  │  🔍 Filter kategórií        │  │
+│  │  • Termíny & Kontroly           │  │  ➕ Rýchla poznámka (1-klik)│  │
+│  │  • Fotodokumentácia             │  │  ─────────────────────────  │  │
+│  │  • Spotrebovaný materiál        │  │  ● Vertikálna časová os:    │  │
+│  │                                 │  │    │  2026-08-12 Augmentácia│  │
+│  │                                 │  │    │  2026-07-25 Konzultácia│  │
+│  │                                 │  │    │  2026-06-10 Botox čelo │  │
+│  └─────────────────────────────────┘  └─────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Hashovanie PINu**: PIN sa neukladá ako čistý text, ale v hashovanej podobe.
-- **Bezpečný identifikátor stanice**: Unikátny 128-bitový token viazaný na konkrétny prehliadač s expiráciou a kontrolou integrity.
-- **Ochrana proti hádaniu**: Po 5 neúspešných pokusoch o zadanie hesla alebo PINu systém zablokuje vstup na 5 minút a zaloguje bezpečnostný incident.
+### Dátová štruktúra časovej osi:
+```typescript
+interface TimelineItem {
+  id: string;
+  patientId: string;
+  category: 'allergy' | 'surgery' | 'aesthetic' | 'note' | 'prescription';
+  title: string;
+  description: string;
+  date: string;
+  author: string;
+  severity?: 'critical' | 'warning' | 'info';
+  tags?: string[];
+}
+```
 
 ---
 
-## 4. Konkrétne kroky realizácie
+## 5. Postup implementácie po schválení
 
-1. **Rozšírenie serverového úložiska (`/api/auth/credentials`)**:
-   - Podpora pre ukladanie `pinHash` a správu autorizovaných staníc.
-2. **Rozšírenie `authService.ts` a `auditLogService.ts`**:
-   - Metódy na overenie PINu, generovanie a validáciu tokenu stanice kliniky a striktné logovanie autorizácie.
-3. **Rozhranie zadania PINu v `LoginForm.tsx`**:
-   - 4-miestny diskrétny PIN komponent s automatickým posunom kurzora, možnosťou pomenovať stanicu (napr. *Ambulancia 1*) a prepínačom zapamätania na 30 dní.
-4. **Správa autorizovaných zariadení a zmena PINu v profile (`page.tsx`)**:
-   - Možnosť kedykoľvek zmeniť svoj 4-miestny PIN a zobraziť zoznam autorizovaných staníc s možnosťou ich odhlásenia.
-5. **Overenie buildu**:
-   - Spustenie `compile_applet` pre overenie bezchybnej kompilácie.
+1. **Rozšírenie dátových typov a východiskových hodnôt**:
+   - Doplnenie štruktúry pre klinické alergie a rýchle poznámky pacienta.
+   - Vytvorenie reálnych klinických východiskových dát pre demo pacientov.
+2. **Implementácia komponentu `PatientTimelineSidebar`**:
+   - Vytvorenie bočného panelu s podporou zbalenia/rozbalenia.
+   - Horný box pre alergie s tlačidlom na rýchle pridanie.
+   - Filtrovanie udalostí a interaktívny formulár novej poznámky.
+   - Vykreslenie štýlovej vertikálnej osi s uzlami a časovými údajmi.
+3. **Integrácia do `PatientDatabase.tsx`**:
+   - Úprava rozloženia zložky pacienta na flexibilný dvojstĺpcový grid.
+   - Prepojenie so stavom pacienta a odber zmien.
+4. **Verifikácia a testovanie**:
+   - Kontrola kompilácie cez `compile_applet`.
+   - Overenie plynulosti zbaľovania a ukladania poznámok v prehliadači.

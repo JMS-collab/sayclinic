@@ -6,12 +6,54 @@ export type TabId =
   | 'home' 
   | 'generator' 
   | 'patients' 
+  | 'prescriptions'
   | 'aesthetics' 
   | 'cosmetics' 
   | 'calendar' 
   | 'inventory' 
   | 'finance' 
   | 'projects';
+
+export type NavigationPillarId = 'home' | 'medicine' | 'operations' | 'management';
+
+export interface NavigationPillar {
+  id: NavigationPillarId;
+  label: string;
+  icon: string;
+  description: string;
+  tabs: TabId[];
+}
+
+export const NAVIGATION_PILLARS: NavigationPillar[] = [
+  {
+    id: 'home',
+    label: 'Prehľad',
+    icon: '🏠',
+    description: 'Hlavná nástenka a denný prehľad',
+    tabs: ['home']
+  },
+  {
+    id: 'medicine',
+    label: 'Medicína & Pacienti',
+    icon: '🩺',
+    description: 'Starostlivosť, kartotéka, recepty a sály',
+    tabs: ['patients', 'prescriptions', 'aesthetics', 'generator', 'calendar']
+  },
+  {
+    id: 'operations',
+    label: 'Prevádzka & Sklad',
+    icon: '📦',
+    description: 'Pokladňa POS, predaj a materiál',
+    tabs: ['cosmetics', 'inventory']
+  },
+  {
+    id: 'management',
+    label: 'Manažment & Financie',
+    icon: '💼',
+    description: 'Finančné výsledky, P&L a operatívne úlohy',
+    tabs: ['finance', 'projects']
+  }
+];
 
 export type SpecialPermissionId =
   | 'view_financial_kpis'       // Zobrazenie finančných súm a obratu na nástenke
@@ -42,17 +84,17 @@ export const TABS_REGISTRY: TabMeta[] = [
     department: 'Všeobecné'
   },
   { 
-    id: 'generator', 
-    label: 'Generátor Dokumentov', 
-    icon: '📄', 
-    description: 'Operačné protokoly, prepúšťacie správy, informované súhlasy a lekárske nálezy',
-    department: 'Klinika & Medicína'
-  },
-  { 
     id: 'patients', 
     label: 'Kartotéka Pacientov', 
     icon: '🗂️', 
     description: 'Databáza klientov, zdravotná karta, fotodokumentácia a história návštev',
+    department: 'Klinika & Medicína'
+  },
+  { 
+    id: 'prescriptions', 
+    label: 'Recepty Rp.', 
+    icon: '💊', 
+    description: 'Lekárske recepty ŠEVT 14 282 2s, 1 liek na recept, katalóg liečiv a tlač',
     department: 'Klinika & Medicína'
   },
   { 
@@ -63,11 +105,11 @@ export const TABS_REGISTRY: TabMeta[] = [
     department: 'Klinika & Medicína'
   },
   { 
-    id: 'cosmetics', 
-    label: 'Predaj & Kozmetika', 
-    icon: '🛍️', 
-    description: 'Pokladničný systém POS, predaj pooperačnej kozmetiky a krémov pacientkám',
-    department: 'Obchod & Logistika'
+    id: 'generator', 
+    label: 'Generátor Dokumentov', 
+    icon: '📄', 
+    description: 'Operačné protokoly, prepúšťacie správy, informované súhlasy a lekárske nálezy',
+    department: 'Klinika & Medicína'
   },
   { 
     id: 'calendar', 
@@ -75,6 +117,13 @@ export const TABS_REGISTRY: TabMeta[] = [
     icon: '📅', 
     description: 'Harmonogram operačných sál SAY a Rudlová, dospávacie izby, kontroly a konzultácie',
     department: 'Klinika & Medicína'
+  },
+  { 
+    id: 'cosmetics', 
+    label: 'Predaj & Kozmetika', 
+    icon: '🛍️', 
+    description: 'Pokladničný systém POS, predaj pooperačnej kozmetiky a krémov pacientkám',
+    department: 'Obchod & Logistika'
   },
   { 
     id: 'inventory', 
@@ -136,7 +185,7 @@ export const SPECIAL_PERMISSIONS_REGISTRY: { id: SpecialPermissionId; label: str
 export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig> = {
   // 1. CEO & PRIMÁR (MUDr. Ján Mráz) - Kompletný neobmedzený prístup ku všetkým oblastiam
   ceo: {
-    allowedTabs: ['home', 'generator', 'patients', 'aesthetics', 'cosmetics', 'calendar', 'inventory', 'finance', 'projects'],
+    allowedTabs: ['home', 'patients', 'prescriptions', 'aesthetics', 'generator', 'calendar', 'cosmetics', 'inventory', 'finance', 'projects'],
     specialPermissions: {
       view_financial_kpis: true,
       view_clinic_pnl: true,
@@ -147,10 +196,8 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
   },
 
   // 2. LEKÁR / CHIRURG (MUDr. Sroková, MUDr. Tran, Anesteziológ)
-  // Prístup k medicínskej dokumentácii, pacientom, zákrokom, kalendáru a skladu materiálu
-  // ŽIADNE citlivé celoklinické financie ani celkový P&L obrat kliniky
   doctor: {
-    allowedTabs: ['home', 'generator', 'patients', 'aesthetics', 'calendar', 'inventory'],
+    allowedTabs: ['home', 'patients', 'prescriptions', 'aesthetics', 'generator', 'calendar', 'inventory'],
     specialPermissions: {
       view_financial_kpis: false,
       view_clinic_pnl: false,
@@ -161,10 +208,8 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
   },
 
   // 3. KLINICKÝ MANAŽMENT & RECEPCIA (Ing. Mecerodová, Mgr. Solivajsová)
-  // Prístup k organizácii kliniky, pacientom, kalendáru, pokladni POS a klientskej fakturácii (zálohy/faktúry)
-  // Bez prístupu k mzdovým nákladom kliniky a bez možnosti mazať systém
   manager: {
-    allowedTabs: ['home', 'generator', 'patients', 'cosmetics', 'calendar', 'inventory', 'finance', 'projects'],
+    allowedTabs: ['home', 'patients', 'prescriptions', 'cosmetics', 'generator', 'calendar', 'inventory', 'finance', 'projects'],
     specialPermissions: {
       view_financial_kpis: true,
       view_clinic_pnl: false,
@@ -175,10 +220,8 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
   },
 
   // 4. ZDRAVOTNÁ SESTRA (Ema Foltáni, Sabina Lenhartová, Viktória Foltániová, anest. sestra)
-  // Sálová a ambulantná asistencia, zdravotná karta, harmonogram operácií, odpisovanie spotreby zo skladu
-  // Prísne skryté finančné a cenové moduly
   nurse: {
-    allowedTabs: ['home', 'generator', 'patients', 'calendar', 'inventory'],
+    allowedTabs: ['home', 'patients', 'prescriptions', 'generator', 'calendar', 'inventory'],
     specialPermissions: {
       view_financial_kpis: false,
       view_clinic_pnl: false,

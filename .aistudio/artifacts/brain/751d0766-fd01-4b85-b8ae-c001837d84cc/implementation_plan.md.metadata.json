@@ -1,6 +1,6 @@
 {
-  "summary": "Revidovaný implementačný plán pre zdravotnícky štandard 2FA: PIN viazaný na kryptograficky autorizovaný počítač ambulancie so striktným auditným logovaním a ochranou pred odcudzením prístupu.",
-  "updatedAt": "2026-09-29T16:35:20.502518362Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Plán implementácie nového skladacieho bočného panelu s vertikálnou časovou osou (timeline) výkonov, alergií a klinických poznámok v Centre pacienta (PatientDatabase).",
+  "updatedAt":  "2026-10-01T18:12:02.904900506Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }
