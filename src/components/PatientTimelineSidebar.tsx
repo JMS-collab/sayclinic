@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   AlertTriangle, 
   ShieldAlert, 
@@ -16,13 +16,19 @@ import {
   ChevronRight, 
   ChevronDown, 
   Trash2, 
-  Eye, 
   Filter,
-  User,
-  PanelRightClose
+  PanelRightClose,
+  RefreshCw,
+  Pill,
+  HardDrive,
+  Lightbulb,
+  ExternalLink,
+  Info
 } from 'lucide-react';
 import { Patient, MedicalRecord } from './PatientDatabase';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
+import { AIPatientSummary } from '../app/api/ai/patient-summary/route';
+import { getAccessToken, subscribeWorkspaceAuth } from '@/lib/workspaceAuth';
 
 export interface ClinicalAllergy {
   id: string;
@@ -96,6 +102,7 @@ const DEFAULT_PATIENT_PROFILES: Record<string, PatientClinicalProfile> = {
 interface PatientTimelineSidebarProps {
   patient: Patient;
   records: MedicalRecord[];
+  calendarEvents?: any[];
   onClose: () => void;
   onNavigateToRecord?: (recordId: string) => void;
 }
@@ -103,6 +110,7 @@ interface PatientTimelineSidebarProps {
 export default function PatientTimelineSidebar({
   patient,
   records,
+  calendarEvents = [],
   onClose,
   onNavigateToRecord
 }: PatientTimelineSidebarProps) {
@@ -121,44 +129,18 @@ export default function PatientTimelineSidebar({
 
   // Estetické sedenia z modulu estetiky
   const [aestheticSessions, setAestheticSessions] = useState<any[]>([]);
+  // Vystavené lekárske recepty
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  // Google Drive súbory
+  const [driveFiles, setDriveFiles] = useState<any[]>([]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && patient.id) {
-      try {
-        const saved = localStorage.getItem('say_clinic_aesthetic_sessions');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && parsed[patient.id]) {
-            setAestheticSessions(parsed[patient.id]);
-          } else {
-            setAestheticSessions([]);
-          }
-        }
-      } catch (e) {
-        console.error('Chyba načítania estetických sedení:', e);
-      }
-    }
-  }, [patient.id]);
-
-  // Synchronizácia do localStorage a siete
-  const saveProfiles = (newProfiles: Record<string, PatientClinicalProfile>) => {
-    setProfiles(newProfiles);
-    try {
-      localStorage.setItem('say_clinic_patient_clinical_timeline_v1', JSON.stringify(newProfiles));
-      RealtimeSyncService.publish('clinical_timeline_profiles', newProfiles);
-    } catch (e) {
-      console.error('Chyba uloženia profilu:', e);
-    }
-  };
-
-  const currentProfile = profiles[patient.id] || {
-    allergies: [],
-    risks: [],
-    notes: []
-  };
+  // AI Súhrn z Gemini 3.8 Flash
+  const [aiSummary, setAiSummary] = useState<AIPatientSummary | null>(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // Filter kategórií na časovej osi
-  const [activeFilter, setActiveFilter] = useState<'all' | 'procedures' | 'allergies' | 'notes'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'surgery' | 'aesthetic' | 'prescription' | 'notes'>('all');
 
   // Formulár pre novú poznámku
   const [isAddingNote, setIsAddingNote] = useState(false);
@@ -179,8 +161,154 @@ export default function PatientTimelineSidebar({
     setExpandedItems(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Načítanie estetických sedení
+  useEffect(() => {
+    if (typeof window !== 'undefined' && patient.id) {
+      try {
+        const saved = localStorage.getItem('say_clinic_aesthetic_sessions');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed[patient.id]) {
+            setAestheticSessions(parsed[patient.id]);
+          } else {
+            setAestheticSessions([]);
+          }
+        }
+      } catch (e) {
+        console.error('Chyba načítania estetických sedení:', e);
+      }
+    }
+  }, [patient.id]);
+
+  // Načítanie receptov
+  useEffect(() => {
+    if (typeof window !== 'undefined' && patient.id) {
+      try {
+        const saved = localStorage.getItem('say_clinic_prescriptions');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const patientRxs = parsed.filter((rx: any) => 
+              rx.patientId === patient.id || 
+              (rx.patientName && patient.name && rx.patientName.toLowerCase() === patient.name.toLowerCase())
+            );
+            setPrescriptions(patientRxs);
+          }
+        }
+      } catch (e) {
+        console.error('Chyba načítania receptov:', e);
+      }
+    }
+  }, [patient.id, patient.name]);
+
+  // Načítanie súborov z Google Drive pre pacienta
+  useEffect(() => {
+    let isMounted = true;
+    const loadDriveFiles = async () => {
+      if (!patient.name) return;
+      try {
+        const headers: Record<string, string> = {};
+        const token = await getAccessToken();
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        const res = await fetch(`/api/drive?patientName=${encodeURIComponent(patient.name)}`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.files && Array.isArray(data.files)) {
+            setDriveFiles(data.files);
+          }
+        }
+      } catch (err) {
+        // Tichý fallback, ak Drive nie je pripojený
+      }
+    };
+    loadDriveFiles();
+    return () => { isMounted = false; };
+  }, [patient.name]);
+
+  // Načítanie existujúceho AI súhrnu z cache
+  useEffect(() => {
+    if (typeof window !== 'undefined' && patient.id) {
+      try {
+        const cached = localStorage.getItem(`say_clinic_ai_summary_${patient.id}`);
+        if (cached) {
+          setAiSummary(JSON.parse(cached));
+        } else {
+          setAiSummary(null);
+        }
+      } catch (e) {
+        console.error('Chyba načítania AI súhrnu z cache:', e);
+      }
+    }
+  }, [patient.id]);
+
+  const currentProfile = profiles[patient.id] || {
+    allergies: [],
+    risks: [],
+    notes: []
+  };
+
+  // Synchronizácia do localStorage a siete
+  const saveProfiles = (newProfiles: Record<string, PatientClinicalProfile>) => {
+    setProfiles(newProfiles);
+    try {
+      localStorage.setItem('say_clinic_patient_clinical_timeline_v1', JSON.stringify(newProfiles));
+      RealtimeSyncService.publish('clinical_timeline_profiles', newProfiles);
+    } catch (e) {
+      console.error('Chyba uloženia profilu:', e);
+    }
+  };
+
+  // Funkcia pre volanie Gemini AI súhrnu
+  const handleGenerateAISummary = useCallback(async (isFresh = false) => {
+    if (!patient.id) return;
+    setIsGeneratingAI(true);
+    setAiError(null);
+
+    try {
+      const payload = {
+        patient,
+        records,
+        aestheticSessions,
+        prescriptions,
+        calendarEvents,
+        driveFiles: driveFiles.map(f => ({ name: f.name, mimeType: f.mimeType })),
+        existingClinicalProfile: currentProfile
+      };
+
+      const res = await fetch('/api/ai/patient-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error(`Chyba pri volaní AI: ${res.statusText}`);
+      }
+
+      const summary: AIPatientSummary = await res.json();
+      setAiSummary(summary);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`say_clinic_ai_summary_${patient.id}`, JSON.stringify(summary));
+      }
+    } catch (err: any) {
+      console.error('Chyba generovania AI súhrnu:', err);
+      setAiError('Nepodarilo sa obnoviť AI súhrn. Zobrazuje sa lokálny stav.');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  }, [patient, records, aestheticSessions, prescriptions, calendarEvents, driveFiles, currentProfile]);
+
+  // Automatické vygenerovanie AI súhrnu pri prvom otvorení karty, ak ešte neexistuje
+  useEffect(() => {
+    if (!aiSummary && !isGeneratingAI && patient.id) {
+      handleGenerateAISummary();
+    }
+  }, [patient.id, aiSummary, isGeneratingAI, handleGenerateAISummary]);
+
   // Pridanie novej poznámky
-  const handleSaveNote = (e: React.FormEvent) => {
+  const handleSaveNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!noteContent.trim()) return;
 
@@ -197,14 +325,18 @@ export default function PatientTimelineSidebar({
       notes: [newNote, ...(currentProfile.notes || [])]
     };
 
-    saveProfiles({
+    const newProfiles = {
       ...profiles,
       [patient.id]: updatedProfile
-    });
+    };
 
+    saveProfiles(newProfiles);
     setNoteContent('');
     setNoteUrgent(false);
     setIsAddingNote(false);
+
+    // Automatický čerstvý prepočet AI súhrnu
+    handleGenerateAISummary(true);
   };
 
   // Pridanie alergie / rizika
@@ -248,6 +380,9 @@ export default function PatientTimelineSidebar({
     setItemName('');
     setItemDetail('');
     setIsAddingAllergy(false);
+
+    // Automatický čerstvý prepočet AI súhrnu
+    handleGenerateAISummary(true);
   };
 
   // Vymazanie alergie
@@ -260,6 +395,7 @@ export default function PatientTimelineSidebar({
         allergies: currentProfile.allergies.filter(a => a.id !== id)
       }
     });
+    handleGenerateAISummary(true);
   };
 
   // Vymazanie rizika
@@ -272,6 +408,7 @@ export default function PatientTimelineSidebar({
         risks: currentProfile.risks.filter(r => r.id !== id)
       }
     });
+    handleGenerateAISummary(true);
   };
 
   // Vymazanie poznámky
@@ -284,36 +421,73 @@ export default function PatientTimelineSidebar({
         notes: currentProfile.notes.filter(n => n.id !== id)
       }
     });
+    handleGenerateAISummary(true);
   };
 
   // Zostavenie zjednotených udalostí na časovú os
   const unifiedTimeline = useMemo(() => {
-    const list: Array<{
-      id: string;
-      category: 'procedure' | 'aesthetic' | 'note' | 'allergy';
-      date: string;
-      title: string;
-      subtitle?: string;
-      content?: string;
-      author?: string;
-      badge: string;
-      badgeClass: string;
-      nodeColor: string;
-      icon: any;
-      urgent?: boolean;
-    }> = [];
+    // Ak máme míľniky z AI, použijeme ich ako primárne
+    if (aiSummary?.timelineMilestones && aiSummary.timelineMilestones.length > 0) {
+      return aiSummary.timelineMilestones.map(m => {
+        let icon = FileText;
+        let badge = 'Záznam';
+        let badgeClass = 'bg-[#FAF4E9] text-[#8A6827] border border-[#E6D4B2]';
+        let nodeColor = '#C5A059';
 
-    // 1. Zdravotné záznamy & Chirurgické výkony
+        if (m.category === 'surgery') {
+          icon = Stethoscope;
+          badge = 'Operácia';
+          badgeClass = 'bg-[#2C2A29] text-white';
+          nodeColor = '#2C2A29';
+        } else if (m.category === 'aesthetic') {
+          icon = Syringe;
+          badge = 'Botox / Výplne';
+          badgeClass = 'bg-[#C5A059]/15 text-[#9C7D2B] border border-[#C5A059]/40';
+          nodeColor = '#C5A059';
+        } else if (m.category === 'prescription') {
+          icon = Pill;
+          badge = 'Recept Rp.';
+          badgeClass = 'bg-emerald-50 text-emerald-800 border border-emerald-200';
+          nodeColor = '#059669';
+        } else if (m.category === 'external_drive') {
+          icon = HardDrive;
+          badge = 'Google Drive';
+          badgeClass = 'bg-sky-50 text-sky-800 border border-sky-200';
+          nodeColor = '#0284C7';
+        } else if (m.category === 'consultation') {
+          icon = Calendar;
+          badge = 'Termín';
+          badgeClass = 'bg-indigo-50 text-indigo-800 border border-indigo-200';
+          nodeColor = '#4F46E5';
+        }
+
+        return {
+          id: m.id,
+          category: m.category,
+          date: m.date,
+          title: m.title,
+          summary: m.summary,
+          doctorOrSource: m.doctorOrSource,
+          badge,
+          badgeClass,
+          nodeColor,
+          icon,
+          urgency: m.urgency
+        };
+      });
+    }
+
+    // Fallback: ručné poskladanie
+    const list: any[] = [];
     records.forEach(rec => {
-      const isSurgery = rec.type.toLowerCase().includes('oper') || rec.type.toLowerCase().includes('protokol');
+      const isSurgery = rec.type?.toLowerCase().includes('oper') || rec.type?.toLowerCase().includes('protokol');
       list.push({
         id: `rec-${rec.id}`,
-        category: 'procedure',
+        category: isSurgery ? 'surgery' : 'document',
         date: rec.date || '2026-08-01',
         title: rec.title,
-        subtitle: `${rec.type} ${rec.diagnosis ? `(Dg. ${rec.diagnosis})` : ''}`,
-        content: rec.content,
-        author: rec.doctor,
+        summary: rec.diagnosis ? `Diagnóza: ${rec.diagnosis}. ${rec.content || ''}` : rec.content,
+        doctorOrSource: rec.doctor,
         badge: isSurgery ? 'Operácia' : 'Vyšetrenie',
         badgeClass: isSurgery ? 'bg-[#2C2A29] text-white' : 'bg-[#FAF4E9] text-[#8A6827] border border-[#E6D4B2]',
         nodeColor: isSurgery ? '#2C2A29' : '#C5A059',
@@ -321,16 +495,14 @@ export default function PatientTimelineSidebar({
       });
     });
 
-    // 2. Estetické zákroky (Botox & Výplne)
     aestheticSessions.forEach(sess => {
       list.push({
         id: `aes-${sess.id}`,
-        category: 'procedure',
+        category: 'aesthetic',
         date: sess.date || '2026-07-01',
-        title: `Aplikácia estetiky (${sess.productType || 'Botox / Výplň'})`,
-        subtitle: `Spotrebované: ${sess.totalUnits || 0} jednotiek`,
-        content: sess.notes || 'Aplikácia v plnom rozsahu bez komplikácií.',
-        author: sess.doctorName || 'MUDr. Ján Mráz',
+        title: `Estetika: ${sess.productType || 'Botox / Výplň'}`,
+        summary: sess.notes || (sess.treatments ? `Aplikácia: ${sess.treatments.map((t: any) => t.productName).join(', ')}` : 'Aplikácia bez komplikácií.'),
+        doctorOrSource: sess.doctorName || 'MUDr. Ján Mráz',
         badge: 'Botox / Výplne',
         badgeClass: 'bg-[#C5A059]/15 text-[#9C7D2B] border border-[#C5A059]/40',
         nodeColor: '#C5A059',
@@ -338,79 +510,159 @@ export default function PatientTimelineSidebar({
       });
     });
 
-    // 3. Klinické poznámky
-    (currentProfile.notes || []).forEach(nt => {
+    prescriptions.forEach(rx => {
       list.push({
-        id: `nt-${nt.id}`,
-        category: 'note',
-        date: nt.date,
-        title: nt.urgent ? 'Dôležitá klinická poznámka' : 'Poznámka ošetrujúceho',
-        content: nt.content,
-        author: nt.author,
-        badge: nt.urgent ? 'Urgentné' : 'Poznámka',
-        badgeClass: nt.urgent ? 'bg-rose-100 text-rose-800 border border-rose-300 font-bold' : 'bg-emerald-50 text-emerald-800 border border-emerald-200',
-        nodeColor: nt.urgent ? '#E11D48' : '#059669',
-        icon: nt.urgent ? AlertTriangle : Sparkles,
-        urgent: nt.urgent
+        id: `rx-${rx.id}`,
+        category: 'prescription',
+        date: rx.date || rx.issuedAt || '2026-08-01',
+        title: `Liek: ${rx.medicationName || rx.drugName}`,
+        summary: `Dávkovanie: ${rx.dosage || '1x denne'}. Predpis ŠEVT 14 282 2s.`,
+        doctorOrSource: rx.doctorName || 'MUDr. Ján Mráz',
+        badge: 'Recept Rp.',
+        badgeClass: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+        nodeColor: '#059669',
+        icon: Pill
       });
     });
 
-    // Zoradenie od najnovších po najstaršie
     list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return list;
-  }, [records, aestheticSessions, currentProfile.notes]);
+  }, [aiSummary, records, aestheticSessions, prescriptions]);
 
   // Filtrovanie časovej osi
   const filteredTimeline = useMemo(() => {
-    if (activeFilter === 'procedures') {
-      return unifiedTimeline.filter(item => item.category === 'procedure');
+    if (activeFilter === 'surgery') {
+      return unifiedTimeline.filter(item => item.category === 'surgery');
+    }
+    if (activeFilter === 'aesthetic') {
+      return unifiedTimeline.filter(item => item.category === 'aesthetic');
+    }
+    if (activeFilter === 'prescription') {
+      return unifiedTimeline.filter(item => item.category === 'prescription');
     }
     if (activeFilter === 'notes') {
-      return unifiedTimeline.filter(item => item.category === 'note');
+      return (currentProfile.notes || []).map(nt => ({
+        id: `nt-${nt.id}`,
+        category: 'notes',
+        date: nt.date,
+        title: nt.urgent ? '🚨 Dôležitá klinická poznámka' : 'Klinická poznámka tímu',
+        summary: nt.content,
+        doctorOrSource: nt.author,
+        badge: nt.urgent ? 'Urgentné' : 'Poznámka',
+        badgeClass: nt.urgent ? 'bg-rose-100 text-rose-800 border border-rose-300 font-bold' : 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+        nodeColor: nt.urgent ? '#E11D48' : '#059669',
+        icon: nt.urgent ? AlertTriangle : Sparkles
+      }));
     }
     return unifiedTimeline;
-  }, [unifiedTimeline, activeFilter]);
+  }, [unifiedTimeline, activeFilter, currentProfile.notes]);
 
-  const allergiesCount = currentProfile.allergies?.length || 0;
-  const risksCount = currentProfile.risks?.length || 0;
+  // Zoznam alergií z AI alebo z profilu
+  const displayedAllergies = useMemo(() => {
+    if (aiSummary?.criticalAlerts?.allergies && aiSummary.criticalAlerts.allergies.length > 0) {
+      return aiSummary.criticalAlerts.allergies;
+    }
+    return currentProfile.allergies.map(a => ({
+      substance: a.name,
+      reaction: a.reaction || 'Precitlivenosť',
+      severity: a.severity
+    }));
+  }, [aiSummary, currentProfile.allergies]);
+
+  // Zoznam kontraindikácií a chirurgických rizík
+  const displayedRisks = useMemo(() => {
+    const list: string[] = [];
+    if (aiSummary?.criticalAlerts?.contraindications) {
+      list.push(...aiSummary.criticalAlerts.contraindications);
+    }
+    if (aiSummary?.criticalAlerts?.surgicalRisks) {
+      list.push(...aiSummary.criticalAlerts.surgicalRisks);
+    }
+    if (list.length === 0 && currentProfile.risks?.length) {
+      currentProfile.risks.forEach(r => list.push(`${r.name} (${r.category})`));
+    }
+    return list;
+  }, [aiSummary, currentProfile.risks]);
 
   return (
     <aside className="bg-white border border-[#E8E2D9] rounded-2xl shadow-sm flex flex-col overflow-hidden text-[#2C2A29]">
       
-      {/* 1. HLAVIČKA PANELU S AKCIOU SKRYTIA */}
-      <div className="p-4 bg-gradient-to-r from-[#FAF8F5] to-white border-b border-[#E8E2D9] flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-[#2C2A29] text-[#C5A059] flex items-center justify-center font-bold shadow-2xs">
-            <Clock className="w-4 h-4" />
+      {/* 1. HLAVIČKA PANELU: AI KLINICKÝ SÚHRN & AKCIE */}
+      <div className="p-4 bg-gradient-to-r from-[#FAF8F5] via-white to-[#FAF8F5] border-b border-[#E8E2D9] flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-[#2C2A29] text-[#C5A059] flex items-center justify-center font-bold shadow-2xs shrink-0">
+            <Sparkles className="w-4 h-4 text-[#C5A059]" />
           </div>
-          <div>
-            <h3 className="font-brand text-sm font-bold uppercase tracking-wider text-[#2C2A29]">
-              Časová Os & Riziká
-            </h3>
-            <p className="text-[10px] text-[#8C857B] font-mono tabular-nums">
-              {unifiedTimeline.length} záznamov · {allergiesCount + risksCount} varovaní
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-brand text-xs font-bold uppercase tracking-wider text-[#2C2A29] truncate">
+                AI Klinický Súhrn & Časová Os
+              </h3>
+            </div>
+            <p className="text-[10px] text-[#8C857B] font-mono tabular-nums flex items-center gap-1 truncate">
+              <span>{aiSummary?.generatedAt ? `Aktualizované ${new Date(aiSummary.generatedAt).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}` : 'Pripravené na analýzu'}</span>
+              <span>·</span>
+              <span>{unifiedTimeline.length} míľnikov</span>
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1.5 rounded-lg text-[#8C857B] hover:text-[#2C2A29] hover:bg-gray-100 transition-colors flex items-center gap-1 cursor-pointer"
-          title="Skryť bočný panel časovej osi"
-        >
-          <PanelRightClose className="w-4 h-4" />
-          <span className="text-[11px] font-bold uppercase hidden sm:inline">Skryť</span>
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => handleGenerateAISummary(true)}
+            disabled={isGeneratingAI}
+            className="p-1.5 rounded-lg border border-[#E8E2D9] bg-white hover:bg-[#FAF8F5] hover:border-[#C5A059] text-[#2C2A29] text-[10px] font-bold uppercase transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
+            title="Okamžite nanovo vygenerovať AI súhrn z celej anamnézy a disku"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#C5A059] ${isGeneratingAI ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">AI Obnoviť</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-[#8C857B] hover:text-[#2C2A29] hover:bg-gray-100 transition-colors flex items-center cursor-pointer"
+            title="Skryť bočný panel časovej osi"
+          >
+            <PanelRightClose className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* 2. KRITICKÉ ALERGIE & RIZIKÁ (PRIČAPENÉ HORE) */}
+      {/* INDIKÁTOR PREBIEHAJÚCEHO AI PREPOČTU */}
+      {isGeneratingAI && (
+        <div className="bg-[#FAF8F5] border-b border-[#E8E2D9] px-4 py-2 flex items-center gap-2 text-xs text-[#8C857B] animate-pulse">
+          <Sparkles className="w-3.5 h-3.5 text-[#C5A059] animate-spin" />
+          <span>Gemini AI syntetizuje anamnézu, operácie, botox a Google Drive súbory...</span>
+        </div>
+      )}
+
+      {/* CHYBOVÝ OZNAM */}
+      {aiError && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-[11px] text-amber-800 flex items-center justify-between">
+          <span>{aiError}</span>
+          <button onClick={() => setAiError(null)} className="text-amber-600 hover:text-amber-900 font-bold ml-2">✕</button>
+        </div>
+      )}
+
+      {/* HLAVNÝ STAV PACIENTA (GENERAL STATUS ZO SÚHRNU) */}
+      {aiSummary?.generalStatus && (
+        <div className="px-4 py-3 bg-[#FAF8F5]/80 border-b border-[#E8E2D9] text-xs text-[#2C2A29] flex items-start gap-2">
+          <Info className="w-3.5 h-3.5 text-[#C5A059] shrink-0 mt-0.5" />
+          <p className="leading-relaxed font-medium">
+            {aiSummary.generalStatus}
+          </p>
+        </div>
+      )}
+
+      {/* 2. KRITICKÉ ALERGIE & KONTRAINDIKÁCIE (ŠTRUKTÚROVANÝ BLOK NA VRCHU) */}
       <div className="p-4 bg-rose-50/50 border-b border-rose-100 space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-rose-800 font-bold text-xs">
             <ShieldAlert className="w-4 h-4 text-rose-600" />
-            <span className="uppercase tracking-wider text-[11px]">Alergie & Kontraindikácie</span>
-            {allergiesCount > 0 && (
+            <span className="uppercase tracking-wider text-[11px]">Kritické Riziká & Alergie</span>
+            {displayedAllergies.length > 0 && (
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
             )}
           </div>
@@ -426,16 +678,19 @@ export default function PatientTimelineSidebar({
 
         {/* ZOZNAM ALERGIÍ */}
         <div className="space-y-1.5">
-          {currentProfile.allergies && currentProfile.allergies.length > 0 ? (
-            currentProfile.allergies.map(allergy => (
+          {displayedAllergies && displayedAllergies.length > 0 ? (
+            displayedAllergies.map((allergy, idx) => (
               <div 
-                key={allergy.id}
-                className="bg-white/90 border border-rose-200 rounded-lg px-2.5 py-1.5 flex items-start justify-between gap-2 shadow-2xs text-xs"
+                key={idx}
+                className="bg-white/95 border border-rose-200 rounded-lg px-2.5 py-1.5 flex items-start justify-between gap-2 shadow-2xs text-xs"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-600 shrink-0"></span>
-                    <strong className="text-rose-950 font-bold">{allergy.name}</strong>
+                    <strong className="text-rose-950 font-bold">{allergy.substance}</strong>
+                    <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-rose-100 text-rose-800 font-bold">
+                      {allergy.severity === 'critical' ? 'Kritická' : 'Upozornenie'}
+                    </span>
                   </div>
                   {allergy.reaction && (
                     <p className="text-[11px] text-rose-700 ml-3 truncate">
@@ -443,14 +698,6 @@ export default function PatientTimelineSidebar({
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteAllergy(allergy.id)}
-                  className="text-rose-300 hover:text-rose-700 transition-colors p-0.5"
-                  title="Odstrániť alergiu"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
               </div>
             ))
           ) : (
@@ -459,309 +706,307 @@ export default function PatientTimelineSidebar({
               <span>Bez evidovaných liekových alergií (negatívna)</span>
             </p>
           )}
+        </div>
 
-          {/* RIZIKOVÉ VAROVANIA */}
-          {currentProfile.risks && currentProfile.risks.length > 0 && (
-            <div className="pt-1.5 border-t border-rose-200/50 space-y-1">
-              <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider block">
-                Klinické riziká & Anamnéza:
-              </span>
-              {currentProfile.risks.map(risk => (
+        {/* CHIRURGICKÉ A INTERNÉ RIZIKÁ */}
+        {displayedRisks.length > 0 && (
+          <div className="pt-2 border-t border-rose-200/60 space-y-1">
+            <span className="text-[10px] uppercase font-bold text-amber-900 block">
+              ⚠️ Kontraindikácie & Operačné riziká:
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {displayedRisks.map((risk, idx) => (
                 <div 
-                  key={risk.id}
-                  className="bg-amber-50/80 border border-amber-200 rounded-lg px-2.5 py-1 flex items-center justify-between gap-2 text-xs"
+                  key={idx}
+                  className="bg-amber-100/70 border border-amber-300 text-amber-950 text-[11px] px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs"
                 >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
-                    <span className="text-amber-950 font-medium truncate">{risk.name}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteRisk(risk.id)}
-                    className="text-amber-400 hover:text-amber-800 transition-colors p-0.5"
-                    title="Odstrániť riziko"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                  <span>{risk}</span>
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* INLINE FORMULÁR PRE PRIDANIE ALERGIE / RIZIKA */}
+        {/* FORMULÁR PRE PRIDANIE NOVEJ ALERGIE / RIZIKA */}
         {isAddingAllergy && (
-          <form onSubmit={handleSaveAllergyOrRisk} className="bg-white p-3 rounded-xl border border-rose-200 shadow-sm space-y-2 mt-2 animate-in fade-in duration-150">
-            <div className="flex gap-2 text-[10px] font-bold uppercase">
-              <button
-                type="button"
-                onClick={() => setItemType('allergy')}
-                className={`flex-1 py-1 rounded border text-center transition-all ${
-                  itemType === 'allergy'
-                    ? 'bg-rose-600 text-white border-rose-600'
-                    : 'bg-gray-50 text-gray-700 border-gray-200'
-                }`}
-              >
-                Alergia
-              </button>
-              <button
-                type="button"
-                onClick={() => setItemType('risk')}
-                className={`flex-1 py-1 rounded border text-center transition-all ${
-                  itemType === 'risk'
-                    ? 'bg-amber-600 text-white border-amber-600'
-                    : 'bg-gray-50 text-gray-700 border-gray-200'
-                }`}
-              >
-                Klinické riziko
-              </button>
+          <form onSubmit={handleSaveAllergyOrRisk} className="bg-white p-3 rounded-xl border border-rose-200 space-y-2.5 mt-2 animate-in fade-in duration-150">
+            <div className="flex gap-2 text-xs font-bold">
+              <label className="flex items-center gap-1 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="itemType" 
+                  checked={itemType === 'allergy'} 
+                  onChange={() => setItemType('allergy')} 
+                />
+                <span className="text-rose-800">Lieková alergia</span>
+              </label>
+              <label className="flex items-center gap-1 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="itemType" 
+                  checked={itemType === 'risk'} 
+                  onChange={() => setItemType('risk')} 
+                />
+                <span className="text-amber-800">Klinické riziko</span>
+              </label>
             </div>
 
             <input
               type="text"
-              placeholder={itemType === 'allergy' ? "Napr. Penicilín, Ibuprofen..." : "Napr. Keloidné jazvy, Antikoagulanciá..."}
+              required
+              placeholder={itemType === 'allergy' ? "Napr. Penicilín, Ibuprofén..." : "Napr. Sklon ku keloidom, Fajčenie..."}
               value={itemName}
-              onChange={(e) => setItemName(e.target.value)}
-              className="w-full text-xs p-2 rounded-lg border border-gray-300 focus:border-[#C5A059] focus:outline-none"
-              autoFocus
+              onChange={e => setItemName(e.target.value)}
+              className="w-full text-xs p-2 rounded-lg border border-[#E8E2D9] focus:border-rose-500 outline-none"
             />
 
             <input
               type="text"
-              placeholder={itemType === 'allergy' ? "Reakcia (napr. vyrážka, opuch)" : "Kategória (napr. Hojenie rán)"}
+              placeholder={itemType === 'allergy' ? "Prejavy (anafylaxia, vyrážka)..." : "Kategória (Hojenie rán, Anestézia)..."}
               value={itemDetail}
-              onChange={(e) => setItemDetail(e.target.value)}
-              className="w-full text-xs p-2 rounded-lg border border-gray-300 focus:border-[#C5A059] focus:outline-none"
+              onChange={e => setItemDetail(e.target.value)}
+              className="w-full text-xs p-2 rounded-lg border border-[#E8E2D9] focus:border-rose-500 outline-none"
             />
 
-            <div className="flex justify-end gap-1.5 pt-1">
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setIsAddingAllergy(false)}
-                className="px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-2.5 py-1 text-xs text-[#8C857B] hover:text-[#2C2A29]"
               >
                 Zrušiť
               </button>
               <button
                 type="submit"
-                disabled={!itemName.trim()}
-                className="px-3 py-1 text-xs bg-[#2C2A29] text-white font-bold rounded-lg hover:bg-[#C5A059] transition-colors disabled:opacity-50"
+                className="px-3 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-bold shadow-2xs"
               >
-                Uložiť
+                Uložiť do karty
               </button>
             </div>
           </form>
         )}
       </div>
 
-      {/* 3. OVLÁDACIA LIŠTA: FILTRE & TLAČIDLO PRE RÝCHLU POZNÁMKU */}
-      <div className="p-3 border-b border-[#E8E2D9] space-y-2 bg-[#FAF8F5]/60">
-        
-        {/* TLAČIDLO + FORMULÁR PRE RÝCHLU KLINICKÚ POZNÁMKU */}
-        <button
-          type="button"
-          onClick={() => setIsAddingNote(prev => !prev)}
-          className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#2C2A29] to-[#3E3B3A] text-white hover:from-[#C5A059] hover:to-[#9C7D2B] transition-all flex items-center justify-between text-xs font-bold uppercase tracking-wider shadow-xs cursor-pointer"
-        >
-          <span className="flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Zapísať poznámku z vyšetrenia</span>
-          </span>
-          <span className="text-[10px] text-gray-300 font-normal">1-klik</span>
-        </button>
+      {/* 3. KLINICKÉ ODPORÚČANIA PRE VYŠETRENIE (AI RECOMMENDATIONS) */}
+      {aiSummary?.clinicalRecommendations && aiSummary.clinicalRecommendations.length > 0 && (
+        <div className="p-4 bg-amber-50/40 border-b border-[#E8E2D9] space-y-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-[#8A6827]">
+            <Lightbulb className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span className="uppercase tracking-wider text-[11px]">Odporúčania pre ošetrujúceho lekára</span>
+          </div>
+          <ul className="space-y-1.5 text-xs text-[#2C2A29]">
+            {aiSummary.clinicalRecommendations.map((rec, idx) => (
+              <li key={idx} className="flex items-start gap-2 bg-white/80 p-2 rounded-lg border border-[#E8E2D9]/80 shadow-2xs leading-relaxed">
+                <span className="text-[#C5A059] font-bold mt-0.5">•</span>
+                <span>{rec}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-        {isAddingNote && (
-          <form onSubmit={handleSaveNote} className="bg-white p-3 rounded-xl border border-[#C5A059] shadow-sm space-y-2 animate-in fade-in duration-150">
-            <div className="flex justify-between items-center text-[10px] uppercase font-bold text-[#8C857B]">
-              <span>Nová klinická poznámka</span>
-              <label className="flex items-center gap-1 text-rose-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={noteUrgent}
-                  onChange={(e) => setNoteUrgent(e.target.checked)}
-                  className="rounded text-rose-600 focus:ring-0"
-                />
-                <span>Urgentné</span>
-              </label>
-            </div>
-
-            <textarea
-              rows={3}
-              placeholder="Zadajte postrehy z vyšetrenia, odporúčania pre pacienta, reakcie na medikáciu..."
-              value={noteContent}
-              onChange={(e) => setNoteContent(e.target.value)}
-              className="w-full text-xs p-2.5 rounded-lg border border-gray-300 focus:border-[#C5A059] focus:outline-none resize-none"
-              autoFocus
-            />
-
-            <div className="flex items-center justify-between gap-2">
-              <select
-                value={noteAuthor}
-                onChange={(e) => setNoteAuthor(e.target.value)}
-                className="text-[11px] p-1.5 rounded-md border border-gray-200 bg-gray-50 focus:outline-none"
-              >
-                <option value="MUDr. Ján Mráz">MUDr. Ján Mráz</option>
-                <option value="MUDr. Sroková">MUDr. Sroková</option>
-                <option value="MUDr. Tran">MUDr. Tran</option>
-                <option value="Sestra">Sestra ambulancie</option>
-              </select>
-
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingNote(false)}
-                  className="px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  Zrušiť
-                </button>
-                <button
-                  type="submit"
-                  disabled={!noteContent.trim()}
-                  className="px-3 py-1 text-xs bg-[#C5A059] text-white font-bold rounded-lg hover:bg-[#9C7D2B] transition-colors disabled:opacity-50"
-                >
-                  Uložiť
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
-
-        {/* SEGMENTOVÝ FILTER UDALOSTÍ */}
-        <div className="flex items-center gap-1 p-0.5 bg-[#E8E2D9]/50 rounded-xl text-[10px] font-bold uppercase tracking-wider text-[#8C857B]">
+      {/* 4. LIŠTA S FILTRAMI ČASOVEJ OSI & TLAČIDLOM NA PRIDANIE POZNÁMKY */}
+      <div className="p-3 bg-[#FAF8F5] border-b border-[#E8E2D9] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1 overflow-x-auto text-[10px] font-bold uppercase py-0.5">
           <button
             type="button"
             onClick={() => setActiveFilter('all')}
-            className={`flex-1 py-1 rounded-lg transition-all text-center cursor-pointer ${
+            className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
               activeFilter === 'all'
-                ? 'bg-white text-[#2C2A29] shadow-xs'
-                : 'hover:text-[#2C2A29]'
+                ? 'bg-[#2C2A29] text-white shadow-2xs'
+                : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
             }`}
           >
-            Všetko ({unifiedTimeline.length})
+            Všetko
           </button>
           <button
             type="button"
-            onClick={() => setActiveFilter('procedures')}
-            className={`flex-1 py-1 rounded-lg transition-all text-center cursor-pointer ${
-              activeFilter === 'procedures'
-                ? 'bg-white text-[#2C2A29] shadow-xs'
-                : 'hover:text-[#2C2A29]'
+            onClick={() => setActiveFilter('surgery')}
+            className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+              activeFilter === 'surgery'
+                ? 'bg-[#2C2A29] text-white shadow-2xs'
+                : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
             }`}
           >
-            Zákroky ({unifiedTimeline.filter(t => t.category === 'procedure').length})
+            Operácie
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter('aesthetic')}
+            className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+              activeFilter === 'aesthetic'
+                ? 'bg-[#2C2A29] text-white shadow-2xs'
+                : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
+            }`}
+          >
+            Botox/Výplne
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter('prescription')}
+            className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+              activeFilter === 'prescription'
+                ? 'bg-[#2C2A29] text-white shadow-2xs'
+                : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
+            }`}
+          >
+            Recepty
           </button>
           <button
             type="button"
             onClick={() => setActiveFilter('notes')}
-            className={`flex-1 py-1 rounded-lg transition-all text-center cursor-pointer ${
+            className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
               activeFilter === 'notes'
-                ? 'bg-white text-[#2C2A29] shadow-xs'
-                : 'hover:text-[#2C2A29]'
+                ? 'bg-[#2C2A29] text-white shadow-2xs'
+                : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
             }`}
           >
-            Poznámky ({unifiedTimeline.filter(t => t.category === 'note').length})
+            Poznámky ({currentProfile.notes?.length || 0})
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsAddingNote(prev => !prev)}
+          className="text-[10px] font-bold uppercase px-2 py-1 rounded-lg bg-[#2C2A29] text-[#C5A059] hover:bg-[#C5A059] hover:text-white transition-all flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+          title="Pridať novú klinickú poznámku k vyšetreniu na 1 klik"
+        >
+          <Plus className="w-3 h-3" />
+          <span>Poznámka</span>
+        </button>
       </div>
 
-      {/* 4. SAMOTNÁ VERTIKÁLNA ČASOVÁ OS (SCROLLABLE TIMELINE TRACK) */}
+      {/* FORMULÁR PRE PRIDANIE NOVEJ POZNÁMKY NA 1 KLIK */}
+      {isAddingNote && (
+        <form onSubmit={handleSaveNote} className="p-4 bg-[#FAF8F5] border-b border-[#E8E2D9] space-y-3 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-[#2C2A29] uppercase text-[10px]">
+              Nová klinická poznámka (1-Klik)
+            </span>
+            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-rose-700">
+              <input 
+                type="checkbox"
+                checked={noteUrgent}
+                onChange={e => setNoteUrgent(e.target.checked)}
+                className="rounded text-rose-600 focus:ring-rose-500"
+              />
+              <span>Označiť ako urgentné</span>
+            </label>
+          </div>
+
+          <textarea
+            required
+            rows={3}
+            placeholder="Zapíšte poznámku z vyšetrenia, odporúčania po zákroku alebo pokyny pre tím..."
+            value={noteContent}
+            onChange={e => setNoteContent(e.target.value)}
+            className="w-full text-xs p-2.5 rounded-xl border border-[#E8E2D9] focus:border-[#C5A059] outline-none bg-white resize-none shadow-2xs"
+          />
+
+          <div className="flex items-center justify-between">
+            <input
+              type="text"
+              value={noteAuthor}
+              onChange={e => setNoteAuthor(e.target.value)}
+              placeholder="Meno lekára / sestry"
+              className="text-[11px] p-1.5 rounded-lg border border-[#E8E2D9] bg-white w-40"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAddingNote(false)}
+                className="px-3 py-1.5 text-xs text-[#8C857B] hover:text-[#2C2A29]"
+              >
+                Zrušiť
+              </button>
+              <button
+                type="submit"
+                className="px-3.5 py-1.5 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                Uložiť & Obnoviť AI
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* 5. VERTIKÁLNA ČASOVÁ OS (TIMELINE MILESTONES) */}
       <div className="p-4 overflow-y-auto max-h-[580px] space-y-4">
         {filteredTimeline.length === 0 ? (
-          <div className="text-center py-8 text-[#8C857B]">
-            <Clock className="w-8 h-8 mx-auto text-gray-300 mb-2" />
-            <p className="text-xs font-bold uppercase">Žiadne záznamy v tomto filtri</p>
-            <p className="text-[11px] text-gray-500 mt-1">Pridajte novú poznámku alebo zvoľte iný filter.</p>
+          <div className="text-center py-10 text-xs text-[#8C857B] italic">
+            Žiadne záznamy pre zvolený filter.
           </div>
         ) : (
-          <div className="relative pl-6 border-l-2 border-[#E8E2D9] space-y-5 ml-2">
-            {filteredTimeline.map((item) => {
-              const isExpanded = expandedItems[item.id];
-              const IconComponent = item.icon;
+          <div className="relative pl-6 space-y-5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E8E2D9]">
+            {filteredTimeline.map((item, index) => {
+              const IconComponent = item.icon || FileText;
+              const isExpanded = expandedItems[item.id] || false;
 
               return (
-                <div key={item.id} className="relative group">
-                  
-                  {/* UZLOVÝ BOD NA ČASOVEJ OSI */}
+                <div key={item.id || index} className="relative group text-xs">
+                  {/* UZOL ČASOVEJ OSI */}
                   <div 
-                    className="absolute -left-[31px] top-0.5 w-6 h-6 rounded-full bg-white border-2 flex items-center justify-center shadow-xs transition-transform group-hover:scale-110"
+                    className="absolute -left-6 top-1 w-5 h-5 rounded-full bg-white border-2 flex items-center justify-center shadow-2xs transition-transform group-hover:scale-110"
                     style={{ borderColor: item.nodeColor }}
                   >
-                    <IconComponent className="w-3 h-3" style={{ color: item.nodeColor }} />
+                    <div 
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: item.nodeColor }}
+                    />
                   </div>
 
                   {/* KARTA UDALOSTI */}
-                  <div className={`p-3 rounded-xl border transition-all ${
-                    item.urgent 
-                      ? 'bg-rose-50/60 border-rose-200' 
-                      : 'bg-[#FAF8F5]/80 hover:bg-white border-[#E8E2D9] hover:border-[#C5A059]/60 hover:shadow-xs'
-                  }`}>
-                    {/* HORNÝ RIADOK: DÁTUM A ODZNAK */}
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="font-mono text-[10px] text-[#8C857B] font-bold tabular-nums">
-                        {item.date}
+                  <div className="bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl p-3 shadow-2xs hover:bg-white transition-all">
+                    
+                    {/* HORNÝ RIADOK: DÁTUM & KATEGÓRIA */}
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="font-mono text-[10px] text-[#8C857B] font-bold">
+                        {item.date ? new Date(item.date).toLocaleDateString('sk-SK', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Nedávno'}
                       </span>
-                      <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded font-bold ${item.badgeClass}`}>
+                      <span className={`text-[9px] uppercase px-2 py-0.5 rounded font-bold ${item.badgeClass}`}>
                         {item.badge}
                       </span>
                     </div>
 
-                    {/* NÁZOV UDALOSTI */}
-                    <h4 className="text-xs font-bold text-[#2C2A29] leading-snug">
+                    {/* NÁZOV VÝKONU / DOKUMENTU */}
+                    <h4 className="font-bold text-[#2C2A29] text-xs leading-snug">
                       {item.title}
                     </h4>
 
-                    {item.subtitle && (
-                      <p className="text-[11px] text-[#8C857B] font-medium mt-0.5">
-                        {item.subtitle}
-                      </p>
-                    )}
-
-                    {/* TEXTOVÝ OBSAH (S MOŽNOSŤOU ROZBALENIA) */}
-                    {item.content && (
-                      <div className="mt-1.5">
-                        <p className={`text-[11px] text-[#5F5953] leading-relaxed ${!isExpanded && item.content.length > 120 ? 'line-clamp-2' : ''}`}>
-                          {item.content}
+                    {/* SÚHRN UDALOSTI */}
+                    {item.summary && (
+                      <div className="mt-1 text-[11px] text-[#4A4744] leading-relaxed">
+                        <p className={!isExpanded && item.summary.length > 140 ? 'line-clamp-2' : ''}>
+                          {item.summary}
                         </p>
-                        {item.content.length > 120 && (
+                        {item.summary.length > 140 && (
                           <button
                             type="button"
                             onClick={() => toggleExpand(item.id)}
-                            className="text-[10px] text-[#C5A059] font-bold uppercase mt-1 hover:underline cursor-pointer"
+                            className="text-[#C5A059] hover:underline font-bold text-[10px] mt-0.5 inline-block cursor-pointer"
                           >
-                            {isExpanded ? 'Zbaliť detail ▲' : 'Zobraziť celý záznam ▼'}
+                            {isExpanded ? 'Menej...' : 'Zobraziť viac...'}
                           </button>
                         )}
                       </div>
                     )}
 
-                    {/* PÄTIČKA: LEKÁR & AKCIE */}
-                    <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-black/5 text-[10px] text-[#8C857B]">
-                      <span className="flex items-center gap-1">
-                        <User className="w-2.5 h-2.5 text-[#C5A059]" />
-                        <span>{item.author}</span>
-                      </span>
-
-                      {item.id.startsWith('nt-') && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteNote(item.id.replace('nt-', ''))}
-                          className="text-gray-400 hover:text-rose-600 transition-colors p-0.5"
-                          title="Zmazať poznámku"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-
-                      {item.id.startsWith('rec-') && onNavigateToRecord && (
-                        <button
-                          type="button"
-                          onClick={() => onNavigateToRecord(item.id.replace('rec-', ''))}
-                          className="text-[#C5A059] hover:underline font-bold"
-                        >
-                          Otvoriť dekurz →
-                        </button>
-                      )}
-                    </div>
+                    {/* SPODNÝ RIADOK: LEKÁR ALEBO ZDROJ */}
+                    {item.doctorOrSource && (
+                      <div className="mt-2 pt-2 border-t border-[#E8E2D9]/70 flex items-center justify-between text-[10px] text-[#8C857B]">
+                        <span>{item.doctorOrSource}</span>
+                        {item.category === 'notes' && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteNote(item.id.replace('nt-', ''))}
+                            className="text-rose-500 hover:text-rose-800 font-bold"
+                            title="Zmazať poznámku"
+                          >
+                            Zmazať
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                   </div>
                 </div>
@@ -771,10 +1016,13 @@ export default function PatientTimelineSidebar({
         )}
       </div>
 
-      {/* 5. SPODNÁ PÄTIČKA */}
+      {/* 6. PÄTIČKA PANELU */}
       <div className="p-3 bg-[#FAF8F5] border-t border-[#E8E2D9] text-[10px] text-[#8C857B] flex items-center justify-between">
-        <span>SAY CLINIC · EMR Timeline</span>
-        <span className="font-mono">{patient.birthNumber}</span>
+        <span className="flex items-center gap-1">
+          <Sparkles className="w-3 h-3 text-[#C5A059]" />
+          <span>SAY CLINIC AI Medical Assistant</span>
+        </span>
+        <span className="font-mono">Gemini 3.8 Flash</span>
       </div>
 
     </aside>

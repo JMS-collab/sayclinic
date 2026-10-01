@@ -1,6 +1,6 @@
 {
-  "summary":  "Plán implementácie nového skladacieho bočného panelu s vertikálnou časovou osou (timeline) výkonov, alergií a klinických poznámok v Centre pacienta (PatientDatabase).",
-  "updatedAt":  "2026-10-01T18:12:02.904900506Z",
+  "summary":  "Implementačný plán pre AI klinický súhrn klienta: prepojenie kompletnej anamnézy, lekárskych záznamov, estetických sedení a Google Drive súborov do štruktúrovanej časovej osi, rizikových varovaní a odporúčaní pomocou Gemini 3.8 Flash.",
+  "updatedAt":  "2026-10-01T18:42:39.360624797Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

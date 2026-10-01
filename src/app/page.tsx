@@ -615,89 +615,41 @@ export default function Home() {
             />
           </div>
 
-          {/* DYNAMICKÁ SEKCIONÁLNA NAVIGÁCIA (4 LOGICKÉ PILIERE KLINIKY) */}
+          {/* 5 PRIAMYCH ZÁLOŽIEK: PREHĽAD, KARTOTÉKA, KALENDÁR, PREVÁDZKA, MANAŽMENT */}
           <nav className="flex flex-wrap items-center gap-2 text-[11px] tracking-wider">
             {NAVIGATION_PILLARS.map((pillar) => {
-              const accessibleTabs = pillar.tabs
-                .map(tabId => TABS_REGISTRY.find(t => t.id === tabId))
-                .filter((t): t is TabMeta => Boolean(t && PermissionsService.canUserAccessTab(currentUser, t.id)));
+              const hasAccess = pillar.tabs.some(tabId => PermissionsService.canUserAccessTab(currentUser, tabId));
+              if (!hasAccess) return null;
 
-              if (accessibleTabs.length === 0) return null;
+              const isPillarActive = pillar.tabs.includes(activeTab);
 
-              const isPillarActive = accessibleTabs.some(t => t.id === activeTab);
+              const targetTab: TabId = pillar.id === 'operations'
+                ? (['inventory', 'cosmetics'].includes(activeTab) ? activeTab : 'inventory')
+                : pillar.id === 'management'
+                ? (['finance', 'projects'].includes(activeTab) ? activeTab : 'finance')
+                : pillar.id === 'patients'
+                ? 'patients'
+                : pillar.id === 'calendar'
+                ? 'calendar'
+                : 'home';
 
-              // 1. Jedno-položkový pilier (napr. Prehľad / Home)
-              if (accessibleTabs.length === 1) {
-                const tabMeta = accessibleTabs[0];
-                const isActive = activeTab === tabMeta.id;
-                return (
-                  <button
-                    key={tabMeta.id}
-                    onClick={() => changeTab(tabMeta.id)}
-                    className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 font-medium border ${
-                      isActive
-                        ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-xs'
-                        : 'bg-[#FAF8F5] hover:bg-[#F3EFEA] text-[#2C2A29] border-[#E8E2D9]'
-                    }`}
-                    title={tabMeta.description}
-                  >
-                    <span>{tabMeta.icon}</span>
-                    <span className="uppercase text-[11px] font-bold">{pillar.label}</span>
-                  </button>
-                );
-              }
-
-              // 2. Viac-položkový pilier (Medicína & Pacienti, Prevádzka, Manažment)
               return (
-                <div 
+                <button
                   key={pillar.id}
-                  className={`flex items-center p-0.5 rounded-xl border transition-all ${
+                  onClick={() => changeTab(targetTab)}
+                  className={`px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2 font-medium border ${
                     isPillarActive
-                      ? 'bg-[#FAF8F5] border-[#C5A059]/70 shadow-xs'
-                      : 'bg-white/80 border-[#E8E2D9] hover:border-[#C5A059]/40'
+                      ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-xs font-bold'
+                      : 'bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
                   }`}
+                  title={pillar.description}
                 >
-                  {/* Nenápadný štítok sekcie pre veľké monitory */}
-                  <span className="hidden xl:inline-flex items-center gap-1 pl-2 pr-1.5 text-[9px] font-bold uppercase tracking-wider text-[#8C857B] select-none border-r border-[#E8E2D9] mr-1">
-                    <span>{pillar.icon}</span>
-                    <span>{pillar.label.split('&')[0].trim()}</span>
-                  </span>
-
-                  {/* Tlačidlá záložiek piliera */}
-                  <div className="flex items-center gap-0.5 flex-wrap">
-                    {accessibleTabs.map((tabMeta) => {
-                      const isActive = activeTab === tabMeta.id;
-                      const shortLabel = tabMeta.id === 'prescriptions' ? 'Recepty' :
-                                         tabMeta.id === 'patients' ? 'Kartotéka' :
-                                         tabMeta.id === 'aesthetics' ? 'Botox & Výplne' :
-                                         tabMeta.id === 'generator' ? 'Dokumenty' :
-                                         tabMeta.id === 'calendar' ? 'Kalendár' :
-                                         tabMeta.id === 'cosmetics' ? 'Pokladňa' :
-                                         tabMeta.id === 'inventory' ? 'Sklad' :
-                                         tabMeta.id === 'finance' ? 'Financie' :
-                                         tabMeta.id === 'projects' ? 'Projekty' : tabMeta.label;
-
-                      return (
-                        <button
-                          key={tabMeta.id}
-                          onClick={() => changeTab(tabMeta.id)}
-                          className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 text-[11px] uppercase tracking-wider ${
-                            isActive
-                              ? 'bg-white text-[#2C2A29] font-bold shadow-xs border border-[#C5A059]'
-                              : 'text-[#5F5953] hover:text-[#2C2A29] hover:bg-white/60 font-medium'
-                          }`}
-                          title={`${tabMeta.label} – ${tabMeta.description}`}
-                        >
-                          <span>{tabMeta.icon}</span>
-                          <span className="font-semibold">{shortLabel}</span>
-                          {tabMeta.id === 'prescriptions' && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 ml-0.5" title="Priamy prístup k receptom ŠEVT"></span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                  <span className="text-sm">{pillar.icon}</span>
+                  <span className="uppercase text-[11px] font-bold tracking-wider">{pillar.label}</span>
+                  {isPillarActive && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059] ml-0.5"></span>
+                  )}
+                </button>
               );
             })}
           </nav>
@@ -1062,82 +1014,38 @@ export default function Home() {
               <div className="space-y-6">
                 
                 {/* BANNER A ŽIVÝ ČAS */}
-                <div className="bg-white border border-[#E8E2D9] rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-white via-white to-[#FBF9F6]">
+                <div className="bg-white border border-[#E8E2D9] rounded-2xl p-6 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-white via-[#FAF8F5]/60 to-[#FAF8F5]">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-[#C5A059] tracking-widest">Klinický prehľad</span>
-                    <h2 className="font-brand text-2xl md:text-3xl font-light text-[#2C2A29] uppercase mt-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] uppercase font-bold text-[#C5A059] tracking-widest">Klinický prehľad</span>
+                      <span className="text-[#8C857B]">·</span>
+                      <button
+                        type="button"
+                        onClick={() => (session ? signOut() : signIn('google'))}
+                        className="text-[10px] text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1.5 cursor-pointer transition-colors"
+                        title={session ? `Pripojené: ${session.user?.email}` : 'Kliknite pre pripojenie Google Disku & Kalendára'}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${session ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
+                        <span className="font-semibold">{session ? 'Google prepojené' : 'Pripojiť Google'}</span>
+                      </button>
+                    </div>
+                    <h2 className="font-brand text-2xl md:text-3xl font-light text-[#2C2A29] uppercase">
                       Dobrý deň, <span className="font-bold">{currentUser.name}</span>
                     </h2>
                     <p className="text-xs text-[#8C857B] mt-1">
-                      Vitajte v internom systéme SAY CLINIC. Tu je váš prehľad na dnešný deň.
+                      Vitajte v ambulantnom systéme SAY CLINIC. Tu je váš harmonogram a úlohy na dnešný deň.
                     </p>
                   </div>
 
                   {/* ŽIVÝ ČAS A DÁTUM */}
-                  <div className="bg-[#2C2A29] text-white px-6 py-3 rounded-xl text-right font-mono border border-[#C5A059]/30 shadow-sm min-w-[200px]">
-                    <div className="text-xs text-[#C5A059] uppercase font-bold tracking-wider">
+                  <div className="bg-[#2C2A29] text-white px-5 py-2.5 rounded-xl text-right font-mono border border-[#C5A059]/40 shadow-xs min-w-[200px]">
+                    <div className="text-[11px] text-[#C5A059] uppercase font-bold tracking-wider">
                       {currentTime ? currentTime.toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Načítavam...'}
                     </div>
                     <div className="text-2xl font-bold tracking-widest text-white mt-0.5">
                       {currentTime ? currentTime.toLocaleTimeString('sk-SK') : '--:--:--'}
                     </div>
                   </div>
-                </div>
-
-                {/* KPI ŠTATISTIKY */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-white border border-[#E8E2D9] p-4 rounded-xl shadow-sm">
-                    <p className="text-[10px] uppercase text-[#8C857B] font-bold">Dnešní klienti</p>
-                    <p className="text-2xl font-bold text-[#2C2A29] mt-1">{todayEvents.length}</p>
-                    <p className="text-[10px] text-[#C5A059] mt-1 font-semibold">Naplánované na dnes</p>
-                  </div>
-
-                  <div className="bg-white border border-[#E8E2D9] p-4 rounded-xl shadow-sm">
-                    <p className="text-[10px] uppercase text-[#8C857B] font-bold">Celkovo v kartotéke</p>
-                    <p className="text-2xl font-bold text-[#2C2A29] mt-1">{patients.length}</p>
-                    <p className="text-[10px] text-emerald-600 mt-1 font-semibold">Prepojené s Google Drive</p>
-                  </div>
-
-                  {PermissionsService.canUserDo(currentUser, 'view_financial_kpis') ? (
-                    <div className="bg-white border border-[#E8E2D9] p-4 rounded-xl shadow-sm">
-                      <p className="text-[10px] uppercase text-[#8C857B] font-bold">Dnešný predpokladovaný obrat</p>
-                      <p className="text-2xl font-bold text-[#2C2A29] mt-1">
-                        {sales.reduce((acc, s) => acc + s.amount, 0).toLocaleString('sk-SK')} €
-                      </p>
-                      <p className="text-[10px] text-[#8C857B] mt-1">Záznamy z CRM</p>
-                    </div>
-                  ) : (
-                    <div className="bg-white border border-[#E8E2D9] p-4 rounded-xl shadow-sm">
-                      <p className="text-[10px] uppercase text-[#8C857B] font-bold">Dnešný program výkonov</p>
-                      <p className="text-2xl font-bold text-[#2C2A29] mt-1">
-                        {todayEvents.length} výkonov
-                      </p>
-                      <p className="text-[10px] text-sky-600 mt-1 font-semibold">Harmonogram sály</p>
-                    </div>
-                  )}
-
-                  {/* INTERAKTÍVNA KARTA PRE GOOGLE PREPOJENIE */}
-                  <button
-                    onClick={() => (session ? signOut() : signIn('google'))}
-                    disabled={status === 'loading'}
-                    className="bg-white border border-[#E8E2D9] hover:border-[#C5A059] p-4 rounded-xl shadow-sm text-left transition-all w-full group cursor-pointer"
-                  >
-                    <div className="flex justify-between items-center">
-                      <p className="text-[10px] uppercase text-[#8C857B] font-bold">Stav Google API</p>
-                      <span className="text-[10px] text-[#C5A059] opacity-0 group-hover:opacity-100 transition-opacity font-bold uppercase">
-                        {session ? 'Odpojiť ➔' : 'Pripojiť ➔'}
-                      </span>
-                    </div>
-
-                    <p className={`text-2xl font-bold mt-1 flex items-center gap-2 ${session ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      <span>{session ? '🟢' : '🔴'}</span>
-                      <span>{status === 'loading' ? 'Pripájam...' : session ? 'Aktívne' : 'Nepripojené'}</span>
-                    </p>
-
-                    <p className="text-[10px] text-[#8C857B] mt-1 truncate">
-                      {session ? `Prihlásený: ${session.user?.email}` : 'Kliknite pre prepojenie s Google Diskom & Kalendárom'}
-                    </p>
-                  </button>
                 </div>
 
                 {/* OBSAH HOMESCREENU: 2 STĹPCE */}
@@ -1202,68 +1110,68 @@ export default function Home() {
                       <h3 className="font-brand text-sm font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-2">
                         Rýchle Akcie
                       </h3>
-                      <div className="grid grid-cols-1 gap-2 text-xs">
-                        {PermissionsService.canUserAccessTab(currentUser, 'aesthetics') && (
+                      <div className="grid grid-cols-1 gap-2.5 text-xs">
+                        {PermissionsService.canUserAccessTab(currentUser, 'patients') && (
                           <button 
-                            onClick={() => changeTab('aesthetics')}
-                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
+                            onClick={() => { setSelectedPatientForFolder(null); changeTab('patients'); }}
+                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer shadow-2xs group"
                           >
-                            <span>💉 Nová aplikácia Botoxu / Výplne</span>
-                            <span className="text-[#C5A059]">+</span>
-                          </button>
-                        )}
-                        {PermissionsService.canUserAccessTab(currentUser, 'cosmetics') && (
-                          <button 
-                            onClick={() => changeTab('cosmetics')}
-                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between"
-                          >
-                            <span>🛍️ Pultový predaj dermokozmetiky</span>
-                            <span className="text-[#C5A059]">+</span>
-                          </button>
-                        )}
-                        {PermissionsService.canUserAccessTab(currentUser, 'prescriptions') && (
-                          <button 
-                            onClick={() => { setSelectedPatient(null); changeTab('prescriptions'); }}
-                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-emerald-600 p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer"
-                          >
-                            <span>💊 Vystaviť recept Rp. (ŠEVT)</span>
-                            <span className="text-emerald-600 font-bold">+</span>
-                          </button>
-                        )}
-                        {PermissionsService.canUserAccessTab(currentUser, 'generator') && (
-                          <button 
-                            onClick={() => { setSelectedPatient(null); changeTab('generator'); }}
-                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer"
-                          >
-                            <span>📄 Nový lekársky nález</span>
-                            <span className="text-[#C5A059]">+</span>
+                            <span className="flex items-center gap-2">
+                              <span className="text-base">🗂️</span>
+                              <span>Kartotéka pacientov</span>
+                            </span>
+                            <span className="text-[#C5A059] font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
                           </button>
                         )}
                         {PermissionsService.canUserAccessTab(currentUser, 'patients') && (
                           <button 
-                            onClick={() => { setSelectedPatientForFolder(null); changeTab('patients'); }}
-                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer"
+                            onClick={() => { 
+                              setSelectedPatientForFolder(null); 
+                              changeTab('patients'); 
+                            }}
+                            className="w-full bg-white border border-[#E8E2D9] hover:border-[#2C2A29] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer shadow-2xs"
                           >
-                            <span>🗂️ Zaevidovať nového pacienta</span>
-                            <span className="text-[#C5A059]">+</span>
+                            <span className="flex items-center gap-2">
+                              <span className="text-base">➕</span>
+                              <span>Zaevidovať nového pacienta</span>
+                            </span>
+                            <span className="text-[#8C857B] font-bold">+</span>
                           </button>
                         )}
                         {PermissionsService.canUserAccessTab(currentUser, 'calendar') && (
                           <button 
                             onClick={() => changeTab('calendar')}
-                            className="w-full bg-[#2C2A29] text-white hover:bg-[#C5A059] p-3 rounded-xl text-left font-bold transition-all flex items-center justify-between cursor-pointer"
+                            className="w-full bg-[#2C2A29] text-white hover:bg-[#C5A059] p-3 rounded-xl text-left font-bold transition-all flex items-center justify-between cursor-pointer shadow-xs"
                           >
-                            <span>📅 Naplánovať operáciu v kalendári</span>
-                            <span>+</span>
+                            <span className="flex items-center gap-2">
+                              <span className="text-base">📅</span>
+                              <span>Kalendár operačných sál</span>
+                            </span>
+                            <span className="text-white font-bold">+</span>
+                          </button>
+                        )}
+                        {PermissionsService.canUserAccessTab(currentUser, 'inventory') && (
+                          <button 
+                            onClick={() => changeTab('inventory')}
+                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer shadow-2xs group"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="text-base">📦</span>
+                              <span>Sklad materiálu & Implantáty</span>
+                            </span>
+                            <span className="text-[#C5A059] font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
                           </button>
                         )}
                         {PermissionsService.canUserAccessTab(currentUser, 'projects') && (
                           <button 
                             onClick={() => changeTab('projects')}
-                            className="w-full bg-[#FAF4E9] border border-[#E6D4B2] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer"
+                            className="w-full bg-[#FAF4E9] border border-[#E6D4B2] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer shadow-2xs group"
                           >
-                            <span className="text-[#8A6827]">📑 Projekty & Delegovanie úloh (CEO)</span>
-                            <span className="text-[#C5A059] font-bold">➔</span>
+                            <span className="flex items-center gap-2">
+                              <span className="text-base">📑</span>
+                              <span className="text-[#8A6827]">Projekty & Smernice kliniky</span>
+                            </span>
+                            <span className="text-[#C5A059] font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
                           </button>
                         )}
                       </div>
@@ -1282,25 +1190,57 @@ export default function Home() {
               </div>
             )}
 
-            {/* GENERÁTOR DOKUMENTOV */}
+            {/* GENERÁTOR DOKUMENTOV (SPRÁVY & NÁLEZY) */}
             {activeTab === 'generator' && (
-              <MedicalRecordForm 
-                onRecordCreated={handleAddSale} 
-                initialPatient={selectedPatient} 
-              />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-[#E8E2D9]">
+                  <button
+                    type="button"
+                    onClick={() => changeTab('patients')}
+                    className="text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <span>← Späť do Kartotéky</span>
+                  </button>
+                  {selectedPatient && (
+                    <span className="text-xs font-medium text-[#2C2A29]">
+                      Pacient: <strong className="font-bold">{selectedPatient.name}</strong>
+                    </span>
+                  )}
+                </div>
+                <MedicalRecordForm 
+                  onRecordCreated={handleAddSale} 
+                  initialPatient={selectedPatient} 
+                />
+              </div>
             )}
 
             {/* LEKÁRSKE RECEPTY ŠEVT 14 282 2s */}
             {activeTab === 'prescriptions' && PermissionsService.canUserAccessTab(currentUser, 'prescriptions') && (
-              <PrescriptionModule
-                initialPatient={activePatient || selectedPatientForFolder || (selectedPatient ? {
-                  id: 'temp',
-                  name: selectedPatient.name,
-                  birthNumber: selectedPatient.birthNumber || '',
-                  address: selectedPatient.address || '',
-                  insurance: selectedPatient.insurance || 'VšZP'
-                } : undefined)}
-              />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-[#E8E2D9]">
+                  <button
+                    type="button"
+                    onClick={() => changeTab('patients')}
+                    className="text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <span>← Späť do Kartotéky</span>
+                  </button>
+                  {(activePatient || selectedPatientForFolder || selectedPatient) && (
+                    <span className="text-xs font-medium text-[#2C2A29]">
+                      Pacient: <strong className="font-bold">{(activePatient || selectedPatientForFolder || selectedPatient)?.name}</strong>
+                    </span>
+                  )}
+                </div>
+                <PrescriptionModule
+                  initialPatient={activePatient || selectedPatientForFolder || (selectedPatient ? {
+                    id: 'temp',
+                    name: selectedPatient.name,
+                    birthNumber: selectedPatient.birthNumber || '',
+                    address: selectedPatient.address || '',
+                    insurance: selectedPatient.insurance || 'VšZP'
+                  } : undefined)}
+                />
+              </div>
             )}
 
             {/* KARTOTÉKA PACIENTOV (360° CENTRUM PACIENTA) */}
@@ -1337,28 +1277,34 @@ export default function Home() {
 
             {/* ESTETICKÁ MEDICÍNA & FACE MAPPING */}
             {activeTab === 'aesthetics' && PermissionsService.canUserAccessTab(currentUser, 'aesthetics') && (
-              <AestheticsModule 
-                patients={patients}
-                selectedPatientId={selectedPatientForFolder?.id || (patients.length > 0 ? patients[0].id : undefined)}
-                onSelectPatient={(id) => {
-                  const p = patients.find(pat => pat.id === id);
-                  if (p) setSelectedPatientForFolder(p);
-                }}
-                onOpenPatientFolder={(patient) => {
-                  setSelectedPatientForFolder(patient);
-                  changeTab('patients');
-                }}
-              />
-            )}
-
-            {/* PREDAJ KOZMETIKY & POS */}
-            {activeTab === 'cosmetics' && PermissionsService.canUserAccessTab(currentUser, 'cosmetics') && (
-              <CosmeticsPOSModule 
-                patients={patients}
-                onSaleCompleted={handleAddSale}
-                initialSelectedPatientId={posSelectedPatientId}
-                initialPrefillItems={posPrefillItems}
-              />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-[#E8E2D9]">
+                  <button
+                    type="button"
+                    onClick={() => changeTab('patients')}
+                    className="text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <span>← Späť do Kartotéky</span>
+                  </button>
+                  {selectedPatientForFolder && (
+                    <span className="text-xs font-medium text-[#2C2A29]">
+                      Klientka: <strong className="font-bold">{selectedPatientForFolder.name}</strong>
+                    </span>
+                  )}
+                </div>
+                <AestheticsModule 
+                  patients={patients}
+                  selectedPatientId={selectedPatientForFolder?.id || (patients.length > 0 ? patients[0].id : undefined)}
+                  onSelectPatient={(id) => {
+                    const p = patients.find(pat => pat.id === id);
+                    if (p) setSelectedPatientForFolder(p);
+                  }}
+                  onOpenPatientFolder={(patient) => {
+                    setSelectedPatientForFolder(patient);
+                    changeTab('patients');
+                  }}
+                />
+              </div>
             )}
 
             {/* KALENDÁR */}
@@ -1371,26 +1317,124 @@ export default function Home() {
               />
             )}
 
-            {/* SKLAD & MATERIÁL */}
-            {activeTab === 'inventory' && (
-              <InventoryCRM />
+            {/* PREVÁDZKA: SKLAD & POKLADŇA */}
+            {(activeTab === 'inventory' || activeTab === 'cosmetics') && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#E8E2D9] pb-4">
+                  <div>
+                    <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">
+                      Prevádzka & Logistika
+                    </h2>
+                    <p className="text-xs text-[#8C857B]">
+                      Sklad materiálu, implantáty Motiva a pokladňa POS pre pultový predaj
+                    </p>
+                  </div>
+                  
+                  {/* PREPÍNAČ MEDZI SKLADOM A POKLADŇOU */}
+                  <div className="flex items-center gap-1 p-1 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl shadow-2xs">
+                    {PermissionsService.canUserAccessTab(currentUser, 'inventory') && (
+                      <button
+                        type="button"
+                        onClick={() => changeTab('inventory')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                          activeTab === 'inventory'
+                            ? 'bg-[#2C2A29] text-white shadow-xs'
+                            : 'text-[#8C857B] hover:text-[#2C2A29]'
+                        }`}
+                      >
+                        <span>📦</span>
+                        <span>Sklad & Materiál</span>
+                      </button>
+                    )}
+                    {PermissionsService.canUserAccessTab(currentUser, 'cosmetics') && (
+                      <button
+                        type="button"
+                        onClick={() => changeTab('cosmetics')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                          activeTab === 'cosmetics'
+                            ? 'bg-[#2C2A29] text-white shadow-xs'
+                            : 'text-[#8C857B] hover:text-[#2C2A29]'
+                        }`}
+                      >
+                        <span>🛍️</span>
+                        <span>Pokladňa POS</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {activeTab === 'inventory' && <InventoryCRM />}
+                {activeTab === 'cosmetics' && (
+                  <CosmeticsPOSModule 
+                    patients={patients}
+                    onSaleCompleted={handleAddSale}
+                    initialSelectedPatientId={posSelectedPatientId}
+                    initialPrefillItems={posPrefillItems}
+                  />
+                )}
+              </div>
             )}
 
-            {/* FINANCIE - PRÍSTUPNÉ LEN PRE CEO A MANAŽMENT */}
-            {activeTab === 'finance' && PermissionsService.canUserAccessTab(currentUser, 'finance') && (
-              <FinanceCRM 
-                sales={sales} 
-                calendarEvents={calendarEvents}
-                patients={patients}
-                currentUser={currentUser}
-              />
-            )}
+            {/* MANAŽMENT: FINANCIE & PROJEKTY */}
+            {(activeTab === 'finance' || activeTab === 'projects') && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#E8E2D9] pb-4">
+                  <div>
+                    <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">
+                      Manažment & Financie
+                    </h2>
+                    <p className="text-xs text-[#8C857B]">
+                      Finančné riadenie kliniky, P&L výkaz, faktúry a operatívne projekty tímu
+                    </p>
+                  </div>
+                  
+                  {/* PREPÍNAČ MEDZI FINANCIAMI A PROJEKTAMI */}
+                  <div className="flex items-center gap-1 p-1 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl shadow-2xs">
+                    {PermissionsService.canUserAccessTab(currentUser, 'finance') && (
+                      <button
+                        type="button"
+                        onClick={() => changeTab('finance')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                          activeTab === 'finance'
+                            ? 'bg-[#2C2A29] text-white shadow-xs'
+                            : 'text-[#8C857B] hover:text-[#2C2A29]'
+                        }`}
+                      >
+                        <span>📊</span>
+                        <span>Finančné výsledky</span>
+                      </button>
+                    )}
+                    {PermissionsService.canUserAccessTab(currentUser, 'projects') && (
+                      <button
+                        type="button"
+                        onClick={() => changeTab('projects')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                          activeTab === 'projects'
+                            ? 'bg-[#2C2A29] text-white shadow-xs'
+                            : 'text-[#8C857B] hover:text-[#2C2A29]'
+                        }`}
+                      >
+                        <span>📑</span>
+                        <span>Projekty & Úlohy</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-            {/* PROJEKTY & OPERATÍVNY MANAŽMENT (CEO & TÍM) */}
-            {activeTab === 'projects' && PermissionsService.canUserAccessTab(currentUser, 'projects') && (
-              <ProjectManagement 
-                currentUser={currentUser}
-              />
+                {activeTab === 'finance' && (
+                  <FinanceCRM 
+                    sales={sales} 
+                    calendarEvents={calendarEvents}
+                    patients={patients}
+                    currentUser={currentUser}
+                  />
+                )}
+                {activeTab === 'projects' && (
+                  <ProjectManagement 
+                    currentUser={currentUser}
+                  />
+                )}
+              </div>
             )}
           </>
       </main>

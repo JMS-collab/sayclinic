@@ -14,7 +14,7 @@ export type TabId =
   | 'finance' 
   | 'projects';
 
-export type NavigationPillarId = 'home' | 'medicine' | 'operations' | 'management';
+export type NavigationPillarId = 'home' | 'patients' | 'calendar' | 'operations' | 'management';
 
 export interface NavigationPillar {
   id: NavigationPillarId;
@@ -29,26 +29,33 @@ export const NAVIGATION_PILLARS: NavigationPillar[] = [
     id: 'home',
     label: 'Prehľad',
     icon: '🏠',
-    description: 'Hlavná nástenka a denný prehľad',
+    description: 'Hlavná nástenka a denný prehľad kliniky',
     tabs: ['home']
   },
   {
-    id: 'medicine',
-    label: 'Medicína & Pacienti',
-    icon: '🩺',
-    description: 'Starostlivosť, kartotéka, recepty a sály',
-    tabs: ['patients', 'prescriptions', 'aesthetics', 'generator', 'calendar']
+    id: 'patients',
+    label: 'Kartotéka',
+    icon: '🗂️',
+    description: 'Databáza klientov, 360° centrum, recepty a správy',
+    tabs: ['patients', 'prescriptions', 'aesthetics', 'generator']
+  },
+  {
+    id: 'calendar',
+    label: 'Kalendár',
+    icon: '📅',
+    description: 'Harmonogram operačných sál a kontroly',
+    tabs: ['calendar']
   },
   {
     id: 'operations',
-    label: 'Prevádzka & Sklad',
+    label: 'Prevádzka',
     icon: '📦',
-    description: 'Pokladňa POS, predaj a materiál',
-    tabs: ['cosmetics', 'inventory']
+    description: 'Sklad materiálu, implantáty a pokladňa POS',
+    tabs: ['inventory', 'cosmetics']
   },
   {
     id: 'management',
-    label: 'Manažment & Financie',
+    label: 'Manažment',
     icon: '💼',
     description: 'Finančné výsledky, P&L a operatívne úlohy',
     tabs: ['finance', 'projects']

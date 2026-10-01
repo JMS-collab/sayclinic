@@ -2083,6 +2083,13 @@ export default function PatientDatabase({
               <PatientTimelineSidebar
                 patient={selectedPatient}
                 records={patientRecords[selectedPatient.id] || []}
+                calendarEvents={storedEvents.filter(evt => 
+                  (evt.patientId && evt.patientId === selectedPatient.id) ||
+                  (evt.patientName && selectedPatient.name && (
+                    evt.patientName.toLowerCase().includes(selectedPatient.name.toLowerCase()) ||
+                    selectedPatient.name.toLowerCase().includes(evt.patientName.toLowerCase())
+                  ))
+                )}
                 onClose={() => setIsTimelineOpen(false)}
                 onNavigateToRecord={(_recId) => {
                   setActiveFolder('dokumenty');
