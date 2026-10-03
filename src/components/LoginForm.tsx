@@ -503,6 +503,13 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setTimeout(() => setCopiedSecret(false), 2500);
   };
 
+  // Automatická synchronizácia poverení so serverom pri každom otvorení prihlasovania (PC, tablet, mobil)
+  useEffect(() => {
+    AuthService.syncWithServer().catch(err => {
+      console.warn('Počiatočná synchronizácia so serverom:', err);
+    });
+  }, []);
+
   useEffect(() => {
     if (lockoutRemaining <= 0) return;
     const interval = setInterval(() => {
@@ -756,12 +763,8 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setIsSubmitting(true);
     setErrorMsg('');
 
-    // Reálne overenie voči databáze poverení (lokálne + centrálne na serveri pre iné počítače)
-    let isValid = AuthService.verifyPassword(selectedUser.id, password);
-    if (!isValid) {
-      // Asynchrónne overenie voči serveru (ak bolo heslo zmenené na inom počítači kliniky)
-      isValid = await AuthService.verifyPasswordAsync(selectedUser.id, password);
-    }
+    // Autoritatívne overenie voči centrálnemu serveru (prenos nového hesla z PC na tablet a naopak)
+    const isValid = await AuthService.verifyPasswordAsync(selectedUser.id, password);
     if (!isValid) {
       setIsSubmitting(false);
       const attemptRes = AuthService.recordFailedAttempt(selectedUser.id, selectedUser.email);

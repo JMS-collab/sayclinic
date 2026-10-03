@@ -3,7 +3,11 @@
 export type SyncCollection = 
   | 'patients'
   | 'patient_records'
+  | 'clinical_timeline_profiles'
+  | 'patient_surgeries'
   | 'patient_plans'
+  | 'patient_presence'
+  | 'custom_macros'
   | 'aesthetic_sessions'
   | 'calendar_events'
   | 'sales'
@@ -14,6 +18,7 @@ export type SyncCollection =
   | 'opiate_logs'
   | 'projects'
   | 'custom_avatars'
+  | 'users_updated'
   | 'audit_logs';
 
 interface CollectionMapping {
@@ -30,9 +35,25 @@ const COLLECTION_MAP: Record<SyncCollection, CollectionMapping> = {
     storageKey: 'say_clinic_patient_records',
     eventName: 'say_clinic_patient_records_changed',
   },
+  clinical_timeline_profiles: {
+    storageKey: 'say_clinic_clinical_timeline_profiles_v1',
+    eventName: 'say_clinic_timeline_profiles_changed',
+  },
+  patient_surgeries: {
+    storageKey: 'say_clinic_patient_surgeries',
+    eventName: 'say_clinic_patient_surgeries_changed',
+  },
   patient_plans: {
     storageKey: 'say_clinic_patient_plans',
     eventName: 'say_clinic_patient_plans_changed',
+  },
+  patient_presence: {
+    storageKey: 'say_clinic_patient_presence',
+    eventName: 'say_clinic_patient_presence_changed',
+  },
+  custom_macros: {
+    storageKey: 'say_clinic_custom_macros',
+    eventName: 'say_clinic_custom_macros_changed',
   },
   aesthetic_sessions: {
     storageKey: 'say_clinic_aesthetic_sessions',
@@ -73,6 +94,10 @@ const COLLECTION_MAP: Record<SyncCollection, CollectionMapping> = {
   custom_avatars: {
     storageKey: 'say_clinic_custom_avatars',
     eventName: 'say_clinic_avatars_changed',
+  },
+  users_updated: {
+    storageKey: 'say_clinic_users_custom',
+    eventName: 'say_clinic_users_updated',
   },
   audit_logs: {
     storageKey: 'say_clinic_audit_logs_v1',
@@ -285,5 +310,51 @@ export const RealtimeSyncService = {
     return () => {
       window.removeEventListener(mapping.eventName, handler);
     };
+  },
+
+  // Odoslanie prítomnosti (Heartbeat), že používateľ má kartu pacienta otvorenú
+  reportPresence(
+    patientId: string,
+    user: { id: string; name: string; title?: string; role: string; avatarUrl?: string }
+  ): void {
+    if (typeof window === 'undefined' || !patientId || !user?.id) return;
+    this.publish('patient_presence', {
+      action: 'heartbeat',
+      patientId,
+      userId: user.id,
+      userName: user.name,
+      userTitle: user.title,
+      userRole: user.role,
+      avatarUrl: user.avatarUrl,
+    }, user.id);
+  },
+
+  // Odchod z karty pacienta
+  leavePresence(patientId: string, userId: string): void {
+    if (typeof window === 'undefined' || !patientId || !userId) return;
+    this.publish('patient_presence', {
+      action: 'leave',
+      patientId,
+      userId,
+    }, userId);
+  },
+
+  // Získanie kolegov, ktorí majú aktuálne tohto pacienta otvoreného (okrem prihláseného používateľa)
+  getConcurrentUsersForPatient(patientId: string, currentUserId?: string): any[] {
+    if (typeof window === 'undefined' || !patientId) return [];
+    try {
+      const stored = localStorage.getItem('say_clinic_patient_presence');
+      if (!stored) return [];
+      const map: Record<string, Record<string, any>> = JSON.parse(stored);
+      const patientUsers = map[patientId];
+      if (!patientUsers) return [];
+
+      const now = Date.now();
+      return Object.values(patientUsers).filter((u: any) => {
+        return u.userId !== currentUserId && (now - (u.lastSeen || 0) < 40000);
+      });
+    } catch {
+      return [];
+    }
   },
 };

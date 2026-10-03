@@ -16,6 +16,7 @@ import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
 import AIHealthRoadmapView from './patient/AIHealthRoadmapView';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
+import { LiquidAvatar } from './LiquidAvatar';
 
 const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
   P1: [
@@ -114,6 +115,7 @@ interface PatientDatabaseProps {
   onNavigateToCalendar?: () => void;
   activePatient?: Patient | null;
   onSetActivePatient?: (patient: Patient | null) => void;
+  currentUser?: any;
 }
 
 export default function PatientDatabase({ 
@@ -127,7 +129,8 @@ export default function PatientDatabase({
   onAddCalendarEvent,
   onNavigateToCalendar,
   activePatient,
-  onSetActivePatient
+  onSetActivePatient,
+  currentUser
 }: PatientDatabaseProps) {
   const { data: session } = useSession();
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
@@ -160,7 +163,42 @@ export default function PatientDatabase({
   // STAV PRE PLÁNY PACIENTA (ROČNÝ ESTETICKÝ & PRED/POOPERAČNÝ PLÁN)
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [workspaceToken, setWorkspaceToken] = useState<string | null>(null);
+  // STAV PRE SÚBEŽNÚ PRÁCU NA PACIENTOVI (LIVE PRESENCE TÍMU)
+  const [patientConcurrentUsers, setPatientConcurrentUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!selectedPatient) {
+      setPatientConcurrentUsers([]);
+      return;
+    }
+
+    const effectiveUser = currentUser || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('say_clinic_user') || 'null')?.user : null);
+
+    const updatePresence = () => {
+      const active = RealtimeSyncService.getConcurrentUsersForPatient(selectedPatient.id, effectiveUser?.id);
+      setPatientConcurrentUsers(active);
+    };
+
+    updatePresence();
+
+    if (effectiveUser?.id) {
+      RealtimeSyncService.reportPresence(selectedPatient.id, effectiveUser);
+      const interval = setInterval(() => {
+        RealtimeSyncService.reportPresence(selectedPatient.id, effectiveUser);
+        updatePresence();
+      }, 12000);
+
+      const unsub = RealtimeSyncService.subscribe('patient_presence', () => {
+        updatePresence();
+      });
+
+      return () => {
+        clearInterval(interval);
+        unsub();
+        RealtimeSyncService.leavePresence(selectedPatient.id, effectiveUser.id);
+      };
+    }
+  }, [selectedPatient?.id, currentUser?.id]);
 
   useEffect(() => {
     const unsub = subscribeWorkspaceAuth((user, token) => {
@@ -1230,6 +1268,30 @@ export default function PatientDatabase({
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                       Aktívny v celom systéme
                     </span>
+                  )}
+
+                  {/* SÚBEŽNÍ SPOLUPRACOVNÍCI NA KARTE PACIENTA */}
+                  {patientConcurrentUsers.length > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-[#C5A059]/40 shadow-xs animate-in fade-in duration-200">
+                      <div className="flex -space-x-2 overflow-hidden shrink-0">
+                        {patientConcurrentUsers.map(u => (
+                          <div 
+                            key={u.userId} 
+                            className="relative inline-block w-6 h-6 rounded-full ring-2 ring-white shadow-xs overflow-hidden" 
+                            title={`${u.userName} (${u.userTitle || u.userRole}) práve pracuje na tomto pacientovi`}
+                          >
+                            <LiquidAvatar id={u.userId} name={u.userName} role={u.userRole as any} avatarUrl={u.avatarUrl} className="w-full h-full" />
+                            <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white animate-pulse" />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-[11px] leading-tight">
+                        <span className="text-[#8C857B] font-bold">V karte súbežne: </span>
+                        <span className="text-[#2C2A29] font-bold">
+                          {patientConcurrentUsers.map(u => `${u.userName} (${u.userRole === 'nurse' || u.userRole === 'receptionist' ? 'Sestra' : 'Lekár'})`).join(', ')}
+                        </span>
+                      </div>
+                    </div>
                   )}
                 </div>
                 <p className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold mt-1">

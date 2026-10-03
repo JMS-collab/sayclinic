@@ -18,11 +18,14 @@ import {
   Phone,
   Clock
 } from 'lucide-react';
+import { LiquidAvatar } from './LiquidAvatar';
+import { RealtimeSyncService } from '../services/realtimeSyncService';
 
 interface ActivePatientBarProps {
   activePatient: Patient | null;
   allPatients: Patient[];
   currentTab: string;
+  currentUser?: any;
   onNavigateToTab: (tab: any, extra?: any) => void;
   onSelectPatient: (patient: Patient) => void;
   onClearActivePatient: () => void;
@@ -32,13 +35,50 @@ export default function ActivePatientBar({
   activePatient,
   allPatients,
   currentTab,
+  currentUser,
   onNavigateToTab,
   onSelectPatient,
   onClearActivePatient
 }: ActivePatientBarProps) {
   const [showSwitchDropdown, setShowSwitchDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [concurrentUsers, setConcurrentUsers] = useState<any[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Live Presence: automatické hlásenie prítomnosti a sledovanie kolegov súbežne pracujúcich na pacientovi
+  useEffect(() => {
+    if (!activePatient) {
+      setConcurrentUsers([]);
+      return;
+    }
+
+    const effectiveUser = currentUser || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('say_clinic_user') || 'null')?.user : null);
+
+    const updateConcurrent = () => {
+      const active = RealtimeSyncService.getConcurrentUsersForPatient(activePatient.id, effectiveUser?.id);
+      setConcurrentUsers(active);
+    };
+
+    updateConcurrent();
+
+    if (effectiveUser?.id) {
+      RealtimeSyncService.reportPresence(activePatient.id, effectiveUser);
+      const interval = setInterval(() => {
+        RealtimeSyncService.reportPresence(activePatient.id, effectiveUser);
+        updateConcurrent();
+      }, 12000);
+
+      const unsub = RealtimeSyncService.subscribe('patient_presence', () => {
+        updateConcurrent();
+      });
+
+      return () => {
+        clearInterval(interval);
+        unsub();
+        RealtimeSyncService.leavePresence(activePatient.id, effectiveUser.id);
+      };
+    }
+  }, [activePatient?.id, currentUser?.id]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -143,6 +183,33 @@ export default function ActivePatientBar({
           </div>
 
         </div>
+
+        {/* SÚBEŽNÍ SPOLUPRACOVNÍCI NA KARTE PACIENTA (S 3D GENMOJI AVATARMI) */}
+        {concurrentUsers.length > 0 && (
+          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-amber-500/10 border border-[#C5A059]/40 shadow-xs shrink-0 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex -space-x-2 overflow-hidden shrink-0">
+              {concurrentUsers.map(u => (
+                <div 
+                  key={u.userId} 
+                  className="relative inline-block w-7 h-7 rounded-full ring-2 ring-white shadow-xs overflow-hidden" 
+                  title={`${u.userName} (${u.userTitle || u.userRole}) práve pracuje na tejto karte`}
+                >
+                  <LiquidAvatar id={u.userId} name={u.userName} role={u.userRole as any} avatarUrl={u.avatarUrl} className="w-full h-full" />
+                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white animate-pulse" />
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col text-left pr-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                <span className="text-[9px] uppercase tracking-wider text-[#8C857B] font-bold">Súbežne v karte:</span>
+              </div>
+              <span className="text-[11px] font-bold text-[#2C2A29] truncate max-w-[200px]">
+                {concurrentUsers.map(u => `${u.userName} (${u.userRole === 'nurse' || u.userRole === 'receptionist' ? 'Sestra' : 'Lekár'})`).join(', ')}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* V STREDE: RÝCHLE AKCIE S TÝMTO ROZPRACOVANÝM PACIENTOM */}
         <div className="flex flex-wrap items-center gap-1.5 text-xs">

@@ -121,21 +121,18 @@ export const AuthService = {
     return record.passwordHash === enteredPass;
   },
 
-  // Overenie hesla s automatickou synchronizáciou zo servera (ak bolo zmenené na inom počítači)
+  // Overenie hesla s autoritatívnou kontrolou voči serveru a automatickou synchronizáciou
   async verifyPasswordAsync(identifier: string, enteredPass: string): Promise<boolean> {
-    // 1. Rýchla lokálna kontrola
-    if (this.verifyPassword(identifier, enteredPass)) {
-      return true;
-    }
+    const idKey = identifier.toLowerCase().trim();
 
-    // 2. Ak lokálne neprešlo, overíme voči centrálnemu serveru (pre prípad, že heslo bolo zmenené na inom PC)
+    // 1. Primárne autoritatívne overenie voči centrálnemu serveru (pre okamžitú synchronizáciu medzi PC a tabletom)
     try {
       const res = await fetch('/api/auth/credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'verify',
-          identifier,
+          identifier: idKey,
           password: enteredPass,
         }),
       });
@@ -143,19 +140,49 @@ export const AuthService = {
       if (res.ok) {
         const data = await res.json();
         if (data.valid) {
-          // Heslo je na serveri platné! Stiahneme a aktualizujeme lokálnu pamäť
-          await this.syncWithServer();
+          // Heslo je na serveri platné! Aktualizujeme lokálnu pamäť zariadenia pre toto ID aj email
+          const creds = this.initCredentials();
+          const user = SAY_CLINIC_USERS.find(u => u.id === identifier || u.email.toLowerCase() === idKey);
+          const keysToUpdate = [idKey];
+          if (user) {
+            keysToUpdate.push(user.id);
+            keysToUpdate.push(user.email.toLowerCase());
+          }
+          const nowIso = data.updatedAt || new Date().toISOString();
+          keysToUpdate.forEach(k => {
+            creds[k] = {
+              passwordHash: enteredPass,
+              isCustomPassword: !!data.isCustomPassword,
+              updatedAt: nowIso,
+            };
+          });
+          try {
+            localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(creds));
+          } catch {}
           return true;
+        } else {
+          // Ak server potvrdil, že heslo NIE JE platné a používateľ má na serveri nastavené vlastné heslo:
+          if (data.isCustomPassword) {
+            const creds = this.initCredentials();
+            if (creds[idKey] && !creds[idKey].isCustomPassword) {
+              creds[idKey].isCustomPassword = true;
+              try {
+                localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(creds));
+              } catch {}
+            }
+            return false;
+          }
         }
       }
     } catch (e) {
-      console.warn('Centrálne overenie hesla cez server zlyhalo:', e);
+      console.warn('Centrálne overenie hesla cez server zlyhalo, skontroluje sa lokálna pamäť:', e);
     }
 
-    return false;
+    // 2. Offline fallback (ak server nie je dostupný)
+    return this.verifyPassword(identifier, enteredPass);
   },
 
-  // Centrálna synchronizácia hesiel medzi serverom a počítačom
+  // Centrálna synchronizácia hesiel medzi serverom a počítačom/tabletom
   async syncWithServer(): Promise<StoredCredentials> {
     if (typeof window === 'undefined') return {};
     try {
@@ -168,16 +195,16 @@ export const AuthService = {
         const localCreds = this.initCredentials();
         let changed = false;
 
-        // 1. Zlúčenie serverových hesiel do lokálnej pamäte
+        // 1. Zlúčenie serverových hesiel do lokálnej pamäte zariadenia
         for (const [key, sEntry] of Object.entries(serverCreds)) {
           const lEntry = localCreds[key];
-          if (!lEntry || new Date(sEntry.updatedAt).getTime() >= new Date(lEntry.updatedAt).getTime()) {
+          if (!lEntry || sEntry.isCustomPassword || new Date(sEntry.updatedAt).getTime() >= new Date(lEntry.updatedAt).getTime()) {
             localCreds[key] = sEntry;
             changed = true;
           }
         }
 
-        // 2. Ak má lokálny počítač vlastné heslá, ktoré server nepozná, pošleme ich na server
+        // 2. Ak má lokálne zariadenie novšie vlastné heslo, zašleme ho na server
         const needServerSync: Record<string, any> = {};
         for (const [key, lEntry] of Object.entries(localCreds)) {
           const sEntry = serverCreds[key];
@@ -196,6 +223,7 @@ export const AuthService = {
 
         if (changed) {
           localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(localCreds));
+          window.dispatchEvent(new CustomEvent('say_clinic_credentials_synced', { detail: localCreds }));
         }
         return localCreds;
       }
@@ -216,6 +244,64 @@ export const AuthService = {
   },
 
   // Zmena hesla používateľa (s okamžitým zápisom lokálne aj na server pre všetky počítače)
+  // Asynchrónna zmena hesla s okamžitým autoritatívnym zápisom na server
+  async changePasswordAsync(identifier: string, oldPass: string, newPass: string): Promise<{ success: boolean; message: string }> {
+    if (typeof window === 'undefined') return { success: false, message: 'Nedostupný prehliadač.' };
+    
+    const isOldValid = await this.verifyPasswordAsync(identifier, oldPass);
+    if (!isOldValid) {
+      return { success: false, message: 'Pôvodné heslo nie je správne.' };
+    }
+
+    if (newPass.length < 6) {
+      return { success: false, message: 'Nové heslo musí mať aspoň 6 znakov.' };
+    }
+
+    const creds = this.initCredentials();
+    const idKey = identifier.toLowerCase();
+    
+    const user = SAY_CLINIC_USERS.find(u => u.id === identifier || u.email.toLowerCase() === idKey);
+    const keysToUpdate = [idKey];
+    if (user) {
+      keysToUpdate.push(user.id);
+      keysToUpdate.push(user.email.toLowerCase());
+    }
+
+    const nowIso = new Date().toISOString();
+    keysToUpdate.forEach(k => {
+      creds[k] = {
+        passwordHash: newPass,
+        isCustomPassword: true,
+        updatedAt: nowIso,
+      };
+    });
+
+    try {
+      localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(creds));
+
+      // Okamžitý autoritatívny zápis na server pre všetky zariadenia (tablet, mobil, PC)
+      try {
+        await fetch('/api/auth/credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update',
+            userId: identifier,
+            newPassword: newPass,
+          }),
+        });
+      } catch (err) {
+        console.warn('Upozornenie: Centrálny serverový zápis zlyhal, zmena je v lokálnom úložisku:', err);
+      }
+
+      window.dispatchEvent(new CustomEvent('say_clinic_credentials_synced', { detail: creds }));
+      return { success: true, message: 'Heslo bolo úspešne zmenené a platí na tablete, mobile aj všetkých počítačoch kliniky.' };
+    } catch (e) {
+      return { success: false, message: 'Nepodarilo sa uložiť nové heslo.' };
+    }
+  },
+
+  // Synchrónna zmena hesla (pre zachovanie spätnej kompatibility)
   changePassword(identifier: string, oldPass: string, newPass: string): { success: boolean; message: string } {
     if (typeof window === 'undefined') return { success: false, message: 'Nedostupný prehliadač.' };
     
@@ -260,7 +346,8 @@ export const AuthService = {
         }),
       }).catch(err => console.error('Chyba centrálneho zápisu hesla na server:', err));
 
-      return { success: true, message: 'Heslo bolo úspešne zmenené a platí na všetkých počítačoch kliniky.' };
+      window.dispatchEvent(new CustomEvent('say_clinic_credentials_synced', { detail: creds }));
+      return { success: true, message: 'Heslo bolo úspešne zmenené a platí na všetkých zariadeniach kliniky.' };
     } catch (e) {
       return { success: false, message: 'Nepodarilo sa uložiť nové heslo.' };
     }

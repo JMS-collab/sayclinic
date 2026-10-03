@@ -243,6 +243,16 @@ export default function PatientTimelineSidebar({
     }
   }, [patient.id]);
 
+  // Real-time počúvanie zmien klinických profilov z iných staníc (lekár + sestra)
+  useEffect(() => {
+    const unsub = RealtimeSyncService.subscribe('clinical_timeline_profiles', (updated) => {
+      if (updated && typeof updated === 'object') {
+        setProfiles(prev => ({ ...prev, ...updated }));
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const currentProfile = profiles[patient.id] || {
     allergies: [],
     risks: [],

@@ -87,20 +87,33 @@ export async function POST(req: NextRequest) {
     // 1. Overenie hesla na serveri (pre akýkoľvek počítač)
     if (action === 'verify') {
       const idKey = (identifier || userId || '').toLowerCase().trim();
-      const userRecord = currentCreds[idKey];
+      let userRecord = currentCreds[idKey];
+      
+      if (!userRecord) {
+        for (const [uid, aliases] of Object.entries(ALIAS_MAP)) {
+          if (idKey === uid || aliases.includes(idKey)) {
+            userRecord = currentCreds[uid] || currentCreds[aliases[0]];
+            break;
+          }
+        }
+      }
       
       let isValid = false;
       if (!userRecord) {
         // Ak záznam neexistuje, porovná sa s predvoleným heslom
         isValid = password === DEFAULT_INITIAL_PASSWORD;
-      } else {
+      } else if (userRecord.isCustomPassword) {
+        // Ak má používateľ nastavené vlastné heslo, predvolené počiatočné heslo už neplatí
         isValid = userRecord.passwordHash === password;
+      } else {
+        isValid = password === DEFAULT_INITIAL_PASSWORD || userRecord.passwordHash === password;
       }
 
       return NextResponse.json({
         success: true,
         valid: isValid,
         isCustomPassword: userRecord ? userRecord.isCustomPassword : false,
+        updatedAt: userRecord ? userRecord.updatedAt : undefined,
       });
     }
 

@@ -1,114 +1,91 @@
-# Implementačný plán: Správa oprávnení & Profilov tímu (CEO + Manažment) a Genmoji avatary
+# 100% Serverový Real-Time Systém & Súbežná Spolupráca s Personalizovanými Avatarmi
 
-Tento plán špecifikuje rozšírenie správy oprávnení a rolí pre **CEO a Manažment**, integrované pridávanie a úpravu profilov personálu priamo v okne oprávnení, zavedenie samostatnej roly **Recepčná** pre Viktóriu s prístupom do kartotéky a kalendára, a aktualizáciu štýlových Genmoji avatarov pre Viktóriu, Emu a anesteziológa.
+Komplexný implementačný plán pre úplné odstránenie závislosti na lokálnej pamäti zariadenia (`localStorage`) v prospech autoritatívneho centrálneho servera s okamžitou obojsmernou synchronizáciou, inteligentným zlučovaním dát a live indikáciou súbežne pracujúcich kolegov prostredníctvom ich **reálnych 3D Genmoji avatarov**.
 
 ---
 
-## Používateľské rozhodnutia & Potvrdené preferencie
+### Prehľad potvrdených rozhodnutí
 
 > [!IMPORTANT]
-> Na základe Vašich priamych odpovedí boli schválené tieto kľúčové riešenia:
-
-1. **Prístup k oprávneniam a správe profilov výhradne pre CEO a Manažment**:
-   - Tlačidlo a správa oprávnení v hornej lište je prístupná pre roly `ceo` a `manager`.
-   - CEO a manažment môžu meniť maticu oprávnení, simulovať pohľady a priamo spravovať personál.
-2. **Zlúčenie správy profilov do existujúceho okna Pravomoci a role**:
-   - V okne oprávnení pribudne plnohodnotná záložka pre **Správu personálu a profilov**.
-   - Možnosť pridávať nových zamestnancov, upravovať mená, funkcie, emaily, role a avatary.
-3. **Nová samostatná rola „Recepčná“**:
-   - Vytvorenie roly `receptionist` v systéme oprávnení.
-   - Predvolený prístup: `home` (Prehľad), `patients` (Kartotéka) a `calendar` (Kalendár). Bez prístupu k P&L, financiám a správe systému.
-   - Viktória Foltániová bude priradená ako Recepčná.
-4. **Vizuálny štýl avatarov – Genmoji**:
-   - Zachovanie existujúceho 3D Genmoji/Memoji štýlu:
-     - **Viktória (Recepčná)**: 3D Genmoji tvár s dlhými čiernymi vlasmi a modernými okuliarmi.
-     - **Ema (Zdravotná sestra)**: 3D Genmoji tvár s čiernymi vlasmi a v zdravotníckom odeve.
-     - **Anesteziológ**: 3D Genmoji tvár bieleho Európana s krátkymi vlasmi v anesteziologickom odeve.
+> **Potvrdené používateľom:**
+> 1. **Žiadna závislosť na `localStorage`**: Všetky klinické dáta, dekurzy, časová os, termíny a operačné protokoly sú autoritatívne uložené a zlučované na centrálnom serveri.
+> 2. **Súbežná práca lekára a sestry**: Automatické inteligentné zlučovanie zmien bez straty dát (dekurz lekára aj záznam sestry sa v reálnom čase spoja na základe ID položiek a časovej pečiatky).
+> 3. **Live indikátor s osobným avatarom (Namiesto obyčajnej bodky)**:
+>    - Na karte pacienta sa zobrazí **okrúhly 3D Genmoji / profilový avatar konkrétneho človeka**, ktorý má pacienta v tom istom čase otvoreného (napr. 3D avatar MUDr. Jána Mráza, Bc. Viktórie Foltániovej, Ing. Barbary Mecerodovej atď.).
+>    - Okolo avatara bude jemný pulzujúci svetelný prstenec s menovkou a rolou: *„Práve v karte pracuje: [Avatar] Bc. Viktória Foltániová (Sestra / Recepcia)“*.
+>    - Ak je v karte viacero kolegov naraz, avatary sa zobrazia vedľa seba v elegantnom prekrývajúcom sa zoskupení (Facepile / Team presence).
 
 ---
 
-## 1. Prehľad & Hlavný koncept
-
-- **Cieľ**: Dať vedeniu kliniky (CEO MUDr. Ján Mráz a Manažment Ing. Barbara Mecerodová) plnú autonómiu pri správe prístupových práv, tvorbe tímových účtov a úprave osobných údajov personálu bez nutnosti zásahu programátora.
-- **Rola Recepčná**: Recepcia potrebuje okamžitý prehľad o prichádzajúcich klientoch (Kartotéka) a objednávaní termínov na konzultácie a operácie (Kalendár), pričom medicínske protokoly či interné financie zostávajú chránené.
-
----
-
-## 2. Používateľská skúsenosť & Vizuálny dizajn (Frontend Design)
-
-### Používateľský tok pre CEO a Manažéra
-1. **Otvorenie správy z hlavičky**:
-   - Pri prihlásenom CEO alebo manažérovi svieti v hlavičke ikona `🛡️ Oprávnenia & Tím`.
-2. **Okno „Oprávnenia & Personál SAY CLINIC“**:
-   - Záložka 1: **Matica oprávnení** (nastavenie záložiek pre CEO, Lekár, Manažér, Sestra, Recepčná).
-   - Záložka 2: **Členovia tímu & Profily** (karty zamestnancov s ich Genmoji avatarom, rolou, emailom a tlačidlami *Upraviť* a *Pridať člena tímu*).
-   - Záložka 3: **Testovanie rolí (Simulácia)** (okamžitý náhľad, ako systém vidí lekár, sestra či recepčná).
-3. **Formulár úpravy profilu**:
-   - Editácia celého mena a titulu.
-   - Zmena roly (CEO, Lekár, Manažment, Sestra, Recepčná).
-   - Výber / zmena Genmoji avatara alebo nahratie vlastnej fotografie.
-   - Nastavenie prihlasovacieho emailu.
-
----
-
-## 3. Produktové a technické rozhodnutia
-
-- **Rozšírenie `RoleType`**:
-  - `export type RoleType = 'ceo' | 'doctor' | 'manager' | 'nurse' | 'receptionist';`
-  - V `permissionsService.ts` definovaná predvolená konfigurácia pre `receptionist`:
-    - `allowedTabs: ['home', 'patients', 'calendar']`
-    - `specialPermissions`: všetky na `false`.
-- **Perzistencia profilov**:
-  - Tímové profily sa ukladajú v `say_clinic_custom_users_v1` a inicializujú zo `SAY_CLINIC_USERS`.
-  - Zmeny v profile (meno, rola, avatar) sa okamžite prejavia v celom systéme (hlavička, autor zápisov, prihlasovanie).
-- **Vizuálne Genmoji aktíva**:
-  - Vygenerovanie a nastavenie precíznych 3D Genmoji portrétov:
-    - `/public/avatars/foltaniova.jpg` – Viktória: čierne dlhé vlasy, štýlové okuliare, úsmev, recepcia.
-    - `/public/avatars/foltani.jpg` – Ema: čierne vlasy, zdravotnícka halena.
-    - `/public/avatars/anesteziolog.jpg` – Anesteziológ: biely európan, krátke vlasy, OAIM úbor.
-
----
-
-## 4. Technická architektúra & Dátová stratégia
+## 1. Architektúra & Dátový tok
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        Hlavička Aplikácie (Header)                     │
-│    (Viditeľné pre currentUser.role === 'ceo' || 'manager')             │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │ Otvorenie modalu
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                    RolePermissionsModal.tsx                            │
-│  ┌───────────────────────┬──────────────────────┬───────────────────┐  │
-│  │ 1. Matica oprávnení   │ 2. Profily tímu (NEW)│ 3. Simulácia rolí │  │
-│  │  (CEO/Dr/Mgr/Sestra/  │  - Pridať člena      │  (Testovanie      │  │
-│  │   Recepčná)           │  - Upraviť profil    │   pohľadov)       │  │
-│  │                       │  - Zmena Genmoji     │                   │  │
-│  └───────────────────────┴──────────────────────┴───────────────────┘  │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │ Ukladanie zmien
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│  - PermissionsService (say_clinic_role_permissions_v1)                 │
-│  - AuthService & UserService (say_clinic_custom_users_v1)             │
-│  - LiquidAvatar (MEMOJI_MAP s novými Genmoji portrétmi)                │
-└────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐       ┌─────────────────────────────────────────┐
+│           POČÍTAČ LEKÁRA                │       │             TABLET SESTRY               │
+│   (MUDr. Ján Mráz píše dekurz)          │       │    (Bc. Foltániová zadáva vitálne f.)   │
+└────────────────────┬────────────────────┘       └────────────────────┬────────────────────┘
+                     │                                                 │
+                     │ 1. Heartbeat Presence                           │ 1. Heartbeat Presence
+                     │    { userId: 'u1', patientId: 'P1',             │    { userId: 'u10', patientId: 'P1',
+                     │      avatarUrl: '/avatars/mraz.png' }           │      avatarUrl: '/avatars/viktoria.png' }
+                     ▼                                                 ▼
+     ┌─────────────────────────────────────────────────────────────────────────┐
+     │                       CENTRÁLNY SERVER SAY CLINIC                       │
+     │                      (/api/sync + SSE /api/sync/events)                 │
+     │                                                                         │
+     │  - Autoritatívna klinická databáza (clinic_data.json / server)          │
+     │  - Granulárne zlučovanie: ID záznamu + časová pečiatka                  │
+     │  - Live Team Presence Hub: sledovanie prihlásených avatarov k pacientovi│
+     │  - Okamžitý SSE broadcast do všetkých pripojených zariadení (<100ms)    │
+     └─────────────────────────────────────────────────────────────────────────┘
+                     │                                                 │
+                     │ 2. SSE Presence & Dáta                          │ 2. SSE Presence & Dáta
+                     ▼                                                 ▼
+      Vidí avatar sestry v karte:                       Vidí avatar lekára v karte:
+      [Avatar Bc. Foltániová] Práve upravuje            [Avatar MUDr. Mráz] Práve upravuje
+      + zmeny sestry zapracované v reálnom čase!        + dekurz lekára zapracovaný v reálnom čase!
 ```
 
 ---
 
-## 5. Kroky realizácie po schválení
+## 2. Plánované kroky implementácie
 
-1. **Doplnenie Genmoji obrázkov**:
-   - Vytvorenie a umiestnenie 3D Genmoji avatarov pre Viktóriu (čierne dlhé vlasy a okuliare), Emu (čierne vlasy) a Anesteziológa (biely európan, krátke vlasy) do `/public/avatars/`.
-2. **Aktualizácia `permissionsService.ts`**:
-   - Pridanie roly `receptionist` do typov a matice predvolených oprávnení (`['home', 'patients', 'calendar']`).
-3. **Rozšírenie `RolePermissionsModal.tsx`**:
-   - Prístupnosť pre `isRealCeo || currentUser.role === 'manager'`.
-   - Implementácia interaktívnej záložky **Profily tímu** s možnosťou úpravy mena, titulu, roly, emailu a pridania nového člena.
-4. **Prepojenie v `page.tsx` a `LoginForm.tsx`**:
-   - Zobrazenie tlačidla Oprávnenia aj pre manažéra.
-   - Aktualizácia predvoleného profilu Viktórie na rolu Recepčná.
-5. **Verifikácia a testovanie**:
-   - Preverenie prepínania rolí, ukladania profilov a zobrazenia avatarov bez chýb kompilácie.
+### Krok 1: Rozšírenie centrálneho serverového synchronizátora (`RealtimeSyncService` & `/api/sync`)
+- Doplniť do `COLLECTION_MAP` a serverovej databázy chýbajúce kolekcie:
+  - `patient_records`: Dekurzy, lekárske vyšetrenia, recepty a epikrity.
+  - `clinical_timeline_profiles`: Klinické poznámky sestry a lekára, zistené riziká a alergie.
+  - `patient_surgeries`: Operačné protokoly, anestéziologické záznamy a súhlasy.
+  - `patient_presence`: Zoznam aktívnych používateľov pracujúcich na karte konkrétneho pacienta vrátane ich avatarov.
+  - `custom_macros`: Klinické šablóny a makrá.
+- Pri štarte aplikácie na akomkoľvek zariadení (tablet, mobil, PC) vykonať kompletnú autoritatívnu hydratáciu zo servera.
+
+### Krok 2: Inteligentné zlučovanie zmien bez straty dát (Smart Conflict-Free Merging)
+- Namiesto prepisovania celého poľa záznamov jedného používateľa druhým implementovať zlučovanie na úrovni jednotlivých položiek:
+  - Ak lekár pridá dekurz s ID `rec-101` a sestra v tom istom čase pridá poznámku s ID `note-202`, server aj klientsky synchronizátor ich zjednotia na základe ID a časovej pečiatky (`updatedAt`).
+  - Žiadna práca lekára ani sestry sa nikdy neprepíše ani nestratí.
+
+### Krok 3: Live Presence Panel s reálnymi Avatarmi personálu
+- Vytvoriť v `ActivePatientBar.tsx` a `PatientDatabase.tsx` vizuálny komponent prítomnosti tímu:
+  - Pri otvorení karty pacienta sa odošle prítomnostný balíček:
+    `{ patientId, userId, userName, userTitle, userRole, avatarUrl, lastSeen: Date.now() }`.
+  - V hornej lište aktívneho pacienta sa zobrazí luxusný zlatisto lemovaný štítok s **reálnym 3D Genmoji avatarom** súbežne pracujúceho kolegu:
+    - Napríklad pri otvorení karty sestričkou sa lekárovi zobrazí 3D avatar Viktórie (dlhé čierne vlasy + okuliare) s textom: *„Bc. Viktória Foltániová práve pracuje v tejto karte“*.
+    - Pri kliknutí alebo prejdení kurzorom na avatar sa zobrazí detailný tooltip s časom poslednej aktivity a rolou.
+  - Heartbeat sa obnovuje každých 15 sekúnd. Ak používateľ kartu zavrie alebo prejde inam, avatar sa po 30 sekundách automaticky odregistruje.
+
+### Krok 4: Odstránenie izolovaných `localStorage` závislostí v moduloch
+- Upraviť `PatientTimelineSidebar.tsx`: Všetky poznámky a riziká okamžite odosielať a prijímať cez `RealtimeSyncService`.
+- Upraviť `MedicalRecordForm.tsx`: Odstrániť izolované ukladanie operačných záznamov a prepojiť ich na centrálnu synchronizáciu.
+- Upraviť `AestheticModule.tsx` a `CosmeticsModule.tsx`: Zabezpečiť okamžité prepojenie na server.
+
+---
+
+## 3. Overenie a testovací plán
+
+1. **Test zobrazenia avatarov v Live Presence**:
+   - Simulácia otvorenia pacienta P1 lekárom (u1) a sestrou (u10).
+   - Overenie, že lekár vidí 3D avatar sestry a sestra vidí 3D avatar lekára.
+2. **Test súbežného zápisu bez straty dát**:
+   - Zápis dekurzu lekárom a súčasné pridanie vitálnych funkcií sestrou – overenie zjednotenia v reálnom čase bez prepísania.
+3. **Kompilácia a integrita**:
+   - Overenie `compile_applet` a odozvy HTTP 200 OK na porte 3000.

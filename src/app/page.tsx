@@ -253,7 +253,7 @@ export default function Home() {
     if (session) signOut();
   };
 
-  const handleChangePasswordSubmit = (e: React.FormEvent) => {
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
 
@@ -272,9 +272,9 @@ export default function Home() {
       return;
     }
 
-    const res = AuthService.changePassword(currentUser.id, oldPassword, newPassword);
+    const res = await AuthService.changePasswordAsync(currentUser.id, oldPassword, newPassword);
     if (res.success) {
-      setPasswordChangeStatus({ type: 'success', message: 'Heslo bolo úspešne zmenené a platí na všetkých počítačoch kliniky.' });
+      setPasswordChangeStatus({ type: 'success', message: 'Heslo bolo úspešne zmenené a platí na tablete, mobile aj všetkých počítačoch kliniky.' });
       setTimeout(() => {
         setShowChangePasswordModal(false);
         setPasswordChangeStatus(null);
@@ -732,6 +732,7 @@ export default function Home() {
         activePatient={activePatient}
         allPatients={patients}
         currentTab={activeTab}
+        currentUser={currentUser}
         onNavigateToTab={(tab, extra) => {
           if (extra?.initialDocType && activePatient) {
             setSelectedPatient({
@@ -1272,6 +1273,7 @@ export default function Home() {
                 calendarEvents={calendarEvents}
                 onAddCalendarEvent={handleAddCalendarEvent}
                 onNavigateToCalendar={() => changeTab('calendar')}
+                currentUser={currentUser}
               />
             )}
 

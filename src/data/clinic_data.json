@@ -1,0 +1,36 @@
+{
+  "patient_presence": {
+    "P1": {
+      "u10": {
+        "userId": "u10",
+        "userName": "Bc. Viktória Foltániová",
+        "userTitle": "Recepcia / Sestra",
+        "userRole": "receptionist",
+        "avatarUrl": "/avatars/foltaniova.jpg?v=3",
+        "lastSeen": 1791041043013
+      }
+    }
+  },
+  "patient_records": {
+    "P1": [
+      {
+        "id": "rec-nurse-1",
+        "type": "Ošetrenie",
+        "title": "Záznam vitálnych funkcií",
+        "doctor": "Bc. Viktória Foltániová",
+        "date": "2026-10-03T10:05:00.000Z",
+        "content": "TK 120/80, P 72/min"
+      },
+      {
+        "id": "rec-doc-1",
+        "type": "Konzultácia",
+        "title": "Vstupné vyšetrenie",
+        "doctor": "MUDr. Ján Mráz",
+        "date": "2026-10-03T10:00:00.000Z",
+        "content": "Konzultácia augmentácie"
+      }
+    ]
+  },
+  "_patient_records_updatedAt": "2026-10-03T15:24:07.544Z",
+  "_patient_records_updatedBy": "system"
+}
