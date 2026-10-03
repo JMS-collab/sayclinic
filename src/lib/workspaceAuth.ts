@@ -15,6 +15,7 @@ export const auth = getAuth(app);
 
 // Workspace Google Auth Provider with all Drive and Calendar scopes
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export const WORKSPACE_SCOPES = [
   'openid',
@@ -89,10 +90,11 @@ export const initWorkspaceAuth = (
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
     const result = await signInWithPopup(auth, googleProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
-      throw new Error('Nepodarilo sa získať prístupový token pre Google Drive.');
+      throw new Error('Nepodarilo sa získať prístupový token pre Google Workspace.');
     }
 
     cachedAccessToken = credential.accessToken;
@@ -100,7 +102,6 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     notifyListeners();
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
-    // Ak používateľ okno prihlásenia zatvoril alebo bola požiadavka zrušená, nejde o chybu aplikácie
     if (
       error?.code === 'auth/popup-closed-by-user' ||
       error?.code === 'auth/cancelled-popup-request' ||
@@ -109,8 +110,8 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     ) {
       return null;
     }
-    console.warn('Upozornenie prihlásenia do Google Workspace / Drive:', error?.message || error);
-    return null;
+    console.warn('Upozornenie prihlásenia do Google Workspace:', error?.message || error);
+    throw error;
   } finally {
     isSigningIn = false;
   }

@@ -35,7 +35,7 @@ import {
   mergeCalendarEvents,
   getCalendarAuthToken,
 } from '../services/calendarSyncService';
-import { googleSignIn, subscribeWorkspaceAuth } from '../lib/workspaceAuth';
+import { googleSignIn, googleLogout, subscribeWorkspaceAuth } from '../lib/workspaceAuth';
 
 export type { CalendarEvent, EventType, FreeformCategory, ClinicRoom, ClinicStayType, AnesthesiaType };
 export { 
@@ -794,16 +794,16 @@ export default function Calendar({
   };
 
   const handleGoogleConnect = async () => {
-    if (session) {
-      signOut();
-    } else if (isWorkspaceConnected) {
+    if (isWorkspaceConnected) {
       await performTwoWaySync(false);
     } else {
       try {
-        await googleSignIn();
-        await performTwoWaySync(false);
-      } catch {
-        signIn('google');
+        const res = await googleSignIn();
+        if (res?.accessToken) {
+          await performTwoWaySync(false);
+        }
+      } catch (err: any) {
+        console.error('Chyba prihlásenia do Google Kalendára:', err);
       }
     }
   };

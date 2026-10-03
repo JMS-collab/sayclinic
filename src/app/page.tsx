@@ -18,6 +18,7 @@ import ProjectManagement from '../components/ProjectManagement';
 import OperativeNotesWidget from '../components/OperativeNotesWidget';
 import RolePermissionsModal from '../components/RolePermissionsModal';
 import AutoLogoutGuard from '../components/AutoLogoutGuard';
+import { googleSignIn, googleLogout, subscribeWorkspaceAuth } from '@/lib/workspaceAuth';
 import AuditLogModal from '../components/AuditLogModal';
 import { AuthService } from '../services/authService';
 import { AuditLogService } from '../services/auditLogService';
@@ -176,6 +177,15 @@ export default function Home() {
       window.removeEventListener('say_clinic_permissions_changed', handlePermissionsChanged);
       window.removeEventListener('say_clinic_role_simulated', handleRoleSimulated);
     };
+  }, []);
+
+  const [workspaceUser, setWorkspaceUser] = useState<any>(null);
+
+  useEffect(() => {
+    const unsub = subscribeWorkspaceAuth((user, token) => {
+      setWorkspaceUser(user);
+    });
+    return () => unsub();
   }, []);
 
   // 1. STRIKTNÁ BEZPEČNOSŤ: ŽIADNY TICHÝ AUTO-LOGIN (PRI KAŽDOM OTVORENÍ VYŽADOVAŤ OVERENIE)
@@ -1022,12 +1032,22 @@ export default function Home() {
                       <span className="text-[#8C857B]">·</span>
                       <button
                         type="button"
-                        onClick={() => (session ? signOut() : signIn('google'))}
+                        onClick={async () => {
+                          if (workspaceUser) {
+                            await googleLogout();
+                          } else {
+                            try {
+                              await googleSignIn();
+                            } catch (e: any) {
+                              console.error('Chyba Google prihlásenia:', e);
+                            }
+                          }
+                        }}
                         className="text-[10px] text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1.5 cursor-pointer transition-colors"
-                        title={session ? `Pripojené: ${session.user?.email}` : 'Kliknite pre pripojenie Google Disku & Kalendára'}
+                        title={workspaceUser ? `Pripojené: ${workspaceUser.email} (Kliknite pre odpojenie)` : 'Kliknite pre pripojenie Google Disku, Kalendára & Gmailu'}
                       >
-                        <span className={`w-2 h-2 rounded-full ${session ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
-                        <span className="font-semibold">{session ? 'Google prepojené' : 'Pripojiť Google'}</span>
+                        <span className={`w-2 h-2 rounded-full ${workspaceUser ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`}></span>
+                        <span className="font-semibold">{workspaceUser ? `Google (${workspaceUser.email})` : 'Pripojiť Google'}</span>
                       </button>
                     </div>
                     <h2 className="font-brand text-2xl md:text-3xl font-light text-[#2C2A29] uppercase">
