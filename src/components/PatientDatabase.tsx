@@ -14,6 +14,7 @@ import { PatientPlan, PRESET_PATIENT_PLANS, ScheduledTreatment } from '../data/p
 import PatientPlanViewer from './patient/PatientPlanViewer';
 import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
 import AIHealthRoadmapView from './patient/AIHealthRoadmapView';
+import { MeicetModule } from './meicet/MeicetModule';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { LiquidAvatar } from './LiquidAvatar';
@@ -110,6 +111,7 @@ interface PatientDatabaseProps {
   onNavigateToAesthetics?: (patient: Patient) => void;
   onNavigateToCosmetics?: (patient?: Patient | null, prefillItems?: any[]) => void;
   initialPatient?: Patient | null;
+  initialFolder?: 'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy' | 'terminy' | 'plany' | 'roadmap' | 'meicet';
   onPatientsUpdated?: (patients: Patient[]) => void;
   calendarEvents?: CalendarEvent[];
   onAddCalendarEvent?: (event: CalendarEvent) => void;
@@ -125,6 +127,7 @@ export default function PatientDatabase({
   onNavigateToAesthetics, 
   onNavigateToCosmetics,
   initialPatient, 
+  initialFolder,
   onPatientsUpdated,
   calendarEvents = [],
   onAddCalendarEvent,
@@ -136,7 +139,7 @@ export default function PatientDatabase({
   const { data: session } = useSession();
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || activePatient || null);
-  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy' | 'terminy' | 'plany' | 'roadmap'>('dokumenty');
+  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy' | 'terminy' | 'plany' | 'roadmap' | 'meicet'>(initialFolder || 'dokumenty');
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
 
@@ -1323,7 +1326,7 @@ export default function PatientDatabase({
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
                 {/* 1. Vystaviť recept ŠEVT */}
                 <button
                   type="button"
@@ -1355,6 +1358,26 @@ export default function PatientDatabase({
                   <div>
                     <p className="text-xs font-bold text-[#2C2A29] group-hover:text-[#C5A059]">Výplne & Botox</p>
                     <p className="text-[10px] text-[#8C857B]">Face Mapping</p>
+                  </div>
+                </button>
+
+                {/* 3. Meicet Pro-A Skin AI */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveFolder('meicet');
+                    setActivePhotoCategory(null);
+                  }}
+                  className="p-3 rounded-xl border-2 border-[#C5A059] bg-[#FAF8F5] hover:bg-white text-left transition-all group flex flex-col justify-between cursor-pointer shadow-xs hover:shadow-md"
+                  title="3D spektrálna analýza pleti Meicet Pro-A, posúdenie s anamnézou a ročný plán"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xl p-1.5 bg-[#C5A059]/20 rounded-lg text-[#2C2A29]">🔬</span>
+                    <span className="text-[9px] bg-[#C5A059] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">AI 3D</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-[#C5A059]">Meicet Pro-A</p>
+                    <p className="text-[10px] text-[#8C857B]">Skin AI & Plán</p>
                   </div>
                 </button>
 
@@ -1482,6 +1505,13 @@ export default function PatientDatabase({
                     <span>AI Plán Liečby</span>
                     <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'roadmap' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
                       12M
+                    </span>
+                  </button>
+                  <button onClick={() => { setActiveFolder('meicet'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'meicet' ? 'bg-[#2C2A29] text-white shadow-xs' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
+                    <span className="text-[#C5A059]">🔬</span>
+                    <span>Meicet Pro-A Analýza</span>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'meicet' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
+                      AI 3D
                     </span>
                   </button>
                   <button onClick={() => { setActiveFolder('plany'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'plany' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
@@ -2136,6 +2166,26 @@ export default function PatientDatabase({
                     setIsSchedulingEvent(true);
                   }}
                   onNavigateToCalendar={onNavigateToCalendar}
+                />
+              )}
+
+              {/* ZÁLOŽKA MEICET PRO-A 3D ANALÝZA & ROČNÝ PLÁN */}
+              {activeFolder === 'meicet' && (
+                <MeicetModule
+                  patient={selectedPatient}
+                  patientRecords={patientRecords[selectedPatient.id] || []}
+                  onSaveToPatientPlans={handleSaveNewPlan}
+                  onScheduleTreatment={(evt) => {
+                    setSchedulingInitialDetails({
+                      title: evt.title,
+                      eventType: evt.type || 'osetrenie',
+                      notes: evt.notes,
+                      targetDate: evt.date,
+                      doctor: evt.doctor
+                    });
+                    setIsSchedulingEvent(true);
+                  }}
+                  onTransferToCosmeticsPOS={(items) => onNavigateToCosmetics?.(selectedPatient, items)}
                 />
               )}
             </div>

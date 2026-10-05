@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   AlertTriangle, 
   ShieldAlert, 
@@ -134,10 +132,24 @@ export default function PatientTimelineSidebar({
   // Google Drive súbory
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
 
-  // AI Súhrn z Gemini 3.8 Flash
-  const [aiSummary, setAiSummary] = useState<AIPatientSummary | null>(null);
+  // AI Súhrn z Gemini (s okamžitým lokálnym načítaním z cache)
+  const [aiSummary, setAiSummary] = useState<AIPatientSummary | null>(() => {
+    if (typeof window !== 'undefined' && patient.id) {
+      try {
+        const cached = localStorage.getItem(`say_clinic_ai_summary_${patient.id}`);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {
+        // Tichý fallback
+      }
+    }
+    return null;
+  });
   const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  // Refy na prevenciu duplicitných a cyklických volaní AI
+  const isGeneratingRef = useRef(false);
+  const attemptedPatientIdsRef = useRef<Set<string>>(new Set());
 
   // Filter kategórií na časovej osi
   const [activeFilter, setActiveFilter] = useState<'all' | 'surgery' | 'aesthetic' | 'prescription' | 'notes'>('all');
@@ -227,22 +239,6 @@ export default function PatientTimelineSidebar({
     return () => { isMounted = false; };
   }, [patient.name]);
 
-  // Načítanie existujúceho AI súhrnu z cache
-  useEffect(() => {
-    if (typeof window !== 'undefined' && patient.id) {
-      try {
-        const cached = localStorage.getItem(`say_clinic_ai_summary_${patient.id}`);
-        if (cached) {
-          setAiSummary(JSON.parse(cached));
-        } else {
-          setAiSummary(null);
-        }
-      } catch (e) {
-        console.error('Chyba načítania AI súhrnu z cache:', e);
-      }
-    }
-  }, [patient.id]);
-
   // Real-time počúvanie zmien klinických profilov z iných staníc (lekár + sestra)
   useEffect(() => {
     const unsub = RealtimeSyncService.subscribe('clinical_timeline_profiles', (updated) => {
@@ -259,6 +255,45 @@ export default function PatientTimelineSidebar({
     notes: []
   };
 
+  // Uloženie najaktuálnejšieho stavu do refu pre stabilné volania AI
+  const latestContextRef = useRef({
+    patient,
+    records,
+    aestheticSessions,
+    prescriptions,
+    calendarEvents,
+    driveFiles,
+    currentProfile
+  });
+
+  useEffect(() => {
+    latestContextRef.current = {
+      patient,
+      records,
+      aestheticSessions,
+      prescriptions,
+      calendarEvents,
+      driveFiles,
+      currentProfile
+    };
+  });
+
+  // Načítanie existujúceho AI súhrnu z cache pri prepnutí pacienta
+  useEffect(() => {
+    if (typeof window !== 'undefined' && patient.id) {
+      try {
+        const cached = localStorage.getItem(`say_clinic_ai_summary_${patient.id}`);
+        if (cached) {
+          setAiSummary(JSON.parse(cached));
+          return;
+        }
+      } catch (e) {
+        // Tichý fallback
+      }
+      setAiSummary(null);
+    }
+  }, [patient.id]);
+
   // Synchronizácia do localStorage a siete
   const saveProfiles = (newProfiles: Record<string, PatientClinicalProfile>) => {
     setProfiles(newProfiles);
@@ -270,21 +305,25 @@ export default function PatientTimelineSidebar({
     }
   };
 
-  // Funkcia pre volanie Gemini AI súhrnu
+  // Funkcia pre volanie Gemini AI súhrnu (stabilná bez zmeny referencie)
   const handleGenerateAISummary = useCallback(async (isFresh = false) => {
-    if (!patient.id) return;
+    const ctx = latestContextRef.current;
+    if (!ctx.patient.id || isGeneratingRef.current) return;
+
+    isGeneratingRef.current = true;
     setIsGeneratingAI(true);
     setAiError(null);
 
     try {
       const payload = {
-        patient,
-        records,
-        aestheticSessions,
-        prescriptions,
-        calendarEvents,
-        driveFiles: driveFiles.map(f => ({ name: f.name, mimeType: f.mimeType })),
-        existingClinicalProfile: currentProfile
+        patient: ctx.patient,
+        records: ctx.records,
+        aestheticSessions: ctx.aestheticSessions,
+        prescriptions: ctx.prescriptions,
+        calendarEvents: ctx.calendarEvents,
+        driveFiles: ctx.driveFiles.map(f => ({ name: f.name, mimeType: f.mimeType })),
+        existingClinicalProfile: ctx.currentProfile,
+        forceRefresh: isFresh
       };
 
       const res = await fetch('/api/ai/patient-summary', {
@@ -300,22 +339,42 @@ export default function PatientTimelineSidebar({
       const summary: AIPatientSummary = await res.json();
       setAiSummary(summary);
       if (typeof window !== 'undefined') {
-        localStorage.setItem(`say_clinic_ai_summary_${patient.id}`, JSON.stringify(summary));
+        localStorage.setItem(`say_clinic_ai_summary_${ctx.patient.id}`, JSON.stringify(summary));
       }
     } catch (err: any) {
-      console.error('Chyba generovania AI súhrnu:', err);
+      console.warn('Chyba generovania AI súhrnu:', err?.message || err);
       setAiError('Nepodarilo sa obnoviť AI súhrn. Zobrazuje sa lokálny stav.');
     } finally {
+      isGeneratingRef.current = false;
       setIsGeneratingAI(false);
     }
-  }, [patient, records, aestheticSessions, prescriptions, calendarEvents, driveFiles, currentProfile]);
+  }, []);
 
-  // Automatické vygenerovanie AI súhrnu pri prvom otvorení karty, ak ešte neexistuje
+  // Bezpečné automatické vygenerovanie AI súhrnu IBA RAZ pri prvom otvorení pacienta bez cache
   useEffect(() => {
-    if (!aiSummary && !isGeneratingAI && patient.id) {
-      handleGenerateAISummary();
+    if (!patient.id) return;
+
+    let hasLocalSummary = false;
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`say_clinic_ai_summary_${patient.id}`);
+        if (cached) {
+          hasLocalSummary = true;
+          setAiSummary(JSON.parse(cached));
+        }
+      } catch (e) {
+        // Tichý fallback
+      }
     }
-  }, [patient.id, aiSummary, isGeneratingAI, handleGenerateAISummary]);
+
+    if (!hasLocalSummary && !attemptedPatientIdsRef.current.has(patient.id) && !isGeneratingRef.current) {
+      attemptedPatientIdsRef.current.add(patient.id);
+      const timer = setTimeout(() => {
+        handleGenerateAISummary(false);
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [patient.id, handleGenerateAISummary]);
 
   // Pridanie novej poznámky
   const handleSaveNote = async (e: React.FormEvent) => {
@@ -344,9 +403,6 @@ export default function PatientTimelineSidebar({
     setNoteContent('');
     setNoteUrgent(false);
     setIsAddingNote(false);
-
-    // Automatický čerstvý prepočet AI súhrnu
-    handleGenerateAISummary(true);
   };
 
   // Pridanie alergie / rizika
@@ -390,9 +446,6 @@ export default function PatientTimelineSidebar({
     setItemName('');
     setItemDetail('');
     setIsAddingAllergy(false);
-
-    // Automatický čerstvý prepočet AI súhrnu
-    handleGenerateAISummary(true);
   };
 
   // Vymazanie alergie
@@ -405,7 +458,6 @@ export default function PatientTimelineSidebar({
         allergies: currentProfile.allergies.filter(a => a.id !== id)
       }
     });
-    handleGenerateAISummary(true);
   };
 
   // Vymazanie rizika
@@ -418,7 +470,6 @@ export default function PatientTimelineSidebar({
         risks: currentProfile.risks.filter(r => r.id !== id)
       }
     });
-    handleGenerateAISummary(true);
   };
 
   // Vymazanie poznámky
@@ -431,7 +482,6 @@ export default function PatientTimelineSidebar({
         notes: currentProfile.notes.filter(n => n.id !== id)
       }
     });
-    handleGenerateAISummary(true);
   };
 
   // Zostavenie zjednotených udalostí na časovú os

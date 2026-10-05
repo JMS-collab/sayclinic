@@ -15,6 +15,14 @@ function getSeason(monthNumber: number): { season: 'jar' | 'leto' | 'jesen' | 'z
   return { season: 'zima', label: 'Zima' };
 }
 
+interface RoadmapCacheEntry {
+  roadmap: AIHealthRoadmap;
+  timestamp: number;
+}
+
+const roadmapCache = new Map<string, RoadmapCacheEntry>();
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minút cache
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -32,15 +40,30 @@ export async function POST(req: NextRequest) {
         primaryConcerns: ['Jemné vrásky', 'Strata elasticity', 'Dehydratácia'],
         notes: ''
       },
-      doctorName = 'MUDr. Ján Mráz'
+      doctorName = 'MUDr. Ján Mráz',
+      forceRefresh = false
     } = body;
+
+    if (!patientId) {
+      return NextResponse.json({ success: false, error: 'Chýba ID pacienta' }, { status: 400 });
+    }
+
+    // 1. Kontrola serverovej cache
+    const cached = roadmapCache.get(patientId);
+    if (!forceRefresh && cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+      return NextResponse.json({
+        success: true,
+        source: 'server-cache',
+        roadmap: cached.roadmap
+      });
+    }
 
     const apiKey = process.env.GEMINI_API_KEY;
     const now = new Date();
     const currentMonthIdx = now.getMonth(); // 0-11
     const currentYear = now.getFullYear();
 
-    // Ak máme kľúč, použijeme Gemini 3.8 Flash na personalizáciu
+    // Ak máme kľúč, skúsime Gemini (najprv gemini-3.8-flash, pri 429 kvóte gemini-3.1-flash-lite)
     if (apiKey) {
       try {
         const ai = new GoogleGenAI({
@@ -119,7 +142,9 @@ VÝSTUP MUSÍ BYŤ VÝHRADNE PLATNÝ JSON formátovaný podľa požadovanej štr
   },
   "doctorRecommendations": string,
   "safetyPrecautions": string[]
-}`;
+}
+
+Zodpovedz iba čistým JSON objektom.`;
 
         const userPrompt = `Prosím vygeneruj 12-mesačný AI Health Roadmap pre pacienta:
 Meno: ${patientName}
@@ -134,95 +159,120 @@ Stav pokožky:
 
 Začni presne od mesiaca ${SLOVAK_MONTHS[currentMonthIdx]} ${currentYear} a vygeneruj detailných 12 mesiacov plánu.`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: userPrompt,
-          config: {
-            systemInstruction,
-            responseMimeType: 'application/json',
-            temperature: 0.3,
-          },
-        });
+        const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+        let parsed: any = null;
+        let successfulModel = '';
 
-        const rawText = response.text || '';
-        const parsed = JSON.parse(rawText);
+        for (const modelName of modelsToTry) {
+          try {
+            const response = await ai.models.generateContent({
+              model: modelName,
+              contents: userPrompt,
+              config: {
+                systemInstruction,
+                responseMimeType: 'application/json',
+                temperature: 0.3,
+              },
+            });
 
-        const fullRoadmap: AIHealthRoadmap = {
-          id: `roadmap-${patientId}-${Date.now()}`,
-          patientId,
-          patientName,
-          patientBirthNumber,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          doctorName,
-          title: parsed.title || `AI Plán Liečby 12M • ${patientName}`,
-          patientAnalysis: {
-            analyzedProceduresCount: proceduresHistory.length,
-            analyzedAestheticSessionsCount: aestheticsHistory.length,
-            skinConditionSummary: parsed.patientAnalysis?.skinConditionSummary || 'Komplexná klinická analýza pokožky',
-            identifiedConcerns: parsed.patientAnalysis?.identifiedConcerns || skinCondition.primaryConcerns || ['Revitalizácia', 'Fotoprotekcia'],
-            fitzpatrickPhototype: parsed.patientAnalysis?.fitzpatrickPhototype || skinCondition.fitzpatrickPhototype || 'II',
-            clinicalAssessment: parsed.patientAnalysis?.clinicalAssessment || 'Odporúčaný sekvenčný 12-mesačný protokol kombinujúci injekčnú a prístrojovú starostlivosť.',
-            pastSurgeriesSummary: parsed.patientAnalysis?.pastSurgeriesSummary || '',
-            aestheticHistorySummary: parsed.patientAnalysis?.aestheticHistorySummary || ''
-          },
-          months: (parsed.months || []).map((m: any, idx: number) => {
-            const actualMonthIndex = (currentMonthIdx + idx) % 12;
-            const actualYear = currentYear + Math.floor((currentMonthIdx + idx) / 12);
-            const { season, label } = getSeason(actualMonthIndex + 1);
+            const rawText = response.text || '';
+            if (rawText) {
+              parsed = JSON.parse(rawText);
+              successfulModel = modelName;
+              break;
+            }
+          } catch (modelErr: any) {
+            const isQuota = modelErr?.status === 'RESOURCE_EXHAUSTED' || 
+                            modelErr?.message?.includes('429') || 
+                            modelErr?.message?.includes('quota');
+            if (isQuota) {
+              console.warn(`Health Roadmap: model ${modelName} dosiahol rate limit (429/quota), testujem ďalší...`);
+            } else {
+              console.warn(`Health Roadmap: model ${modelName} vrátil chybu:`, modelErr?.message || modelErr);
+            }
+          }
+        }
 
-            return {
-              monthIndex: idx + 1,
-              name: m.name || `${idx + 1}. Mesiac`,
-              calendarMonthName: `${SLOVAK_MONTHS[actualMonthIndex]} ${actualYear}`,
-              season: m.season || season,
-              seasonLabel: m.seasonLabel || label,
-              focusTheme: m.focusTheme || 'Klinická starostlivosť a regenerácia',
-              clinicalGoal: m.clinicalGoal || 'Udržiavanie optimálnej dermálnej bariéry a elasticity',
-              interventions: (m.interventions || []).map((inv: any, iIdx: number) => ({
-                id: inv.id || `inv-${idx + 1}-${iIdx + 1}`,
-                month: idx + 1,
-                monthLabel: `${idx + 1}. Mesiac (${SLOVAK_MONTHS[actualMonthIndex]})`,
+        if (parsed) {
+          const fullRoadmap: AIHealthRoadmap = {
+            id: `roadmap-${patientId}-${Date.now()}`,
+            patientId,
+            patientName,
+            patientBirthNumber,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            doctorName,
+            title: parsed.title || `AI Plán Liečby 12M • ${patientName}`,
+            patientAnalysis: {
+              analyzedProceduresCount: proceduresHistory.length,
+              analyzedAestheticSessionsCount: aestheticsHistory.length,
+              skinConditionSummary: parsed.patientAnalysis?.skinConditionSummary || 'Komplexná klinická analýza pokožky',
+              identifiedConcerns: parsed.patientAnalysis?.identifiedConcerns || skinCondition.primaryConcerns || ['Revitalizácia', 'Fotoprotekcia'],
+              fitzpatrickPhototype: parsed.patientAnalysis?.fitzpatrickPhototype || skinCondition.fitzpatrickPhototype || 'II',
+              clinicalAssessment: parsed.patientAnalysis?.clinicalAssessment || 'Odporúčaný sekvenčný 12-mesačný protokol kombinujúci injekčnú a prístrojovú starostlivosť.',
+              pastSurgeriesSummary: parsed.patientAnalysis?.pastSurgeriesSummary || '',
+              aestheticHistorySummary: parsed.patientAnalysis?.aestheticHistorySummary || ''
+            },
+            months: (parsed.months || []).map((m: any, idx: number) => {
+              const actualMonthIndex = (currentMonthIdx + idx) % 12;
+              const actualYear = currentYear + Math.floor((currentMonthIdx + idx) / 12);
+              const { season, label } = getSeason(actualMonthIndex + 1);
+
+              return {
+                monthIndex: idx + 1,
+                name: m.name || `${idx + 1}. Mesiac`,
+                calendarMonthName: `${SLOVAK_MONTHS[actualMonthIndex]} ${actualYear}`,
                 season: m.season || season,
-                type: inv.type || 'dermatology_care',
-                title: inv.title || 'Konzultácia a ošetrenie',
-                description: inv.description || '',
-                targetArea: inv.targetArea || 'Tvár a dekolt',
-                intensity: inv.intensity || 'stredná',
-                estimatedDuration: inv.estimatedDuration || '45 min',
-                estimatedPrice: inv.estimatedPrice,
-                priority: inv.priority || 'odporúčaná',
-                status: 'planned',
-                homeCareProduct: inv.homeCareProduct || 'SAY Clinic Derm Hydrating Serum',
-                clinicalRationale: inv.clinicalRationale || 'Optimálny sezónny interval aplikácie',
-                contraindicationsOrPrecautions: inv.contraindicationsOrPrecautions || ''
-              }))
-            };
-          }),
-          dailySkincareRoutine: {
-            morning: parsed.dailySkincareRoutine?.morning || [],
-            evening: parsed.dailySkincareRoutine?.evening || [],
-            weeklyTreatments: parsed.dailySkincareRoutine?.weeklyTreatments || []
-          },
-          seasonalGuidelines: parsed.seasonalGuidelines || {
-            jar: 'Hydratačné skinboostery a antioxidačná ochrana pred zvýšeným UV žiarením.',
-            leto: 'Maximálna fotoprotekcia SPF 50+, nezosieťovaná kyselina hyalurónová, zákaz ablatívnych laserov.',
-            jesen: 'Obnova po lete, chemické peelingy a začiatok laserovej sezóny.',
-            zima: 'Frakčný CO2 laser, vaskulárne lasery a intenzívna bariérová regenerácia.'
-          },
-          doctorRecommendations: parsed.doctorRecommendations || 'Dodržiavajte odporúčaný časový harmonogram a dôslednú fotoprotekciu SPF 50+.',
-          safetyPrecautions: parsed.safetyPrecautions || [
-            'Minimálne 2 týždne po zákrokoch vynechať saunu a intenzívny šport',
-            'Striktný zákaz opaľovania po laserových ošetreniach a chemických peelingoch',
-            'V prípade nežiaducej reakcie kontaktujte recepciu SAY CLINIC'
-          ]
-        };
+                seasonLabel: m.seasonLabel || label,
+                focusTheme: m.focusTheme || 'Klinická starostlivosť a regenerácia',
+                clinicalGoal: m.clinicalGoal || 'Udržiavanie optimálnej dermálnej bariéry a elasticity',
+                interventions: (m.interventions || []).map((inv: any, iIdx: number) => ({
+                  id: inv.id || `inv-${idx + 1}-${iIdx + 1}`,
+                  month: idx + 1,
+                  monthLabel: `${idx + 1}. Mesiac (${SLOVAK_MONTHS[actualMonthIndex]})`,
+                  season: m.season || season,
+                  type: inv.type || 'dermatology_care',
+                  title: inv.title || 'Konzultácia a ošetrenie',
+                  description: inv.description || '',
+                  targetArea: inv.targetArea || 'Tvár a dekolt',
+                  intensity: inv.intensity || 'stredná',
+                  estimatedDuration: inv.estimatedDuration || '45 min',
+                  estimatedPrice: inv.estimatedPrice,
+                  priority: inv.priority || 'odporúčaná',
+                  status: 'planned',
+                  homeCareProduct: inv.homeCareProduct || 'SAY Clinic Derm Hydrating Serum',
+                  clinicalRationale: inv.clinicalRationale || 'Optimálny sezónny interval aplikácie',
+                  contraindicationsOrPrecautions: inv.contraindicationsOrPrecautions || ''
+                }))
+              };
+            }),
+            dailySkincareRoutine: {
+              morning: parsed.dailySkincareRoutine?.morning || [],
+              evening: parsed.dailySkincareRoutine?.evening || [],
+              weeklyTreatments: parsed.dailySkincareRoutine?.weeklyTreatments || []
+            },
+            seasonalGuidelines: parsed.seasonalGuidelines || {
+              jar: 'Hydratačné skinboostery a antioxidačná ochrana pred zvýšeným UV žiarením.',
+              leto: 'Maximálna fotoprotekcia SPF 50+, nezosieťovaná kyselina hyalurónová, zákaz ablatívnych laserov.',
+              jesen: 'Obnova po lete, chemické peelingy a začiatok laserovej sezóny.',
+              zima: 'Frakčný CO2 laser, vaskulárne lasery a intenzívna bariérová regenerácia.'
+            },
+            doctorRecommendations: parsed.doctorRecommendations || 'Dodržiavajte odporúčaný časový harmonogram a dôslednú fotoprotekciu SPF 50+.',
+            safetyPrecautions: parsed.safetyPrecautions || [
+              'Minimálne 2 týždne po zákrokoch vynechať saunu a intenzívny šport',
+              'Striktný zákaz opaľovania po laserových ošetreniach a chemických peelingoch',
+              'V prípade nežiaducej reakcie kontaktujte recepciu SAY CLINIC'
+            ]
+          };
 
-        return NextResponse.json({
-          success: true,
-          source: 'gemini-3.8-flash',
-          roadmap: fullRoadmap
-        });
+          roadmapCache.set(patientId, { roadmap: fullRoadmap, timestamp: Date.now() });
+
+          return NextResponse.json({
+            success: true,
+            source: successfulModel,
+            roadmap: fullRoadmap
+          });
+        }
       } catch (geminiError) {
         console.warn('Gemini API call failed, falling back to clinical rule-based engine:', geminiError);
       }
@@ -230,6 +280,7 @@ Začni presne od mesiaca ${SLOVAK_MONTHS[currentMonthIdx]} ${currentYear} a vyge
 
     // FALLBACK / OFFLINE CLINICAL ENGINE
     // Vybudujeme plnohodnotný 12-mesačný plán podľa klinických pravidiel SAY CLINIC
+    console.warn(`Health Roadmap: Aktivovaný expertný klinický engine SAY CLINIC pre pacienta ${patientName}`);
     const fallbackRoadmap = generateClinicalRuleBasedRoadmap({
       patientId,
       patientName,
@@ -241,6 +292,8 @@ Začni presne od mesiaca ${SLOVAK_MONTHS[currentMonthIdx]} ${currentYear} a vyge
       skinCondition,
       doctorName
     });
+
+    roadmapCache.set(patientId, { roadmap: fallbackRoadmap, timestamp: Date.now() });
 
     return NextResponse.json({
       success: true,

@@ -131,6 +131,7 @@ export default function Home() {
     initialDocType?: any;
   } | null>(null);
   const [selectedPatientForFolder, setSelectedPatientForFolder] = useState<Patient | null>(null);
+  const [patientActiveFolder, setPatientActiveFolder] = useState<any>('dokumenty');
 
   // Stav pre predvyplnenie POS z karty pacienta a plánu
   const [posSelectedPatientId, setPosSelectedPatientId] = useState<string>('');
@@ -734,6 +735,10 @@ export default function Home() {
         currentTab={activeTab}
         currentUser={currentUser}
         onNavigateToTab={(tab, extra) => {
+          if (extra?.folder && activePatient) {
+            setSelectedPatientForFolder(activePatient);
+            setPatientActiveFolder(extra.folder);
+          }
           if (extra?.initialDocType && activePatient) {
             setSelectedPatient({
               name: activePatient.name,
@@ -1266,6 +1271,7 @@ export default function Home() {
                   changeTab('cosmetics');
                 }}
                 initialPatient={selectedPatientForFolder}
+                initialFolder={patientActiveFolder}
                 activePatient={activePatient}
                 onSetActivePatient={handleSetActivePatient}
                 onPatientsUpdated={(updatedList) => setPatients(updatedList)}

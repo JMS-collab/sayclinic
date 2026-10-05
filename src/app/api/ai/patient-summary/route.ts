@@ -23,6 +23,14 @@ export interface AIPatientSummary {
   clinicalRecommendations: string[];
 }
 
+interface CacheEntry {
+  summary: AIPatientSummary;
+  timestamp: number;
+}
+
+const summaryCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minút cache na zamedzenie duplicitným volaniam
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -33,20 +41,33 @@ export async function POST(req: NextRequest) {
       prescriptions = [],
       calendarEvents = [],
       driveFiles = [],
-      existingClinicalProfile = null
+      existingClinicalProfile = null,
+      forceRefresh = false
     } = body;
 
     if (!patient || !patient.id) {
       return NextResponse.json({ error: 'Chýbajúce údaje o pacientovi' }, { status: 400 });
     }
 
+    // 1. Kontrola serverovej cache (ak nie je vynútený refresh)
+    const cached = summaryCache.get(patient.id);
+    if (!forceRefresh && cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+      return NextResponse.json(cached.summary);
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (apiKey) {
-      try {
-        const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build'
+          }
+        }
+      });
 
-        const prompt = `Si špičkový plastický chirurg a hlavný atestovaný lekár SAY CLINIC v Bratislave (vedúci lekár MUDr. Ján Mráz).
+      const prompt = `Si špičkový plastický chirurg a hlavný atestovaný lekár SAY CLINIC v Bratislave (vedúci lekár MUDr. Ján Mráz).
 Tvojou úlohou je vykonať hĺbkovú, maximálne presnú syntézu celej dostupnej zdravotnej dokumentácie pacienta a pripraviť štruktúrovaný "AI Klinický súhrn klienta" (časovú os, riziká a odporúčania) pre ošetrujúceho lekára počas vyšetrenia.
 
 ÚDAJE PACIENTA:
@@ -110,40 +131,60 @@ Formát JSON:
 
 Časová os (timelineMilestones) musí byť zoradená chronologicky od najnovších udalostí po najstaršie. Ak pacient nemá žiadne záznamy, vytvor primeraný bezpečný profil bez halucinácií.`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-            temperature: 0.2
+      // Pokus 1: gemini-3.8-flash, s okamžitým prepnutím na gemini-3.1-flash-lite pri 429 kvóte
+      const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+      let parsedResponse: any = null;
+
+      for (const modelName of modelsToTry) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json',
+              temperature: 0.2
+            }
+          });
+
+          const rawText = response.text || '';
+          if (rawText) {
+            parsedResponse = JSON.parse(rawText);
+            break;
           }
-        });
+        } catch (geminiError: any) {
+          const isQuota = geminiError?.status === 'RESOURCE_EXHAUSTED' || 
+                          geminiError?.message?.includes('429') || 
+                          geminiError?.message?.includes('quota');
+          if (isQuota) {
+            console.warn(`Model ${modelName} dosiahol rate limit (429/quota), prepínam na ďalšiu úroveň...`);
+          } else {
+            console.warn(`Model ${modelName} zlyhal:`, geminiError?.message || geminiError);
+          }
+        }
+      }
 
-        const rawText = response.text || '';
-        const parsed = JSON.parse(rawText);
-
+      if (parsedResponse) {
         const fullSummary: AIPatientSummary = {
           patientId: patient.id,
           patientName: patient.name,
           generatedAt: new Date().toISOString(),
-          generalStatus: parsed.generalStatus || 'Pacient v ambulantnej a estetickej starostlivosti SAY CLINIC.',
+          generalStatus: parsedResponse.generalStatus || 'Pacient v ambulantnej a estetickej starostlivosti SAY CLINIC.',
           criticalAlerts: {
-            allergies: Array.isArray(parsed.criticalAlerts?.allergies) ? parsed.criticalAlerts.allergies : [],
-            contraindications: Array.isArray(parsed.criticalAlerts?.contraindications) ? parsed.criticalAlerts.contraindications : [],
-            surgicalRisks: Array.isArray(parsed.criticalAlerts?.surgicalRisks) ? parsed.criticalAlerts.surgicalRisks : []
+            allergies: Array.isArray(parsedResponse.criticalAlerts?.allergies) ? parsedResponse.criticalAlerts.allergies : [],
+            contraindications: Array.isArray(parsedResponse.criticalAlerts?.contraindications) ? parsedResponse.criticalAlerts.contraindications : [],
+            surgicalRisks: Array.isArray(parsedResponse.criticalAlerts?.surgicalRisks) ? parsedResponse.criticalAlerts.surgicalRisks : []
           },
-          timelineMilestones: Array.isArray(parsed.timelineMilestones) ? parsed.timelineMilestones : [],
-          clinicalRecommendations: Array.isArray(parsed.clinicalRecommendations) ? parsed.clinicalRecommendations : []
+          timelineMilestones: Array.isArray(parsedResponse.timelineMilestones) ? parsedResponse.timelineMilestones : [],
+          clinicalRecommendations: Array.isArray(parsedResponse.clinicalRecommendations) ? parsedResponse.clinicalRecommendations : []
         };
 
+        summaryCache.set(patient.id, { summary: fullSummary, timestamp: Date.now() });
         return NextResponse.json(fullSummary);
-      } catch (geminiError) {
-        console.error('Gemini API call failed, generating deterministic fallback:', geminiError);
-        // Fallback to intelligent deterministic summary below
       }
     }
 
-    // Inteligentný lokálny fallback pri absencii API kľúča alebo výpadku siete
+    // Inteligentný deterministický lekársky fallback pri dosiahnutí kvóty alebo absencii kľúča
+    console.warn(`Aktivovaný expertný klinický engine SAY CLINIC pre pacienta ${patient.name}`);
     const deterministicSummary = buildDeterministicSummary(
       patient, 
       records, 
@@ -154,6 +195,7 @@ Formát JSON:
       existingClinicalProfile
     );
 
+    summaryCache.set(patient.id, { summary: deterministicSummary, timestamp: Date.now() });
     return NextResponse.json(deterministicSummary);
 
   } catch (error: any) {

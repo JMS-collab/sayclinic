@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { PRESET_PATIENT_PLANS, PatientPlan } from '@/data/patientPlanConfig';
 
+interface PlanCacheEntry {
+  plan: PatientPlan;
+  timestamp: number;
+}
+
+const planCache = new Map<string, PlanCacheEntry>();
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minút cache
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -14,15 +22,31 @@ export async function POST(req: NextRequest) {
       skinType = '',
       mainConcerns = [],
       vectorZones = [],
-      doctorName = 'MUDr. Ján Mráz'
+      doctorName = 'MUDr. Ján Mráz',
+      forceRefresh = false
     } = body;
+
+    const cacheKey = `${patientId || 'unknown'}-${planType}`;
+
+    // 1. Kontrola serverovej cache
+    const cached = planCache.get(cacheKey);
+    if (!forceRefresh && cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+      return NextResponse.json({ success: true, plan: cached.plan, source: 'server-cache' });
+    }
 
     const apiKey = process.env.GEMINI_API_KEY;
 
-    // Ak máme kľúč, môžeme použiť Gemini 3.8 Flash na detailnú personalizáciu
+    // Ak máme kľúč, môžeme použiť Gemini s kaskádou modelov (gemini-3.8-flash -> gemini-3.1-flash-lite)
     if (apiKey) {
       try {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({
+          apiKey,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build'
+            }
+          }
+        });
         
         const systemPrompt = `Si špičkový plastický chirurg a certifikovaný dermatológ na prestížnej klinike SAY CLINIC v Bratislave (vedúci lekár MUDr. Ján Mráz).
 Tvojou úlohou je vygenerovať kompletný, vysoko profesionálny medicínsky a estetický PLÁN PACIENTA (Patient Treatment & Care Plan) v slovenskom jazyku.
@@ -112,20 +136,42 @@ Hlavné sťažnosti: ${Array.isArray(mainConcerns) ? mainConcerns.join(', ') : m
 Vektorové zóny z analýzy: ${Array.isArray(vectorZones) ? vectorZones.join(', ') : vectorZones}
 Ošetrujúci lekár: ${doctorName}`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: [
-            { role: 'system', parts: [{ text: systemPrompt }] },
-            { role: 'user', parts: [{ text: userPrompt }] }
-          ],
-          config: {
-            responseMimeType: 'application/json'
-          }
-        });
+        const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+        let parsed: any = null;
+        let successfulModel = '';
 
-        const text = response.text;
-        if (text) {
-          const parsed = JSON.parse(text);
+        for (const modelName of modelsToTry) {
+          try {
+            const response = await ai.models.generateContent({
+              model: modelName,
+              contents: [
+                { role: 'system', parts: [{ text: systemPrompt }] },
+                { role: 'user', parts: [{ text: userPrompt }] }
+              ],
+              config: {
+                responseMimeType: 'application/json'
+              }
+            });
+
+            const text = response.text;
+            if (text) {
+              parsed = JSON.parse(text);
+              successfulModel = modelName;
+              break;
+            }
+          } catch (modelErr: any) {
+            const isQuota = modelErr?.status === 'RESOURCE_EXHAUSTED' || 
+                            modelErr?.message?.includes('429') || 
+                            modelErr?.message?.includes('quota');
+            if (isQuota) {
+              console.warn(`Patient Plan: model ${modelName} dosiahol rate limit (429/quota), testujem ďalší...`);
+            } else {
+              console.warn(`Patient Plan: model ${modelName} vrátil chybu:`, modelErr?.message || modelErr);
+            }
+          }
+        }
+
+        if (parsed) {
           const fullPlan: PatientPlan = {
             id: `plan-${Date.now()}`,
             patientId: patientId || 'P1',
@@ -153,7 +199,9 @@ Ošetrujúci lekár: ${doctorName}`;
             doctorNote: parsed.doctorNote || 'Vygenerované na základe dermatologickej analýzy SAY CLINIC.'
           };
 
-          return NextResponse.json({ success: true, plan: fullPlan, source: 'gemini-3.8-flash' });
+          planCache.set(cacheKey, { plan: fullPlan, timestamp: Date.now() });
+
+          return NextResponse.json({ success: true, plan: fullPlan, source: successfulModel });
         }
       } catch (geminiError) {
         console.warn('Gemini generation failed, falling back to clinical expert presets:', geminiError);
@@ -161,6 +209,7 @@ Ošetrujúci lekár: ${doctorName}`;
     }
 
     // EXPERTNÝ KLINICKÝ FALLBACK (okamžitá blesková odpoveď s lekárskou presnosťou)
+    console.warn(`Patient Plan: Aktivovaný expertný klinický engine SAY CLINIC pre pacienta ${patientName}`);
     let basePreset = PRESET_PATIENT_PLANS.face_annual_rejuvenation;
     const lowerProc = (procedureName + ' ' + diagnosisOrGoal).toLowerCase();
 

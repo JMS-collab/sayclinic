@@ -12,6 +12,8 @@ import {
   AlertCircle, 
   Loader2 
 } from 'lucide-react';
+import { MeicetUploadModal } from '../meicet/MeicetUploadModal';
+import { MeicetService } from '@/services/meicetService';
 
 interface CreatePatientPlanModalProps {
   isOpen: boolean;
@@ -57,6 +59,7 @@ export default function CreatePatientPlanModal({
   const [selectedPresetKey, setSelectedPresetKey] = useState<string>('face_annual_rejuvenation');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [showMeicetModal, setShowMeicetModal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -175,6 +178,30 @@ export default function CreatePatientPlanModal({
 
         {/* TELO FORMULÁRA */}
         <div className="p-6 overflow-y-auto space-y-5 text-xs text-[#2C2A29]">
+          
+          {/* BANNER PRE MEICET PRO-A INTEGRÁCIU */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#FAF8F5] via-white to-[#FAF8F5] border-2 border-[#C5A059] flex flex-wrap items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl p-2 bg-[#C5A059]/20 rounded-xl">🔬</span>
+              <div>
+                <strong className="text-xs font-bold text-[#2C2A29] block">
+                  Máte diagnostický PDF report z analyzátora pleti Meicet Pro-A?
+                </strong>
+                <p className="text-[10px] text-[#8C857B] mt-0.5">
+                  AI extrahuje 8 spektier, posúdi ich s chirurgickou a dermatologickou anamnézou a zostaví ročný plán, skincare aj starostlivosť o jazvy.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMeicetModal(true)}
+              className="px-3.5 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Nahrať Meicet PDF</span>
+            </button>
+          </div>
+
           {/* RÝCHLE ŠABLÓNY */}
           <div className="space-y-2">
             <label className="font-bold text-[11px] uppercase tracking-wider text-[#8C857B] block">
@@ -384,6 +411,20 @@ export default function CreatePatientPlanModal({
           </button>
         </div>
       </div>
+
+      {showMeicetModal && (
+        <MeicetUploadModal
+          isOpen={showMeicetModal}
+          onClose={() => setShowMeicetModal(false)}
+          patient={patient}
+          onAnalysisComplete={(res) => {
+            const plan = MeicetService.convertToPatientPlan(res);
+            onSavePlan(plan);
+            setShowMeicetModal(false);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }

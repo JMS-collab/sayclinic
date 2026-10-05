@@ -277,6 +277,18 @@ export default function ActivePatientBar({
             <span className="hidden sm:inline">Estetika</span>
           </button>
 
+          {/* MEICET PRO-A */}
+          <button
+            type="button"
+            onClick={() => onNavigateToTab('patients', { folder: 'meicet' })}
+            className="px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer border shadow-xs bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border-[#C5A059] hover:shadow-xs"
+            title="3D spektrálna analýza pleti Meicet Pro-A a ročný plán ošetrení s AI"
+          >
+            <span className="text-xs">🔬</span>
+            <span className="hidden lg:inline">Meicet Pro-A</span>
+            <span className="text-[9px] bg-[#C5A059] text-white px-1 rounded font-bold">AI</span>
+          </button>
+
           {/* 5. PREDAJ KOZMETIKY (POS) */}
           <button
             type="button"
