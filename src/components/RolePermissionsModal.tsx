@@ -34,25 +34,13 @@ import {
 import { UserAccount } from './LoginForm';
 import { UserService } from '../services/userService';
 import { LiquidAvatar } from './LiquidAvatar';
+import { MEMOJI_PRESETS, MEMOJI_CATEGORIES } from '../data/memojiCatalog';
 
 interface RolePermissionsModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserAccount;
 }
-
-const PRESET_GENMOJIS = [
-  { id: 'u10', label: 'Viktória (Recepčná - čierne vlasy & okuliare)', url: '/avatars/foltaniova.jpg?v=3' },
-  { id: 'u6', label: 'Ema (Sestra - čierne vlasy)', url: '/avatars/foltani.jpg?v=3' },
-  { id: 'u8', label: 'Anesteziológ (Biely Európan - krátke vlasy)', url: '/avatars/anesteziolog.jpg?v=3' },
-  { id: 'u1', label: 'MUDr. Ján Mráz (CEO)', url: '/avatars/mraz.jpg?v=4' },
-  { id: 'u2', label: 'MUDr. Zuzana Sroková', url: '/avatars/srokova.jpg?v=2' },
-  { id: 'u3', label: 'MUDr. Minh Tuong Tran', url: '/avatars/tran.jpg?v=2' },
-  { id: 'u4', label: 'Ing. Barbara Mecerodová', url: '/avatars/mecerodova.jpg?v=2' },
-  { id: 'u5', label: 'Mgr. Elena Solivajsová', url: '/avatars/solivajsova.jpg?v=2' },
-  { id: 'u7', label: 'Sabina Lenhartová', url: '/avatars/lenhartova.jpg?v=2' },
-  { id: 'u9', label: 'Anesteziologická sestra', url: '/avatars/anest_sestra.jpg?v=1' },
-];
 
 export default function RolePermissionsModal({
   isOpen,
@@ -75,6 +63,7 @@ export default function RolePermissionsModal({
   // Formulár pre editáciu / vytvorenie používateľa
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
   const [isCreatingNewUser, setIsCreatingNewUser] = useState(false);
+  const [roleAvatarCategory, setRoleAvatarCategory] = useState<'all' | 'doctor' | 'nurse' | 'receptionist' | 'manager'>('all');
 
   // CEO a Manažment majú právo spravovať systém
   const canManage = PermissionsService.canUserManageSystem(currentUser);
@@ -218,6 +207,7 @@ export default function RolePermissionsModal({
       avatarBg: 'bg-[#2A4736]',
       avatarUrl: '/avatars/foltani.jpg?v=3'
     });
+    setRoleAvatarCategory('nurse');
     setIsCreatingNewUser(true);
   };
 
@@ -581,33 +571,84 @@ export default function RolePermissionsModal({
                     </div>
                   </div>
 
-                  {/* VÝBER GENMOJI AVATARA */}
-                  <div>
-                    <label className="block font-bold text-[#2C2A29] mb-2 text-xs">
-                      Výber 3D Genmoji avatara:
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                      {PRESET_GENMOJIS.map(g => {
-                        const isSelected = editingUser.avatarUrl === g.url || (!editingUser.avatarUrl && editingUser.id === g.id);
+                  {/* VÝBER 3D MEMOJI AVATARA */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block font-bold text-[#2C2A29] text-xs">
+                        Výber 3D Memoji avatara ({MEMOJI_PRESETS.length} možností):
+                      </label>
+                      <span className="text-[10px] text-[#8C857B]">
+                        Lekári, sestry, recepcia, manažment
+                      </span>
+                    </div>
+
+                    {/* KATEGÓRIE TABS */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                      {MEMOJI_CATEGORIES.map(cat => {
+                        const isCatActive = roleAvatarCategory === cat.key;
+                        const count = cat.key === 'all' 
+                          ? MEMOJI_PRESETS.length 
+                          : MEMOJI_PRESETS.filter(p => p.category === cat.key).length;
                         return (
-                          <div
-                            key={g.id}
-                            onClick={() => setEditingUser({ ...editingUser, avatarUrl: g.url })}
-                            className={`p-2 rounded-xl border text-center cursor-pointer transition-all flex flex-col items-center gap-1.5 ${
-                              isSelected
-                                ? 'border-[#C5A059] bg-[#FAF8F5] shadow-xs'
-                                : 'border-[#E8E2D9] bg-white hover:border-[#C5A059]'
+                          <button
+                            key={cat.key}
+                            type="button"
+                            onClick={() => setRoleAvatarCategory(cat.key as any)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer border ${
+                              isCatActive
+                                ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-xs'
+                                : 'bg-white hover:bg-[#FAF8F5] text-[#6B655E] border-[#E8E2D9] hover:border-[#C5A059]'
                             }`}
                           >
-                            <div className="w-12 h-12 rounded-full overflow-hidden border border-[#E8E2D9] bg-white flex items-center justify-center">
-                              <img src={g.url} alt={g.label} className="w-full h-full object-cover" />
-                            </div>
-                            <span className="text-[10px] text-[#2C2A29] font-medium truncate w-full">
-                              {g.label.split('(')[0]}
+                            <span className="text-xs">{cat.icon}</span>
+                            <span className="text-[11px]">{cat.label}</span>
+                            <span className={`text-[9.5px] px-1 py-0.1 rounded font-mono ${
+                              isCatActive ? 'bg-white/20 text-white' : 'bg-[#E8E2D9]/70 text-[#8C857B]'
+                            }`}>
+                              {count}
                             </span>
-                          </div>
+                          </button>
                         );
                       })}
+                    </div>
+
+                    {/* GRID AVATAROV */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-56 overflow-y-auto p-1 pr-1.5 border border-[#E8E2D9] rounded-xl bg-[#FAF8F5]/40">
+                      {MEMOJI_PRESETS
+                        .filter(p => roleAvatarCategory === 'all' || p.category === roleAvatarCategory)
+                        .map(preset => {
+                          const isSelected = editingUser.avatarUrl === preset.url;
+                          return (
+                            <div
+                              key={preset.id}
+                              onClick={() => setEditingUser({ ...editingUser, avatarUrl: preset.url })}
+                              className={`p-2 rounded-xl border text-center cursor-pointer transition-all flex flex-col items-center gap-1 relative ${
+                                isSelected
+                                  ? 'border-[#C5A059] bg-[#FAF6EF] shadow-xs ring-2 ring-[#C5A059]/30'
+                                  : 'border-[#E8E2D9] bg-white hover:border-[#C5A059] hover:bg-[#FAF8F5]'
+                              }`}
+                            >
+                              {isSelected && (
+                                <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#C5A059] text-white flex items-center justify-center text-[8px]">
+                                  ✓
+                                </span>
+                              )}
+                              <div className={`w-11 h-11 rounded-full overflow-hidden border-2 bg-white flex items-center justify-center ${
+                                isSelected ? 'border-[#C5A059]' : 'border-[#E8E2D9]'
+                              }`}>
+                                <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" loading="lazy" />
+                              </div>
+                              <span className="text-[10px] text-[#2C2A29] font-bold truncate w-full leading-tight">
+                                {preset.name.split('(')[0]}
+                              </span>
+                              {preset.badge && (
+                                <span className="text-[8px] px-1 py-0.2 rounded bg-[#FAF8F5] text-[#8C857B] border border-[#E8E2D9] truncate max-w-full">
+                                  {preset.badge}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
 
@@ -670,6 +711,12 @@ export default function RolePermissionsModal({
                                 type="button"
                                 onClick={() => {
                                   setEditingUser(user);
+                                  setRoleAvatarCategory(
+                                    user.role === 'nurse' ? 'nurse' :
+                                    user.role === 'doctor' || user.role === 'ceo' ? 'doctor' :
+                                    user.role === 'receptionist' ? 'receptionist' :
+                                    user.role === 'manager' ? 'manager' : 'all'
+                                  );
                                   setIsCreatingNewUser(false);
                                 }}
                                 className="p-1.5 rounded-lg border border-[#E8E2D9] hover:border-[#C5A059] hover:bg-[#FAF8F5] text-[#2C2A29] text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer"

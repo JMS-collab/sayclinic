@@ -23,7 +23,8 @@ import {
   Smartphone,
   Key,
   ExternalLink,
-  Fingerprint
+  Fingerprint,
+  Search
 } from 'lucide-react';
 import { LiquidAvatar } from './LiquidAvatar';
 import { AuthService } from '../services/authService';
@@ -34,6 +35,7 @@ import { DevicePinAuth } from './DevicePinAuth';
 import { DevicePinService } from '../services/devicePinService';
 import { googleSignIn } from '../lib/workspaceAuth';
 import { UserService } from '../services/userService';
+import { MEMOJI_PRESETS, MEMOJI_CATEGORIES, MemojiPreset } from '../data/memojiCatalog';
 
 export interface UserAccount {
   id: string;
@@ -174,13 +176,28 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
   // Správa vlastných fotografií a účtov (Modal)
   const [photoModalUser, setPhotoModalUser] = useState<UserAccount | null>(null);
-  const [activePhotoTab, setActivePhotoTab] = useState<'upload' | 'url' | 'presets' | 'accounts'>('upload');
+  const [activePhotoTab, setActivePhotoTab] = useState<'upload' | 'url' | 'presets' | 'accounts'>('presets');
+  const [avatarCategoryFilter, setAvatarCategoryFilter] = useState<'all' | 'doctor' | 'nurse' | 'receptionist' | 'manager'>('all');
+  const [avatarSearchQuery, setAvatarSearchQuery] = useState('');
   const [urlInput, setUrlInput] = useState('');
   const [tempPreviewUrl, setTempPreviewUrl] = useState<string | null>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoSuccessToast, setPhotoSuccessToast] = useState<string | null>(null);
   const [newLinkedEmailInput, setNewLinkedEmailInput] = useState('');
   const [accountRefreshTrigger, setAccountRefreshTrigger] = useState(0);
+
+  const filteredPresets = MEMOJI_PRESETS.filter(preset => {
+    if (avatarCategoryFilter !== 'all' && preset.category !== avatarCategoryFilter) return false;
+    if (avatarSearchQuery.trim()) {
+      const q = avatarSearchQuery.toLowerCase();
+      return (
+        preset.name.toLowerCase().includes(q) ||
+        preset.roleDescription.toLowerCase().includes(q) ||
+        (preset.badge && preset.badge.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
 
   // Prepojenie osobného Google účtu s profilom v SAY CLINIC
   const [linkPersonalModal, setLinkPersonalModal] = useState<{ googleEmail: string; googleUser: any } | null>(null);
@@ -701,7 +718,14 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setPhotoModalUser(user);
     setTempPreviewUrl(user.avatarUrl || null);
     setUrlInput(user.avatarUrl && !user.avatarUrl.startsWith('data:') ? user.avatarUrl : '');
-    setActivePhotoTab('upload');
+    setActivePhotoTab('presets');
+    setAvatarCategoryFilter(
+      user.role === 'nurse' ? 'nurse' :
+      user.role === 'doctor' || user.role === 'ceo' ? 'doctor' :
+      user.role === 'receptionist' ? 'receptionist' :
+      user.role === 'manager' ? 'manager' : 'all'
+    );
+    setAvatarSearchQuery('');
   };
 
   const handleSelectUser = (user: UserAccount) => {
@@ -1887,122 +1911,235 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       {/* DIALÓG NA ZMENU / PRIDANIE AVATARU (LIQUID GLASS) */}
       {/* ========================================================================= */}
       {photoModalUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C2A29]/30 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="backdrop-blur-3xl bg-white/80 border border-white/90 w-full max-w-md rounded-[32px] shadow-[0_35px_80px_rgba(0,0,0,0.18),inset_0_1.5px_2px_rgba(255,255,255,0.95)] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#2C2A29]/40 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+          <div className="backdrop-blur-3xl bg-white/95 border border-white/90 w-full max-w-xl sm:max-w-2xl rounded-[32px] shadow-[0_35px_80px_rgba(0,0,0,0.18),inset_0_1.5px_2px_rgba(255,255,255,0.95)] overflow-hidden flex flex-col my-auto max-h-[92vh]">
             
             {/* HLAVIČKA */}
-            <div className="p-6 border-b border-[#E8E2D9]/60 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-semibold text-[#2C2A29]">
-                  {photoModalUser.name}
-                </h3>
-                <p className="text-xs text-[#8C857B]">Prispôsobenie profilového avataru</p>
+            <div className="p-5 sm:p-6 border-b border-[#E8E2D9]/70 flex items-center justify-between bg-gradient-to-r from-white via-white to-[#FAF8F5]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FAF6EF] border border-[#E6D4B2] flex items-center justify-center text-[#C5A059] shadow-xs">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[#2C2A29]">
+                    {photoModalUser.name}
+                  </h3>
+                  <p className="text-xs text-[#8C857B]">
+                    Výber 3D Memoji avatara & správa profilu personálu
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setPhotoModalUser(null)}
-                className="p-2 text-[#8C857B] hover:text-[#2C2A29] hover:bg-white/80 rounded-full transition-all"
+                className="p-2 text-[#8C857B] hover:text-[#2C2A29] hover:bg-white rounded-full transition-all cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* OBSAH */}
-            <div className="p-6 space-y-6">
+            <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
               
               {/* NÁHĽAD GULE */}
               <div className="flex flex-col items-center justify-center">
-                <div className="w-28 h-28 rounded-full p-1.5 backdrop-blur-xl bg-gradient-to-b from-white via-white/60 to-white/20 border-2 border-[#C5A059] shadow-[0_12px_28px_rgba(197,160,89,0.25)] flex items-center justify-center overflow-hidden">
-                  {tempPreviewUrl ? (
-                    <img
-                      src={tempPreviewUrl}
-                      alt="Náhľad"
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white shadow-inner">
-                      <LiquidAvatar id={photoModalUser.id} name={photoModalUser.name} role={photoModalUser.role} />
-                    </div>
-                  )}
+                <div className="relative">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 backdrop-blur-xl bg-gradient-to-b from-white via-white/80 to-white/30 border-2 border-[#C5A059] shadow-[0_12px_28px_rgba(197,160,89,0.25)] flex items-center justify-center overflow-hidden">
+                    {tempPreviewUrl ? (
+                      <img
+                        src={tempPreviewUrl}
+                        alt="Náhľad"
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white shadow-inner">
+                        <LiquidAvatar id={photoModalUser.id} name={photoModalUser.name} role={photoModalUser.role} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-[#2C2A29] text-white text-[9px] font-bold tracking-wider uppercase border border-white/60 shadow-xs">
+                    Náhľad
+                  </div>
                 </div>
               </div>
 
               {/* TABS */}
-              <div className="flex border-b border-[#E8E2D9]/60 text-xs">
+              <div className="flex border-b border-[#E8E2D9] text-xs px-2 gap-1.5 bg-[#FAF8F5]/80 rounded-2xl p-1">
                 <button
                   type="button"
                   onClick={() => setActivePhotoTab('presets')}
-                  className={`flex-1 py-2.5 border-b-2 font-medium transition-all ${
+                  className={`flex-1 py-2 px-3 rounded-xl border font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activePhotoTab === 'presets'
-                      ? 'border-[#2C2A29] text-[#2C2A29]'
-                      : 'border-transparent text-[#8C857B] hover:text-[#2C2A29]'
+                      ? 'border-[#C5A059] text-[#2C2A29] bg-white shadow-xs font-bold'
+                      : 'border-transparent text-[#8C857B] hover:text-[#2C2A29] hover:bg-white/60'
                   }`}
                 >
-                  Memoji
+                  <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>3D Memoji</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    activePhotoTab === 'presets' ? 'bg-[#C5A059]/20 text-[#8C6D2B] font-bold' : 'bg-[#E8E2D9]/70 text-[#8C857B]'
+                  }`}>
+                    {MEMOJI_PRESETS.length}
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setActivePhotoTab('upload')}
-                  className={`flex-1 py-2.5 border-b-2 font-medium transition-all ${
+                  className={`flex-1 py-2 px-3 rounded-xl border font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activePhotoTab === 'upload'
-                      ? 'border-[#2C2A29] text-[#2C2A29]'
-                      : 'border-transparent text-[#8C857B] hover:text-[#2C2A29]'
+                      ? 'border-[#C5A059] text-[#2C2A29] bg-white shadow-xs font-bold'
+                      : 'border-transparent text-[#8C857B] hover:text-[#2C2A29] hover:bg-white/60'
                   }`}
                 >
-                  Nahrať
+                  <Upload className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Nahrať foto</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setActivePhotoTab('url')}
-                  className={`flex-1 py-2.5 border-b-2 font-medium transition-all ${
+                  className={`flex-1 py-2 px-3 rounded-xl border font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activePhotoTab === 'url'
-                      ? 'border-[#2C2A29] text-[#2C2A29]'
-                      : 'border-transparent text-[#8C857B] hover:text-[#2C2A29]'
+                      ? 'border-[#C5A059] text-[#2C2A29] bg-white shadow-xs font-bold'
+                      : 'border-transparent text-[#8C857B] hover:text-[#2C2A29] hover:bg-white/60'
                   }`}
                 >
-                  URL
+                  <span>Web URL</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setActivePhotoTab('accounts')}
-                  className={`flex-1 py-2.5 border-b-2 font-medium transition-all ${
+                  className={`flex-1 py-2 px-3 rounded-xl border font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activePhotoTab === 'accounts'
-                      ? 'border-[#C5A059] text-[#2C2A29] font-semibold'
-                      : 'border-transparent text-[#8C857B] hover:text-[#2C2A29]'
+                      ? 'border-[#C5A059] text-[#2C2A29] bg-white shadow-xs font-bold'
+                      : 'border-transparent text-[#8C857B] hover:text-[#2C2A29] hover:bg-white/60'
                   }`}
                 >
-                  Účet & Passkey
+                  <Key className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Účet & Passkey</span>
                 </button>
               </div>
 
-              {/* 1. PRESETS (iOS MEMOJI) */}
+              {/* 1. PRESETS (iOS MEMOJI S KATEGÓRIAMI: SESTRY, LEKÁRI, RECEPCIA, MANAŽÉRI) */}
               {activePhotoTab === 'presets' && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-4 gap-2.5 max-h-48 overflow-y-auto p-1">
-                    {PRESET_PORTRAITS.map((preset, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setTempPreviewUrl(preset.url)}
-                        className="group flex flex-col items-center gap-1 p-1.5 rounded-2xl bg-white/70 hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] transition-all shadow-xs"
-                      >
-                        <div className="w-12 h-12 rounded-full overflow-hidden border border-white/80 shadow-xs bg-white">
-                          <img src={preset.url} alt={preset.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                        </div>
-                        <span className="text-[9px] text-[#8C857B] group-hover:text-[#2C2A29] truncate w-full text-center leading-tight">
-                          {preset.label.split(' ')[1] || preset.label}
-                        </span>
-                      </button>
-                    ))}
+                <div className="space-y-3.5 animate-in fade-in duration-200">
+                  {/* KATEGÓRIE (VŠETKY, LEKÁRI, SESTRY, RECEPCIA, MANAŽMENT) */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {MEMOJI_CATEGORIES.map(cat => {
+                      const isCatActive = avatarCategoryFilter === cat.key;
+                      const count = cat.key === 'all' 
+                        ? MEMOJI_PRESETS.length 
+                        : MEMOJI_PRESETS.filter(p => p.category === cat.key).length;
+                      return (
+                        <button
+                          key={cat.key}
+                          type="button"
+                          onClick={() => setAvatarCategoryFilter(cat.key as any)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer border ${
+                            isCatActive
+                              ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-xs'
+                              : 'bg-white hover:bg-[#FAF8F5] text-[#6B655E] border-[#E8E2D9] hover:border-[#C5A059]'
+                          }`}
+                        >
+                          <span>{cat.icon}</span>
+                          <span>{cat.label}</span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                            isCatActive ? 'bg-white/20 text-white font-bold' : 'bg-[#E8E2D9]/70 text-[#8C857B]'
+                          }`}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setTempPreviewUrl('')}
-                    className="w-full py-2.5 rounded-2xl bg-white/80 border border-[#E8E2D9] hover:border-[#C5A059] text-xs font-medium text-[#2C2A29] flex items-center justify-center gap-2 shadow-xs transition-all mt-2"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
-                    Použiť originálny predvolený avatar
-                  </button>
+
+                  {/* VYHĽADÁVACÍ FILTER */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-[#8C857B] absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Hľadať memoji (lekár, sestra, recepcia, manažér, blond...)"
+                      value={avatarSearchQuery}
+                      onChange={e => setAvatarSearchQuery(e.target.value)}
+                      className="w-full text-xs pl-8 pr-8 py-2 rounded-xl border border-[#E8E2D9] bg-white focus:border-[#C5A059] outline-none"
+                    />
+                    {avatarSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setAvatarSearchQuery('')}
+                        className="absolute right-2.5 top-2 text-[#8C857B] hover:text-[#2C2A29] p-0.5 text-xs"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ZOZNAM AVATAROV V GRID */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto p-1 pr-2">
+                    {filteredPresets.map((preset) => {
+                      const isSelected = tempPreviewUrl === preset.url || (tempPreviewUrl === '' && photoModalUser?.avatarUrl === preset.url);
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => setTempPreviewUrl(preset.url)}
+                          className={`group flex flex-col items-center p-2.5 rounded-2xl transition-all border text-center cursor-pointer relative ${
+                            isSelected
+                              ? 'bg-gradient-to-b from-[#FAF6EF] to-white border-[#C5A059] shadow-md ring-2 ring-[#C5A059]/40 scale-[1.02]'
+                              : 'bg-white hover:bg-[#FAF8F5] border-[#E8E2D9] hover:border-[#C5A059] hover:shadow-xs'
+                          }`}
+                        >
+                          {isSelected && (
+                            <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#C5A059] text-white flex items-center justify-center text-[10px] shadow-xs">
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </span>
+                          )}
+                          <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 bg-white shadow-xs mb-1.5 transition-transform group-hover:scale-105 flex items-center justify-center ${
+                            isSelected ? 'border-[#C5A059]' : 'border-white group-hover:border-[#C5A059]/60'
+                          }`}>
+                            <img
+                              src={preset.url}
+                              alt={preset.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                          <span className="text-[11px] font-bold text-[#2C2A29] leading-tight truncate w-full">
+                            {preset.name}
+                          </span>
+                          <span className="text-[9.5px] text-[#8C857B] leading-tight line-clamp-1 mt-0.5">
+                            {preset.roleDescription}
+                          </span>
+                          {preset.badge && (
+                            <span className={`mt-1.5 text-[8.5px] px-1.5 py-0.2 rounded-md font-semibold border ${
+                              preset.category === 'doctor'
+                                ? 'bg-sky-50 text-sky-700 border-sky-200'
+                                : preset.category === 'nurse'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : preset.category === 'receptionist'
+                                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                              {preset.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-[#E8E2D9]/70 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setTempPreviewUrl('')}
+                      className="py-1.5 px-3 rounded-xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[11px] font-medium text-[#6B655E] hover:text-[#2C2A29] flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                    >
+                      <Sparkles className="w-3 h-3 text-[#C5A059]" />
+                      <span>Predvolený avatar kliniky</span>
+                    </button>
+                    <span className="text-[10px] text-[#8C857B]">
+                      Zobrazených {filteredPresets.length} z {MEMOJI_PRESETS.length} avatarov
+                    </span>
+                  </div>
                 </div>
               )}
 
