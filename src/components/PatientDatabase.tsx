@@ -77,6 +77,7 @@ export interface Patient {
   dob: string;
   insurance: string;
   driveFolderLink?: string;
+  allergies?: string[];
 }
 
 export interface MedicalRecord {

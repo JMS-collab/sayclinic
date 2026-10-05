@@ -24,6 +24,7 @@
     "react": "19.2.8",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.8",
+    "react-is": "^19.3.0",
     "recharts": "^3.10.1",
     "resend": "^6.20.0",
     "three": "^0.185.1",
@@ -39,6 +40,6 @@
     "eslint-config-next": "16.3.0",
     "jpeg-js": "^0.4.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^7.0.2"
   }
 }

@@ -23,23 +23,36 @@
   }
 }
 
-/* Comprehensive Print Optimization - Hide all navigation, top bars, buttons */
+/* ========================================================================= */
+/* UNIFIED PRINT ARCHITECTURE - SAY CLINIC (A4 DOKUMENTY & A6 RECEPTY)       */
+/* ========================================================================= */
 @media print {
+  /* Predvolený formát pre všetky lekárske správy, protokoly a plány: A4 */
   @page {
     size: A4 portrait;
-    margin: 10mm 15mm;
+    margin: 10mm 12mm;
   }
 
+  /* Globálne skrytie nepotrebných prvkov rozhrania */
   header, 
   nav, 
+  aside,
   footer, 
   button, 
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea,
   .print\:hidden,
-  [class*="print:hidden"] {
+  [class*="print:hidden"],
+  .no-print,
+  #app-navigation,
+  .app-sidebar,
+  .toast,
+  .modal-backdrop:not(.printable-modal) {
     display: none !important;
   }
 
-  html, body, main {
+  html, body {
     background: #ffffff !important;
     color: #000000 !important;
     padding: 0 !important;
@@ -48,10 +61,18 @@
     border: none !important;
     width: 100% !important;
     min-height: auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
+  /* ----------------------------------------------------------------------- */
+  /* A4 DOKUMENTY (Lekárske správy, protokoly, plány liečby, Meicet, faktúry)*/
+  /* ----------------------------------------------------------------------- */
   #printable-a4,
-  .printable-document {
+  .printable-document,
+  #printable-patient-plan,
+  #printable-roadmap,
+  #printable-meicet-report {
     visibility: visible !important;
     display: block !important;
     width: 100% !important;
@@ -61,15 +82,114 @@
     border: none !important;
     box-shadow: none !important;
     background: #ffffff !important;
+    color: #000000 !important;
   }
 
-  /* When printing an A6 prescription, suppress A4 printable documents and margins */
-  body:has(#sevt-a6-prescription-document) #printable-a4,
-  body:has(#sevt-a6-prescription-document) .printable-document {
-    display: none !important;
+  /* Prevencia zlomenia stránky uprostred dôležitých sekcií a podpisov */
+  .print-avoid-break,
+  .sevt-signature-section,
+  .print-break-inside-avoid,
+  table tr,
+  .printable-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
-  body:has(#sevt-a6-prescription-document) {
+
+  /* Nútený predel strany tam, kde je to žiaduce */
+  .print-page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  /* Vynútenie ostrého čierneho písma pre tlač namiesto svetlých odtieňov */
+  .printable-document *,
+  #printable-a4 *,
+  #printable-patient-plan *,
+  #printable-roadmap *,
+  #printable-meicet-report * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ----------------------------------------------------------------------- */
+  /* A6 RECEPTY (Lekársky predpis ŠEVT 14 282 2s - 105mm x 148mm)            */
+  /* ----------------------------------------------------------------------- */
+  body.print-prescription-a6 {
+    width: 105mm !important;
+    height: 148mm !important;
     margin: 0 !important;
     padding: 0 !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+  }
+
+  body.print-prescription-a6 * {
+    visibility: hidden !important;
+  }
+
+  body.print-prescription-a6 #sevt-a6-prescription-document,
+  body.print-prescription-a6 #sevt-a6-prescription-document * {
+    visibility: visible !important;
+  }
+
+  body.print-prescription-a6 #sevt-a6-prescription-document {
+    position: absolute !important;
+    left: 0mm !important;
+    top: 0mm !important;
+    width: 105mm !important;
+    height: 148mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    box-sizing: border-box !important;
+  }
+
+  body.print-prescription-a6 .sevt-dynamic-container {
+    position: absolute !important;
+    left: 0mm !important;
+    top: 0mm !important;
+    width: 105mm !important;
+    height: 148mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Režim tlače do zakúpeného predtlačeného tlačiva ŠEVT (skryť mriežku a duplicitný text) */
+  body.print-prescription-a6.print-mode-preprinted .sevt-guide-grid,
+  body.print-prescription-a6.print-mode-preprinted .sevt-preprinted-text {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  body.print-prescription-a6.print-mode-preprinted .sevt-border {
+    border-color: transparent !important;
+  }
+  body.print-prescription-a6.print-mode-preprinted .sevt-bg {
+    background: transparent !important;
+  }
+  body.print-prescription-a6.print-mode-preprinted .sevt-dynamic-value {
+    color: #000000 !important;
+    visibility: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Režim tlače celého tlačiva vrátane mriežky na biely papier */
+  body.print-prescription-a6.print-mode-full .sevt-guide-grid {
+    display: block !important;
+    visibility: visible !important;
+  }
+  body.print-prescription-a6.print-mode-full .sevt-border {
+    border-color: #000000 !important;
+  }
+  body.print-prescription-a6.print-mode-full .sevt-preprinted-text {
+    display: block !important;
+    visibility: visible !important;
+    color: #000000 !important;
+  }
+  body.print-prescription-a6.print-mode-full .sevt-dynamic-value {
+    color: #000000 !important;
+    visibility: visible !important;
   }
 }

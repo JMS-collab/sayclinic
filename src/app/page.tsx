@@ -1234,7 +1234,6 @@ export default function Home() {
                 </div>
                 <PrescriptionModule
                   initialPatient={activePatient || selectedPatientForFolder || (selectedPatient ? {
-                    id: 'temp',
                     name: selectedPatient.name,
                     birthNumber: selectedPatient.birthNumber || '',
                     address: selectedPatient.address || '',

@@ -206,9 +206,9 @@ export const AuthService = {
 
         // 2. Ak má lokálne zariadenie novšie vlastné heslo, zašleme ho na server
         const needServerSync: Record<string, any> = {};
-        for (const [key, lEntry] of Object.entries(localCreds)) {
-          const sEntry = serverCreds[key];
-          if (lEntry.isCustomPassword && (!sEntry || new Date(lEntry.updatedAt).getTime() > new Date(sEntry.updatedAt).getTime())) {
+        for (const [key, lEntry] of Object.entries(localCreds as Record<string, any>)) {
+          const sEntry = (serverCreds as Record<string, any>)[key];
+          if (lEntry?.isCustomPassword && (!sEntry || new Date(lEntry.updatedAt).getTime() > new Date(sEntry.updatedAt).getTime())) {
             needServerSync[key] = lEntry;
           }
         }
@@ -647,14 +647,5 @@ export const AuthService = {
 
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem('say_clinic_session_meta');
-  },
-
-  // Zistiť, či používateľ používa pôvodné predvolené heslo
-  isUsingDefaultPassword(identifier: string): boolean {
-    const creds = this.initCredentials();
-    const idKey = identifier.toLowerCase();
-    const record = creds[idKey];
-    if (!record) return true;
-    return !record.isCustomPassword;
   }
 };

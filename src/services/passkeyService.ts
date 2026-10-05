@@ -391,9 +391,9 @@ export const PasskeyService = {
     if (directMatch) return directMatch;
 
     // 2. Zhoda s prepojenými osobnými emailami
-    const linkedMap = this.getLinkedPersonalEmails();
+    const linkedMap = this.getLinkedPersonalEmails() as Record<string, string[]>;
     for (const [userId, emails] of Object.entries(linkedMap)) {
-      if (emails.some(e => e.toLowerCase() === cleanEmail)) {
+      if (Array.isArray(emails) && emails.some((e: string) => e.toLowerCase() === cleanEmail)) {
         const user = allUsers.find(u => u.id === userId);
         if (user) return user;
       }

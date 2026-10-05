@@ -1120,7 +1120,43 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const totalPrice = basePrice + anesthesiaPrice + hospitalizationPrice;
   const remainingPrice = totalPrice - depositPaid;
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    const tempStyle = document.createElement('style');
+    tempStyle.id = 'say-medical-doc-a4-page-style';
+    tempStyle.innerHTML = `
+      @page {
+        size: A4 portrait !important;
+        margin: 10mm 12mm !important;
+      }
+      @media print {
+        body * { visibility: hidden !important; }
+        #printable-a4, #printable-a4 * { visibility: visible !important; }
+        #printable-a4 {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          box-shadow: none !important;
+          border: none !important;
+          background: #ffffff !important;
+        }
+      }
+    `;
+    document.head.appendChild(tempStyle);
+
+    const cleanup = () => {
+      const s = document.getElementById('say-medical-doc-a4-page-style');
+      if (s) s.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
+    window.print();
+    setTimeout(cleanup, 2500);
+  };
 
   // EXPORT DO PDF S AUTOMATICKÝM NÁZVOM A DÁTUMOM
   const handleDownloadPdf = async () => {
@@ -1369,16 +1405,6 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
   return (
     <>
-      <style type="text/css" media="print">
-        {`
-          body * { visibility: hidden; }
-          #printable-a4, #printable-a4 * { visibility: visible; }
-          #printable-a4 {
-            position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; box-shadow: none; border: none;
-          }
-        `}
-      </style>
-
       {/* ======================================================= */}
       {/* MODAL PRE SPRÁVU A ÚPRAVU ŠABLÓN                        */}
       {/* ======================================================= */}

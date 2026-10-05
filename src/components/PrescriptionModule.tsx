@@ -564,13 +564,42 @@ export default function PrescriptionModule({
     return result;
   };
 
-  // Spustenie tlače
+  // Spustenie tlače s izolovaným A6 formátom (105mm x 148mm)
   const handlePrint = () => {
     if (onPrintRequested) {
       onPrintRequested();
-    } else {
-      window.print();
+      return;
     }
+
+    // Pridanie tried pre cielenú tlač A6 bez ovplyvnenia A4 dokumentov
+    document.body.classList.add('print-prescription-a6');
+    if (printMode === 'preprinted') {
+      document.body.classList.add('print-mode-preprinted');
+    } else {
+      document.body.classList.add('print-mode-full');
+    }
+
+    // Dočasný štýl pre @page A6 iba počas tlače receptu
+    const tempStyle = document.createElement('style');
+    tempStyle.id = 'say-prescription-a6-page-style';
+    tempStyle.innerHTML = `
+      @page {
+        size: 105mm 148mm portrait !important;
+        margin: 0mm !important;
+      }
+    `;
+    document.head.appendChild(tempStyle);
+
+    const cleanup = () => {
+      document.body.classList.remove('print-prescription-a6', 'print-mode-preprinted', 'print-mode-full');
+      const s = document.getElementById('say-prescription-a6-page-style');
+      if (s) s.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
+    window.print();
+    setTimeout(cleanup, 2500);
   };
 
   // Export do PDF
@@ -732,92 +761,6 @@ export default function PrescriptionModule({
           </button>
         </div>
       )}
-
-      {/* TLAČOVÝ ŠTÝL PRE A6 FORMÁT (105mm x 148mm) */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @page {
-          size: 105mm 148mm portrait !important;
-          margin: 0mm !important;
-        }
-        @media print {
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            width: 105mm !important;
-            height: 148mm !important;
-          }
-          body * {
-            visibility: hidden !important;
-          }
-          #sevt-a6-prescription-document,
-          #sevt-a6-prescription-document * {
-            visibility: visible !important;
-          }
-          #sevt-a6-prescription-document {
-            position: absolute !important;
-            left: 0mm !important;
-            top: 0mm !important;
-            width: 105mm !important;
-            height: 148mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            box-shadow: none !important;
-            border: none !important;
-            background: #ffffff !important;
-          }
-          .sevt-dynamic-container {
-            position: absolute !important;
-            left: 0mm !important;
-            top: 0mm !important;
-            width: 105mm !important;
-            height: 148mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          ${printMode === 'preprinted' ? `
-            .sevt-guide-grid {
-              display: none !important;
-            }
-            .sevt-border {
-              border-color: transparent !important;
-            }
-            .sevt-preprinted-text {
-              display: none !important;
-              visibility: hidden !important;
-            }
-            .sevt-bg {
-              background: transparent !important;
-            }
-            .sevt-dynamic-value {
-              color: #000000 !important;
-              visibility: visible !important;
-              box-shadow: none !important;
-              border: none !important;
-            }
-          ` : `
-            .sevt-guide-grid {
-              display: block !important;
-            }
-            .sevt-border {
-              border-color: #000000 !important;
-            }
-            .sevt-preprinted-text {
-              display: block !important;
-              visibility: visible !important;
-              color: #000000 !important;
-            }
-            .sevt-dynamic-value {
-              color: #000000 !important;
-              box-shadow: none !important;
-              border: none !important;
-            }
-          `}
-        }
-      ` }} />
 
       {/* HORNÝ OVLÁDACÍ PANEL PRE VOĽBU REŽIMU TLAČE */}
       <div className="bg-white p-4 rounded-2xl border border-[#E8E2D9] shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden">
