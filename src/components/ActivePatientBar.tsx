@@ -56,7 +56,10 @@ export default function ActivePatientBar({
 
     const updateConcurrent = () => {
       const active = RealtimeSyncService.getConcurrentUsersForPatient(activePatient.id, effectiveUser?.id);
-      setConcurrentUsers(active);
+      setConcurrentUsers(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(active)) return prev;
+        return active;
+      });
     };
 
     updateConcurrent();

@@ -164,6 +164,7 @@ export default function PatientDatabase({
   // STAV PRE PLÁNY PACIENTA (ROČNÝ ESTETICKÝ & PRED/POOPERAČNÝ PLÁN)
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [workspaceToken, setWorkspaceToken] = useState<string | null>(null);
   // STAV PRE SÚBEŽNÚ PRÁCU NA PACIENTOVI (LIVE PRESENCE TÍMU)
   const [patientConcurrentUsers, setPatientConcurrentUsers] = useState<any[]>([]);
 

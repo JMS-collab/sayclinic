@@ -220,9 +220,14 @@ export const RealtimeSyncService = {
     const mapping = COLLECTION_MAP[collection];
     if (!mapping) return;
 
-    // 1. Optimistic lokálny zápis a dispatch
+    // 1. Optimistic lokálny zápis a dispatch (iba ak sa obsah reálne zmenil)
     try {
-      localStorage.setItem(mapping.storageKey, JSON.stringify(data));
+      const currentRaw = localStorage.getItem(mapping.storageKey);
+      const incomingRaw = JSON.stringify(data);
+      if (currentRaw === incomingRaw) {
+        return;
+      }
+      localStorage.setItem(mapping.storageKey, incomingRaw);
       window.dispatchEvent(new CustomEvent(mapping.eventName, { detail: data }));
     } catch (e) {
       console.error(`Chyba lokálneho uloženia ${collection}:`, e);
