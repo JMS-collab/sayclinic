@@ -32,6 +32,8 @@ export interface PdfExportOptions {
   patientName?: string;
   scale?: number;
   addPageNumbers?: boolean;
+  prescriptionMode?: 'preprinted' | 'full';
+  cloneModifier?: (clone: HTMLElement) => void;
 }
 
 /**
@@ -125,6 +127,7 @@ export async function exportElementToPdf(
   const isA6 = options.format === 'a6';
   // Standard CSS pixels at 96 DPI: A4 is 794px wide, A6 is 397px wide
   const targetWidthPx = isA6 ? 397 : 794;
+  const targetHeightPx = isA6 ? 559 : 1123;
   const pageWidthMm = isA6 ? 105 : 210;
   const pageHeightMm = isA6 ? 148 : 297;
 
@@ -155,6 +158,29 @@ export async function exportElementToPdf(
   clone.style.removeProperty('min-height');
   clone.style.backgroundColor = '#ffffff';
 
+  // Handle preprinted prescription mode (hide guide grid and preprinted text for dotlač into ŠEVT form)
+  if (isA6 && options.prescriptionMode === 'preprinted') {
+    clone.style.border = 'none';
+    clone.style.boxShadow = 'none';
+    const guideGrid = clone.querySelector('.sevt-guide-grid');
+    if (guideGrid) {
+      (guideGrid as HTMLElement).style.display = 'none';
+    }
+    const preprintedTexts = clone.querySelectorAll('.sevt-preprinted-text');
+    preprintedTexts.forEach((el) => {
+      (el as HTMLElement).style.display = 'none';
+    });
+    const borders = clone.querySelectorAll('.sevt-border');
+    borders.forEach((el) => {
+      (el as HTMLElement).style.borderColor = 'transparent';
+    });
+  }
+
+  // Allow custom external modifications to clone before rasterizing
+  if (options.cloneModifier) {
+    options.cloneModifier(clone);
+  }
+
   sandbox.appendChild(clone);
   document.body.appendChild(sandbox);
 
@@ -177,7 +203,7 @@ export async function exportElementToPdf(
 
     // 3. High-resolution canvas capture
     const canvas = await html2canvas(clone, {
-      scale: options.scale || 2.5,
+      scale: options.scale || (isA6 ? 3.0 : 2.5),
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
@@ -197,11 +223,9 @@ export async function exportElementToPdf(
 
     const totalHeightMm = (canvas.height * pageWidthMm) / canvas.width;
 
-    // 4. Single-page document check:
-    // With up to 8% tolerance (e.g. up to 320mm), fit onto 1 single page!
-    // Prevents generating an ugly second page with a 2mm sliver or lone signature line.
-    if (totalHeightMm <= pageHeightMm * 1.08) {
-      const renderHeightMm = Math.min(pageHeightMm, totalHeightMm);
+    // 4. Single-page document check (or any A6 prescription which is strictly 1 page)
+    if (isA6 || totalHeightMm <= pageHeightMm * 1.08) {
+      const renderHeightMm = isA6 ? pageHeightMm : Math.min(pageHeightMm, totalHeightMm);
       const imgData = canvas.toDataURL('image/jpeg', 0.96);
       pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMm, renderHeightMm, undefined, 'FAST');
       pdf.save(filename);

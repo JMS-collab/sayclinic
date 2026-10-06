@@ -72,7 +72,10 @@
   .printable-document,
   #printable-patient-plan,
   #printable-roadmap,
-  #printable-meicet-report {
+  #printable-meicet-report,
+  #printable-invoice,
+  #printable-opiate-logbook,
+  #ai-health-roadmap-pdf-root {
     visibility: visible !important;
     display: block !important;
     width: 100% !important;
@@ -106,7 +109,10 @@
   #printable-a4 *,
   #printable-patient-plan *,
   #printable-roadmap *,
-  #printable-meicet-report * {
+  #printable-meicet-report *,
+  #printable-invoice *,
+  #printable-opiate-logbook *,
+  #ai-health-roadmap-pdf-root * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

@@ -4000,7 +4000,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                 </div>
 
                 {/* PODPISOVÁ DOLOŽKA */}
-                <div className="border-t-2 border-[#C5A059] pt-4 mt-6 space-y-4">
+                <div className="border-t-2 border-[#C5A059] pt-4 mt-6 space-y-4 print-avoid-break sevt-signature-section">
                   <p className="text-[10px]">
                     V Banskej Bystrici, dňa: <span className="font-bold font-mono">{formatSlovakDateLong(agreementDate)}</span>
                   </p>
@@ -4425,37 +4425,40 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
                     </div>
                   </div>
 
-                  {/* MIESTO, DÁTUM, ČAS */}
-                  <div className="grid grid-cols-3 gap-3 text-[9.5px] bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9]">
-                    <p><strong className="text-[#8C857B]">Miesto podpisu:</strong> <span className="font-semibold">{surgeryConsent.signaturePlace || 'Banská Bystrica'}</span></p>
-                    <p><strong className="text-[#8C857B]">Dátum:</strong> <span className="font-semibold">{formatSlovakDateLong(agreementDate) || new Date().toLocaleDateString('sk-SK')}</span></p>
-                    <p><strong className="text-[#8C857B]">Čas udelenia súhlasu:</strong> <span className="font-semibold">{surgeryConsent.consentTime || '09:30'} hod.</span></p>
-                  </div>
-
-                  {/* PODPISOVÉ BLOKY */}
-                  <div className="grid grid-cols-2 gap-8 pt-6 pb-3">
-                    <div className="text-center space-y-1">
-                      <div className="w-full border-b border-[#2C2A29] mb-2 min-h-[40px]"></div>
-                      <p className="font-bold text-[10px] text-[#2C2A29]">Podpis Pacienta</p>
-                      <p className="text-[9px] text-[#2C2A29] font-medium">{patientName || '[MENO A PRIEZVISKO PACIENTA]'}</p>
-                      <p className="text-[8px] text-[#8C857B]">(resp. zákonného zástupcu / opatrovníka)</p>
+                  {/* ZÁVEREČNÝ BLOK PODPISOV A VYHLÁSENIA - NEROZTRHNUTEĽNÝ PRI TLAČI */}
+                  <div className="print-avoid-break space-y-4 pt-2">
+                    {/* MIESTO, DÁTUM, ČAS */}
+                    <div className="grid grid-cols-3 gap-3 text-[9.5px] bg-[#FBF9F6] p-3 rounded-lg border border-[#E8E2D9]">
+                      <p><strong className="text-[#8C857B]">Miesto podpisu:</strong> <span className="font-semibold">{surgeryConsent.signaturePlace || 'Banská Bystrica'}</span></p>
+                      <p><strong className="text-[#8C857B]">Dátum:</strong> <span className="font-semibold">{formatSlovakDateLong(agreementDate) || new Date().toLocaleDateString('sk-SK')}</span></p>
+                      <p><strong className="text-[#8C857B]">Čas udelenia súhlasu:</strong> <span className="font-semibold">{surgeryConsent.consentTime || '09:30'} hod.</span></p>
                     </div>
-                    <div className="text-center space-y-1">
-                      <div className="w-full border-b border-[#2C2A29] mb-2 min-h-[40px]"></div>
-                      <p className="font-bold text-[10px] text-[#2C2A29]">Podpis a odtlačok pečiatky operujúceho lekára</p>
-                      <p className="text-[9px] text-[#2C2A29] font-semibold">{doctor || 'MUDr. Ján Mráz'}</p>
-                      <p className="text-[8px] text-[#8C857B]">Kód lekára: {doctorCode || 'A86342871'} • za DOKTOR MRÁZ s.r.o.</p>
-                    </div>
-                  </div>
 
-                  {/* PRIPÁJACIE A ZÁVEREČNÉ UPOZORNENIE */}
-                  <div className="space-y-1.5 pt-2 border-t border-[#E8E2D9]">
-                    <p className="font-bold text-[9px] uppercase tracking-wider text-[#C5A059]">
-                      Pripájacie a záverečné upozornenie:
-                    </p>
-                    <p className="text-[8px] text-[#8C857B] leading-relaxed text-justify">
-                      Tento dokument predstavuje právne a medicínsky záväzný individualizovaný informovaný súhlas k estetickému operačnému výkonu vypracovaný v súlade so zákonom č. 576/2004 Z. z. o zdravotnej starostlivosti, nariadením GDPR a Občianskym zákonníkom Slovenskej republiky. K dokumentu sa pripája samostatne podpísaný informovaný súhlas k anestézii. Dokument sa vyhotovuje v dvoch rovnopisoch, z ktorých jeden je neoddeliteľnou súčasťou zdravotnej dokumentácie vedenej poskytovateľom a druhý sa odovzdáva pacientovi.
-                    </p>
+                    {/* PODPISOVÉ BLOKY */}
+                    <div className="grid grid-cols-2 gap-8 pt-4 pb-2 print-avoid-break sevt-signature-section">
+                      <div className="text-center space-y-1">
+                        <div className="w-full border-b border-[#2C2A29] mb-2 min-h-[40px]"></div>
+                        <p className="font-bold text-[10px] text-[#2C2A29]">Podpis Pacienta</p>
+                        <p className="text-[9px] text-[#2C2A29] font-medium">{patientName || '[MENO A PRIEZVISKO PACIENTA]'}</p>
+                        <p className="text-[8px] text-[#8C857B]">(resp. zákonného zástupcu / opatrovníka)</p>
+                      </div>
+                      <div className="text-center space-y-1">
+                        <div className="w-full border-b border-[#2C2A29] mb-2 min-h-[40px]"></div>
+                        <p className="font-bold text-[10px] text-[#2C2A29]">Podpis a odtlačok pečiatky operujúceho lekára</p>
+                        <p className="text-[9px] text-[#2C2A29] font-semibold">{doctor || 'MUDr. Ján Mráz'}</p>
+                        <p className="text-[8px] text-[#8C857B]">Kód lekára: {doctorCode || 'A86342871'} • za DOKTOR MRÁZ s.r.o.</p>
+                      </div>
+                    </div>
+
+                    {/* PRIPÁJACIE A ZÁVEREČNÉ UPOZORNENIE */}
+                    <div className="space-y-1.5 pt-2 border-t border-[#E8E2D9]">
+                      <p className="font-bold text-[9px] uppercase tracking-wider text-[#C5A059]">
+                        Pripájacie a záverečné upozornenie:
+                      </p>
+                      <p className="text-[8px] text-[#8C857B] leading-relaxed text-justify">
+                        Tento dokument predstavuje právne a medicínsky záväzný individualizovaný informovaný súhlas k estetickému operačnému výkonu vypracovaný v súlade so zákonom č. 576/2004 Z. z. o zdravotnej starostlivosti, nariadením GDPR a Občianskym zákonníkom Slovenskej republiky. K dokumentu sa pripája samostatne podpísaný informovaný súhlas k anestézii. Dokument sa vyhotovuje v dvoch rovnopisoch, z ktorých jeden je neoddeliteľnou súčasťou zdravotnej dokumentácie vedenej poskytovateľom a druhý sa odovzdáva pacientovi.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -4651,7 +4654,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
             {/* Podpisy bežné (Okrem Dohody a Informovaného súhlasu) */}
             {docType !== 'dohoda_o_cene' && docType !== 'suhlas_operacia' && (
-              <div className="mt-10 pt-6 flex justify-between items-end text-[10px] text-[#8C857B]">
+              <div className="mt-10 pt-6 flex justify-between items-end text-[10px] text-[#8C857B] print-avoid-break sevt-signature-section">
                 <div className="text-center">
                   <div className="w-40 border-b border-[#2C2A29] mb-2"></div>
                   {docType === 'ziadanka_predoperacne' ? 'Podpis pacienta' : docType === 'lekarske_potvrdenie' ? 'Prevzal pacient / zástupca' : 'Podpis pacienta / klienta'}

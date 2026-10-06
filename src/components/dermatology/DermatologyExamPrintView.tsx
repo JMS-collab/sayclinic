@@ -164,7 +164,7 @@ export default function DermatologyExamPrintView({
       </div>
 
       {/* 4. DERMATOSKOPICKÉ VYŠETRENIE & ABCDE TABUĽKA LÉZIÍ */}
-      <div className="border border-[#E8E2D9] rounded-xl p-3.5 bg-white space-y-3">
+      <div className="border border-[#E8E2D9] rounded-xl p-3.5 bg-white space-y-3 print-avoid-break">
         <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-1.5">
           <p className="text-[9px] uppercase font-bold text-[#C5A059] tracking-wider">
             Dermatoskopický nález & Digitálna fotodermatoskopia
@@ -235,7 +235,7 @@ export default function DermatologyExamPrintView({
       </div>
 
       {/* 5. TERAPEUTICKÝ PLÁN, ODPORÚČANIA A ORDINÁCIA */}
-      <div className="border border-[#E8E2D9] rounded-xl p-3.5 bg-[#FBF9F6] space-y-3">
+      <div className="border border-[#E8E2D9] rounded-xl p-3.5 bg-[#FBF9F6] space-y-3 print-avoid-break">
         <p className="text-[9px] uppercase font-bold text-[#C5A059] tracking-wider border-b border-[#E8E2D9] pb-1">
           Terapeutický plán, Ordinácie & Domáca starostlivosť
         </p>
@@ -291,7 +291,7 @@ export default function DermatologyExamPrintView({
       </div>
 
       {/* 6. POUČENIE PACIENTA */}
-      <div className="text-[8px] text-[#8C857B] space-y-1.5 border-t border-[#E8E2D9] pt-3 leading-tight text-justify">
+      <div className="text-[8px] text-[#8C857B] space-y-1.5 border-t border-[#E8E2D9] pt-3 leading-tight text-justify print-avoid-break">
         <p>
           <strong>Poučenie pacienta:</strong> Pacient/ka bol/a podrobne informovaný/á o náleze na koži, povahe vyšetrených pigmentových a kožných prejavov, dôležitosti celoročnej fotoprotekcie (SPF 50+) a zásadách bezpečného pobytu na slnku. Bol/a poučený/á o domácom samovyšetrovaní kože podľa medzinárodného pravidla ABCDE. V prípade vzniku nového pigmentového prejavu, jeho zväčšovania, zmeny farby, krvácania, svrbenia či asymetrie je pacient povinný bezodkladne vyhľadať odborné dermatologické vyšetrenie aj pred plánovaným termínom kontroly.
         </p>

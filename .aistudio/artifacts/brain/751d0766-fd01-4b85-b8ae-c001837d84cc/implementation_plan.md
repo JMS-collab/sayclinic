@@ -1,91 +1,136 @@
-# 100% Serverový Real-Time Systém & Súbežná Spolupráca s Personalizovanými Avatarmi
+# Komplexná optimalizácia tlače a PDF generovania (A4 & A6) — SAY CLINIC
 
-Komplexný implementačný plán pre úplné odstránenie závislosti na lokálnej pamäti zariadenia (`localStorage`) v prospech autoritatívneho centrálneho servera s okamžitou obojsmernou synchronizáciou, inteligentným zlučovaním dát a live indikáciou súbežne pracujúcich kolegov prostredníctvom ich **reálnych 3D Genmoji avatarov**.
+Komplexný audit, oprava a zjednotenie tlačového a PDF subsystému klinického operačného systému SAY CLINIC. Zabezpečuje bezchybnú, vysoko reprezentatívnu tlač a export do PDF vo formátoch A4 (lekárske správy, operačné protokoly, informované súhlasy, faktúry, Meicet analýzy, plány starostlivosti) a A6 (oficiálne recepty ŠEVT 14 282 2s s prioritou pre originálne predtlačené tlačivá a dotlač textu).
 
 ---
 
-### Prehľad potvrdených rozhodnutí
+### Používateľské rozhodnutia a potvrdené preferencie
 
 > [!IMPORTANT]
-> **Potvrdené používateľom:**
-> 1. **Žiadna závislosť na `localStorage`**: Všetky klinické dáta, dekurzy, časová os, termíny a operačné protokoly sú autoritatívne uložené a zlučované na centrálnom serveri.
-> 2. **Súbežná práca lekára a sestry**: Automatické inteligentné zlučovanie zmien bez straty dát (dekurz lekára aj záznam sestry sa v reálnom čase spoja na základe ID položiek a časovej pečiatky).
-> 3. **Live indikátor s osobným avatarom (Namiesto obyčajnej bodky)**:
->    - Na karte pacienta sa zobrazí **okrúhly 3D Genmoji / profilový avatar konkrétneho človeka**, ktorý má pacienta v tom istom čase otvoreného (napr. 3D avatar MUDr. Jána Mráza, Bc. Viktórie Foltániovej, Ing. Barbary Mecerodovej atď.).
->    - Okolo avatara bude jemný pulzujúci svetelný prstenec s menovkou a rolou: *„Práve v karte pracuje: [Avatar] Bc. Viktória Foltániová (Sestra / Recepcia)“*.
->    - Ak je v karte viacero kolegov naraz, avatary sa zobrazia vedľa seba v elegantnom prekrývajúcom sa zoskupení (Facepile / Team presence).
+> Na základe úvodnej konzultácie boli potvrdené nasledovné kľúčové požiadavky:
+> - **Rozsah kontroly**: Všetky moduly bez výnimky (Recepty A6, Lekárske správy A4, Operačné protokoly a Zmluvy/Súhlasy A4, Faktúry A4, Meicet reporty A4, Plány pacienta A4, Opiátová kniha A4).
+> - **Recepty A6 (Lekársky predpis ŠEVT 14 282 2s)**: Prioritne originálne predtlačené tlačivá ŠEVT (dotlač iba textov do kolóniek s milimetrovou presnosťou) s možnosťou prepnutia na tlač celého tlačiva vrátane mriežky na biely papier.
+> - **Výstupné kanály**: Personál vyžaduje plnohodnotnú funkčnosť oboch kanálov — priamu systémovú tlač cez prehliadač (`window.print()`) aj okamžitý export do PDF so štandardizovaným názvom súboru (`SAY_[Typ]_[Pacient]_[Datum].pdf`).
 
 ---
 
-## 1. Architektúra & Dátový tok
+## 1. Prehľad riešenia a zistené nedostatky
+
+Po hĺbkovej analýze zdrojového kódu boli identifikované špecifické miesta vyžadujúce optimalizáciu:
+
+1. **Recepty A6 (`PrescriptionModule.tsx` & `pdfGenerator.ts`)**:
+   - **Nekonzistentný kľúč v localStorage**: Pri čítaní posunov sa používa `say_clinic_rx_element_offsets_v3`, avšak pri ukončení ťahania myšou (`handleMouseUp`) sa ukladalo do `say_clinic_rx_element_offsets_v2`. Posuny nastavené ťahaním sa po refreshi neobnovovali.
+   - **PDF export pri dotlači do ŠEVT**: Pri generovaní PDF cez `exportElementToPdf` sa kontajner klonoval do offscreen sandboxu, kde neplatili pravidlá pre `body.print-mode-preprinted`. V PDF sa tak vždy exportovali čierne vodiace čiary a mriežky, čo znemožňovalo čistú dotlač do originálneho tlačiva cez stiahnuté PDF.
+   - **Tlačové okraje a @page**: Nastavenie prísneho `@page { size: 105mm 148mm; margin: 0; }` pre dialóg tlače prehliadača.
+
+2. **Faktúry a finančné doklady (`InvoiceDetailModal.tsx`)**:
+   - Chýbalo tlačidlo **"Stiahnuť A4 PDF"** (existovalo len `window.print()`).
+   - Pri priamej tlači `window.print()` chýbala izolácia — tlačil sa aj tmavý backdrop modálu a pozadie obrazovky.
+
+3. **Meicet Pro-A 3D diagnostika (`MeicetViewer.tsx`)**:
+   - V modále chýbal priamy export do PDF; bolo dostupné len tlačidlo pre systémovú tlač bez garancie čistého orezania.
+
+4. **Plány liečby a starostlivosti (`PatientPlanViewer.tsx`)**:
+   - Tlačidlo malo popisku "Tlačiť plán (PDF)", no volalo iba `window.print()` bez izolácie tlačového kontajnera a bez reálneho stiahnutia PDF.
+
+5. **Informované súhlasy a rozsiahle viacstranové dokumenty (`MedicalRecordForm.tsx`)**:
+   - Podpisové bloky (pacient, lekár) a tabuľky nemali triedu `.print-avoid-break`, čo pri zalomení stránky na A4 mohlo spôsobiť rozrezanie podpisovej čiary alebo odtrhnutie podpisu na samostatnú stranu.
+
+6. **Úradná Opiátová kniha (`OpiateLogbook.tsx`)**:
+   - Chýbal priamy export do A4 PDF a tlačová izolácia.
+
+---
+
+## 2. Používateľská skúsenosť & Vizuálny štandard tlačových výstupov
+
+### Formát A4 (Lekárske správy, Súhlasy, Faktúry, Plány, Meicet)
+- **Rozmery a okraje**: 210 × 297 mm, tlačové okraje 10mm hore/dole, 12mm vľavo/vpravo.
+- **Hlavička kliniky**: Oficiálne vektorové logo `SAY BY MRAZ`, zlatá deliaca línia (`#C5A059`), plné identifikačné údaje poskytovateľa (IČO, DIČ, kód PZS, Lazovná 43, Banská Bystrica).
+- **Zalamovanie strán**: Žiadne roztrhnuté odseky ani oddelené podpisy — podpisový blok vždy drží pokope s posledným odsekom poučenia.
+- **Bežiaca hlavička a päta**: Pri viacstranových PDF dokumentoch (strana 2+) elegantná úzka hlavička s názvom dokumentu a menom pacienta; v päte číslovanie `Strana X z Y` a kontakt na kliniku.
+
+### Formát A6 (Lekársky predpis ŠEVT 14 282 2s)
+- **Rozmery**: Presne 105 × 148 mm (priama zhoda s oficiálnym tlačivom MZ SR).
+- **Režim Dotlač (Preprinted)**:
+  - Na obrazovke: Používateľ vidí predtlačené vodiace linky s jemným označením pre jednoduchú kontrolu.
+  - Na tlačiarni / v PDF: Mriežky, rámčeky a texty "Lekársky predpis", "Kód lekára", "Rodné číslo" sú úplne neviditeľné. Tlačia sa len dynamické dáta (kód lekára, 4-miestny kód ZP, meno, RČ, bydlisko, 4-miestna Dg, predpis lieku Rp., dátum, poradové číslo) na presných milimetrových súradniciach.
+- **Režim Kompletný recept (Full)**:
+  - Kompletná tlač mriežky, rámčeka a textov vhodná na čistý biely papier A6 alebo pre archiváciu.
+- **Prepínač režimu**: Jasne viditeľný prepínač priamo v hornej lište receptu aj v dialógu exportu do PDF.
+
+---
+
+## 3. Technická architektúra tlačového a PDF systému
 
 ```
-┌─────────────────────────────────────────┐       ┌─────────────────────────────────────────┐
-│           POČÍTAČ LEKÁRA                │       │             TABLET SESTRY               │
-│   (MUDr. Ján Mráz píše dekurz)          │       │    (Bc. Foltániová zadáva vitálne f.)   │
-└────────────────────┬────────────────────┘       └────────────────────┬────────────────────┘
-                     │                                                 │
-                     │ 1. Heartbeat Presence                           │ 1. Heartbeat Presence
-                     │    { userId: 'u1', patientId: 'P1',             │    { userId: 'u10', patientId: 'P1',
-                     │      avatarUrl: '/avatars/mraz.png' }           │      avatarUrl: '/avatars/viktoria.png' }
-                     ▼                                                 ▼
-     ┌─────────────────────────────────────────────────────────────────────────┐
-     │                       CENTRÁLNY SERVER SAY CLINIC                       │
-     │                      (/api/sync + SSE /api/sync/events)                 │
-     │                                                                         │
-     │  - Autoritatívna klinická databáza (clinic_data.json / server)          │
-     │  - Granulárne zlučovanie: ID záznamu + časová pečiatka                  │
-     │  - Live Team Presence Hub: sledovanie prihlásených avatarov k pacientovi│
-     │  - Okamžitý SSE broadcast do všetkých pripojených zariadení (<100ms)    │
-     └─────────────────────────────────────────────────────────────────────────┘
-                     │                                                 │
-                     │ 2. SSE Presence & Dáta                          │ 2. SSE Presence & Dáta
-                     ▼                                                 ▼
-      Vidí avatar sestry v karte:                       Vidí avatar lekára v karte:
-      [Avatar Bc. Foltániová] Práve upravuje            [Avatar MUDr. Mráz] Práve upravuje
-      + zmeny sestry zapracované v reálnom čase!        + dekurz lekára zapracovaný v reálnom čase!
+┌────────────────────────────────────────────────────────────────────────┐
+│                        SAY CLINIC TLAČOVÝ SUBSYSTÉM                     │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+          ┌─────────────────────────┴─────────────────────────┐
+          ▼                                                   ▼
+┌───────────────────────────────────┐       ┌───────────────────────────────────┐
+│     Priama systémová tlač         │       │     Vektorový export do PDF       │
+│        (window.print)             │       │    (html2canvas-pro + jsPDF)      │
+└─────────────────┬─────────────────┘       └─────────────────┬─────────────────┘
+                  │                                           │
+                  ▼                                           ▼
+┌───────────────────────────────────┐       ┌───────────────────────────────────┐
+│      globals.css (@media print)   │       │      pdfGenerator.ts              │
+│  - Izolácia #printable-*          │       │  - A4 (794px) / A6 (397px)        │
+│  - Skrytie nav, sidebar, modal    │       │  - findBestBreakRow (smart cut)   │
+│  - body.print-prescription-a6     │       │  - Voľba: preprinted vs. full     │
+│  - page-break-inside: avoid       │       │  - Standardizované názvy súborov  │
+└─────────────────┬─────────────────┘       └─────────────────┬─────────────────┘
+                  │                                           │
+                  └─────────────────────┬─────────────────────┘
+                                        │
+     ┌──────────────────────────────────┼──────────────────────────────────┐
+     ▼                                  ▼                                  ▼
+┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐
+│     Recepty A6 (ŠEVT)   │ │  Lekárske správy & A4   │ │   Faktúry, Meicet & OPL │
+│ - Presné mm pozície     │ │ - Vstupné/kontroly/op   │ │ - InvoiceDetailModal    │
+│ - Dotlač vs. Plná tlač  │ │ - Informované súhlasy   │ │ - MeicetViewer          │
+│ - Trvalá perzistencia   │ │ - Dermatológia          │ │ - PatientPlanViewer     │
+└─────────────────────────┘ └─────────────────────────┘ └─────────────────────────┘
 ```
 
 ---
 
-## 2. Plánované kroky implementácie
+## 4. Konkrétne kroky realizácie
 
-### Krok 1: Rozšírenie centrálneho serverového synchronizátora (`RealtimeSyncService` & `/api/sync`)
-- Doplniť do `COLLECTION_MAP` a serverovej databázy chýbajúce kolekcie:
-  - `patient_records`: Dekurzy, lekárske vyšetrenia, recepty a epikrity.
-  - `clinical_timeline_profiles`: Klinické poznámky sestry a lekára, zistené riziká a alergie.
-  - `patient_surgeries`: Operačné protokoly, anestéziologické záznamy a súhlasy.
-  - `patient_presence`: Zoznam aktívnych používateľov pracujúcich na karte konkrétneho pacienta vrátane ich avatarov.
-  - `custom_macros`: Klinické šablóny a makrá.
-- Pri štarte aplikácie na akomkoľvek zariadení (tablet, mobil, PC) vykonať kompletnú autoritatívnu hydratáciu zo servera.
+### Krok 1: Oprava a vylepšenie A6 receptov (`PrescriptionModule.tsx` & `pdfGenerator.ts`)
+- Opraviť perzistenciu posunov v `PrescriptionModule.tsx` — zjednotiť kľúče na `say_clinic_rx_element_offsets_v3`.
+- V `pdfGenerator.ts` pridať podporu pre voľbu režimu tlače A6 (`options.prescriptionMode?: 'preprinted' | 'full'`):
+  - Ak je režim `preprinted`, v offscreen sandboxe automaticky skryť `.sevt-guide-grid` a `.sevt-preprinted-text` a odstrániť vonkajšie orámovanie, aby výsledné A6 PDF obsahovalo iba čisté texty na presných milimetrových pozíciách.
+- V `PrescriptionModule.tsx` pridať pri tlačidle PDF možnosť stiahnuť PDF pre dotlač do ŠEVT alebo kompletný recept.
 
-### Krok 2: Inteligentné zlučovanie zmien bez straty dát (Smart Conflict-Free Merging)
-- Namiesto prepisovania celého poľa záznamov jedného používateľa druhým implementovať zlučovanie na úrovni jednotlivých položiek:
-  - Ak lekár pridá dekurz s ID `rec-101` a sestra v tom istom čase pridá poznámku s ID `note-202`, server aj klientsky synchronizátor ich zjednotia na základe ID a časovej pečiatky (`updatedAt`).
-  - Žiadna práca lekára ani sestry sa nikdy neprepíše ani nestratí.
+### Krok 2: Ochrana podpisových sekcií a zalamovania v A4 dokumentoch (`MedicalRecordForm.tsx` & `DermatologyExamPrintView.tsx`)
+- Pridať CSS triedy `print-avoid-break` a `sevt-signature-section` na všetky podpisové a dôležité sumarizačné bloky:
+  - Informovaný súhlas pacienta (Časť VII — Záverečné vyhlásenia a podpisy)
+  - Všeobecná lekárska správa, kontrolné vyšetrenie, vstupné vyšetrenie
+  - Operačný protokol (zloženie operačného tímu a podpis operatera)
+  - Prepúšťacia správa a cenníkové dohody
+  - Bloky dermatologických lézií a dermatoskopická mapa
 
-### Krok 3: Live Presence Panel s reálnymi Avatarmi personálu
-- Vytvoriť v `ActivePatientBar.tsx` a `PatientDatabase.tsx` vizuálny komponent prítomnosti tímu:
-  - Pri otvorení karty pacienta sa odošle prítomnostný balíček:
-    `{ patientId, userId, userName, userTitle, userRole, avatarUrl, lastSeen: Date.now() }`.
-  - V hornej lište aktívneho pacienta sa zobrazí luxusný zlatisto lemovaný štítok s **reálnym 3D Genmoji avatarom** súbežne pracujúceho kolegu:
-    - Napríklad pri otvorení karty sestričkou sa lekárovi zobrazí 3D avatar Viktórie (dlhé čierne vlasy + okuliare) s textom: *„Bc. Viktória Foltániová práve pracuje v tejto karte“*.
-    - Pri kliknutí alebo prejdení kurzorom na avatar sa zobrazí detailný tooltip s časom poslednej aktivity a rolou.
-  - Heartbeat sa obnovuje každých 15 sekúnd. Ak používateľ kartu zavrie alebo prejde inam, avatar sa po 30 sekundách automaticky odregistruje.
+### Krok 3: Faktúry — doplnenie PDF exportu a tlačovej izolácie (`InvoiceDetailModal.tsx`)
+- Pridať funkciu a tlačidlo **"Stiahnuť A4 PDF"** využívajúce `exportElementToPdf` s názvom súboru `SAY_Faktura_[Cislo]_[Klient]_[Datum].pdf`.
+- Pridať triedu `printable-document` a unifikovať tlačový štýl, aby pri `window.print()` tlačiareň vytlačila čistý A4 daňový doklad bez tmavého pozadia modálu.
 
-### Krok 4: Odstránenie izolovaných `localStorage` závislostí v moduloch
-- Upraviť `PatientTimelineSidebar.tsx`: Všetky poznámky a riziká okamžite odosielať a prijímať cez `RealtimeSyncService`.
-- Upraviť `MedicalRecordForm.tsx`: Odstrániť izolované ukladanie operačných záznamov a prepojiť ich na centrálnu synchronizáciu.
-- Upraviť `AestheticModule.tsx` a `CosmeticsModule.tsx`: Zabezpečiť okamžité prepojenie na server.
+### Krok 4: Meicet Pro-A diagnostika — doplnenie PDF exportu (`MeicetViewer.tsx`)
+- Pridať tlačidlo a funkciu na okamžité stiahnutie **reprezentatívneho A4 PDF reportu** Meicet s radarovými grafmi a ročným plánom ošetrení.
+- Zabezpečiť tlačovú izoláciu pri systémovej tlači.
 
----
+### Krok 5: Plány pacienta a Opiátová kniha (`PatientPlanViewer.tsx` & `OpiateLogbook.tsx`)
+- V `PatientPlanViewer.tsx` doplniť skutočný export do A4 PDF a priradiť korektné ID a tlačovú triedu pre priamu tlač.
+- V `OpiateLogbook.tsx` doplniť export úradnej knihy OPL do PDF pre archiváciu pre ŠÚKL/MZ SR a zabezpečiť čistú tlač bez okolitých prvkov.
 
-## 3. Overenie a testovací plán
+### Krok 6: Zjednotenie a spevnenie globálnych printových štýlov (`globals.css`)
+- Doplniť globálne pravidlá v `@media print`:
+  - Izolácia akéhokoľvek otvoreného tlačového modálu.
+  - Vynútenie ostrého čierneho písma, bez nechcených šedých prechodov a tieňov.
+  - Zamedzenie orezania tabuliek a podpisov (`break-inside: avoid`).
 
-1. **Test zobrazenia avatarov v Live Presence**:
-   - Simulácia otvorenia pacienta P1 lekárom (u1) a sestrou (u10).
-   - Overenie, že lekár vidí 3D avatar sestry a sestra vidí 3D avatar lekára.
-2. **Test súbežného zápisu bez straty dát**:
-   - Zápis dekurzu lekárom a súčasné pridanie vitálnych funkcií sestrou – overenie zjednotenia v reálnom čase bez prepísania.
-3. **Kompilácia a integrita**:
-   - Overenie `compile_applet` a odozvy HTTP 200 OK na porte 3000.
+### Krok 7: Kompilácia a verifikácia
+- Spustiť `compile_applet` a overiť bezchybné zostavenie.
+- Overiť funkčnosť vo všetkých dotknutých komponentoch.

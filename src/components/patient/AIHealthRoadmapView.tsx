@@ -259,7 +259,39 @@ export default function AIHealthRoadmapView({
   };
 
   const handlePrint = () => {
+    const tempStyle = document.createElement('style');
+    tempStyle.id = 'say-roadmap-print-style';
+    tempStyle.innerHTML = `
+      @page {
+        size: A4 portrait !important;
+        margin: 10mm 12mm !important;
+      }
+      @media print {
+        body * { visibility: hidden !important; }
+        #printable-roadmap, #printable-roadmap * { visibility: visible !important; }
+        #printable-roadmap {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+        }
+      }
+    `;
+    document.head.appendChild(tempStyle);
+
+    const cleanup = () => {
+      const s = document.getElementById('say-roadmap-print-style');
+      if (s) s.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
     window.print();
+    setTimeout(cleanup, 2500);
   };
 
   const handleExportToPdf = async () => {
@@ -1165,6 +1197,7 @@ export default function AIHealthRoadmapView({
       {/* 4. SKRYTÝ DOKUMENT PRE HTMl2CANVAS PDF EXPORT A PRE SYSTÉMOVÚ TLAČ */}
       {roadmap && (
         <div
+          id="printable-roadmap"
           style={{
             position: 'fixed',
             left: '-9999px',
@@ -1172,7 +1205,7 @@ export default function AIHealthRoadmapView({
             zIndex: -999,
             pointerEvents: 'none'
           }}
-          className="print:static print:left-0 print:top-0 print:block"
+          className="printable-document print:static print:left-0 print:top-0 print:block"
           aria-hidden="true"
         >
           <AIHealthRoadmapPdfDocument

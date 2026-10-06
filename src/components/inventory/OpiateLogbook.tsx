@@ -26,6 +26,7 @@ import {
   OpiateMovementType 
 } from '../../services/inventoryService';
 import { matchesQuery, normalizeDigits } from '@/utils/fuzzySearch';
+import { exportElementToPdf, generatePdfFilename } from '@/lib/pdfGenerator';
 
 interface PatientOption {
   id: string;
@@ -100,6 +101,7 @@ export default function OpiateLogbook() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const printAreaRef = useRef<HTMLDivElement>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const showNotify = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -393,9 +395,61 @@ export default function OpiateLogbook() {
     document.body.removeChild(link);
   };
 
-  // Tlač
+  // Tlač cez dialóg prehliadača s A4 landscape rozložením pre 9-stĺpcovú knihu OPL
   const handlePrint = () => {
+    const tempStyle = document.createElement('style');
+    tempStyle.id = 'say-opiate-print-style';
+    tempStyle.innerHTML = `
+      @page {
+        size: A4 landscape !important;
+        margin: 8mm 10mm !important;
+      }
+      @media print {
+        body * { visibility: hidden !important; }
+        #printable-opiate-logbook, #printable-opiate-logbook * { visibility: visible !important; }
+        #printable-opiate-logbook {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+        }
+      }
+    `;
+    document.head.appendChild(tempStyle);
+
+    const cleanup = () => {
+      const s = document.getElementById('say-opiate-print-style');
+      if (s) s.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
     window.print();
+    setTimeout(cleanup, 2500);
+  };
+
+  // Export úradnej knihy OPL do PDF
+  const handleDownloadPdf = async () => {
+    if (!printAreaRef.current) return;
+    setGeneratingPdf(true);
+    try {
+      const todayIso = new Date().toISOString().split('T')[0];
+      const filename = generatePdfFilename('Uradna_Kniha_OPL_MZSR', 'SAY_CLINIC', todayIso);
+      await exportElementToPdf(printAreaRef.current, filename, {
+        format: 'a4',
+        headerTitle: 'SAY CLINIC • Úradná kniha evidencie OPL (Zákon č. 139/1998 Z. z.)',
+        patientName: 'Klinika plastickej chirurgie',
+      });
+    } catch (err) {
+      console.error('Chyba pri generovaní PDF Opiátovej knihy:', err);
+      alert('Nastala chyba pri exporte Opiátovej knihy do PDF.');
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   const getMovementBadge = (type: OpiateMovementType) => {
@@ -1656,8 +1710,19 @@ export default function OpiateLogbook() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={generatingPdf}
+                  className="bg-[#2C2A29] hover:bg-black text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Stiahnuť úradnú knihu OPL v PDF formáte (A4)"
+                >
+                  <Download className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>{generatingPdf ? 'Generujem PDF...' : 'Stiahnuť PDF'}</span>
+                </button>
+                <button
+                  type="button"
                   onClick={handlePrint}
-                  className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="bg-[#C5A059] hover:bg-[#b08d4b] text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  title="Vytlačiť zostavu OPL (A4 na šírku)"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Vytlačiť zostavu</span>
@@ -1673,7 +1738,7 @@ export default function OpiateLogbook() {
             </div>
 
             {/* TLAČOVÝ DOKUMENT */}
-            <div className="p-8 overflow-y-auto font-sans text-black space-y-6" ref={printAreaRef}>
+            <div id="printable-opiate-logbook" className="printable-document p-8 overflow-y-auto font-sans text-black space-y-6 bg-white" ref={printAreaRef}>
               {/* Hlavička PZS */}
               <div className="border-b-2 border-black pb-4 flex justify-between items-start text-xs">
                 <div>
@@ -1758,7 +1823,7 @@ export default function OpiateLogbook() {
               </table>
 
               {/* Podpisy */}
-              <div className="pt-8 flex justify-between items-end text-xs">
+              <div className="pt-8 flex justify-between items-end text-xs print-avoid-break sevt-signature-section">
                 <div className="text-center">
                   <div className="w-48 border-b border-black pb-1 mb-1 font-mono">...............................................</div>
                   <div>Podpis zodpovednej sestry</div>

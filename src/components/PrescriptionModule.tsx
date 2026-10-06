@@ -18,7 +18,8 @@ import {
   RotateCcw, 
   Printer, 
   FileText, 
-  Check
+  Check,
+  Download
 } from 'lucide-react';
 
 interface PrescriptionModuleProps {
@@ -281,14 +282,18 @@ export default function PrescriptionModule({
     }
   }, [initialPatient]);
 
-  // Načítanie uložených posunov a písiem z localStorage
+  // Načítanie uložených posunov a písiem z localStorage (s fallbackom na v2 a pôvodné verzie)
   useEffect(() => {
     try {
-      const savedOffsets = localStorage.getItem('say_clinic_rx_element_offsets_v3');
+      const savedOffsets = localStorage.getItem('say_clinic_rx_element_offsets_v3') ||
+                           localStorage.getItem('say_clinic_rx_element_offsets_v2') ||
+                           localStorage.getItem('say_clinic_rx_element_offsets');
       if (savedOffsets) {
         setElementOffsets(prev => ({ ...prev, ...JSON.parse(savedOffsets) }));
       }
-      const savedFonts = localStorage.getItem('say_clinic_rx_element_fonts_v3');
+      const savedFonts = localStorage.getItem('say_clinic_rx_element_fonts_v3') ||
+                         localStorage.getItem('say_clinic_rx_element_fonts_v2') ||
+                         localStorage.getItem('say_clinic_rx_element_fonts');
       if (savedFonts) {
         setElementFonts(prev => ({ ...prev, ...JSON.parse(savedFonts) }));
       }
@@ -426,7 +431,7 @@ export default function PrescriptionModule({
       if (currentDrag) {
         try {
           setElementOffsets(latest => {
-            localStorage.setItem('say_clinic_rx_element_offsets_v2', JSON.stringify(latest));
+            localStorage.setItem('say_clinic_rx_element_offsets_v3', JSON.stringify(latest));
             return latest;
           });
         } catch {
@@ -602,13 +607,19 @@ export default function PrescriptionModule({
     setTimeout(cleanup, 2500);
   };
 
-  // Export do PDF
-  const handleDownloadPdf = async () => {
+  // Export do PDF s podporou oboch režimov (čistá dotlač do ŠEVT alebo kompletné tlačivo s mriežkou)
+  const handleDownloadPdf = async (explicitMode?: 'preprinted' | 'full') => {
     if (!printRef.current) return;
+    const targetMode = explicitMode || printMode;
     setGeneratingPdf(true);
     try {
-      const filename = generatePdfFilename('Lekarsky_Recept_A6', patientName, prescriptionDate);
-      await exportElementToPdf(printRef.current, filename, 'a6');
+      const modeLabel = targetMode === 'preprinted' ? 'Dotlac_SEVT' : 'Cely_Recept';
+      const filename = generatePdfFilename(`Lekarsky_Recept_A6_${modeLabel}`, patientName, prescriptionDate);
+      await exportElementToPdf(printRef.current, filename, {
+        format: 'a6',
+        prescriptionMode: targetMode,
+        patientName: patientName || 'Pacient'
+      });
     } catch (err) {
       console.error('Chyba exportu receptu do PDF:', err);
       alert('Nastala chyba pri generovaní A6 PDF receptu.');
@@ -1151,15 +1162,29 @@ export default function PrescriptionModule({
               <span>Uložiť do karty pacienta</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleDownloadPdf}
-              disabled={generatingPdf}
-              className="bg-[#2C2A29] hover:bg-black text-white font-bold text-xs uppercase tracking-wider py-3 px-4 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>📄</span>
-              <span>{generatingPdf ? 'Generujem PDF...' : 'Stiahnuť PDF (A6)'}</span>
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleDownloadPdf('preprinted')}
+                disabled={generatingPdf}
+                className="bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Stiahnuť A6 PDF pre čistú dotlač textu do zakúpeného tlačiva ŠEVT (bez duplicitných čiar a rámčekov)"
+              >
+                <span>📄</span>
+                <span>{generatingPdf ? 'Generujem...' : 'PDF Dotlač ŠEVT'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDownloadPdf('full')}
+                disabled={generatingPdf}
+                className="bg-[#2C2A29] hover:bg-black text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Stiahnuť kompletný A6 recept s mriežkou a textami (vhodné na čistý biely papier)"
+              >
+                <span>🖨️</span>
+                <span>{generatingPdf ? 'Generujem...' : 'PDF Celý recept'}</span>
+              </button>
+            </div>
           </div>
 
         </div>
@@ -1221,14 +1246,27 @@ export default function PrescriptionModule({
                 <span>Reset</span>
               </button>
 
+              {/* Tlačidlo exportu A6 PDF */}
+              <button
+                type="button"
+                onClick={() => handleDownloadPdf()}
+                disabled={generatingPdf}
+                className="bg-[#2C2A29] hover:bg-black text-white text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title={`Stiahnuť A6 PDF - Režim: ${printMode === 'preprinted' ? 'Iba text do predtlačeného ŠEVT' : 'Kompletný recept s mriežkou'}`}
+              >
+                <Download className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span>{generatingPdf ? 'Generujem...' : `PDF A6 (${printMode === 'preprinted' ? 'Dotlač' : 'Celé'})`}</span>
+              </button>
+
               {/* Tlačidlo tlače */}
               <button
                 type="button"
                 onClick={handlePrint}
                 className="bg-[#047857] hover:bg-[#065f46] text-white text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
+                title={`Vytlačiť A6 - Režim: ${printMode === 'preprinted' ? 'Iba text do predtlačeného ŠEVT' : 'Kompletný recept s mriežkou'}`}
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>Tlačiť A6</span>
+                <span>Tlačiť A6 ({printMode === 'preprinted' ? 'Dotlač' : 'Celé'})</span>
               </button>
             </div>
           </div>

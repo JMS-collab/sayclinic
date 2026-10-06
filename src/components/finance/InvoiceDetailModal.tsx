@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Invoice, FinanceBillingService, PaymentMethod } from '@/services/financeBillingService';
+import { generatePdfFilename, exportElementToPdf } from '@/lib/pdfGenerator';
 import { 
   X, 
   Printer, 
+  Download,
   CheckCircle2, 
   Clock, 
   QrCode 
@@ -24,6 +26,7 @@ export default function InvoiceDetailModal({
   onInvoiceUpdated
 }: InvoiceDetailModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   if (!isOpen || !invoice) return null;
 
@@ -32,7 +35,58 @@ export default function InvoiceDetailModal({
 
   const handlePrint = () => {
     if (typeof window === 'undefined') return;
+    const tempStyle = document.createElement('style');
+    tempStyle.id = 'say-invoice-print-style';
+    tempStyle.innerHTML = `
+      @page {
+        size: A4 portrait !important;
+        margin: 10mm 12mm !important;
+      }
+      @media print {
+        body * { visibility: hidden !important; }
+        #printable-invoice, #printable-invoice * { visibility: visible !important; }
+        #printable-invoice {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+        }
+      }
+    `;
+    document.head.appendChild(tempStyle);
+
+    const cleanup = () => {
+      const s = document.getElementById('say-invoice-print-style');
+      if (s) s.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
     window.print();
+    setTimeout(cleanup, 2500);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!printRef.current || !invoice) return;
+    setGeneratingPdf(true);
+    try {
+      const title = isAdvance ? 'Zalohova_Faktura' : 'Danovy_Doklad_Faktura';
+      const filename = generatePdfFilename(`${title}_${invoice.invoiceNumber}`, invoice.patientName, invoice.issueDate);
+      await exportElementToPdf(printRef.current, filename, {
+        format: 'a4',
+        headerTitle: isAdvance ? 'Zálohová faktúra' : 'Faktúra - Daňový doklad',
+        patientName: invoice.patientName,
+      });
+    } catch (err) {
+      console.error('Chyba exportu faktúry do PDF:', err);
+      alert('Nastala chyba pri generovaní PDF faktúry.');
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   const handleMarkAsPaid = (method: PaymentMethod) => {
@@ -98,8 +152,20 @@ export default function InvoiceDetailModal({
 
             <button
               type="button"
+              onClick={handleDownloadPdf}
+              disabled={generatingPdf}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2C2A29] hover:bg-black text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer disabled:opacity-50"
+              title="Stiahnuť oficiálnu faktúru v PDF formáte (A4)"
+            >
+              <Download className="w-4 h-4 text-[#C5A059]" />
+              <span>{generatingPdf ? 'Generujem PDF...' : 'Stiahnuť PDF'}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C5A059] hover:bg-[#b08d48] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C5A059] hover:bg-[#b08d48] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer"
+              title="Tlačiť faktúru cez systémový dialóg tlače (A4)"
             >
               <Printer className="w-4 h-4" />
               Tlačiť doklad
@@ -108,7 +174,7 @@ export default function InvoiceDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#E8E2D9]/40 transition-colors"
+              className="p-2 rounded-xl text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#E8E2D9]/40 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -116,7 +182,7 @@ export default function InvoiceDetailModal({
         </div>
 
         {/* SAMOTNÉ TELO DOKLADU NA TLAČ */}
-        <div ref={printRef} className="p-8 sm:p-12 space-y-8 text-[#2C2A29] bg-white print:p-0 print:space-y-6">
+        <div id="printable-invoice" ref={printRef} className="printable-document p-8 sm:p-12 space-y-8 text-[#2C2A29] bg-white print:p-0 print:space-y-6">
           
           {/* HLAVIČKA FAKTÚRY */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 border-[#C5A059] pb-6">

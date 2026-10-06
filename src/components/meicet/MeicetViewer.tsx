@@ -34,6 +34,7 @@ import { MeicetAnalysisResult, MeicetTreatmentPlanItem } from '@/types/meicet';
 import { MeicetService } from '@/services/meicetService';
 import { MeicetReportPdfDocument } from './MeicetReportPdfDocument';
 import { CalendarEvent } from '@/data/calendarConfig';
+import { generatePdfFilename, exportElementToPdf } from '@/lib/pdfGenerator';
 
 interface MeicetViewerProps {
   report: MeicetAnalysisResult;
@@ -56,6 +57,8 @@ export function MeicetViewer({
   const [isSaved, setIsSaved] = useState(false);
   const [bookedTreatments, setBookedTreatments] = useState<Record<string, boolean>>({});
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const pdfReportRef = useRef<HTMLDivElement>(null);
 
   const { metrics, anamnesis, clinicalSynthesis, annualSchedule, skincareRoutine, scarProtocol, milestones } = report;
 
@@ -113,7 +116,58 @@ export function MeicetViewer({
   };
 
   const handlePrint = () => {
+    if (typeof window === 'undefined') return;
+    const tempStyle = document.createElement('style');
+    tempStyle.id = 'say-meicet-print-style';
+    tempStyle.innerHTML = `
+      @page {
+        size: A4 portrait !important;
+        margin: 10mm 12mm !important;
+      }
+      @media print {
+        body * { visibility: hidden !important; }
+        #printable-meicet-report, #printable-meicet-report * { visibility: visible !important; }
+        #printable-meicet-report {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+        }
+      }
+    `;
+    document.head.appendChild(tempStyle);
+
+    const cleanup = () => {
+      const s = document.getElementById('say-meicet-print-style');
+      if (s) s.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
     window.print();
+    setTimeout(cleanup, 2500);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!pdfReportRef.current) return;
+    setGeneratingPdf(true);
+    try {
+      const filename = generatePdfFilename('Meicet_ProA_Analyza', report.patientName, report.scanDate);
+      await exportElementToPdf(pdfReportRef.current, filename, {
+        format: 'a4',
+        headerTitle: 'Meicet Pro-A 3D Analýza & Ročný plán pleti',
+        patientName: report.patientName,
+      });
+    } catch (err) {
+      console.error('Chyba exportu Meicet do PDF:', err);
+      alert('Nastala chyba pri generovaní Meicet PDF správy.');
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   return (
@@ -968,11 +1022,22 @@ export function MeicetViewer({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={generatingPdf}
+                  className="px-4 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#C5A059]/40 disabled:opacity-50"
+                  title="Stiahnuť oficiálny A4 PDF report Meicet Pro-A"
+                >
+                  <Download className="w-4 h-4 text-[#C5A059]" />
+                  <span>{generatingPdf ? 'Generujem...' : 'Stiahnuť PDF'}</span>
+                </button>
+                <button
+                  type="button"
                   onClick={handlePrint}
                   className="px-4 py-1.5 rounded-xl bg-[#C5A059] hover:bg-[#b08d4b] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Tlačiť report cez systémovú tlač (A4)"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Vytlačiť / Uložiť ako PDF</span>
+                  <span>Tlačiť A4</span>
                 </button>
                 <button
                   type="button"
@@ -985,7 +1050,7 @@ export function MeicetViewer({
             </div>
 
             <div className="p-6 overflow-y-auto bg-gray-100 flex justify-center">
-              <div className="bg-white shadow-xl max-w-[210mm] w-full">
+              <div ref={pdfReportRef} className="bg-white shadow-xl max-w-[210mm] w-full printable-document">
                 <MeicetReportPdfDocument report={report} />
               </div>
             </div>

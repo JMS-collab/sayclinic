@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   PatientPlan, 
   ScheduledTreatment 
@@ -8,6 +8,7 @@ import {
 import { 
   Sparkles, 
   Printer, 
+  Download,
   ShieldAlert, 
   HeartHandshake, 
   AlertCircle, 
@@ -16,6 +17,7 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { CosmeticRoutineItem } from '@/data/patientPlanConfig';
+import { generatePdfFilename, exportElementToPdf } from '@/lib/pdfGenerator';
 
 interface PatientPlanViewerProps {
   plan: PatientPlan;
@@ -42,6 +44,9 @@ export default function PatientPlanViewer({
     return map;
   });
 
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const planPrintRef = useRef<HTMLDivElement>(null);
+
   const toggleChecklistItem = (id: string) => {
     const updated = { ...checklistState, [id]: !checklistState[id] };
     setChecklistState(updated);
@@ -60,7 +65,59 @@ export default function PatientPlanViewer({
   };
 
   const handlePrint = () => {
+    if (typeof window === 'undefined') return;
+    const tempStyle = document.createElement('style');
+    tempStyle.id = 'say-patient-plan-print-style';
+    tempStyle.innerHTML = `
+      @page {
+        size: A4 portrait !important;
+        margin: 10mm 12mm !important;
+      }
+      @media print {
+        body * { visibility: hidden !important; }
+        #printable-patient-plan, #printable-patient-plan * { visibility: visible !important; }
+        #printable-patient-plan {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+        }
+      }
+    `;
+    document.head.appendChild(tempStyle);
+
+    const cleanup = () => {
+      const s = document.getElementById('say-patient-plan-print-style');
+      if (s) s.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
     window.print();
+    setTimeout(cleanup, 2500);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!planPrintRef.current) return;
+    setGeneratingPdf(true);
+    try {
+      const dateStr = plan.createdAt ? plan.createdAt.split('T')[0] : new Date().toISOString().split('T')[0];
+      const filename = generatePdfFilename('Plan_Starostlivosti_SAY', plan.patientName, dateStr);
+      await exportElementToPdf(planPrintRef.current, filename, {
+        format: 'a4',
+        headerTitle: plan.title || 'Plán starostlivosti & Liečby',
+        patientName: plan.patientName || 'Pacient',
+      });
+    } catch (err) {
+      console.error('Chyba exportu plánu do PDF:', err);
+      alert('Nastala chyba pri generovaní PDF plánu starostlivosti.');
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   const updateTreatmentStatus = (treatmentId: string, newStatus: 'planned' | 'booked' | 'completed') => {
@@ -74,7 +131,7 @@ export default function PatientPlanViewer({
   };
 
   return (
-    <div className="space-y-6">
+    <div id="printable-patient-plan" ref={planPrintRef} className="space-y-6 printable-document">
       {/* HLAVIČKA PLÁNU & AKCIE */}
       <div className="bg-gradient-to-r from-[#2C2A29] via-[#3a3735] to-[#2C2A29] text-white p-6 rounded-2xl shadow-lg border border-[#C5A059]/30">
         <div className="flex flex-wrap justify-between items-start gap-4">
@@ -123,14 +180,23 @@ export default function PatientPlanViewer({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
+            <button
+              onClick={handleDownloadPdf}
+              disabled={generatingPdf}
+              className="bg-[#C5A059] hover:bg-[#b08d4b] text-[#2C2A29] px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+              title="Stiahnuť plán starostlivosti v čistom A4 PDF formáte"
+            >
+              <Download className="w-3.5 h-3.5 text-[#2C2A29]" />
+              <span>{generatingPdf ? 'Generujem PDF...' : 'Stiahnuť A4 PDF'}</span>
+            </button>
             <button
               onClick={handlePrint}
               className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-              title="Vytlačiť plán pre pacienta domov"
+              title="Vytlačiť plán pre pacienta na domov"
             >
               <Printer className="w-3.5 h-3.5 text-[#C5A059]" />
-              <span>Tlačiť plán (PDF)</span>
+              <span>Tlačiť A4</span>
             </button>
           </div>
         </div>
