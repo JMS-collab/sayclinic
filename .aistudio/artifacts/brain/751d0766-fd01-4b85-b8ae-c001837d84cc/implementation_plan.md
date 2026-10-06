@@ -1,136 +1,123 @@
-# Komplexná optimalizácia tlače a PDF generovania (A4 & A6) — SAY CLINIC
+# Radikálne zjednodušenie modulu Estetika (SAY CLINIC)
 
-Komplexný audit, oprava a zjednotenie tlačového a PDF subsystému klinického operačného systému SAY CLINIC. Zabezpečuje bezchybnú, vysoko reprezentatívnu tlač a export do PDF vo formátoch A4 (lekárske správy, operačné protokoly, informované súhlasy, faktúry, Meicet analýzy, plány starostlivosti) a A6 (oficiálne recepty ŠEVT 14 282 2s s prioritou pre originálne predtlačené tlačivá a dotlač textu).
+Kompletná transformácia modulu estetickej dermatológie a chirurgie na čisté, vysoko intuitívne a používateľsky prívetivé prostredie so zameraním na 2D sochu tváre, priame nanášanie bodov, vizuálny archív predchádzajúcich sedení a elegantný, minimalistický A4 klientsky report.
 
 ---
 
-### Používateľské rozhodnutia a potvrdené preferencie
+### Potvrdené rozhodnutia používateľa
 
 > [!IMPORTANT]
-> Na základe úvodnej konzultácie boli potvrdené nasledovné kľúčové požiadavky:
-> - **Rozsah kontroly**: Všetky moduly bez výnimky (Recepty A6, Lekárske správy A4, Operačné protokoly a Zmluvy/Súhlasy A4, Faktúry A4, Meicet reporty A4, Plány pacienta A4, Opiátová kniha A4).
-> - **Recepty A6 (Lekársky predpis ŠEVT 14 282 2s)**: Prioritne originálne predtlačené tlačivá ŠEVT (dotlač iba textov do kolóniek s milimetrovou presnosťou) s možnosťou prepnutia na tlač celého tlačiva vrátane mriežky na biely papier.
-> - **Výstupné kanály**: Personál vyžaduje plnohodnotnú funkčnosť oboch kanálov — priamu systémovú tlač cez prehliadač (`window.print()`) aj okamžitý export do PDF so štandardizovaným názvom súboru (`SAY_[Typ]_[Pacient]_[Datum].pdf`).
+> Na základe úvodnej konzultácie boli záväzne potvrdené nasledovné kľúčové zásady:
+> 1. **Hlavná obrazovka estetiky**: Odstrániť všetky prebytočné bočné lišty, telové formuláre a technické filtre. V centre pozornosti je **čistá socha tváre v strede** s rýchlym, ergonomickým výberom materiálov (horná/spodná lišta rýchlej voľby).
+> 2. **Uložené predchádzajúce ošetrenia**: V histórii sa nezobrazujú zložité textové tabuľky, ale **vizuálna karta sochy s presne označenými bodmi aplikácie** a plynulým dátumovým prepínačom medzi jednotlivými sedeniami.
+> 3. **A4 klientsky report**: Zredukovaný na čistý jednostránkový reprezentatívny sumár:
+>    - **Aplikované látky a množstvá** (preparát, šarža, oblasť, dávka)
+>    - **Lekárske odporúčania** (starostlivosť po zákroku, obmedzenia)
+>    - **Finančné vyčíslenie / Cena** (prehľad nákladov za výkon)
+>    - **Ďalší postup a termín** (odporúčaná kontrola alebo nadväzujúce ošetrenie)
 
 ---
 
-## 1. Prehľad riešenia a zistené nedostatky
+## 1. Prehľad konceptu a cieľ riešenia
 
-Po hĺbkovej analýze zdrojového kódu boli identifikované špecifické miesta vyžadujúce optimalizáciu:
+Aktuálny modul estetiky trpel vizuálnym preťažením: obsahoval zložité bočné stĺpce, zoznamy telových procedúr, prepínače šablón, technické kódy a neprehľadný A4 protokol plný tabuľkového balastu.
 
-1. **Recepty A6 (`PrescriptionModule.tsx` & `pdfGenerator.ts`)**:
-   - **Nekonzistentný kľúč v localStorage**: Pri čítaní posunov sa používa `say_clinic_rx_element_offsets_v3`, avšak pri ukončení ťahania myšou (`handleMouseUp`) sa ukladalo do `say_clinic_rx_element_offsets_v2`. Posuny nastavené ťahaním sa po refreshi neobnovovali.
-   - **PDF export pri dotlači do ŠEVT**: Pri generovaní PDF cez `exportElementToPdf` sa kontajner klonoval do offscreen sandboxu, kde neplatili pravidlá pre `body.print-mode-preprinted`. V PDF sa tak vždy exportovali čierne vodiace čiary a mriežky, čo znemožňovalo čistú dotlač do originálneho tlačiva cez stiahnuté PDF.
-   - **Tlačové okraje a @page**: Nastavenie prísneho `@page { size: 105mm 148mm; margin: 0; }` pre dialóg tlače prehliadača.
-
-2. **Faktúry a finančné doklady (`InvoiceDetailModal.tsx`)**:
-   - Chýbalo tlačidlo **"Stiahnuť A4 PDF"** (existovalo len `window.print()`).
-   - Pri priamej tlači `window.print()` chýbala izolácia — tlačil sa aj tmavý backdrop modálu a pozadie obrazovky.
-
-3. **Meicet Pro-A 3D diagnostika (`MeicetViewer.tsx`)**:
-   - V modále chýbal priamy export do PDF; bolo dostupné len tlačidlo pre systémovú tlač bez garancie čistého orezania.
-
-4. **Plány liečby a starostlivosti (`PatientPlanViewer.tsx`)**:
-   - Tlačidlo malo popisku "Tlačiť plán (PDF)", no volalo iba `window.print()` bez izolácie tlačového kontajnera a bez reálneho stiahnutia PDF.
-
-5. **Informované súhlasy a rozsiahle viacstranové dokumenty (`MedicalRecordForm.tsx`)**:
-   - Podpisové bloky (pacient, lekár) a tabuľky nemali triedu `.print-avoid-break`, čo pri zalomení stránky na A4 mohlo spôsobiť rozrezanie podpisovej čiary alebo odtrhnutie podpisu na samostatnú stranu.
-
-6. **Úradná Opiátová kniha (`OpiateLogbook.tsx`)**:
-   - Chýbal priamy export do A4 PDF a tlačová izolácia.
+Nové riešenie prináša:
+- **Maximálne odľahčenie pracovnej plochy**: Lekár má pred sebou priamo tvár sochy a rýchly panel najčastejších preparátov (Dysport, Restylane, Profhilo, Radiesse, Sculptra). Jedným klikom zvolí preparát a priamo na tvári značí body vpichov.
+- **Okamžitý vizuálny archív predchádzajúcich ošetrení**: Po kliknutí na dátum predchádzajúceho sedenia sa okamžite zobrazí socha pacienta s vyznačenými bodmi z daného dňa bez nutnosti čítať dlhé technické protokoly.
+- **Prehľadný klientsky A4 report**: Elegantný jednostránkový dokument vhodný na tlač aj odoslanie pacientovi, kde nájde presne to, čo potrebuje vedieť: čo mu bolo aplikované, ako sa má správať nasledujúce dni, koľko zákrok stál a kedy má prísť na ďalšie ošetrenie.
 
 ---
 
-## 2. Používateľská skúsenosť & Vizuálny štandard tlačových výstupov
+## 2. Používateľská skúsenosť & Vizuálny dizajn
 
-### Formát A4 (Lekárske správy, Súhlasy, Faktúry, Plány, Meicet)
-- **Rozmery a okraje**: 210 × 297 mm, tlačové okraje 10mm hore/dole, 12mm vľavo/vpravo.
-- **Hlavička kliniky**: Oficiálne vektorové logo `SAY BY MRAZ`, zlatá deliaca línia (`#C5A059`), plné identifikačné údaje poskytovateľa (IČO, DIČ, kód PZS, Lazovná 43, Banská Bystrica).
-- **Zalamovanie strán**: Žiadne roztrhnuté odseky ani oddelené podpisy — podpisový blok vždy drží pokope s posledným odsekom poučenia.
-- **Bežiaca hlavička a päta**: Pri viacstranových PDF dokumentoch (strana 2+) elegantná úzka hlavička s názvom dokumentu a menom pacienta; v päte číslovanie `Strana X z Y` a kontakt na kliniku.
+### Hlavné používateľské toky (User Flows)
+1. **Rýchla aplikácia bodov (Editor)**:
+   - Lekár otvorí modul estetiky pre aktívneho pacienta.
+   - V hornej rýchlej lište si vyberie preparát (napr. *Dysport 300IU* alebo *Restylane Kysse*).
+   - Kliknutím na tvár sochy umiestňuje presné aplikačné body (čelo, glabela, pery, nasolabiál).
+   - Môže rýchlo prepínať pohľady: **Čelný (En face)**, **Profil Ľavý**, **Profil Pravý**.
+   - Zadanie ceny ošetrenia priamo v rýchlej päte alebo paneli.
+   - Jedným klikom na *"Uložiť ošetrenie"* sa výkon zapíše do karty pacienta.
 
-### Formát A6 (Lekársky predpis ŠEVT 14 282 2s)
-- **Rozmery**: Presne 105 × 148 mm (priama zhoda s oficiálnym tlačivom MZ SR).
-- **Režim Dotlač (Preprinted)**:
-  - Na obrazovke: Používateľ vidí predtlačené vodiace linky s jemným označením pre jednoduchú kontrolu.
-  - Na tlačiarni / v PDF: Mriežky, rámčeky a texty "Lekársky predpis", "Kód lekára", "Rodné číslo" sú úplne neviditeľné. Tlačia sa len dynamické dáta (kód lekára, 4-miestny kód ZP, meno, RČ, bydlisko, 4-miestna Dg, predpis lieku Rp., dátum, poradové číslo) na presných milimetrových súradniciach.
-- **Režim Kompletný recept (Full)**:
-  - Kompletná tlač mriežky, rámčeka a textov vhodná na čistý biely papier A6 alebo pre archiváciu.
-- **Prepínač režimu**: Jasne viditeľný prepínač priamo v hornej lište receptu aj v dialógu exportu do PDF.
+2. **Prehliadanie predchádzajúcich ošetrení (História)**:
+   - Prepínač sedení priamo nad sochou (alebo dedikovaný pohľad *"Predošlé ošetrenia"*).
+   - Kliknutím na konkrétny dátum (napr. *15. Január 2026*) sa na soche vykreslia presné body danej aplikácie.
+   - Žiadne zbytočné tabuľky — len socha s bodmi a kompaktná karta s aplikovaným materiálom a dátumom.
+
+3. **A4 Klientsky report**:
+   - Tlačidlo *"A4 Report pre klienta"* okamžite prepne zobrazenie na čistý, reprezentatívny formát SAY CLINIC.
+   - Obsahuje:
+     - Hlavička kliniky SAY CLINIC a identifikácia pacienta.
+     - **Prehľad aplikácie**: zoznam preparátov, šarže (LOT), aplikované množstvá a vizuálna miniatúra sochy s bodmi.
+     - **Odporúčania po zákroku**: editovateľné/predvolené inštrukcie (neľahať si 4 hodiny, vynechať saunu a šport 48h, chladiť suchým chladom).
+     - **Cena výkonu**: prehľadne vyčíslená celková suma (napr. 340 €).
+     - **Ďalší postup & Kontrola**: plánovaný termín (napr. o 14 dní kontrola botulotoxínu, o 6 mesiacov aplikácia biostimulátora).
+     - Podpis lekára a dátum.
+   - Možnosť priamej tlače (`window.print()`) aj uloženia do PDF.
+
+### Vizuálna identita a štýl
+- **Farebná paleta**: Čistý podklad `#FAF8F5`, zlaté akcenty SAY CLINIC `#C5A059`, tmavá antracitová `#2C2A29` pre prémiovú čitateľnosť, farebné kódovanie bodov podľa materiálu (modrá pre botox, ružová pre výplne, zelená pre Profhilo, jantárová pre biostimulátory).
+- **Typografia**: Serifové prvky pre záhlavie SAY CLINIC, čistý čitateľný sans pre inštrukcie a tabuľky, tabular-nums pre dávky a ceny.
+- **Ergonómia**: Žiadny vizuálny šum, žiadne skryté položky v preplnených zoznamoch.
 
 ---
 
-## 3. Technická architektúra tlačového a PDF systému
+## 3. Kľúčové produktové a technické rozhodnutia
+
+- **Rozhodnutie 1: Eliminácia nadbytočných modulov v estetike**:
+  - *Zvolený prístup*: Odstránenie sekcie *"Ošetrenie tela"* a zložitého stĺpca šablón z hlavného pracovného toku estetiky. Socha tváre dostáva 100% priestoru.
+  - *Dôvod*: Estetické ošetrenia tváre tvoria 95% dennej praxe a prítomnosť telových formulárov a zložitých zoznamov spôsobovala neprehľadnosť a spomaľovala prácu.
+
+- **Rozhodnutie 2: Vizuálna orientácia predchádzajúcich sedení**:
+  - *Zvolený prístup*: V histórii sa namiesto textového protokolu zobrazuje priamo socha s bodmi v režime náhľadu (read-only) s rýchlym prepínaním dátumov.
+  - *Dôvod*: Lekár potrebuje za 2 sekundy vidieť, kam presne minule pichal botox alebo výplň.
+
+- **Rozhodnutie 3: Zameranie A4 reportu na pacienta**:
+  - *Zvolený prístup*: Transformácia doterajšieho interného "lekárskeho protokolu" na moderný klientsky A4 sumár s cenou, odporúčaniami a ďalším postupom.
+  - *Dôvod*: Klient potrebuje jasný doklad s poučením a vyčíslením, nie interné administratívne kódy.
+
+---
+
+## 4. Technická architektúra a tok dát
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        SAY CLINIC TLAČOVÝ SUBSYSTÉM                     │
+│                   AESTHETICS MODULE REDESIGN                           │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
-          ┌─────────────────────────┴─────────────────────────┐
-          ▼                                                   ▼
-┌───────────────────────────────────┐       ┌───────────────────────────────────┐
-│     Priama systémová tlač         │       │     Vektorový export do PDF       │
-│        (window.print)             │       │    (html2canvas-pro + jsPDF)      │
-└─────────────────┬─────────────────┘       └─────────────────┬─────────────────┘
-                  │                                           │
-                  ▼                                           ▼
-┌───────────────────────────────────┐       ┌───────────────────────────────────┐
-│      globals.css (@media print)   │       │      pdfGenerator.ts              │
-│  - Izolácia #printable-*          │       │  - A4 (794px) / A6 (397px)        │
-│  - Skrytie nav, sidebar, modal    │       │  - findBestBreakRow (smart cut)   │
-│  - body.print-prescription-a6     │       │  - Voľba: preprinted vs. full     │
-│  - page-break-inside: avoid       │       │  - Standardizované názvy súborov  │
-└─────────────────┬─────────────────┘       └─────────────────┬─────────────────┘
-                  │                                           │
-                  └─────────────────────┬─────────────────────┘
-                                        │
-     ┌──────────────────────────────────┼──────────────────────────────────┐
-     ▼                                  ▼                                  ▼
-┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐
-│     Recepty A6 (ŠEVT)   │ │  Lekárske správy & A4   │ │   Faktúry, Meicet & OPL │
-│ - Presné mm pozície     │ │ - Vstupné/kontroly/op   │ │ - InvoiceDetailModal    │
-│ - Dotlač vs. Plná tlač  │ │ - Informované súhlasy   │ │ - MeicetViewer          │
-│ - Trvalá perzistencia   │ │ - Dermatológia          │ │ - PatientPlanViewer     │
-└─────────────────────────┘ └─────────────────────────┘ └─────────────────────────┘
+       ┌────────────────────────────┼────────────────────────────┐
+       ▼                            ▼                            ▼
+┌──────────────────────┐ ┌──────────────────────┐ ┌──────────────────────┐
+│  REŽIM 1: EDITOR     │ │  REŽIM 2: HISTÓRIA   │ │  REŽIM 3: A4 REPORT  │
+│  - Rýchly výber      │ │  - Prepínač dátumov  │ │  - Aplikované látky  │
+│    materiálu         │ │  - Socha s bodmi     │ │  - Odporúčania       │
+│  - 2D socha v strede │ │    z daného dňa      │ │  - Cena ošetrenia    │
+│  - Priame klikanie   │ │  - Rýchly súhrn      │ │  - Dalsí termín      │
+│  - Voľba pohľadu     │ │    (materiál + cena) │ │  - Tlač / PDF export │
+└──────────────────────┘ └──────────────────────┘ └──────────────────────┘
 ```
+
+### Dátové štruktúry a perzistencia
+- Rozšírenie `AestheticSession` o:
+  - `price?: number` (celková cena ošetrenia v €)
+  - `recommendations?: string` (odporúčania pre domáci režim)
+  - `nextStep?: string` (ďalší postup a plánovaný termín kontroly)
+- Automatické ukladanie do histórie sedení pacienta a integrácia s `medicalRecords`.
 
 ---
 
-## 4. Konkrétne kroky realizácie
+## 5. Plán realizácie krok za krokom
 
-### Krok 1: Oprava a vylepšenie A6 receptov (`PrescriptionModule.tsx` & `pdfGenerator.ts`)
-- Opraviť perzistenciu posunov v `PrescriptionModule.tsx` — zjednotiť kľúče na `say_clinic_rx_element_offsets_v3`.
-- V `pdfGenerator.ts` pridať podporu pre voľbu režimu tlače A6 (`options.prescriptionMode?: 'preprinted' | 'full'`):
-  - Ak je režim `preprinted`, v offscreen sandboxe automaticky skryť `.sevt-guide-grid` a `.sevt-preprinted-text` a odstrániť vonkajšie orámovanie, aby výsledné A6 PDF obsahovalo iba čisté texty na presných milimetrových pozíciách.
-- V `PrescriptionModule.tsx` pridať pri tlačidle PDF možnosť stiahnuť PDF pre dotlač do ŠEVT alebo kompletný recept.
-
-### Krok 2: Ochrana podpisových sekcií a zalamovania v A4 dokumentoch (`MedicalRecordForm.tsx` & `DermatologyExamPrintView.tsx`)
-- Pridať CSS triedy `print-avoid-break` a `sevt-signature-section` na všetky podpisové a dôležité sumarizačné bloky:
-  - Informovaný súhlas pacienta (Časť VII — Záverečné vyhlásenia a podpisy)
-  - Všeobecná lekárska správa, kontrolné vyšetrenie, vstupné vyšetrenie
-  - Operačný protokol (zloženie operačného tímu a podpis operatera)
-  - Prepúšťacia správa a cenníkové dohody
-  - Bloky dermatologických lézií a dermatoskopická mapa
-
-### Krok 3: Faktúry — doplnenie PDF exportu a tlačovej izolácie (`InvoiceDetailModal.tsx`)
-- Pridať funkciu a tlačidlo **"Stiahnuť A4 PDF"** využívajúce `exportElementToPdf` s názvom súboru `SAY_Faktura_[Cislo]_[Klient]_[Datum].pdf`.
-- Pridať triedu `printable-document` a unifikovať tlačový štýl, aby pri `window.print()` tlačiareň vytlačila čistý A4 daňový doklad bez tmavého pozadia modálu.
-
-### Krok 4: Meicet Pro-A diagnostika — doplnenie PDF exportu (`MeicetViewer.tsx`)
-- Pridať tlačidlo a funkciu na okamžité stiahnutie **reprezentatívneho A4 PDF reportu** Meicet s radarovými grafmi a ročným plánom ošetrení.
-- Zabezpečiť tlačovú izoláciu pri systémovej tlači.
-
-### Krok 5: Plány pacienta a Opiátová kniha (`PatientPlanViewer.tsx` & `OpiateLogbook.tsx`)
-- V `PatientPlanViewer.tsx` doplniť skutočný export do A4 PDF a priradiť korektné ID a tlačovú triedu pre priamu tlač.
-- V `OpiateLogbook.tsx` doplniť export úradnej knihy OPL do PDF pre archiváciu pre ŠÚKL/MZ SR a zabezpečiť čistú tlač bez okolitých prvkov.
-
-### Krok 6: Zjednotenie a spevnenie globálnych printových štýlov (`globals.css`)
-- Doplniť globálne pravidlá v `@media print`:
-  - Izolácia akéhokoľvek otvoreného tlačového modálu.
-  - Vynútenie ostrého čierneho písma, bez nechcených šedých prechodov a tieňov.
-  - Zamedzenie orezania tabuliek a podpisov (`break-inside: avoid`).
-
-### Krok 7: Kompilácia a verifikácia
-- Spustiť `compile_applet` a overiť bezchybné zostavenie.
-- Overiť funkčnosť vo všetkých dotknutých komponentoch.
+1. **Refaktoring `AestheticsModule.tsx`**:
+   - Odstránenie ťažkopádnych bočných stĺpcov, zoznamov telových procedúr a nadbytočného šablónového balastu.
+   - Vytvorenie čistého horného / kompaktného selektora materiálov s priamym nastavením ceny.
+   - Maximalizácia priestoru pre 2D sochu v strede obrazovky.
+2. **Implementácia vizuálneho prehľadu histórie**:
+   - Dátumová lišta s rýchlym prepínaním predchádzajúcich sedení.
+   - Zobrazenie sochy s bodmi príslušného ošetrenia.
+3. **Nový zjednodušený A4 klientsky report**:
+   - Redizajn `viewMode === 'protocol'` na čistý klientsky A4 sumár SAY CLINIC (aplikované látky, odporúčania, cena, ďalší postup).
+   - Zachovanie precízneho `window.print()` a PDF exportu.
+4. **Verifikácia a testovanie**:
+   - Test prepínania pohľadov, kreslenia bodov, ukladania do histórie a generovania A4 reportu.

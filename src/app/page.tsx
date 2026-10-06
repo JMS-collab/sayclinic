@@ -1285,7 +1285,7 @@ export default function Home() {
             {/* ESTETICKÁ MEDICÍNA & FACE MAPPING */}
             {activeTab === 'aesthetics' && PermissionsService.canUserAccessTab(currentUser, 'aesthetics') && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-[#E8E2D9]">
+                <div className="flex items-center justify-between pb-2 border-b border-[#E8E2D9] print:hidden">
                   <button
                     type="button"
                     onClick={() => changeTab('patients')}

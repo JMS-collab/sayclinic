@@ -176,6 +176,7 @@ interface Sculpture2DViewerProps {
   onSelectVector?: (id: string | null) => void;
   activeView?: SculptureViewType;
   onViewChange?: (view: SculptureViewType) => void;
+  readOnly?: boolean;
 }
 
 export const VIEW_CONFIGS: { id: SculptureViewType; label: string; shortLabel: string; desc: string }[] = [
@@ -196,6 +197,7 @@ export function Sculpture2DViewer({
   onSelectVector,
   activeView: externalView,
   onViewChange: externalOnViewChange,
+  readOnly = false,
 }: Sculpture2DViewerProps) {
   const [internalView, setInternalView] = useState<SculptureViewType>('front');
   const currentView = externalView || internalView;
@@ -353,6 +355,7 @@ export function Sculpture2DViewer({
     if (e.button === 0) { // Left click
       e.stopPropagation();
       if (onSelectVector) onSelectVector(vectorId);
+      if (readOnly) return;
 
       const vec = vectors.find(v => v.id === vectorId);
       if (!vec) return;
@@ -521,6 +524,7 @@ export function Sculpture2DViewer({
 
     // Left click on 'move' tool, or 'select' tool, or middle button (button 1), or holding Space/Alt/Shift -> PAN
     if (
+      readOnly ||
       activeTool === 'move' || 
       activeTool === 'select' || 
       e.button === 1 || 
@@ -871,144 +875,158 @@ export function Sculpture2DViewer({
 
       {/* UKOTVENÝ PANEL NÁSTROJOV (PEVNE NAD SOCHOU) */}
       <div className="w-full p-2.5 bg-white/95 backdrop-blur-md rounded-2xl border border-[#E8E2D9] shadow-sm flex items-center justify-between gap-3 flex-wrap">
-        {/* Nástroje kreslenia */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => onSelectTool('move')}
-            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-              activeTool === 'move' ? 'bg-[#2C2A29] text-white' : 'hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9]'
-            }`}
-          >
-            <Hand className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Ruka (Posun)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onSelectTool('select')}
-            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-              activeTool === 'select' ? 'bg-[#2C2A29] text-white' : 'hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9]'
-            }`}
-          >
-            <MousePointer className="w-3.5 h-3.5 text-[#8C857B]" />
-            <span>Výber</span>
-          </button>
-
-          <div className="w-px h-6 bg-[#E8E2D9] mx-1" />
-
-          <button
-            type="button"
-            onClick={() => {
-              onSelectTool('point');
-              if (currentProduct.type === 'botox') onSelectColor('#3B82F6');
-              else if (currentProduct.name.toLowerCase().includes('kysse')) onSelectColor('#EC4899');
-              else if (currentProduct.name.toLowerCase().includes('profhilo')) onSelectColor('#10B981');
-              else onSelectColor('#3B82F6');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-              activeTool === 'point' ? 'bg-[#3B82F6] text-white' : 'hover:bg-blue-50 text-[#2C2A29] border border-[#E8E2D9]'
-            }`}
-          >
-            <CircleDot className="w-3.5 h-3.5 text-blue-400" />
-            <span>Bod (Toxín/BAP)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onSelectTool('vector');
-              onSelectColor('#D97706');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-              activeTool === 'vector' || activeTool === 'threads' ? 'bg-[#D97706] text-white' : 'hover:bg-amber-50 text-[#2C2A29] border border-[#E8E2D9]'
-            }`}
-          >
-            <MoveUpRight className="w-3.5 h-3.5 text-amber-500" />
-            <span>Kanyla (Vektor)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onSelectTool('fanning');
-              onSelectColor('#C5A059');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-              activeTool === 'fanning' ? 'bg-[#C5A059] text-white' : 'hover:bg-amber-50 text-[#2C2A29] border border-[#E8E2D9]'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Vejár (Fanning)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onSelectTool('freehand');
-              onSelectColor('#EC4899');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
-              activeTool === 'freehand' ? 'bg-[#EC4899] text-white' : 'hover:bg-pink-50 text-[#2C2A29] border border-[#E8E2D9]'
-            }`}
-          >
-            <PenTool className="w-3.5 h-3.5 text-pink-400" />
-            <span>Fixka</span>
-          </button>
-        </div>
-
-        {/* Farby & Zoom & Akcie */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Farby */}
-          <div className="flex items-center gap-1.5 p-1 bg-[#FAF8F5] rounded-xl border border-[#E8E2D9]">
-            {[
-              { color: '#3B82F6', name: 'Modrá (Dysport)' },
-              { color: '#EC4899', name: 'Ružová (Restylane Kysse)' },
-              { color: '#10B981', name: 'Zelená (Profhilo)' },
-              { color: '#D97706', name: 'Jantárová (Radiesse)' },
-              { color: '#C5A059', name: 'Zlatá (Sculptra)' },
-              { color: '#2C2A29', name: 'Tmavá (Marker)' }
-            ].map(c => (
-              <button
-                key={c.color}
-                type="button"
-                onClick={() => onSelectColor(c.color)}
-                style={{ backgroundColor: c.color }}
-                className={`w-5 h-5 rounded-full transition-transform cursor-pointer flex items-center justify-center ${
-                  activeColor === c.color ? 'scale-125 ring-2 ring-[#2C2A29] ring-offset-1' : 'hover:scale-110'
-                }`}
-                title={c.name}
-              >
-                {activeColor === c.color && <Check className="w-3 h-3 text-white" />}
-              </button>
-            ))}
+        {readOnly ? (
+          <div className="flex items-center gap-2.5 text-xs px-2 py-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#C5A059] shadow-xs" />
+            <span className="font-bold text-[#2C2A29]">Predchádzajúce ošetrenie</span>
+            <span className="text-[#8C857B]">·</span>
+            <span className="text-[#8C857B] font-medium">Presne označené body aplikácie ({currentViewVectors.length} v tomto pohľade)</span>
           </div>
+        ) : (
+          <>
+            {/* Nástroje kreslenia */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => onSelectTool('move')}
+                className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+                  activeTool === 'move' ? 'bg-[#2C2A29] text-white' : 'hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                <Hand className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span>Ruka (Posun)</span>
+              </button>
 
-          <div className="w-px h-6 bg-[#E8E2D9] mx-0.5" />
+              <button
+                type="button"
+                onClick={() => onSelectTool('select')}
+                className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+                  activeTool === 'select' ? 'bg-[#2C2A29] text-white' : 'hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                <MousePointer className="w-3.5 h-3.5 text-[#8C857B]" />
+                <span>Výber</span>
+              </button>
 
-          {/* Undo & Trash */}
-          <button
-            type="button"
-            onClick={handleUndo}
-            disabled={history.length === 0}
-            className="p-1.5 rounded-xl hover:bg-[#FAF8F5] text-[#8C857B] disabled:opacity-30 border border-[#E8E2D9] cursor-pointer"
-            title="Krok späť"
-          >
-            <Undo className="w-4 h-4" />
-          </button>
+              <div className="w-px h-6 bg-[#E8E2D9] mx-1" />
 
-          <button
-            type="button"
-            onClick={() => {
-              if (confirm('Naozaj chcete vyčistiť nákresy pre tento pohľad?')) {
-                pushHistory(vectors.filter(v => v.view !== currentView));
-              }
-            }}
-            className="p-1.5 rounded-xl hover:bg-red-50 text-red-500 border border-[#E8E2D9] cursor-pointer"
-            title="Vymazať nákresy aktuálneho pohľadu"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectTool('point');
+                  if (currentProduct.type === 'botox') onSelectColor('#3B82F6');
+                  else if (currentProduct.name.toLowerCase().includes('kysse')) onSelectColor('#EC4899');
+                  else if (currentProduct.name.toLowerCase().includes('profhilo')) onSelectColor('#10B981');
+                  else onSelectColor('#3B82F6');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+                  activeTool === 'point' ? 'bg-[#3B82F6] text-white' : 'hover:bg-blue-50 text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                <CircleDot className="w-3.5 h-3.5 text-blue-400" />
+                <span>Bod (Toxín/BAP)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectTool('vector');
+                  onSelectColor('#D97706');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+                  activeTool === 'vector' || activeTool === 'threads' ? 'bg-[#D97706] text-white' : 'hover:bg-amber-50 text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                <MoveUpRight className="w-3.5 h-3.5 text-amber-500" />
+                <span>Kanyla (Vektor)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectTool('fanning');
+                  onSelectColor('#C5A059');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+                  activeTool === 'fanning' ? 'bg-[#C5A059] text-white' : 'hover:bg-amber-50 text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Vejár (Fanning)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectTool('freehand');
+                  onSelectColor('#EC4899');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all cursor-pointer ${
+                  activeTool === 'freehand' ? 'bg-[#EC4899] text-white' : 'hover:bg-pink-50 text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                <PenTool className="w-3.5 h-3.5 text-pink-400" />
+                <span>Fixka</span>
+              </button>
+            </div>
+
+            {/* Farby & Akcie */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Farby */}
+              <div className="flex items-center gap-1.5 p-1 bg-[#FAF8F5] rounded-xl border border-[#E8E2D9]">
+                {[
+                  { color: '#3B82F6', name: 'Modrá (Dysport)' },
+                  { color: '#EC4899', name: 'Ružová (Restylane Kysse)' },
+                  { color: '#10B981', name: 'Zelená (Profhilo)' },
+                  { color: '#D97706', name: 'Jantárová (Radiesse)' },
+                  { color: '#C5A059', name: 'Zlatá (Sculptra)' },
+                  { color: '#2C2A29', name: 'Tmavá (Marker)' }
+                ].map(c => (
+                  <button
+                    key={c.color}
+                    type="button"
+                    onClick={() => onSelectColor(c.color)}
+                    style={{ backgroundColor: c.color }}
+                    className={`w-5 h-5 rounded-full transition-transform cursor-pointer flex items-center justify-center ${
+                      activeColor === c.color ? 'scale-125 ring-2 ring-[#2C2A29] ring-offset-1' : 'hover:scale-110'
+                    }`}
+                    title={c.name}
+                  >
+                    {activeColor === c.color && <Check className="w-3 h-3 text-white" />}
+                  </button>
+                ))}
+              </div>
+
+              <div className="w-px h-6 bg-[#E8E2D9] mx-0.5" />
+
+              {/* Undo & Trash */}
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={history.length === 0}
+                className="p-1.5 rounded-xl hover:bg-[#FAF8F5] text-[#8C857B] disabled:opacity-30 border border-[#E8E2D9] cursor-pointer"
+                title="Krok späť"
+              >
+                <Undo className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Naozaj chcete vyčistiť nákresy pre tento pohľad?')) {
+                    pushHistory(vectors.filter(v => v.view !== currentView));
+                  }
+                }}
+                className="p-1.5 rounded-xl hover:bg-red-50 text-red-500 border border-[#E8E2D9] cursor-pointer"
+                title="Vymazať nákresy aktuálneho pohľadu"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+
+              <div className="w-px h-6 bg-[#E8E2D9] mx-0.5" />
+            </div>
+          </>
+        )}
 
           <div className="w-px h-6 bg-[#E8E2D9] mx-0.5" />
 
@@ -1046,7 +1064,6 @@ export function Sculpture2DViewer({
             </button>
           </div>
         </div>
-      </div>
 
       {/* 2. HLAVNÝ RÁM S 2D REALISTICKOU SOCHOU A KRESLIACIMI NÁSTROJMI */}
       <div 

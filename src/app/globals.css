@@ -65,27 +65,53 @@
     print-color-adjust: exact !important;
   }
 
-  /* ----------------------------------------------------------------------- */
-  /* A4 DOKUMENTY (Lekárske správy, protokoly, plány liečby, Meicet, faktúry)*/
-  /* ----------------------------------------------------------------------- */
-  #printable-a4,
-  .printable-document,
-  #printable-patient-plan,
-  #printable-roadmap,
-  #printable-meicet-report,
-  #printable-invoice,
-  #printable-opiate-logbook,
-  #ai-health-roadmap-pdf-root {
+  /* Izolácia A4 dokumentov: skryť všetko ostatné a umiestniť A4 dokument na začiatok strany */
+  body:not(.print-prescription-a6) * {
+    visibility: hidden !important;
+  }
+
+  body:not(.print-prescription-a6) #printable-a4,
+  body:not(.print-prescription-a6) #printable-a4 *,
+  body:not(.print-prescription-a6) #printable-a4-simple,
+  body:not(.print-prescription-a6) #printable-a4-simple *,
+  body:not(.print-prescription-a6) .printable-document,
+  body:not(.print-prescription-a6) .printable-document *,
+  body:not(.print-prescription-a6) #printable-patient-plan,
+  body:not(.print-prescription-a6) #printable-patient-plan *,
+  body:not(.print-prescription-a6) #printable-roadmap,
+  body:not(.print-prescription-a6) #printable-roadmap *,
+  body:not(.print-prescription-a6) #printable-meicet-report,
+  body:not(.print-prescription-a6) #printable-meicet-report *,
+  body:not(.print-prescription-a6) #printable-invoice,
+  body:not(.print-prescription-a6) #printable-invoice *,
+  body:not(.print-prescription-a6) #printable-opiate-logbook,
+  body:not(.print-prescription-a6) #printable-opiate-logbook *,
+  body:not(.print-prescription-a6) #ai-health-roadmap-pdf-root,
+  body:not(.print-prescription-a6) #ai-health-roadmap-pdf-root * {
     visibility: visible !important;
-    display: block !important;
+  }
+
+  body:not(.print-prescription-a6) #printable-a4,
+  body:not(.print-prescription-a6) #printable-a4-simple,
+  body:not(.print-prescription-a6) .printable-document,
+  body:not(.print-prescription-a6) #printable-patient-plan,
+  body:not(.print-prescription-a6) #printable-roadmap,
+  body:not(.print-prescription-a6) #printable-meicet-report,
+  body:not(.print-prescription-a6) #printable-invoice,
+  body:not(.print-prescription-a6) #printable-opiate-logbook,
+  body:not(.print-prescription-a6) #ai-health-roadmap-pdf-root {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
     background: #ffffff !important;
     color: #000000 !important;
+    display: block !important;
   }
 
   /* Prevencia zlomenia stránky uprostred dôležitých sekcií a podpisov */

@@ -1,6 +1,6 @@
 {
-  "summary":  "Komplexný plán auditu a optimalizácie tlače a PDF generovania (A4 a A6) naprieč všetkými modulmi SAY CLINIC:\n- Recepty ŠEVT 14 282 2s (A6: 105 × 148 mm): oprava perzistencie posunov (kľúč v2/v3), čistá dotlač do predtlačeného tlačiva aj tlač celého receptu na čistý papier v PDF aj cez tlačiareň.\n- Lekárske správy, protokoly a informované súhlasy (A4): ochrana podpisov a tabuliek pred roztrhnutím cez strany (.print-avoid-break), garantované načítanie loga, ostré čierne písmo.\n- Faktúry a daňové doklady (A4): doplnenie priameho exportu do PDF (jsPDF), izolácia tlače bez pozadia modálu.\n- Meicet Pro-A reporty a Plány pacienta (A4): doplnenie priameho sťahovania PDF a izolácia tlače.\n- Úradná kniha OPL: doplnenie exportu do PDF a tlačová izolácia.\n- Globálna CSS a PDF engine architektúra: inteligentné zalamovanie strán, bežiace hlavičky a pätičky s číslovaním Strana X z Y.",
-  "updatedAt":  "2026-10-05T10:30:43.721743204Z",
-  "requestFeedback":  true,
-  "userFacing":  true
+  "summary": "Zjednodušenie a redizajn modulu Estetiky (AestheticsModule):\n- Odstránenie prebujnených bočných panelov a telových záložiek v prospech čistého, sústredeného zobrazenia 2D sochy v strede s rýchlym výberom preparátov (Dysport, Restylane, Profhilo, Radiesse, Sculptra).\n- Zjednodušený prehľad predchádzajúcich ošetrení: vizuálne čisté zobrazenie sochy s presne vyznačenými bodmi aplikácie a intuitívnym časovým prepínačom medzi sedeniami.\n- Zjednodušený, elegantný A4 report pre klienta obsahujúci len kľúčové položky: aplikované látky a zóny, odporúčania lekára pre domáci režim, vyčíslená cena ošetrenia a plánovaný ďalší postup / termín kontroly.",
+  "updatedAt": "2026-10-06T19:33:33.123474868Z",
+  "requestFeedback": true,
+  "userFacing": true
 }
