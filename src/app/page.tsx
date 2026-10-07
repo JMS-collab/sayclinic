@@ -1242,7 +1242,7 @@ export default function Home() {
                     name: selectedPatient.name,
                     birthNumber: selectedPatient.birthNumber || '',
                     address: selectedPatient.address || '',
-                    insurance: selectedPatient.insurance || 'VšZP'
+                    insurance: selectedPatient.insurance || 'Samoplatca'
                   } : undefined)}
                 />
               </div>

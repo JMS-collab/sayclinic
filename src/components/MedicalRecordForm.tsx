@@ -578,7 +578,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   const [patientPhone, setPatientPhone] = useState(initialPatient?.phone || '');
   const [patientEmail, setPatientEmail] = useState(initialPatient?.email || '');
   const [patientAddress, setPatientAddress] = useState(initialPatient?.address || '');
-  const [patientInsurance, setPatientInsurance] = useState('Dôvera');
+  const [patientInsurance, setPatientInsurance] = useState(initialPatient?.insurance || 'Samoplatca');
   const [patientRelative, setPatientRelative] = useState('');
 
   // ZÁKONNÝ ZÁSTUPCA / OPATROVNÍK (ak je maloletý alebo obmedzená spôsobilosť)

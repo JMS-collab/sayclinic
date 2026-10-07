@@ -338,7 +338,7 @@ export default function PatientDatabase({
     email: '',
     address: '',
     dob: '',
-    insurance: '24 (Dôvera)',
+    insurance: 'Samoplatca',
   });
 
   // STAV PRE ÚPRAVU PACIENTA
@@ -651,7 +651,7 @@ export default function PatientDatabase({
       email: '',
       address: '',
       dob: '',
-      insurance: '24 (Dôvera)',
+      insurance: 'Samoplatca',
     });
 
     handlePatientSelect(createdPatient);
@@ -864,10 +864,10 @@ export default function PatientDatabase({
                   <div>
                     <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">Poisťovňa</label>
                     <select value={newPatientData.insurance} onChange={e => setNewPatientData({...newPatientData, insurance: e.target.value})} className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-[#FBF9F6]">
+                      <option value="Samoplatca">Samoplatca</option>
                       <option value="24 (Dôvera)">24 (Dôvera)</option>
                       <option value="25 (VšZP)">25 (VšZP)</option>
                       <option value="27 (Union)">27 (Union)</option>
-                      <option value="Samoplatca">Samoplatca</option>
                     </select>
                   </div>
                 </div>
