@@ -5,7 +5,11 @@ import {
   PrescribedMedication, 
   MEDICATION_CATALOG, 
   CATEGORY_LABELS, 
-  CLINIC_PRESCRIPTION_DEFAULTS 
+  CLINIC_PRESCRIPTION_DEFAULTS,
+  getFullMedicationCatalog,
+  saveMedicationTemplate,
+  deleteMedicationTemplate,
+  resetAllMedicationTemplates
 } from '../data/prescriptionCatalog';
 import { exportElementToPdf, generatePdfFilename } from '../lib/pdfGenerator';
 import PrescriptionFontContextMenu, { 
@@ -19,7 +23,14 @@ import {
   Printer, 
   FileText, 
   Check,
-  Download
+  Download,
+  Plus,
+  Edit3,
+  Trash2,
+  BookmarkPlus,
+  Sparkles,
+  X,
+  Filter
 } from 'lucide-react';
 
 interface PrescriptionModuleProps {
@@ -265,6 +276,28 @@ export default function PrescriptionModule({
   // Notifikácia o uložení
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  // Katalóg liekov so šablónami (načítava sa z pamäte vrátane vlastných/upravených)
+  const [catalogList, setCatalogList] = useState<PrescribedMedication[]>(() => {
+    return getFullMedicationCatalog();
+  });
+  const [onlyCustomTemplates, setOnlyCustomTemplates] = useState<boolean>(false);
+
+  // Stav modálneho okna pre tvorbu a úpravu šablóny lieku
+  const [templateModalOpen, setTemplateModalOpen] = useState<boolean>(false);
+  const [editingTemplate, setEditingTemplate] = useState<PrescribedMedication | null>(null);
+  const [templateForm, setTemplateForm] = useState<Partial<PrescribedMedication>>({
+    commercialName: '',
+    substance: '',
+    formAndStrength: '',
+    packaging: 'Exp. orig. No I (unam)',
+    dosage: 'D.S. ',
+    category: 'other',
+    paymentType: 'Hradí pacient',
+    suklCode: '',
+    notes: '',
+    latinName: ''
+  });
 
   // Vyhľadávanie v katalógu a filter
   const [catalogFilter, setCatalogFilter] = useState<string>('all');
@@ -679,14 +712,143 @@ export default function PrescriptionModule({
     }
   };
 
+  // Otvorenie modálneho okna pre vytvorenie novej šablóny
+  const handleOpenCreateTemplate = () => {
+    setEditingTemplate(null);
+    setTemplateForm({
+      substance: '',
+      commercialName: '',
+      formAndStrength: '',
+      packaging: 'Exp. orig. No I (unam)',
+      dosage: 'D.S. ',
+      category: 'other',
+      paymentType: 'Hradí pacient',
+      suklCode: '',
+      notes: '',
+      latinName: ''
+    });
+    setTemplateModalOpen(true);
+  };
+
+  // Otvorenie modálneho okna pre úpravu existujúcej šablóny
+  const handleOpenEditTemplate = (med: PrescribedMedication, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditingTemplate(med);
+    setTemplateForm({
+      substance: med.substance || '',
+      commercialName: med.commercialName || '',
+      formAndStrength: med.formAndStrength || '',
+      packaging: med.packaging || 'Exp. orig. No I (unam)',
+      dosage: med.dosage || 'D.S. ',
+      category: med.category || 'other',
+      paymentType: med.paymentType || 'Hradí pacient',
+      suklCode: med.suklCode || '',
+      notes: med.notes || '',
+      latinName: med.latinName || ''
+    });
+    setTemplateModalOpen(true);
+  };
+
+  // Uloženie aktuálne predpísaného lieku z formulára ako novú šablónu
+  const handleSaveCurrentAsTemplate = () => {
+    const cur = items[0];
+    if (!cur || (!cur.substance?.trim() && !cur.commercialName?.trim())) {
+      alert('Pred uložením šablóny zadajte aspoň účinnú látku alebo obchodný názov lieku.');
+      return;
+    }
+    setEditingTemplate(null);
+    setTemplateForm({
+      substance: cur.substance || '',
+      commercialName: cur.commercialName || '',
+      formAndStrength: cur.formAndStrength || '',
+      packaging: cur.packaging || 'Exp. orig. No I (unam)',
+      dosage: cur.dosage || 'D.S. ',
+      category: cur.category || 'other',
+      paymentType: cur.paymentType || 'Hradí pacient',
+      suklCode: cur.suklCode || '',
+      notes: cur.notes || '',
+      latinName: cur.latinName || ''
+    });
+    setTemplateModalOpen(true);
+  };
+
+  // Uloženie šablóny z modálneho okna
+  const handleSaveTemplateModal = (alsoInsertIntoRx = false) => {
+    const commercialName = templateForm.commercialName?.trim() || '';
+    const substance = templateForm.substance?.trim() || '';
+
+    if (!commercialName && !substance) {
+      alert('Prosím, zadajte aspoň obchodný názov alebo účinnú látku lieku.');
+      return;
+    }
+
+    const templateToSave: PrescribedMedication = {
+      id: editingTemplate ? editingTemplate.id : `med_custom_${Date.now()}`,
+      substance: substance || commercialName,
+      commercialName: commercialName || substance,
+      formAndStrength: (templateForm.formAndStrength || '').trim(),
+      packaging: (templateForm.packaging || 'Exp. orig. No I (unam)').trim(),
+      dosage: (templateForm.dosage || 'D.S. ').trim(),
+      category: templateForm.category || 'other',
+      paymentType: templateForm.paymentType || 'Hradí pacient',
+      suklCode: templateForm.suklCode?.trim() || undefined,
+      notes: templateForm.notes?.trim() || undefined,
+      latinName: templateForm.latinName?.trim() || undefined,
+      isCustom: editingTemplate ? editingTemplate.isCustom : true
+    };
+
+    const updated = saveMedicationTemplate(templateToSave);
+    setCatalogList(updated);
+    setTemplateModalOpen(false);
+
+    if (alsoInsertIntoRx) {
+      handleSelectMedicationFromCatalog(templateToSave);
+      setSaveSuccessMsg(`Šablóna „${templateToSave.commercialName}“ bola uložená a vložená do receptu.`);
+    } else {
+      setSaveSuccessMsg(`Šablóna „${templateToSave.commercialName}“ bola úspešne uložená do katalógu.`);
+    }
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
+  };
+
+  // Vymazanie alebo obnovenie šablóny
+  const handleDeleteTemplate = (med: PrescribedMedication, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const isDef = MEDICATION_CATALOG.some(d => d.id === med.id);
+    const confirmText = isDef
+      ? `Naozaj chcete vrátiť šablónu „${med.commercialName || med.substance}“ na pôvodné výrobné nastavenia?`
+      : `Naozaj chcete natrvalo zmazať šablónu „${med.commercialName || med.substance}“?`;
+
+    if (window.confirm(confirmText)) {
+      const updated = deleteMedicationTemplate(med.id);
+      setCatalogList(updated);
+      setSaveSuccessMsg(isDef ? 'Šablóna bola obnovená na predvolené výrobné nastavenia.' : 'Šablóna bola zmazaná.');
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+    }
+  };
+
+  // Globálny reset všetkých šablón na výrobné nastavenia
+  const handleResetAllTemplates = () => {
+    if (window.confirm('Naozaj si želáte obnoviť všetky šablóny liekov na predvolené výrobné nastavenia SAY CLINIC? Vaše vlastné šablóny a úpravy budú vymazané.')) {
+      const updated = resetAllMedicationTemplates();
+      setCatalogList(updated);
+      setSaveSuccessMsg('Všetky šablóny liekov boli obnovené na pôvodné výrobné nastavenia.');
+      setTimeout(() => setSaveSuccessMsg(null), 3500);
+    }
+  };
+
   // Filtrované lieky z katalógu
-  const filteredCatalog = MEDICATION_CATALOG.filter(med => {
+  const filteredCatalog = catalogList.filter(med => {
     const matchesCategory = catalogFilter === 'all' || med.category === catalogFilter;
-    const matchesSearch = !catalogSearch || 
-      (med.substance && med.substance.toLowerCase().includes(catalogSearch.toLowerCase())) ||
-      med.commercialName.toLowerCase().includes(catalogSearch.toLowerCase()) ||
-      (med.latinName && med.latinName.toLowerCase().includes(catalogSearch.toLowerCase()));
-    return matchesCategory && matchesSearch;
+    const matchesCustom = !onlyCustomTemplates || med.isCustom || med.isModified;
+    const q = catalogSearch.toLowerCase().trim();
+    const matchesSearch = !q || 
+      (med.substance && med.substance.toLowerCase().includes(q)) ||
+      (med.commercialName && med.commercialName.toLowerCase().includes(q)) ||
+      (med.latinName && med.latinName.toLowerCase().includes(q)) ||
+      (med.formAndStrength && med.formAndStrength.toLowerCase().includes(q)) ||
+      (med.dosage && med.dosage.toLowerCase().includes(q)) ||
+      (med.notes && med.notes.toLowerCase().includes(q));
+    return matchesCategory && matchesCustom && matchesSearch;
   });
 
   // Rozbité znaky pre okienka
@@ -1004,14 +1166,25 @@ export default function PrescriptionModule({
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleClearMedication}
-                className="text-[#8C857B] hover:text-[#DC2626] text-xs font-semibold px-2 py-1 rounded hover:bg-red-50 transition-colors cursor-pointer"
-                title="Vyčistiť a zadať nový liek"
-              >
-                Vyčistiť liek
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleSaveCurrentAsTemplate}
+                  className="text-[#047857] hover:text-[#065f46] text-xs font-semibold px-2 py-1 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer flex items-center gap-1 border border-emerald-300 bg-emerald-50/50"
+                  title="Uložiť aktuálne vyplnené údaje lieku ako novú opakovateľnú šablónu"
+                >
+                  <BookmarkPlus className="w-3.5 h-3.5" />
+                  <span>Uložiť ako šablónu</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearMedication}
+                  className="text-[#8C857B] hover:text-[#DC2626] text-xs font-semibold px-2 py-1 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                  title="Vyčistiť a zadať nový liek"
+                >
+                  Vyčistiť liek
+                </button>
+              </div>
             </div>
 
             {activeMed && (
@@ -1036,7 +1209,7 @@ export default function PrescriptionModule({
                       type="text"
                       value={activeMed.substance}
                       onChange={e => handleUpdateItemField('substance', e.target.value)}
-                      placeholder="napr. metamizol, sodná soľ"
+                      placeholder="napr. izotretinoín, dexametazón, metamizol..."
                       className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs font-semibold"
                     />
                   </div>
@@ -1049,7 +1222,7 @@ export default function PrescriptionModule({
                       type="text"
                       value={activeMed.formAndStrength}
                       onChange={e => handleUpdateItemField('formAndStrength', e.target.value)}
-                      placeholder="tbl flm 20x500 mg"
+                      placeholder="cps mol 30x20 mg, tbl 20x4 mg..."
                       className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
                     />
                   </div>
@@ -1075,20 +1248,20 @@ export default function PrescriptionModule({
                       type="text"
                       value={activeMed.dosage}
                       onChange={e => handleUpdateItemField('dosage', e.target.value)}
-                      placeholder="D.S. DOP pp."
-                      className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs font-semibold"
+                      placeholder="D.S. 1-0-0 alebo D.S. 1. deň 16 mg..."
+                      className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs font-semibold text-[#047857]"
                     />
                   </div>
 
                   <div>
                     <label className="block text-[10px] uppercase text-[#8C857B] mb-0.5 font-bold">
-                      Obchodný názov v zátvorke (napr. Novalgin)
+                      Obchodný názov v zátvorke (napr. Roaccutane, Dexamethason)
                     </label>
                     <input
                       type="text"
                       value={activeMed.commercialName}
                       onChange={e => handleUpdateItemField('commercialName', e.target.value)}
-                      placeholder="Novalgin 500 mg"
+                      placeholder="Roaccutane 20 mg"
                       className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
                     />
                   </div>
@@ -1097,57 +1270,232 @@ export default function PrescriptionModule({
             )}
           </div>
 
-          {/* 4. RÝCHLY VÝBER Z KATALÓGU LIEKOV SAY CLINIC */}
+          {/* 4. KATALÓG LIEČIV & SPRÁVA ŠABLÓN */}
           <div className="bg-white border border-[#E8E2D9] rounded-2xl p-4 shadow-xs space-y-3">
-            <span className="text-[10px] uppercase font-bold text-[#C5A059] tracking-wider block border-b border-[#E8E2D9] pb-2">
-              4. Katalóg často predpisovaných liečiv (Kliknutím nahradíte liek)
-            </span>
+            <div className="flex flex-wrap justify-between items-center border-b border-[#E8E2D9] pb-2 gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-bold text-[#C5A059] tracking-wider block">
+                    4. Katalóg liečiv & Správa šablón
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FAF8F5] border border-[#E8E2D9] text-[#2C2A29]">
+                    {filteredCatalog.length} {filteredCatalog.length === 1 ? 'liek' : filteredCatalog.length < 5 ? 'lieky' : 'liekov'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#8C857B]">
+                  Kliknutím vložíte liek do receptu, alebo si vytvorte novú a upravte existujúcu šablónu
+                </p>
+              </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                placeholder="Hľadať v liekoch (napr. Novalgin, Clexane, Augmentin)..."
-                value={catalogSearch}
-                onChange={e => setCatalogSearch(e.target.value)}
-                className="flex-1 border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white"
-              />
-              <select
-                value={catalogFilter}
-                onChange={e => setCatalogFilter(e.target.value)}
-                className="border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29] font-medium"
-              >
-                <option value="all">Všetky kategórie</option>
-                {Object.entries(CATEGORY_LABELS).map(([catKey, catVal]) => (
-                  <option key={catKey} value={catKey}>
-                    {catVal.icon} {catVal.label}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleOpenCreateTemplate}
+                  className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                  title="Vytvoriť novú vlastnú šablónu lieku do katalógu"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Nová šablóna</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleResetAllTemplates}
+                  className="p-1.5 text-[#8C857B] hover:text-[#DC2626] rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                  title="Obnoviť všetky šablóny liekov na predvolené výrobné nastavenia SAY CLINIC"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
-            <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1">
-              {filteredCatalog.slice(0, 10).map((med, idx) => (
-                <div
-                  key={idx}
-                  className="p-2 border border-[#E8E2D9] rounded-xl hover:border-[#C5A059] hover:bg-[#FAF8F5] transition-all flex items-center justify-between text-xs gap-2"
+            {/* Vyhľadávanie a filtre */}
+            <div className="space-y-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Hľadať liek (napr. Isotretinoin, Dexamethason, Novalgin)..."
+                    value={catalogSearch}
+                    onChange={e => setCatalogSearch(e.target.value)}
+                    className="w-full border border-[#E8E2D9] p-2 pr-7 rounded-lg text-xs bg-white"
+                  />
+                  {catalogSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setCatalogSearch('')}
+                      className="absolute right-2 top-2.5 text-[#8C857B] hover:text-[#2C2A29] text-xs cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <select
+                  value={catalogFilter}
+                  onChange={e => setCatalogFilter(e.target.value)}
+                  className="border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29] font-medium"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold text-[#2C2A29] truncate">
-                      {med.commercialName} <span className="font-normal text-[#8C857B]">({med.substance})</span>
-                    </div>
-                    <div className="text-[10px] text-[#8C857B] truncate">
-                      {med.formAndStrength} • {med.packaging} • {med.dosage}
-                    </div>
-                  </div>
+                  <option value="all">Všetky kategórie</option>
+                  {Object.entries(CATEGORY_LABELS).map(([catKey, catVal]) => (
+                    <option key={catKey} value={catKey}>
+                      {catVal.icon} {catVal.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Rýchly prepínač filtrovania vlastných/upravených */}
+              <div className="flex items-center justify-between text-[11px] pt-0.5">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => handleSelectMedicationFromCatalog(med)}
-                    className="px-2.5 py-1 bg-[#047857] hover:bg-[#065f46] text-white rounded-lg text-[11px] font-bold shrink-0 transition-colors cursor-pointer"
+                    onClick={() => setOnlyCustomTemplates(prev => !prev)}
+                    className={`px-2 py-0.5 rounded-md font-semibold border transition-all cursor-pointer flex items-center gap-1 ${
+                      onlyCustomTemplates
+                        ? 'bg-[#047857] text-white border-[#047857]'
+                        : 'bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29] border-[#E8E2D9]'
+                    }`}
                   >
-                    + Vložiť
+                    <Filter className="w-3 h-3" />
+                    <span>Iba moje / upravené šablóny</span>
+                  </button>
+                  {onlyCustomTemplates && (
+                    <button
+                      type="button"
+                      onClick={() => setOnlyCustomTemplates(false)}
+                      className="text-[10px] text-[#8C857B] hover:text-[#2C2A29] underline cursor-pointer"
+                    >
+                      zobraziť všetky
+                    </button>
+                  )}
+                </div>
+
+                <span className="text-[10px] text-[#8C857B] hidden sm:inline">
+                  Tip: kliknutím na ✏️ upravíte šablónu
+                </span>
+              </div>
+            </div>
+
+            {/* Zoznam šablón liekov */}
+            <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+              {filteredCatalog.length === 0 ? (
+                <div className="p-6 text-center border border-dashed border-[#E8E2D9] rounded-xl bg-[#FAF8F5] text-xs text-[#8C857B]">
+                  <p className="font-semibold text-[#2C2A29] mb-1">Žiadne šablóny nevyhovujú vyhľadávaniu.</p>
+                  <p className="mb-3">Môžete si vytvoriť novú šablónu lieku s týmito parametrami.</p>
+                  <button
+                    type="button"
+                    onClick={handleOpenCreateTemplate}
+                    className="px-3 py-1.5 bg-[#047857] text-white rounded-lg text-xs font-bold hover:bg-[#065f46] cursor-pointer"
+                  >
+                    + Vytvoriť novú šablónu
                   </button>
                 </div>
-              ))}
+              ) : (
+                filteredCatalog.map((med) => (
+                  <div
+                    key={med.id}
+                    className={`p-2.5 border rounded-xl transition-all text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                      med.isCustom
+                        ? 'border-emerald-300 bg-emerald-50/30 hover:border-emerald-500'
+                        : med.isModified
+                        ? 'border-amber-300 bg-amber-50/30 hover:border-amber-500'
+                        : 'border-[#E8E2D9] bg-white hover:border-[#C5A059] hover:bg-[#FAF8F5]'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center flex-wrap gap-1.5 mb-1">
+                        <span className="font-bold text-[#2C2A29] text-xs">
+                          {med.commercialName || med.substance}
+                        </span>
+                        {med.substance && med.commercialName && (
+                          <span className="text-[#8C857B] text-[11px]">
+                            ({med.substance})
+                          </span>
+                        )}
+                        {med.isCustom && (
+                          <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-200">
+                            Vlastná šablóna
+                          </span>
+                        )}
+                        {med.isModified && (
+                          <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded border border-amber-200">
+                            Upravená
+                          </span>
+                        )}
+                        {med.category && CATEGORY_LABELS[med.category] && (
+                          <span className="text-[10px] text-[#8C857B]">
+                            {CATEGORY_LABELS[med.category].icon}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-[11px] text-[#555048] flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        {med.formAndStrength && <span>{med.formAndStrength}</span>}
+                        {med.packaging && <span>• {med.packaging}</span>}
+                        {med.dosage && (
+                          <span className="font-bold text-[#047857]">
+                            • {med.dosage}
+                          </span>
+                        )}
+                      </div>
+
+                      {med.notes && (
+                        <div className="text-[10px] text-[#8C857B] italic mt-0.5 line-clamp-1">
+                          {med.notes}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                      {/* Tlačidlo vložiť do receptu */}
+                      <button
+                        type="button"
+                        onClick={() => handleSelectMedicationFromCatalog(med)}
+                        className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                        title="Vložiť tento liek do aktuálneho receptu"
+                      >
+                        + Vložiť
+                      </button>
+
+                      {/* Tlačidlo upraviť šablónu */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenEditTemplate(med, e)}
+                        className="px-2 py-1.5 bg-white hover:bg-[#FAF8F5] border border-[#E8E2D9] text-[#2C2A29] rounded-lg text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                        title="Upraviť parametre a dávkovanie tejto šablóny"
+                      >
+                        <Edit3 className="w-3 h-3 text-[#C5A059]" />
+                        <span>Upraviť</span>
+                      </button>
+
+                      {/* Zmazať (pre vlastné) */}
+                      {med.isCustom && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteTemplate(med, e)}
+                          className="p-1.5 text-[#8C857B] hover:text-[#DC2626] rounded-lg hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors cursor-pointer"
+                          title="Zmazať túto vlastnú šablónu"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {/* Obnoviť na predvolené (pre modifikované) */}
+                      {med.isModified && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteTemplate(med, e)}
+                          className="p-1.5 text-amber-700 hover:text-amber-900 rounded-lg hover:bg-amber-100 border border-amber-200 transition-colors cursor-pointer"
+                          title="Obnoviť pôvodné hodnoty tejto šablóny"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -1546,6 +1894,243 @@ export default function PrescriptionModule({
           onApplyFontToAll={applyFontToAllElements}
           onClose={() => setContextMenu(prev => ({ ...prev, isOpen: false }))}
         />
+      )}
+
+      {/* MODÁLNE OKNO PRE VYTVORENIE A ÚPRAVU ŠABLÓNY LIEKU */}
+      {templateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-[#E8E2D9] max-h-[90vh] overflow-y-auto space-y-4">
+            
+            {/* Hlavička modálu */}
+            <div className="flex justify-between items-start border-b border-[#E8E2D9] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#047857]/10 flex items-center justify-center text-[#047857]">
+                  {editingTemplate ? <Edit3 className="w-5 h-5" /> : <Sparkles className="w-5 h-5 text-[#C5A059]" />}
+                </div>
+                <div>
+                  <h3 className="font-brand font-bold text-base text-[#2C2A29]">
+                    {editingTemplate ? `Úprava šablóny: ${editingTemplate.commercialName || editingTemplate.substance}` : 'Vytvoriť novú šablónu lieku'}
+                  </h3>
+                  <p className="text-xs text-[#8C857B]">
+                    Šablóna sa uloží do katalógu SAY CLINIC pre okamžité znovupoužitie pri predpisovaní receptov.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTemplateModalOpen(false)}
+                className="text-[#8C857B] hover:text-[#2C2A29] p-1.5 rounded-lg hover:bg-[#F3EFEA] transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Formulár šablóny */}
+            <div className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                
+                {/* Obchodný názov */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                    Obchodný názov (napr. Isotretinoin, Dexamethason) *
+                  </label>
+                  <input
+                    type="text"
+                    value={templateForm.commercialName || ''}
+                    onChange={e => setTemplateForm(prev => ({ ...prev, commercialName: e.target.value }))}
+                    placeholder="napr. Isotretinoin 20 mg"
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs font-bold text-[#2C2A29] focus:ring-1 focus:ring-[#047857]"
+                  />
+                </div>
+
+                {/* Účinná látka */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                    Účinná látka / Generikum *
+                  </label>
+                  <input
+                    type="text"
+                    value={templateForm.substance || ''}
+                    onChange={e => setTemplateForm(prev => ({ ...prev, substance: e.target.value }))}
+                    placeholder="napr. izotretinoín, dexametazón"
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs font-semibold text-[#2C2A29] focus:ring-1 focus:ring-[#047857]"
+                  />
+                </div>
+
+                {/* Lieková forma a sila */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                    Lieková forma a sila
+                  </label>
+                  <input
+                    type="text"
+                    value={templateForm.formAndStrength || ''}
+                    onChange={e => setTemplateForm(prev => ({ ...prev, formAndStrength: e.target.value }))}
+                    placeholder="cps mol 30x20 mg, tbl 20x4 mg"
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs"
+                  />
+                </div>
+
+                {/* Balenie */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                    Počet balení (Exp. orig. No)
+                  </label>
+                  <input
+                    type="text"
+                    value={templateForm.packaging || ''}
+                    onChange={e => setTemplateForm(prev => ({ ...prev, packaging: e.target.value }))}
+                    placeholder="Exp. orig. No I (unam)"
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs font-mono font-semibold"
+                  />
+                </div>
+
+              </div>
+
+              {/* Dávkovanie D.S. */}
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                  Dávkovanie a spôsob užitia (D.S.) *
+                </label>
+                <input
+                  type="text"
+                  value={templateForm.dosage || ''}
+                  onChange={e => setTemplateForm(prev => ({ ...prev, dosage: e.target.value }))}
+                  placeholder="D.S. 1-0-0"
+                  className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs font-semibold text-[#047857]"
+                />
+                
+                {/* Rýchle predvoľby dávkovania */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  <span className="text-[10px] text-[#8C857B] font-bold">Rýchle predvoľby:</span>
+                  {[
+                    { label: '1-0-0', val: 'D.S. 1-0-0' },
+                    { label: '1. deň 16 mg, znižovať o 4 mg', val: 'D.S. 1. deň 16 mg, každý ďalší znižovať o 4 mg' },
+                    { label: '1-0-1', val: 'D.S. 1-0-1' },
+                    { label: '1-1-1', val: 'D.S. 1-1-1' },
+                    { label: '0-0-1', val: 'D.S. 0-0-1' },
+                    { label: 'D.S. DOP pp.', val: 'D.S. DOP pp.' },
+                    { label: 'Každých 12 hod.', val: 'D.S. 1 tableta každých 12 hodín po jedle' }
+                  ].map(preset => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setTemplateForm(prev => ({ ...prev, dosage: preset.val }))}
+                      className="px-2 py-0.5 bg-[#FAF8F5] hover:bg-[#E8E2D9] border border-[#E8E2D9] rounded-md text-[10px] font-medium text-[#2C2A29] transition-colors cursor-pointer"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Kategória */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                    Kategória
+                  </label>
+                  <select
+                    value={templateForm.category || 'other'}
+                    onChange={e => setTemplateForm(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white text-[#2C2A29] font-medium"
+                  >
+                    {Object.entries(CATEGORY_LABELS).map(([catKey, catVal]) => (
+                      <option key={catKey} value={catKey}>
+                        {catVal.icon} {catVal.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* ŠÚKL kód */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                    ŠÚKL kód (nepovinné)
+                  </label>
+                  <input
+                    type="text"
+                    value={templateForm.suklCode || ''}
+                    onChange={e => setTemplateForm(prev => ({ ...prev, suklCode: e.target.value }))}
+                    placeholder="napr. 049195"
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs font-mono"
+                  />
+                </div>
+
+                {/* Spôsob úhrady */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                    Úhrada
+                  </label>
+                  <select
+                    value={templateForm.paymentType || 'Hradí pacient'}
+                    onChange={e => setTemplateForm(prev => ({ ...prev, paymentType: e.target.value as any }))}
+                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white text-[#2C2A29] font-medium"
+                  >
+                    <option value="Hradí pacient">Hradí pacient</option>
+                    <option value="Hradí ZP">Hradí ZP</option>
+                    <option value="Čiastočne ZP">Čiastočne ZP</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Poznámky */}
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                  Klinická poznámka / Upozornenie (nepovinné)
+                </label>
+                <input
+                  type="text"
+                  value={templateForm.notes || ''}
+                  onChange={e => setTemplateForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="napr. Užívať s jedlom, teratogénne, kontrolovať pečeňové testy..."
+                  className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Pätka modálu s akciami */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-3 border-t border-[#E8E2D9]">
+              <div>
+                {editingTemplate && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTemplate(editingTemplate)}
+                    className="text-[#DC2626] hover:underline text-xs font-semibold cursor-pointer"
+                  >
+                    {MEDICATION_CATALOG.some(d => d.id === editingTemplate.id) ? 'Vrátiť na pôvodné hodnoty' : 'Zmazať šablónu'}
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTemplateModalOpen(false)}
+                  className="px-3 py-2 bg-white hover:bg-[#F3EFEA] border border-[#E8E2D9] rounded-xl text-xs font-semibold text-[#2C2A29] cursor-pointer"
+                >
+                  Zrušiť
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveTemplateModal(false)}
+                  className="px-3.5 py-2 bg-[#2C2A29] hover:bg-black text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                >
+                  Uložiť do šablón
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveTemplateModal(true)}
+                  className="px-4 py-2 bg-[#047857] hover:bg-[#065f46] text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-xs flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Uložiť & vložiť do receptu</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
       )}
 
     </div>

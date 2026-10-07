@@ -8,9 +8,11 @@ export interface PrescribedMedication {
   latinName?: string; // Latinský ekvivalent (pre kompatibilitu)
   activeSubstance?: string;
   suklCode?: string; // ŠÚKL kód lieku (napr. 007981)
-  category: 'atb' | 'analgetik' | 'lmwh' | 'edema' | 'local' | 'sedative' | 'other';
+  category: 'atb' | 'analgetik' | 'lmwh' | 'edema' | 'local' | 'sedative' | 'dermatology' | 'other' | string;
   paymentType?: 'Hradí pacient' | 'Hradí ZP' | 'Čiastočne ZP';
   notes?: string;
+  isCustom?: boolean;
+  isModified?: boolean;
 }
 
 export interface PrescriptionData {
@@ -259,6 +261,20 @@ export const MEDICATION_CATALOG: PrescribedMedication[] = [
     paymentType: 'Hradí pacient',
     notes: 'Systémová enzymoterapia urýchľujúca vstrebávanie edémov'
   },
+  {
+    id: 'med_dexamethasone_4',
+    substance: 'dexametazón',
+    formAndStrength: 'tbl 20x4 mg',
+    packaging: 'Exp. orig. No I (unam)',
+    dosage: 'D.S. 1. deň 16 mg, každý ďalší znižovať o 4 mg',
+    commercialName: 'Dexamethason 4 mg',
+    latinName: 'Dexamethasonum tbl 4 mg',
+    activeSubstance: 'Dexametazón',
+    suklCode: '014022',
+    category: 'edema',
+    paymentType: 'Hradí pacient',
+    notes: 'Kortikosteroid na pooperačný edém. Zostupná schéma: 1. deň 16 mg (4 tbl), 2. deň 12 mg (3 tbl), 3. deň 8 mg (2 tbl), 4. deň 4 mg (1 tbl), potom ukončiť.'
+  },
 
   // 5. LOKÁLNE PRÍPRAVKY & DERMATOLOGIKÁ
   {
@@ -360,6 +376,36 @@ export const MEDICATION_CATALOG: PrescribedMedication[] = [
     category: 'sedative',
     paymentType: 'Hradí pacient',
     notes: 'Nesedatívne antihistaminikum'
+  },
+
+  // 7. DERMATOLOGIKÁ & RETINOIDY (AKNÉ)
+  {
+    id: 'med_isotretinoin_10',
+    substance: 'izotretinoín',
+    formAndStrength: 'cps mol 30x10 mg',
+    packaging: 'Exp. orig. No I (unam)',
+    dosage: 'D.S. 1-0-0',
+    commercialName: 'Isotretinoin 10 mg (Roaccutane)',
+    latinName: 'Isotretinoinum cps mol 10 mg',
+    activeSubstance: 'Izotretinoín',
+    suklCode: '049195',
+    category: 'dermatology',
+    paymentType: 'Hradí pacient',
+    notes: 'Systémový retinoid (1-0-0 ráno po jedle). Prísne teratogénne, nutná antikoncepcia a kontrola pečeňových testov a lipidov.'
+  },
+  {
+    id: 'med_isotretinoin_20',
+    substance: 'izotretinoín',
+    formAndStrength: 'cps mol 30x20 mg',
+    packaging: 'Exp. orig. No I (unam)',
+    dosage: 'D.S. 1-0-0',
+    commercialName: 'Isotretinoin 20 mg (Roaccutane)',
+    latinName: 'Isotretinoinum cps mol 20 mg',
+    activeSubstance: 'Izotretinoín',
+    suklCode: '049196',
+    category: 'dermatology',
+    paymentType: 'Hradí pacient',
+    notes: 'Systémový retinoid (1-0-0 ráno po jedle). Prísne teratogénne, nutná antikoncepcia a kontrola pečeňových testov a lipidov.'
   }
 ];
 
@@ -367,9 +413,10 @@ export const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = 
   analgetik: { label: 'Analgetiká & Bolesť', icon: '💊' },
   atb: { label: 'Antibiotiká (ATB)', icon: '🛡️' },
   lmwh: { label: 'Tromboprofylaxia (LMWH)', icon: '💉' },
-  edema: { label: 'Protiopuchové & Enzýmy', icon: '🌸' },
+  edema: { label: 'Protiopuchové & Kortikoidy', icon: '🌸' },
   local: { label: 'Lokálne maste & Hojenie', icon: '🧴' },
   sedative: { label: 'Sedatíva & Alergie', icon: '🌙' },
+  dermatology: { label: 'Dermatologiká & Retinoidy', icon: '✨' },
   other: { label: 'Vlastné / Ostatné liečivá', icon: '📋' }
 };
 
@@ -383,4 +430,105 @@ export const CLINIC_PRESCRIPTION_DEFAULTS = {
   doctor2Name: 'MUDr. Zuzana Sroková, MPH',
   doctor2Code: 'A94238120'
 };
+
+export const STORAGE_KEY_CUSTOM_MEDS = 'say_clinic_custom_medications_v2';
+export const STORAGE_KEY_MODIFIED_MEDS = 'say_clinic_modified_medications_v2';
+
+export function getFullMedicationCatalog(): PrescribedMedication[] {
+  if (typeof window === 'undefined') return [...MEDICATION_CATALOG];
+  try {
+    const customStr = localStorage.getItem(STORAGE_KEY_CUSTOM_MEDS);
+    const modifiedStr = localStorage.getItem(STORAGE_KEY_MODIFIED_MEDS);
+    const customList: PrescribedMedication[] = customStr ? JSON.parse(customStr) : [];
+    const modifiedMap: Record<string, Partial<PrescribedMedication>> = modifiedStr ? JSON.parse(modifiedStr) : {};
+
+    // Apply modifications to default catalog
+    const baseList = MEDICATION_CATALOG.map(med => {
+      if (modifiedMap[med.id]) {
+        return {
+          ...med,
+          ...modifiedMap[med.id],
+          isModified: true
+        };
+      }
+      return med;
+    });
+
+    // Custom medications are prepended or combined
+    const markedCustom = customList.map(item => ({ ...item, isCustom: true }));
+    return [...markedCustom, ...baseList];
+  } catch (e) {
+    console.error('Chyba pri načítaní katalógu šablón liekov:', e);
+    return [...MEDICATION_CATALOG];
+  }
+}
+
+export function saveMedicationTemplate(med: PrescribedMedication): PrescribedMedication[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const isExistingDefault = MEDICATION_CATALOG.some(d => d.id === med.id);
+    if (isExistingDefault) {
+      // It's a modified default template
+      const modifiedStr = localStorage.getItem(STORAGE_KEY_MODIFIED_MEDS);
+      const modifiedMap: Record<string, Partial<PrescribedMedication>> = modifiedStr ? JSON.parse(modifiedStr) : {};
+      modifiedMap[med.id] = { ...med, isModified: true };
+      localStorage.setItem(STORAGE_KEY_MODIFIED_MEDS, JSON.stringify(modifiedMap));
+    } else {
+      // It's a custom template
+      const customStr = localStorage.getItem(STORAGE_KEY_CUSTOM_MEDS);
+      const customList: PrescribedMedication[] = customStr ? JSON.parse(customStr) : [];
+      const existingIdx = customList.findIndex(c => c.id === med.id);
+      if (existingIdx >= 0) {
+        customList[existingIdx] = { ...med, isCustom: true };
+      } else {
+        customList.unshift({ ...med, isCustom: true });
+      }
+      localStorage.setItem(STORAGE_KEY_CUSTOM_MEDS, JSON.stringify(customList));
+    }
+    return getFullMedicationCatalog();
+  } catch (e) {
+    console.error('Chyba pri ukladaní šablóny lieku:', e);
+    return getFullMedicationCatalog();
+  }
+}
+
+export function deleteMedicationTemplate(id: string): PrescribedMedication[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const isExistingDefault = MEDICATION_CATALOG.some(d => d.id === id);
+    if (isExistingDefault) {
+      // Revert modification to default
+      const modifiedStr = localStorage.getItem(STORAGE_KEY_MODIFIED_MEDS);
+      if (modifiedStr) {
+        const modifiedMap: Record<string, Partial<PrescribedMedication>> = JSON.parse(modifiedStr);
+        delete modifiedMap[id];
+        localStorage.setItem(STORAGE_KEY_MODIFIED_MEDS, JSON.stringify(modifiedMap));
+      }
+    } else {
+      // Remove from custom list
+      const customStr = localStorage.getItem(STORAGE_KEY_CUSTOM_MEDS);
+      if (customStr) {
+        let customList: PrescribedMedication[] = JSON.parse(customStr);
+        customList = customList.filter(c => c.id !== id);
+        localStorage.setItem(STORAGE_KEY_CUSTOM_MEDS, JSON.stringify(customList));
+      }
+    }
+    return getFullMedicationCatalog();
+  } catch (e) {
+    console.error('Chyba pri mazaní šablóny lieku:', e);
+    return getFullMedicationCatalog();
+  }
+}
+
+export function resetAllMedicationTemplates(): PrescribedMedication[] {
+  if (typeof window === 'undefined') return [...MEDICATION_CATALOG];
+  try {
+    localStorage.removeItem(STORAGE_KEY_CUSTOM_MEDS);
+    localStorage.removeItem(STORAGE_KEY_MODIFIED_MEDS);
+    return [...MEDICATION_CATALOG];
+  } catch (e) {
+    console.error('Chyba pri resete šablón liekov:', e);
+    return [...MEDICATION_CATALOG];
+  }
+}
 
