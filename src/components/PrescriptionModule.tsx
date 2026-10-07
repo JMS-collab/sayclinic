@@ -59,8 +59,8 @@ const BASE_ELEMENT_POSITIONS: Record<string, { top: number; left?: number; right
   birthNumber: { top: 28.5, right: 6.5, width: 30.0, defaultAlign: 'right' },
   // 5. Bydlisko pacienta (riadok 2 pod popisom)
   address: { top: 37.0, left: 6.5, width: 92.0, defaultAlign: 'left' },
-  // 6. Diagnóza MKCH (4 okienka v riadku 3)
-  diagnosis: { top: 43.5, left: 13.0, width: 21.6, defaultAlign: 'left' },
+  // 6. Diagnóza MKCH (kód ochorenia)
+  diagnosis: { top: 43.5, left: 13.0, width: 35.0, defaultAlign: 'left' },
   // 7. Predpísaný liek (1 liek na celý priestor Rp.)
   rp1: { top: 54.0, left: 18.0, width: 80.0, defaultAlign: 'left' },
   // 8. Dátum vystavenia (na rovnakej vertikálnej osi vedľa nápisu Dňa:)
@@ -71,11 +71,11 @@ const BASE_ELEMENT_POSITIONS: Record<string, { top: number; left?: number; right
 
 const ELEMENT_LABELS: Record<string, string> = {
   doctorCode: 'Kód lekára (Hore vpravo)',
-  insurance: 'Zdravotná poisťovňa (4 okienka)',
+  insurance: 'Zdravotná poisťovňa (Kód)',
   patientName: 'Meno pacienta',
   birthNumber: 'Rodné číslo',
   address: 'Bydlisko pacienta',
-  diagnosis: 'Diagnóza MKCH (4 okienka)',
+  diagnosis: 'Diagnóza MKCH (Kód ochorenia)',
   rp1: 'Predpísaný liek Rp. (Účinná látka, forma, balenie, dávkovanie)',
   date: 'Dátum vystavenia receptu (Dňa:)',
   orderNumber: 'Poradové číslo predpisu'
@@ -142,8 +142,8 @@ const DEFAULT_ELEMENT_FONTS: Record<string, ElementFontStyle> = {
     fontSize: 11.0,
     fontWeight: '700',
     fontStyle: 'normal',
-    textTransform: 'none',
-    letterSpacing: 0,
+    textTransform: 'uppercase',
+    letterSpacing: -0.2, // Predvolene zúžený rozostup písmen bez obrovských medzier
     lineHeight: 1.2,
     color: '#000000',
     textAlign: 'left'
@@ -224,8 +224,11 @@ export default function PrescriptionModule({
 
   // Režim tlače: 'preprinted' (tlač IBA textov do zakúpeného tlačiva ŠEVT) alebo 'full' (tlač celého tlačiva vrátane mriežok)
   const [printMode, setPrintMode] = useState<'preprinted' | 'full'>('preprinted');
-  // Náhľad na obrazovke: 'full_preview' (vidieť mriežku aj texty) alebo 'text_only' (iba čistý text)
-  const [previewView, setPreviewView] = useState<'full_preview' | 'text_only'>('full_preview');
+  // Náhľad na obrazovke: 'text_only' (iba čistý text do predtlačeného tlačiva) alebo 'full_preview' (s podkladom a mriežkou ŠEVT)
+  const [previewView, setPreviewView] = useState<'full_preview' | 'text_only'>('text_only');
+  // Formát papiera pre tlač: 'a6' (105x148mm do predtlačeného tlačiva) alebo 'a4' (bežný kancelársky hárok A4)
+  const [printPaperSize, setPrintPaperSize] = useState<'a6' | 'a4'>('a6');
+  const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [previewZoom, setPreviewZoom] = useState<number>(100);
 
   // Posuny jednotlivých prvkov (X, Y v mm)
@@ -602,52 +605,105 @@ export default function PrescriptionModule({
     return result;
   };
 
-  // Spustenie tlače s izolovaným A6 formátom (105mm x 148mm)
+  // Spustenie tlače s garantovaným formátom A6 (105mm × 148mm) alebo voliteľne A4
   const handlePrint = () => {
     if (onPrintRequested) {
       onPrintRequested();
       return;
     }
 
-    // Pridanie tried pre cielenú tlač A6 bez ovplyvnenia A4 dokumentov
+    setIsPrinting(true);
     document.body.classList.add('print-prescription-a6');
-    if (printMode === 'preprinted') {
-      document.body.classList.add('print-mode-preprinted');
+    document.body.classList.add('print-mode-preprinted');
+    if (printPaperSize === 'a4') {
+      document.body.classList.add('print-paper-a4');
     } else {
-      document.body.classList.add('print-mode-full');
+      document.body.classList.add('print-paper-a6');
     }
 
-    // Dočasný štýl pre @page A6 iba počas tlače receptu
+    // Odstránenie starého štýlu, ak existuje
+    const existingStyle = document.getElementById('say-prescription-a6-page-style');
+    if (existingStyle) existingStyle.remove();
+
     const tempStyle = document.createElement('style');
     tempStyle.id = 'say-prescription-a6-page-style';
-    tempStyle.innerHTML = `
-      @page {
-        size: 105mm 148mm portrait !important;
-        margin: 0mm !important;
-      }
-    `;
+
+    if (printPaperSize === 'a4') {
+      tempStyle.innerHTML = `
+        @page {
+          size: A4 portrait;
+          margin: 15mm 20mm;
+        }
+        html, body {
+          width: 100% !important;
+          height: auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+        }
+        #sevt-a6-prescription-document {
+          width: 105mm !important;
+          height: 148mm !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+          border: none !important;
+        }
+      `;
+    } else {
+      tempStyle.innerHTML = `
+        @page {
+          size: 105mm 148mm portrait;
+          margin: 0;
+        }
+        @page a6-prescription {
+          size: 105mm 148mm portrait;
+          margin: 0;
+        }
+        html, body {
+          width: 105mm !important;
+          height: 148mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+          overflow: hidden !important;
+        }
+        #sevt-a6-prescription-document {
+          page: a6-prescription !important;
+          width: 105mm !important;
+          height: 148mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+      `;
+    }
     document.head.appendChild(tempStyle);
 
     const cleanup = () => {
-      document.body.classList.remove('print-prescription-a6', 'print-mode-preprinted', 'print-mode-full');
+      document.body.classList.remove('print-prescription-a6', 'print-mode-preprinted', 'print-mode-full', 'print-paper-a4', 'print-paper-a6');
       const s = document.getElementById('say-prescription-a6-page-style');
       if (s) s.remove();
+      setIsPrinting(false);
       window.removeEventListener('afterprint', cleanup);
     };
 
     window.addEventListener('afterprint', cleanup, { once: true });
-    window.print();
-    setTimeout(cleanup, 2500);
+    
+    // Oneskorenie 250ms pre spoľahlivú registráciu @page štýlu v tlačovom jadre Chromium pred vyvolaním dialógu
+    setTimeout(() => {
+      window.print();
+    }, 250);
+    setTimeout(cleanup, 4000);
   };
 
-  // Export do PDF s podporou oboch režimov (čistá dotlač do ŠEVT alebo kompletné tlačivo s mriežkou)
+  // Export do A6 PDF (presný rozmer 105 × 148 mm)
   const handleDownloadPdf = async (explicitMode?: 'preprinted' | 'full') => {
     if (!printRef.current) return;
     const targetMode = explicitMode || printMode;
     setGeneratingPdf(true);
     try {
-      const modeLabel = targetMode === 'preprinted' ? 'Dotlac_SEVT' : 'Cely_Recept';
-      const filename = generatePdfFilename(`Lekarsky_Recept_A6_${modeLabel}`, patientName, prescriptionDate);
+      const filename = generatePdfFilename('Lekarsky_Recept_A6', patientName, prescriptionDate);
       await exportElementToPdf(printRef.current, filename, {
         format: 'a6',
         prescriptionMode: targetMode,
@@ -851,9 +907,8 @@ export default function PrescriptionModule({
     return matchesCategory && matchesCustom && matchesSearch;
   });
 
-  // Rozbité znaky pre okienka
+  // Rozbité znaky pre okienka zdravotnej poisťovne
   const insBoxes = getBoxChars(insuranceCode, 4);
-  const dgBoxes = getBoxChars(diagnosisCode, 4);
 
   // Štýly pre premiestniteľný prvok
   const getElementStyle = (key: string) => {
@@ -935,65 +990,6 @@ export default function PrescriptionModule({
         </div>
       )}
 
-      {/* HORNÝ OVLÁDACÍ PANEL PRE VOĽBU REŽIMU TLAČE */}
-      <div className="bg-white p-4 rounded-2xl border border-[#E8E2D9] shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xl">💊</span>
-            <h3 className="font-brand text-base font-bold text-[#2C2A29] uppercase">
-              Lekársky recept ŠEVT 14 282 2s (A6)
-            </h3>
-            <span className="bg-[#047857]/10 text-[#047857] text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-[#047857]/20">
-              1 liek na recept
-            </span>
-          </div>
-          <p className="text-xs text-[#8C857B] mt-0.5">
-            Presné rozloženie podľa oficiálneho slovenského tlačiva ŠEVT (105 × 148 mm). Možnosť manuálneho posunu textu myšou.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Prepínač režimu tlače */}
-          <div className="bg-[#FBF9F6] p-1 rounded-xl border border-[#E8E2D9] flex items-center text-xs">
-            <button
-              type="button"
-              onClick={() => handlePrintModeChange('preprinted')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                printMode === 'preprinted'
-                  ? 'bg-[#047857] text-white shadow-xs'
-                  : 'text-[#8C857B] hover:text-[#2C2A29]'
-              }`}
-              title="Tlačí LEN text do okienok zakúpeného predtlačeného tlačiva ŠEVT (bez duplicitných čiar)"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Tlač do zakúpeného tlačiva (iba text)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handlePrintModeChange('full')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                printMode === 'full'
-                  ? 'bg-[#2C2A29] text-white shadow-xs'
-                  : 'text-[#8C857B] hover:text-[#2C2A29]'
-              }`}
-              title="Tlačí kompletné tlačivo vrátane všetkých mriežok a textov ŠEVT (na čistý biely papier)"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Tlač celého tlačiva (s mriežkou)</span>
-            </button>
-          </div>
-
-          {/* Vzorové dáta */}
-          <button
-            type="button"
-            onClick={handleLoadSampleData}
-            className="px-3 py-2 bg-[#FBF9F6] hover:bg-[#E8E2D9] border border-[#E8E2D9] rounded-xl text-xs font-semibold text-[#2C2A29] transition-colors cursor-pointer"
-            title="Načítať vzorový recept (Novalgin / Metamizol, Michaela Krigovská, Z411)"
-          >
-            📋 Vzor
-          </button>
-        </div>
-      </div>
 
       {/* HLAVNÁ ČASŤ - FORMULÁR VĽAVO, NÁHĽAD ŠEVT A6 VPRAVO */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 print:block">
@@ -1133,22 +1129,78 @@ export default function PrescriptionModule({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">
-                  Diagnóza MKCH (4 znaky do okienok)
-                </label>
-                <div className="flex items-center gap-2">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold">
+                    Diagnóza MKCH (Kód ochorenia)
+                  </label>
+                  <span className="font-mono text-[10px] font-bold text-[#047857]">
+                    Medzery písmen: {elementFonts.diagnosis?.letterSpacing !== undefined ? `${elementFonts.diagnosis.letterSpacing.toFixed(2)} mm` : '-0.20 mm'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="text"
-                    maxLength={4}
+                    maxLength={8}
                     value={diagnosisCode}
                     onChange={e => setDiagnosisCode(e.target.value.toUpperCase())}
-                    placeholder="Z411"
-                    className="w-28 border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs font-bold tracking-widest text-center uppercase"
+                    placeholder="L70.0"
+                    className="w-28 border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs font-bold tracking-tight text-center uppercase"
                   />
-                  <span className="text-[10px] text-[#8C857B]">
-                    (napr. Z411, M545, K210, J069)
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => updateElementFont('diagnosis', { letterSpacing: Math.round(((elementFonts.diagnosis?.letterSpacing ?? -0.2) - 0.1) * 100) / 100 })}
+                      className="px-2 py-1 bg-[#FBF9F6] hover:bg-[#E8E2D9] border border-[#E8E2D9] rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                      title="Zmenšiť medzery medzi písmenami diagnózy"
+                    >
+                      -
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateElementFont('diagnosis', { letterSpacing: Math.round(((elementFonts.diagnosis?.letterSpacing ?? -0.2) + 0.1) * 100) / 100 })}
+                      className="px-2 py-1 bg-[#FBF9F6] hover:bg-[#E8E2D9] border border-[#E8E2D9] rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                      title="Zväčšiť medzery medzi písmenami diagnózy"
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateElementFont('diagnosis', { letterSpacing: -0.5 })}
+                      className={`px-2 py-1 rounded-lg border text-[10px] font-semibold transition-colors cursor-pointer ${
+                        elementFonts.diagnosis?.letterSpacing === -0.5
+                          ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
+                          : 'bg-[#FBF9F6] border-[#E8E2D9] text-[#2C2A29] hover:bg-[#E8E2D9]'
+                      }`}
+                      title="Veľmi tesný rozostup znakov"
+                    >
+                      Veľmi tesné
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateElementFont('diagnosis', { letterSpacing: -0.2 })}
+                      className={`px-2 py-1 rounded-lg border text-[10px] font-semibold transition-colors cursor-pointer ${
+                        (elementFonts.diagnosis?.letterSpacing ?? -0.2) === -0.2
+                          ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
+                          : 'bg-[#FBF9F6] border-[#E8E2D9] text-[#2C2A29] hover:bg-[#E8E2D9]'
+                      }`}
+                      title="Kompaktný rozostup (odporúčané)"
+                    >
+                      Tesné
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateElementFont('diagnosis', { letterSpacing: 0 })}
+                      className={`px-2 py-1 rounded-lg border text-[10px] font-semibold transition-colors cursor-pointer ${
+                        elementFonts.diagnosis?.letterSpacing === 0
+                          ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
+                          : 'bg-[#FBF9F6] border-[#E8E2D9] text-[#2C2A29] hover:bg-[#E8E2D9]'
+                      }`}
+                      title="Štandardný rozostup"
+                    >
+                      Normálne
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1499,38 +1551,68 @@ export default function PrescriptionModule({
             </div>
           </div>
 
-          {/* AKČNÉ TLAČIDLÁ PRE ULOŽENIE A PDF */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <button
-              type="button"
-              onClick={handleSaveToPatientFolder}
-              className="bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs uppercase tracking-wider py-3 px-4 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Check className="w-4 h-4" />
-              <span>Uložiť do karty pacienta</span>
-            </button>
+          {/* VÝBER PAPIERA PRE TLAČ A AKČNÉ TLAČIDLÁ */}
+          <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-2xl p-3.5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-[#E8E2D9] pb-2.5">
+              <span className="text-[10px] uppercase font-bold text-[#8C857B]">Formát papiera pre tlač:</span>
+              <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-[#E8E2D9]">
+                <button
+                  type="button"
+                  onClick={() => setPrintPaperSize('a6')}
+                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                    printPaperSize === 'a6'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'text-[#8C857B] hover:text-[#2C2A29]'
+                  }`}
+                  title="Tlač do originálneho predtlačeného receptu A6 (105 × 148 mm) v podávači"
+                >
+                  Formát A6 (predvolené)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintPaperSize('a4')}
+                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                    printPaperSize === 'a4'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'text-[#8C857B] hover:text-[#2C2A29]'
+                  }`}
+                  title="Tlač na bežný kancelársky hárok A4 (pre tlačiarne bez podávača A6)"
+                >
+                  Hárok A4
+                </button>
+              </div>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
-                onClick={() => handleDownloadPdf('preprinted')}
-                disabled={generatingPdf}
-                className="bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title="Stiahnuť A6 PDF pre čistú dotlač textu do zakúpeného tlačiva ŠEVT (bez duplicitných čiar a rámčekov)"
+                onClick={handleSaveToPatientFolder}
+                className="bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>📄</span>
-                <span>{generatingPdf ? 'Generujem...' : 'PDF Dotlač ŠEVT'}</span>
+                <Check className="w-4 h-4" />
+                <span>Uložiť do karty</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleDownloadPdf('full')}
+                onClick={() => handleDownloadPdf()}
                 disabled={generatingPdf}
                 className="bg-[#2C2A29] hover:bg-black text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title="Stiahnuť kompletný A6 recept s mriežkou a textami (vhodné na čistý biely papier)"
+                title="Stiahnuť recept v presnom formáte A6 PDF (105 × 148 mm)"
               >
-                <span>🖨️</span>
-                <span>{generatingPdf ? 'Generujem...' : 'PDF Celý recept'}</span>
+                <Download className="w-4 h-4 text-[#C5A059]" />
+                <span>{generatingPdf ? 'Generujem...' : 'Stiahnuť A6 PDF'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                disabled={isPrinting}
+                className="bg-[#C5A059] hover:bg-[#b08d47] text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title={`Vytlačiť recept vo formáte ${printPaperSize === 'a6' ? 'A6 (105 × 148 mm)' : 'A4 (hárok)'}`}
+              >
+                <Printer className="w-4 h-4" />
+                <span>{isPrinting ? 'Pripravujem tlač...' : `Tlačiť recept (${printPaperSize.toUpperCase()})`}</span>
               </button>
             </div>
           </div>
@@ -1542,97 +1624,60 @@ export default function PrescriptionModule({
         {/* ======================================================= */}
         <div className="lg:col-span-6 flex flex-col items-center">
           
-          {/* LIŠTA S NÁPOVEDOU A PREPÍNAČMI */}
-          <div className="w-full bg-[#FAF8F5] border border-[#E8E2D9] rounded-2xl p-3 mb-3 shadow-xs print:hidden flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <span className="p-1 bg-[#C5A059]/20 text-[#C5A059] rounded">
-                <Move className="w-3.5 h-3.5" />
-              </span>
-              <span className="text-xs text-[#2C2A29]">
-                <strong className="font-bold">Posun:</strong> potiahnite myšou &nbsp;|&nbsp; <strong className="font-bold">Písmo:</strong> pravé tlačidlo
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs">
-              {/* Prepínač náhľadu */}
+          {/* HLAVIČKA NÁHĽADU S PREPÍNAČOM ZOBRAZENIA */}
+          <div className="w-full flex flex-wrap items-center justify-between gap-2 pb-2.5 text-xs text-[#8C857B] print:hidden">
+            <div className="flex items-center gap-1 bg-[#F5F2EB] p-1 rounded-xl border border-[#E8E2D9]">
               <button
                 type="button"
-                onClick={() => setPreviewView(previewView === 'full_preview' ? 'text_only' : 'full_preview')}
-                className="px-2.5 py-1.5 bg-white border border-[#E8E2D9] hover:bg-[#F3EFEA] rounded-lg font-bold text-[#8C857B] hover:text-[#2C2A29] transition-colors cursor-pointer"
-                title="Prepnúť náhľad"
+                onClick={() => setPreviewView('text_only')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  previewView === 'text_only'
+                    ? 'bg-[#2C2A29] text-white shadow-xs'
+                    : 'text-[#8C857B] hover:text-[#2C2A29]'
+                }`}
+                title="Zobraziť iba texty, ktoré sa vytlačia do predtlačeného tlačiva ŠEVT (bez čiar a mriežok)"
               >
-                {previewView === 'full_preview' ? 'Iba čistý text' : 'Náhľad s mriežkou'}
+                <span>Iba čistý text (odporúčané)</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setPreviewView('full_preview')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  previewView === 'full_preview'
+                    ? 'bg-[#2C2A29] text-white shadow-xs'
+                    : 'text-[#8C857B] hover:text-[#2C2A29]'
+                }`}
+                title="Zobraziť maketu tlačiva ŠEVT 14 282 2s s mriežkou"
+              >
+                <span>Podklad ŠEVT</span>
+              </button>
+            </div>
 
-              {/* Zoom lupa */}
-              <div className="flex items-center bg-white px-1.5 py-1 rounded-lg border border-[#E8E2D9] gap-1">
-                <span className="text-[10px] font-bold text-[#8C857B] uppercase">Lupa:</span>
-                {[90, 100, 115].map(z => (
-                  <button
-                    key={z}
-                    type="button"
-                    onClick={() => setPreviewZoom(z)}
-                    className={`px-1.5 py-0.5 text-[10px] font-bold rounded cursor-pointer ${
-                      previewZoom === z
-                        ? 'bg-[#2C2A29] text-white'
-                        : 'text-[#8C857B] hover:text-[#2C2A29]'
-                    }`}
-                  >
-                    {z}%
-                  </button>
-                ))}
-              </div>
-
-              {/* Reset všetkých pozícií a písiem */}
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-[#8C857B] text-[11px]">
+                A6 (105 × 148 mm)
+              </span>
               <button
                 type="button"
                 onClick={handleResetAll}
-                className="px-2 py-1.5 bg-white border border-[#E8E2D9] hover:bg-red-50 text-[#8C857B] hover:text-[#DC2626] rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
-                title="Vrátiť všetky pozície a písma na pôvodné výrobné nastavenia ŠEVT"
+                className="text-[#8C857B] hover:text-[#DC2626] font-semibold flex items-center gap-1 transition-colors cursor-pointer text-xs"
+                title="Obnoviť predvolené pozície textov"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>Reset</span>
-              </button>
-
-              {/* Tlačidlo exportu A6 PDF */}
-              <button
-                type="button"
-                onClick={() => handleDownloadPdf()}
-                disabled={generatingPdf}
-                className="bg-[#2C2A29] hover:bg-black text-white text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title={`Stiahnuť A6 PDF - Režim: ${printMode === 'preprinted' ? 'Iba text do predtlačeného ŠEVT' : 'Kompletný recept s mriežkou'}`}
-              >
-                <Download className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>{generatingPdf ? 'Generujem...' : `PDF A6 (${printMode === 'preprinted' ? 'Dotlač' : 'Celé'})`}</span>
-              </button>
-
-              {/* Tlačidlo tlače */}
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="bg-[#047857] hover:bg-[#065f46] text-white text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
-                title={`Vytlačiť A6 - Režim: ${printMode === 'preprinted' ? 'Iba text do predtlačeného ŠEVT' : 'Kompletný recept s mriežkou'}`}
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Tlačiť A6 ({printMode === 'preprinted' ? 'Dotlač' : 'Celé'})</span>
+                <span>Resetovať pozície</span>
               </button>
             </div>
           </div>
 
-          {/* ZOOM KONTAJNER PRE PREHĽADNÝ NÁHĽAD A6 TLAČIVA */}
-          <div 
-            className="transition-transform duration-150 origin-top flex justify-center"
-            style={{
-              transform: previewZoom !== 100 ? `scale(${previewZoom / 100})` : undefined,
-              marginBottom: previewZoom > 100 ? `${148 * ((previewZoom / 100) - 1)}mm` : undefined
-            }}
-          >
-            {/* DOKUMENT: OFICIÁLNE LEKÁRSKE TLAČIVO ŠEVT 14 282 2s (A6: 105mm x 148mm) */}
+          <div className="flex justify-center">
+            {/* DOKUMENT: LEKÁRSKY PREDPIS (A6: 105mm x 148mm) */}
             <div 
               id="sevt-a6-prescription-document"
               ref={printRef}
               className={`bg-[#FFFFFF] text-[#000000] relative select-none transition-all ${
-                previewView === 'text_only' ? 'border border-dashed border-[#C5A059]' : 'border-2 border-[#000000] shadow-md'
+                previewView === 'text_only' 
+                  ? 'border border-[#D1C9BE] shadow-md rounded-xs' 
+                  : 'border-2 border-[#000000] shadow-md'
               }`}
               style={{
                 width: '105mm',
@@ -1641,6 +1686,12 @@ export default function PrescriptionModule({
                 overflow: 'hidden'
               }}
             >
+              {/* Odznak pre čistý text (viditeľný iba na obrazovke) */}
+              {previewView === 'text_only' && (
+                <div className="absolute top-1.5 right-2 text-[8px] font-mono text-[#8C857B]/60 uppercase tracking-widest select-none pointer-events-none print:hidden">
+                  Recept • Iba tlačený text
+                </div>
+              )}
 
               {/* VODIDLÁ / OFICIÁLNE TLAČIVO ŠEVT 14 282 2s (Zobrazuje sa pri previewView === 'full_preview' a tlači s mriežkou) */}
               <div className={`sevt-guide-grid absolute inset-0 pointer-events-none ${previewView === 'text_only' ? 'hidden' : 'block'}`}>
@@ -1807,15 +1858,18 @@ export default function PrescriptionModule({
                 {/* 4. BYDLISKO */}
                 {renderDraggableItem('address', address)}
 
-                {/* 5. DIAGNÓZA 1 (MKCH-10 v 4 okienkach vedľa Dg.) */}
+                {/* 5. DIAGNÓZA (MKCH-10 kód s kompaktným rozostupom písmen bez zbytočných medzier) */}
                 {renderDraggableItem('diagnosis', (
-                  <div className="flex items-center gap-[1.2mm]">
-                    {dgBoxes.map((char, i) => (
-                      <div key={i} className="w-[4.5mm] h-[5.5mm] flex items-center justify-center font-bold text-center leading-none">
-                        {char}
-                      </div>
-                    ))}
-                  </div>
+                  <span 
+                    className="font-bold whitespace-nowrap inline-block leading-none"
+                    style={{
+                      letterSpacing: elementFonts.diagnosis?.letterSpacing !== undefined 
+                        ? `${elementFonts.diagnosis.letterSpacing}mm` 
+                        : '-0.2mm'
+                    }}
+                  >
+                    {diagnosisCode || 'Z41.1'}
+                  </span>
                 ))}
 
                 {/* 6. PREDPÍSANÝ LIEK (1 LIEK NA CELÝ PRIESTOR RP.) */}

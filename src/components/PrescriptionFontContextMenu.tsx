@@ -351,18 +351,68 @@ export default function PrescriptionFontContextMenu({
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
           <div className="flex justify-between items-center mb-1">
-            <span className="text-[10px] uppercase font-bold text-[#8C857B]">Rozostup</span>
-            <span className="font-mono text-[10px] text-[#047857]">{fontStyle.letterSpacing} mm</span>
+            <span className="text-[10px] uppercase font-bold text-[#8C857B]">Rozostup písmen</span>
+            <span className="font-mono text-[10px] text-[#047857]">{fontStyle.letterSpacing.toFixed(2)} mm</span>
           </div>
           <input
             type="range"
-            min="-0.5"
-            max="4.0"
-            step="0.2"
+            min="-1.5"
+            max="3.0"
+            step="0.05"
             value={fontStyle.letterSpacing}
-            onChange={(e) => onUpdateFont(elementKey, { letterSpacing: parseFloat(e.target.value) })}
+            onChange={(e) => onUpdateFont(elementKey, { letterSpacing: Math.round(parseFloat(e.target.value) * 100) / 100 })}
             className="w-full accent-[#C5A059] cursor-pointer"
           />
+          <div className="flex items-center justify-between gap-1 mt-1 text-[9px]">
+            <button
+              type="button"
+              onClick={() => onUpdateFont(elementKey, { letterSpacing: -0.5 })}
+              className={`px-1 py-0.5 rounded border transition-colors cursor-pointer ${
+                fontStyle.letterSpacing === -0.5
+                  ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
+                  : 'bg-[#FBF9F6] border-[#E8E2D9] text-[#2C2A29] hover:bg-[#E8E2D9]'
+              }`}
+              title="Veľmi tesné medzery"
+            >
+              -0.5mm
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdateFont(elementKey, { letterSpacing: -0.2 })}
+              className={`px-1 py-0.5 rounded border transition-colors cursor-pointer ${
+                fontStyle.letterSpacing === -0.2
+                  ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
+                  : 'bg-[#FBF9F6] border-[#E8E2D9] text-[#2C2A29] hover:bg-[#E8E2D9]'
+              }`}
+              title="Kompaktné tesné medzery"
+            >
+              -0.2mm
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdateFont(elementKey, { letterSpacing: 0 })}
+              className={`px-1 py-0.5 rounded border transition-colors cursor-pointer ${
+                fontStyle.letterSpacing === 0
+                  ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
+                  : 'bg-[#FBF9F6] border-[#E8E2D9] text-[#2C2A29] hover:bg-[#E8E2D9]'
+              }`}
+              title="Štandardné medzery"
+            >
+              0mm
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdateFont(elementKey, { letterSpacing: 0.3 })}
+              className={`px-1 py-0.5 rounded border transition-colors cursor-pointer ${
+                fontStyle.letterSpacing === 0.3
+                  ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
+                  : 'bg-[#FBF9F6] border-[#E8E2D9] text-[#2C2A29] hover:bg-[#E8E2D9]'
+              }`}
+              title="Voľnejšie medzery"
+            >
+              +0.3mm
+            </button>
+          </div>
         </div>
 
         <div>

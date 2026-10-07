@@ -26,12 +26,9 @@
 /* ========================================================================= */
 /* UNIFIED PRINT ARCHITECTURE - SAY CLINIC (A4 DOKUMENTY & A6 RECEPTY)       */
 /* ========================================================================= */
+
 @media print {
-  /* Predvolený formát pre všetky lekárske správy, protokoly a plány: A4 */
-  @page {
-    size: A4 portrait;
-    margin: 10mm 12mm;
-  }
+  /* Globálne skrytie nepotrebných prvkov rozhrania */
 
   /* Globálne skrytie nepotrebných prvkov rozhrania */
   header, 

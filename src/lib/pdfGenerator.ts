@@ -217,7 +217,7 @@ export async function exportElementToPdf(
     const pdf = new jsPDF({
       orientation: 'p',
       unit: 'mm',
-      format: isA6 ? 'a6' : 'a4',
+      format: isA6 ? [105, 148] : 'a4',
       compress: true,
     });
 
