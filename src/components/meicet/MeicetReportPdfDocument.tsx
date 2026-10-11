@@ -5,10 +5,21 @@ import { MeicetAnalysisResult } from '@/types/meicet';
 
 interface MeicetReportPdfDocumentProps {
   report: MeicetAnalysisResult;
+  selectedTier?: 'high_end' | 'mid_end';
 }
 
-export function MeicetReportPdfDocument({ report }: MeicetReportPdfDocumentProps) {
+export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPdfDocumentProps) {
   const { metrics, anamnesis, clinicalSynthesis, annualSchedule, skincareRoutine, scarProtocol, milestones } = report;
+
+  const activeTier = selectedTier || skincareRoutine.selectedTier || 'high_end';
+  const routineData = activeTier === 'mid_end' && skincareRoutine.midEnd
+    ? skincareRoutine.midEnd
+    : (skincareRoutine.highEnd || skincareRoutine);
+  const morningProducts = routineData.morning || skincareRoutine.morning;
+  const eveningProducts = routineData.evening || skincareRoutine.evening;
+  const tierTitle = activeTier === 'mid_end'
+    ? 'Mid-End (La Roche-Posay, CeraVe, Vichy)'
+    : 'High-End (SkinCeuticals)';
 
   const formatDate = (isoStr?: string) => {
     if (!isoStr) return new Date().toLocaleDateString('sk-SK');
@@ -234,26 +245,34 @@ export function MeicetReportPdfDocument({ report }: MeicetReportPdfDocumentProps
           </div>
 
           <div className="text-[9px] text-[#8C857B]">
-            <strong>Klinická terapia na SAY CLINIC:</strong> {scarProtocol.clinicalLaserTherapy.recommendedProcedures.join(' | ')}
+            <strong>Klinická terapia na SAY CLINIC (Cievny laser):</strong> {scarProtocol.clinicalLaserTherapy.recommendedProcedures.join(' | ')}
           </div>
         </div>
       )}
 
       {/* DENNÁ SKINCARE RUTINA */}
       <div className="mb-6 print-avoid-break">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-3">
-          5. Personalizovaná domáca dermokozmetická rutina (Ráno & Večer)
-        </h4>
+        <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-1 mb-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#C5A059]">
+            5. Personalizovaná domáca dermokozmetická rutina — {tierTitle}
+          </h4>
+          <span className="text-[9px] font-bold text-[#8C857B] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E8E2D9]">
+            {routineData.totalEstimatedPrice ? `Sada z cenníka: ${routineData.totalEstimatedPrice} €` : 'Z nášho cenníka'}
+          </span>
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <span className="text-[11px] font-bold text-amber-800 block mb-1.5 uppercase tracking-wide">☀️ Ranná rutina</span>
             <div className="space-y-1.5">
-              {skincareRoutine.morning.map(item => (
+              {morningProducts.map(item => (
                 <div key={item.step} className="p-2 rounded border border-[#E8E2D9] bg-[#FAF8F5] text-[10px]">
                   <div className="flex justify-between items-start font-bold">
                     <span>{item.step}. {item.category}</span>
-                    <span className="text-[#C5A059] text-[9px]">{item.brand}</span>
+                    <div className="text-right">
+                      <span className="text-[#C5A059] text-[9px]">{item.brand}</span>
+                      {item.price ? <span className="text-[9px] font-bold text-[#2C2A29] ml-1.5">({item.price} €)</span> : null}
+                    </div>
                   </div>
                   <p className="text-[#2C2A29] font-medium">{item.productName}</p>
                   <p className="text-[9px] text-[#8C857B] italic">{item.activeIngredients}</p>
@@ -266,11 +285,14 @@ export function MeicetReportPdfDocument({ report }: MeicetReportPdfDocumentProps
           <div>
             <span className="text-[11px] font-bold text-indigo-900 block mb-1.5 uppercase tracking-wide">🌙 Večerná rutina</span>
             <div className="space-y-1.5">
-              {skincareRoutine.evening.map(item => (
+              {eveningProducts.map(item => (
                 <div key={item.step} className="p-2 rounded border border-[#E8E2D9] bg-[#FAF8F5] text-[10px]">
                   <div className="flex justify-between items-start font-bold">
                     <span>{item.step}. {item.category}</span>
-                    <span className="text-[#C5A059] text-[9px]">{item.brand}</span>
+                    <div className="text-right">
+                      <span className="text-[#C5A059] text-[9px]">{item.brand}</span>
+                      {item.price ? <span className="text-[9px] font-bold text-[#2C2A29] ml-1.5">({item.price} €)</span> : null}
+                    </div>
                   </div>
                   <p className="text-[#2C2A29] font-medium">{item.productName}</p>
                   <p className="text-[9px] text-[#8C857B] italic">{item.activeIngredients}</p>
@@ -280,6 +302,10 @@ export function MeicetReportPdfDocument({ report }: MeicetReportPdfDocumentProps
             </div>
           </div>
         </div>
+
+        <p className="text-[9px] text-[#8C857B] italic mt-2 border-t border-gray-100 pt-1">
+          * V cenníku kliniky SAY CLINIC sú k dispozícii obe línie: prémiová High-End (SkinCeuticals) aj dostupná Mid-End (La Roche-Posay, CeraVe, Vichy).
+        </p>
       </div>
 
       {/* KONTROLNÉ MÍĽNIKY MEICET */}

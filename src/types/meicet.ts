@@ -90,6 +90,28 @@ export interface MeicetSeasonalSchedule {
   treatments: MeicetTreatmentPlanItem[];
 }
 
+export type SkincareTier = 'high_end' | 'mid_end';
+
+export interface MeicetSkincareTierRoutine {
+  tier: SkincareTier;
+  tierLabel: string; // 'High-End (SkinCeuticals)' | 'Mid-End (La Roche-Posay, CeraVe, Vichy)'
+  brandDescription: string;
+  totalEstimatedPrice?: number;
+  morning: MeicetSkincareProduct[];
+  evening: MeicetSkincareProduct[];
+  weeklyCare: string[];
+}
+
+export interface MeicetSkincareRoutine {
+  selectedTier?: SkincareTier;
+  highEnd?: MeicetSkincareTierRoutine;
+  midEnd?: MeicetSkincareTierRoutine;
+  morning: MeicetSkincareProduct[];
+  evening: MeicetSkincareProduct[];
+  weeklyCare: string[];
+  seasonalTips: string;
+}
+
 export interface MeicetSkincareProduct {
   step: number;
   category: string;
@@ -153,13 +175,8 @@ export interface MeicetAnalysisResult {
   // 12-mesačný ročný plán ošetrení
   annualSchedule: MeicetSeasonalSchedule[];
   
-  // Ranná a večerná skincare rutina
-  skincareRoutine: {
-    morning: MeicetSkincareProduct[];
-    evening: MeicetSkincareProduct[];
-    weeklyCare: string[];
-    seasonalTips: string;
-  };
+  // Ranná a večerná skincare rutina s možnosťou High-End (SkinCeuticals) a Mid-End (La Roche-Posay, CeraVe, Vichy)
+  skincareRoutine: MeicetSkincareRoutine;
   
   // Špecifický protokol starostlivosti o jazvy
   scarProtocol: MeicetScarCareProtocol;

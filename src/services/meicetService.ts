@@ -77,7 +77,16 @@ export class MeicetService {
       });
     });
 
-    const morningRoutine: CosmeticRoutineItem[] = result.skincareRoutine.morning.map(item => ({
+    const activeTier = result.skincareRoutine?.selectedTier || 'high_end';
+    const activeRoutine = activeTier === 'mid_end' && result.skincareRoutine?.midEnd
+      ? result.skincareRoutine.midEnd
+      : (result.skincareRoutine?.highEnd || result.skincareRoutine);
+
+    const morningSource = activeRoutine?.morning || result.skincareRoutine?.morning || [];
+    const eveningSource = activeRoutine?.evening || result.skincareRoutine?.evening || [];
+    const weeklySource = activeRoutine?.weeklyCare || result.skincareRoutine?.weeklyCare || [];
+
+    const morningRoutine: CosmeticRoutineItem[] = morningSource.map(item => ({
       step: item.step,
       category: item.category,
       productName: item.productName,
@@ -87,7 +96,7 @@ export class MeicetService {
       price: item.price
     }));
 
-    const eveningRoutine: CosmeticRoutineItem[] = result.skincareRoutine.evening.map(item => ({
+    const eveningRoutine: CosmeticRoutineItem[] = eveningSource.map(item => ({
       step: item.step,
       category: item.category,
       productName: item.productName,
@@ -118,7 +127,7 @@ export class MeicetService {
       cosmeticsRoutine: {
         morning: morningRoutine,
         evening: eveningRoutine,
-        specialWeeklyCare: result.skincareRoutine.weeklyCare
+        specialWeeklyCare: weeklySource
       },
       annualTreatments: flatTreatments,
       postOpCare: result.scarProtocol.hasScars ? {

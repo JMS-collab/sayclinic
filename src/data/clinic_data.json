@@ -1,13 +1,13 @@
 {
   "patient_presence": {
-    "drive-patient-16C0eB9Fisp2tDI6jpcODr98V57Fh_Nu2": {
+    "P2": {
       "u1": {
         "userId": "u1",
         "userName": "MUDr. Ján Mráz",
         "userTitle": "Plastický chirurg & CEO",
         "userRole": "ceo",
         "avatarUrl": "",
-        "lastSeen": 1791189104962
+        "lastSeen": 1791567148140
       }
     }
   },
@@ -94524,5 +94524,10 @@
     }
   ],
   "_calendar_events_updatedAt": "2026-10-05T02:01:12.624Z",
-  "_calendar_events_updatedBy": "seed"
+  "_calendar_events_updatedBy": "seed",
+  "custom_avatars": {
+    "u6": "/avatars/nurse_caucasian_black_bun.jpg"
+  },
+  "_custom_avatars_updatedAt": "2026-10-08T07:08:09.304Z",
+  "_custom_avatars_updatedBy": "seed"
 }

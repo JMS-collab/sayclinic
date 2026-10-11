@@ -28,14 +28,20 @@ export async function POST(req: NextRequest) {
       actualAge = 38,
       gender = 'žena',
       anamnesis = {},
-      customDoctorNotes = ''
+      customDoctorNotes = '',
+      preferredTier = 'high_end'
     } = body;
 
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       console.warn('GEMINI_API_KEY not configured, using clinical fallback engine');
-      const fallbackResult = createDemoMeicetResult(patientId, patientName, patientBirthNumber);
+      const fallbackResult = createDemoMeicetResult(
+        patientId,
+        patientName,
+        patientBirthNumber,
+        preferredTier === 'mid_end' ? 'mid_end' : 'high_end'
+      );
       if (customDoctorNotes) {
         fallbackResult.doctorNotes = `${fallbackResult.doctorNotes}\n\nDoplňujúce poznámky lekára: ${customDoctorNotes}`;
       }
@@ -58,37 +64,44 @@ export async function POST(req: NextRequest) {
     const systemPrompt = `Si vedúci plastický chirurg a špičkový certifikovaný dermatológ na prestížnej klinike SAY CLINIC v Bratislave (vedúci lekár MUDr. Ján Mráz).
 Dostal si do systému diagnostický report z pokročilého 3D analyzátora pleti Meicet Pro-A (ISEMECO 3D Spectral Skin Analyzer), spolu s kompletnou anamnézou pacienta, históriou operácií, estetických zákrokov, stavom jaziev a alergiami.
 
+DÔLEŽITÉ KLINICKÉ ŠPECIFIKÁ SAY CLINIC:
+1. LASER JE VÝHRADNE CIEVNY (VASKULÁRNY LASER):
+   - Klinika SAY CLINIC disponuje CIEVNYM LASEROM (vaskulárny laser napr. KTP / Nd:YAG / Excel V na cievky, teleangiektázie, rosaceu, erytém a začervenané neovaskularizované jazvy).
+   - Klinika NEPOUŽÍVA ablatívny CO2 laser ani iné deštruktívne lasery.
+   - Všetky indikácie lasera v ročnom pláne a v starostlivosti o jazvy musia byť výhradne "Cievny laser" (zamerané na cievny erytém, kapiláry a vaskulárne zložky jaziev a pleti)!
+
+2. SKINCARE RUTINA V DVOCH ÚROVNIACH Z NÁŠHO CENNÍKA:
+   - Skincare rutina MUSÍ ponúkať výber z dvoch cenových kategórií presne podľa nášho cenníka:
+   A) HIGH-END RUTINA (Značka SkinCeuticals):
+      - Ráno: SkinCeuticals Simply Clean Gél (48€), SkinCeuticals C E Ferulic (175€) alebo Phloretin CF (175€), SkinCeuticals H.A. Intensifier (118€), SkinCeuticals Triple Lipid Restore 2:4:2 (155€), SkinCeuticals Ultra Facial Defense SPF 50+ (42€).
+      - Večer: SkinCeuticals Simply Clean Gél (48€), SkinCeuticals Phyto Corrective Gel (85€) na cievny erytém alebo P-TIOX Peptidové sérum (142€), SkinCeuticals Retinol 0.3 (98€), SkinCeuticals Triple Lipid Restore 2:4:2 (155€).
+   B) MID-END RUTINA (Značky La Roche-Posay, CeraVe, Vichy):
+      - Ráno: CeraVe Hydratačný čistiaci gél (14.50€), Vichy Liftactiv Vitamín C 15% Sérum (38€) alebo La Roche-Posay Pure Vitamin C10 (41€), Vichy Minéral 89 Booster (24.50€) alebo La Roche-Posay Hyalu B5 (39.50€), La Roche-Posay Toleriane Dermallergo (23€) alebo CeraVe Hydratačný krém (18€), La Roche-Posay Anthelios UVMune 400 SPF 50+ (21.50€) alebo Vichy Capital Soleil UV-Clear SPF 50+ (22.50€).
+      - Večer: CeraVe Čistiaci penivý gél (14.50€), La Roche-Posay Mela B3 Sérum (44.50€) alebo Vichy Liftactiv Collagen Specialist (38.50€), CeraVe Retinolové sérum (18.50€) alebo La Roche-Posay Retinol B3 (42€), La Roche-Posay Cicaplast Baume B5+ (17.50€) na bariéru a jazvy.
+
 TVOJOU ÚLOHOU JE:
 1. Extraktovať a zhodnotiť všetky objektívne dáta z Meicet Pro-A reportu:
    - Odhadovaný vek pleti (Skin Age) verzus skutočný vek pacienta.
    - Celkové skóre pleti (Skin Score 0-100).
-   - Jednotlivé parametre a spektrá: Hydratácia (TEWL), Póry a zoxidovaný maz, Vrásky (jemné mimické vs hlboké), Textúra a drsnosť, Hlboké UV poškodenie (skryté solárne škvrny), Hnedé povrchové pigmentácie/melazma, Červené cievne zóny (erytém, reaktivita, kuperóza v krížovej polarizácii), Maz a porfyríny C. acnes.
-   - Východiskové odporúčania z reportu prístroja.
+   - Parametre: Hydratácia (TEWL), Póry, Vrásky, Textúra, Hlboké UV poškodenie, Hnedé škvrny/melazma, Červené cievne zóny (erytém, reaktivita, kuperóza), Maz a porfyríny.
 
-2. Klinická syntéza s anamnézou pacienta:
-   - Zosúladiť objektívne Meicet dáta s operáciami pacienta (napr. blefaroplastika, augmentácia, facelift, excízie), doterajšími estetickými zákrokmi (botox, výplne, mezoterapia), alergiami a špecifickými sťažnosťami pacienta.
-   - Osobitný zreteľ na JAZVY (ak má pacient pooperačnú jazvu, potraumatickú jazvu alebo jazvy po akné):
-     - Zhodnotiť fázu zrenia jazvy, prítomnosť cievneho erytému alebo riziko hyperpigmentácie z UV.
+2. Klinická syntéza s anamnézou:
+   - Zosúladiť Meicet dáta s operáciami (blefaroplastika, augmentácia, atď.), estetickými zákrokmi a alergiami.
+   - Osobitný zreteľ na JAZVY (cievny erytém, fáza zrenia).
 
-3. Vytvoriť personalizovaný 12-MESAČNÝ ROČNÝ PLÁN OŠETRENÍ (Q1, Q2, Q3, Q4) podľa prísnych sezónnych pravidiel kliniky SAY CLINIC:
-   - JESEŇ & ZIMA (Október - Február): ideálne na fotoprotektívne rizikové zákroky (Frakčný a ablatívny CO2 laser, cievny laser KTP/Excel V, hlboké chemické peelingy, laserová remodelácia jaziev).
-   - JAR (Marec - Máj): prechodné obdobie, biostimulátory (polynukleotidy Plenhyage/PhilArt, Sculptra, Radiesse), hydratačné skinboostery (Profhilo, Restylane Vital), refresh botulotoxínu pred letom.
-   - LETO (Jún - August): STRIKTNÝ ZÁKAZ ablatívnych laserov a fotosenzibilizujúcich peelingov! Prioritou je intenzívna antioxidačná ochrana (Vitamín C, kyselina ferulová), SPF 50+, neinvazívny HydraFacial, hĺbková hydratácia.
-   - Každý kvartál musí obsahovať aj termíny na kontrolné premeranie na prístroji Meicet Pro-A (tzv. isMeicetScan: true)!
+3. Vytvoriť personalizovaný 12-MESAČNÝ ROČNÝ PLÁN OŠETRENÍ (Q1, Q2, Q3, Q4):
+   - JESEŇ & ZIMA: Cievny laser na erytém a cievky jaziev, medicínske peelingy.
+   - JAR: biostimulátory, hydratačné skinboostery, refresh botulotoxínu.
+   - LETO: STRIKTNÝ ZÁKAZ laserov! Intenzívna antioxidačná ochrana, SPF 50+, neinvazívny HydraFacial.
+   - Každý kvartál obsahuje termín na kontrolné premeranie Meicet Pro-A (isMeicetScan: true)!
 
-4. Navrhnúť detailnú dennú SKINCARE RUTINU:
-   - Ranná rutina (jemné čistenie, antioxidant/vitamín C, hydratačné sérum, bariérový krém s ceramidmi, širokospektrálny fotoprotektívny SPF 50+ minerálny filter).
-   - Večerná rutina (dvojité čistenie, aktívna nočná látka napr. enkapsulovaný retinaldehyd / kyselina azelaová, nočný reparačný krém).
-   - Týždenná starostlivosť a sezónne úpravy.
-   - Pre každý produkt uveď odkaz na Meicet skóre (prečo je indikovaný).
+4. Navrhnúť detailnú dennú SKINCARE RUTINU v oboch úrovniach (High-End aj Mid-End).
 
-5. Zostaviť podrobný PROTOKOL STAROSTLIVOSTI O JAZVY (Scar Care Protocol):
-   - Domáca starostlivosť: presná aplikácia lekárskeho silikónového gélu (Strataderm / Kelo-cote) 2x denne, technika a frekvencia tlakových ischemických masáží, fotoprotekcia SPF 50+ minerálnym blokátorom.
-   - Klinická prístrojová terapia: cievny laser na červené jazvy, frakčný laser na textúru a zarovnanie okrajov.
-   - Varovné príznaky (hypertrofia, svrbenie, začervenanie).
+5. Zostaviť PROTOKOL STAROSTLIVOSTI O JAZVY (Scar Care Protocol):
+   - Silikónový gél 2x denne, tlakové masáže, SPF 50+ minerálny filter.
+   - Klinická terapia: Cievny laser na červené cievky a erytém jazvy.
 
-6. Stanoviť MÍĽNIKY A KONTROLNÉ MERANIA MEICET PRO-A (po 3, 6 a 12 mesiacoch):
-   - Merateľné ciele nárastu hydratácie, zmenšenia pórov a redukcie pigmentácií/erytému.
+6. Stanoviť MÍĽNIKY A KONTROLNÉ MERANIA MEICET PRO-A (3, 6 a 12 mesiacov).
 
 VÝSTUP MUSÍ BYŤ VÝHRADNE ČISTÝ JSON V ŠTRUKTÚRE MeicetAnalysisResult:
 {
@@ -156,6 +169,33 @@ VÝSTUP MUSÍ BYŤ VÝHRADNE ČISTÝ JSON V ŠTRUKTÚRE MeicetAnalysisResult:
     }
   ],
   "skincareRoutine": {
+    "selectedTier": "high_end" | "mid_end",
+    "highEnd": {
+      "tier": "high_end",
+      "tierLabel": "High-End (SkinCeuticals)",
+      "brandDescription": string,
+      "totalEstimatedPrice": number,
+      "morning": [
+        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
+      ],
+      "evening": [
+        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
+      ],
+      "weeklyCare": string[]
+    },
+    "midEnd": {
+      "tier": "mid_end",
+      "tierLabel": "Mid-End (La Roche-Posay, CeraVe, Vichy)",
+      "brandDescription": string,
+      "totalEstimatedPrice": number,
+      "morning": [
+        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
+      ],
+      "evening": [
+        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
+      ],
+      "weeklyCare": string[]
+    },
     "morning": [
       { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
     ],
@@ -262,7 +302,12 @@ Extrahuj skutočné hodnoty z reportu a vygeneruj finálny JSON podľa požadova
     } catch (aiError: any) {
       console.error('Chyba volania Gemini API pri Meicet analýze:', aiError);
       // Fallback
-      const fallbackResult = createDemoMeicetResult(patientId, patientName, patientBirthNumber);
+      const fallbackResult = createDemoMeicetResult(
+        patientId,
+        patientName,
+        patientBirthNumber,
+        preferredTier === 'mid_end' ? 'mid_end' : 'high_end'
+      );
       if (anamnesis && Object.keys(anamnesis).length > 0) {
         fallbackResult.anamnesis = { ...fallbackResult.anamnesis, ...anamnesis };
       }

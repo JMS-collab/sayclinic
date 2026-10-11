@@ -53,6 +53,8 @@ const BASE_ELEMENT_POSITIONS: Record<string, { top: number; left?: number; right
   doctorCode: { top: 11.5, right: 6.5, width: 21.0, defaultAlign: 'center' },
   // 2. Zdravotná poisťovňa (4 okienka v strednom paneli na y=15.0mm, centrované)
   insurance: { top: 15.0, left: 41.2, width: 21.6, defaultAlign: 'center' },
+  // 2b. Checkboxy úhrady na ŠEVT recepte: Hradí poisťovňa / pacient (na y=22.0mm)
+  paymentCoverage: { top: 22.0, left: 40.5, width: 26.0, defaultAlign: 'left' },
   // 3. Meno a priezvisko poistenca (riadok 1 pod hlavičkou, čistý priestor pod popisom)
   patientName: { top: 28.5, left: 6.5, width: 58.0, defaultAlign: 'left' },
   // 4. Rodné číslo poistenca (vpravo na riadku 1 pod popisom)
@@ -72,6 +74,7 @@ const BASE_ELEMENT_POSITIONS: Record<string, { top: number; left?: number; right
 const ELEMENT_LABELS: Record<string, string> = {
   doctorCode: 'Kód lekára (Hore vpravo)',
   insurance: 'Zdravotná poisťovňa (Kód)',
+  paymentCoverage: 'Úhrada (Checkbox: Poisťovňa / Pacient)',
   patientName: 'Meno pacienta',
   birthNumber: 'Rodné číslo',
   address: 'Bydlisko pacienta',
@@ -103,6 +106,17 @@ const DEFAULT_ELEMENT_FONTS: Record<string, ElementFontStyle> = {
     lineHeight: 1.2,
     color: '#000000',
     textAlign: 'center'
+  },
+  paymentCoverage: {
+    fontFamily: 'monospace',
+    fontSize: 10.5,
+    fontWeight: '700',
+    fontStyle: 'normal',
+    textTransform: 'none',
+    letterSpacing: 0,
+    lineHeight: 1.0,
+    color: '#000000',
+    textAlign: 'left'
   },
   patientName: {
     fontFamily: 'monospace',
@@ -186,6 +200,7 @@ const DEFAULT_ELEMENT_FONTS: Record<string, ElementFontStyle> = {
 const DEFAULT_OFFSETS: Record<string, ElementOffset> = {
   doctorCode: { x: 0, y: 0 },
   insurance: { x: 0, y: 0 },
+  paymentCoverage: { x: 0, y: 0 },
   patientName: { x: 0, y: 0 },
   birthNumber: { x: 0, y: 0 },
   address: { x: 0, y: 0 },
@@ -194,6 +209,27 @@ const DEFAULT_OFFSETS: Record<string, ElementOffset> = {
   date: { x: 0, y: 0 },
   orderNumber: { x: 0, y: 0 }
 };
+
+// Časté diagnózy MKCH-10 pre kliniku estetickej a plastickej chirurgie
+export const COMMON_CLINIC_DIAGNOSES = [
+  { code: 'Z41.1', name: 'Z41.1 – Plastická chirurgia z kozmetických dôvodov (Predvolené)' },
+  { code: 'Z48.8', name: 'Z48.8 – Iná špecifikovaná pooperačná starostlivosť' },
+  { code: 'Z48.9', name: 'Z48.9 – Pooperačná starostlivosť, bližšie neurčená' },
+  { code: 'L70.0', name: 'L70.0 – Acne vulgaris (Akné)' },
+  { code: 'L90.5', name: 'L90.5 – Jazvovité stavy a fibróza kože (Jazvy)' },
+  { code: 'L91.0', name: 'L91.0 – Keloidná jazva' },
+  { code: 'R52.0', name: 'R52.0 – Akútna bolesť' },
+  { code: 'T81.4', name: 'T81.4 – Infekcia po chirurgickom výkone' },
+  { code: 'L03.9', name: 'L03.9 – Flegmóna / Celulitída' },
+  { code: 'M79.1', name: 'M79.1 – Myalgia (Bolesť svalov)' },
+  { code: 'I83.9', name: 'I83.9 – Kŕčové žily dolných končatín bez komplikácií' },
+  { code: 'D22.9', name: 'D22.9 – Melanocytový névus (Znamienko)' },
+  { code: 'D17.9', name: 'D17.9 – Benígny lipóm (Tukový nádor)' },
+  { code: 'L72.0', name: 'L72.0 – Epidermálna cysta (Ateróm)' },
+  { code: 'N62', name: 'N62 – Hypertrofia prsníka (Redukčná mammaplastika)' },
+  { code: 'N64.8', name: 'N64.8 – Iné špecifikované choroby prsníka (Ptóza, asymetria)' },
+  { code: 'M20.1', name: 'M20.1 – Hallux valgus (Vbočený palec)' }
+];
 
 // Helper pre kód poisťovne – v ambulancii SAY CLINIC je predvolený Samoplatca (kód 9999)
 export const resolveInsuranceCode = (ins?: string): string => {
@@ -223,7 +259,13 @@ export default function PrescriptionModule({
   const [birthNumber, setBirthNumber] = useState(initialPatient?.birthNumber || '935225/9664');
   const [address, setAddress] = useState(initialPatient?.address || 'FRANCISCIHO 18, LEVOČA');
   const [insuranceCode, setInsuranceCode] = useState(() => resolveInsuranceCode(initialPatient?.insurance) || '9999');
-  const [diagnosisCode, setDiagnosisCode] = useState('Z411'); // 4-znakové MKCH bez bodky pre okienka
+  // Úhrada receptu: 'pacient' (samoplatca) alebo 'poistovna' (poisťovňa)
+  const [paymentCoverage, setPaymentCoverage] = useState<'poistovna' | 'pacient'>(() => {
+    const code = resolveInsuranceCode(initialPatient?.insurance) || '9999';
+    return code === '9999' ? 'pacient' : 'poistovna';
+  });
+  const [diagnosisCode, setDiagnosisCode] = useState('Z41.1'); // Predvolená diagnóza: Z41.1 (Plastická chirurgia)
+  const [mkchList, setMkchList] = useState<{ code: string; name: string }[]>([]);
 
   // Parametre receptu
   const [prescriptionDate, setPrescriptionDate] = useState(() => {
@@ -317,13 +359,27 @@ export default function PrescriptionModule({
 
   const printRef = useRef<HTMLDivElement>(null);
 
+  // Načítanie databázy diagnóz MKCH-10 pre vyhľadávanie
+  useEffect(() => {
+    fetch('/mkch.json')
+      .then(res => res.json())
+      .then((data: { code: string; name: string }[]) => {
+        if (Array.isArray(data)) setMkchList(data);
+      })
+      .catch(err => console.error('Chyba načítania MKCH:', err));
+  }, []);
+
   // Automatická synchronizácia údajov pacienta pri zmene v rozpracovanom pacientovi
   useEffect(() => {
     if (initialPatient) {
       if (initialPatient.name) setPatientName(initialPatient.name);
       if (initialPatient.birthNumber) setBirthNumber(initialPatient.birthNumber);
       if (initialPatient.address) setAddress(initialPatient.address);
-      if (initialPatient.insurance) setInsuranceCode(resolveInsuranceCode(initialPatient.insurance));
+      if (initialPatient.insurance) {
+        const code = resolveInsuranceCode(initialPatient.insurance);
+        setInsuranceCode(code);
+        setPaymentCoverage(code === '9999' ? 'pacient' : 'poistovna');
+      }
     }
   }, [initialPatient]);
 
@@ -723,7 +779,7 @@ export default function PrescriptionModule({
       doctor: doctorName,
       diagnosis: diagnosisCode,
       date: prescriptionDate,
-      content: `LEKÁRSKY PREDPIS (ŠEVT 14 282 2s - A6) - SAY CLINIC\n\nPoskytovateľ: ${CLINIC_PRESCRIPTION_DEFAULTS.clinicName}\nPZS: ${pzsCode} | Lekár: ${doctorName} (${doctorCode})\nPoistenec: ${patientName} (RČ: ${birthNumber})\nBydlisko: ${address}\nPoisťovňa: ${insuranceCode}\nDiagnóza: ${diagnosisCode}\nDátum: ${prescriptionDate}\n\nPREDPÍSANÝ LIEK (Rp.):\n   ${currentItem?.substance || currentItem?.latinName || ''}\n   ${currentItem?.formAndStrength || ''}\n   ${currentItem?.packaging || ''}\n   ${currentItem?.dosage || ''}${currentItem?.commercialName ? `\n   (${currentItem.commercialName})` : ''}`
+      content: `LEKÁRSKY PREDPIS (ŠEVT 14 282 2s - A6) - SAY CLINIC\n\nPoskytovateľ: ${CLINIC_PRESCRIPTION_DEFAULTS.clinicName}\nPZS: ${pzsCode} | Lekár: ${doctorName} (${doctorCode})\nPoistenec: ${patientName} (RČ: ${birthNumber})\nBydlisko: ${address}\nPoisťovňa: ${insuranceCode} (${paymentCoverage === 'pacient' ? 'Hradí pacient' : 'Hradí poisťovňa'})\nDiagnóza: ${diagnosisCode}\nDátum: ${prescriptionDate}\n\nPREDPÍSANÝ LIEK (Rp.):\n   ${currentItem?.substance || currentItem?.latinName || ''}\n   ${currentItem?.formAndStrength || ''}\n   ${currentItem?.packaging || ''}\n   ${currentItem?.dosage || ''}${currentItem?.commercialName ? `\n   (${currentItem.commercialName})` : ''}`
     };
 
     try {
@@ -1083,91 +1139,96 @@ export default function PrescriptionModule({
                 />
               </div>
 
+              {/* VÝBER ZDRAVOTNEJ POISŤOVNE (DROPDOWN + KÓD) */}
               <div>
                 <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">
-                  Zdravotná poisťovňa poistenca (Kód: 9999)
+                  Zdravotná poisťovňa poistenca
                 </label>
-                <input
-                  type="text"
-                  maxLength={4}
-                  value={insuranceCode}
-                  onChange={e => setInsuranceCode(e.target.value.toUpperCase())}
-                  placeholder="9999"
-                  className="w-24 border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs font-bold tracking-widest text-center uppercase"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold">
-                    Diagnóza MKCH (Kód ochorenia)
-                  </label>
-                  <span className="font-mono text-[10px] font-bold text-[#047857]">
-                    Medzery písmen: {elementFonts.diagnosis?.letterSpacing !== undefined ? `${elementFonts.diagnosis.letterSpacing.toFixed(2)} mm` : '-0.20 mm'}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={['9999', '2500', '2400', '2700'].includes(insuranceCode) ? insuranceCode : 'custom'}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val !== 'custom') {
+                        setInsuranceCode(val);
+                        // Automatické nastavenie úhrady podľa poisťovne: 9999 -> pacient, ostatné -> poisťovňa
+                        setPaymentCoverage(val === '9999' ? 'pacient' : 'poistovna');
+                      }
+                    }}
+                    className="flex-1 border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-bold text-[#2C2A29] cursor-pointer"
+                  >
+                    <option value="9999">9999 – Samoplatca (Predvolené)</option>
+                    <option value="2500">2500 – VšZP (Všeobecná zdravotná)</option>
+                    <option value="2400">2400 – DÔVERA poisťovňa</option>
+                    <option value="2700">2700 – UNION poisťovňa</option>
+                    <option value="custom">Iný kód poisťovne...</option>
+                  </select>
                   <input
                     type="text"
-                    maxLength={8}
-                    value={diagnosisCode}
-                    onChange={e => setDiagnosisCode(e.target.value.toUpperCase())}
-                    placeholder="L70.0"
-                    className="w-28 border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs font-bold tracking-tight text-center uppercase"
+                    maxLength={4}
+                    value={insuranceCode}
+                    onChange={e => {
+                      const val = e.target.value.toUpperCase().slice(0, 4);
+                      setInsuranceCode(val);
+                      if (val === '9999') {
+                        setPaymentCoverage('pacient');
+                      } else if (['2500', '2400', '2700', '25', '24', '27'].includes(val)) {
+                        setPaymentCoverage('poistovna');
+                      }
+                    }}
+                    placeholder="9999"
+                    title="4-miestny kód poisťovne (napr. 9999 pre samoplatcu)"
+                    className="w-20 border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs font-bold tracking-widest text-center uppercase"
                   />
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => updateElementFont('diagnosis', { letterSpacing: Math.round(((elementFonts.diagnosis?.letterSpacing ?? -0.2) - 0.1) * 100) / 100 })}
-                      className="px-2 py-1 bg-[#FBF9F6] hover:bg-[#E8E2D9] border border-[#E8E2D9] rounded-lg text-xs font-bold cursor-pointer transition-colors"
-                      title="Zmenšiť medzery medzi písmenami diagnózy"
-                    >
-                      -
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateElementFont('diagnosis', { letterSpacing: Math.round(((elementFonts.diagnosis?.letterSpacing ?? -0.2) + 0.1) * 100) / 100 })}
-                      className="px-2 py-1 bg-[#FBF9F6] hover:bg-[#E8E2D9] border border-[#E8E2D9] rounded-lg text-xs font-bold cursor-pointer transition-colors"
-                      title="Zväčšiť medzery medzi písmenami diagnózy"
-                    >
-                      +
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateElementFont('diagnosis', { letterSpacing: -0.5 })}
-                      className={`px-2 py-1 rounded-lg border text-[10px] font-semibold transition-colors cursor-pointer ${
-                        elementFonts.diagnosis?.letterSpacing === -0.5
-                          ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                          : 'bg-[#FBF9F6] border-[#E8E2D9] text-[#2C2A29] hover:bg-[#E8E2D9]'
-                      }`}
-                      title="Veľmi tesný rozostup znakov"
-                    >
-                      Veľmi tesné
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateElementFont('diagnosis', { letterSpacing: -0.2 })}
-                      className={`px-2 py-1 rounded-lg border text-[10px] font-semibold transition-colors cursor-pointer ${
-                        (elementFonts.diagnosis?.letterSpacing ?? -0.2) === -0.2
-                          ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                          : 'bg-[#FBF9F6] border-[#E8E2D9] text-[#2C2A29] hover:bg-[#E8E2D9]'
-                      }`}
-                      title="Kompaktný rozostup (odporúčané)"
-                    >
-                      Tesné
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateElementFont('diagnosis', { letterSpacing: 0 })}
-                      className={`px-2 py-1 rounded-lg border text-[10px] font-semibold transition-colors cursor-pointer ${
-                        elementFonts.diagnosis?.letterSpacing === 0
-                          ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                          : 'bg-[#FBF9F6] border-[#E8E2D9] text-[#2C2A29] hover:bg-[#E8E2D9]'
-                      }`}
-                      title="Štandardný rozostup"
-                    >
-                      Normálne
-                    </button>
+                </div>
+              </div>
+
+              {/* VÝBER DIAGNÓZY MKCH-10 (DROPDOWN + KÓD S VYHĽADÁVANÍM) */}
+              <div>
+                <label className="block text-[10px] uppercase text-[#8C857B] mb-1 font-bold">
+                  Diagnóza MKCH (Kód ochorenia)
+                </label>
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={COMMON_CLINIC_DIAGNOSES.some(d => d.code === diagnosisCode) ? diagnosisCode : 'custom'}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val !== 'custom') {
+                        setDiagnosisCode(val);
+                      }
+                    }}
+                    className="flex-1 border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-semibold text-[#2C2A29] cursor-pointer truncate"
+                  >
+                    {COMMON_CLINIC_DIAGNOSES.map(d => (
+                      <option key={d.code} value={d.code}>
+                        {d.name}
+                      </option>
+                    ))}
+                    <option value="custom">Iná diagnóza / Vyhľadať...</option>
+                  </select>
+                  <div className="relative w-24">
+                    <input
+                      type="text"
+                      list="prescription-mkch-datalist"
+                      value={diagnosisCode}
+                      onChange={e => {
+                        const val = e.target.value;
+                        const codeMatch = val.match(/^([A-Z][0-9]{2}(\.[0-9]{1,2})?|[A-Z][0-9]{3})/i);
+                        if (codeMatch) {
+                          setDiagnosisCode(codeMatch[1].toUpperCase());
+                        } else {
+                          setDiagnosisCode(val.toUpperCase().slice(0, 8));
+                        }
+                      }}
+                      placeholder="Z41.1"
+                      title="Kód diagnózy MKCH pre recept"
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white font-mono text-xs font-bold tracking-wider text-center uppercase"
+                    />
+                    <datalist id="prescription-mkch-datalist">
+                      {mkchList.slice(0, 300).map(item => (
+                        <option key={item.code} value={`${item.code} - ${item.name}`} />
+                      ))}
+                    </datalist>
                   </div>
                 </div>
               </div>
@@ -1622,6 +1683,25 @@ export default function PrescriptionModule({
                         {digit}
                       </div>
                     ))}
+                  </div>
+                ))}
+
+                {/* 2b. CHECKBOX ÚHRADY: HRADÍ POISŤOVŇA / PACIENT (Okienka na tlačive ŠEVT - iba čistý krížik X na mieste checkboxu) */}
+                {renderDraggableItem('paymentCoverage', (
+                  <div className="flex items-center gap-[12.0mm] select-none text-[9px] font-mono leading-none">
+                    {/* Okienko: Poisťovňa */}
+                    <div className={`w-[4.2mm] h-[4.2mm] flex items-center justify-center font-bold text-center leading-none ${
+                      paymentCoverage === 'poistovna' ? 'text-black font-extrabold text-[11pt]' : 'text-transparent'
+                    }`}>
+                      {paymentCoverage === 'poistovna' ? 'X' : ''}
+                    </div>
+
+                    {/* Okienko: Pacient */}
+                    <div className={`w-[4.2mm] h-[4.2mm] flex items-center justify-center font-bold text-center leading-none ${
+                      paymentCoverage === 'pacient' ? 'text-black font-extrabold text-[11pt]' : 'text-transparent'
+                    }`}>
+                      {paymentCoverage === 'pacient' ? 'X' : ''}
+                    </div>
                   </div>
                 ))}
 

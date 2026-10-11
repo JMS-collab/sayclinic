@@ -48,6 +48,7 @@ export function MeicetUploadModal({
   const [scarDescription, setScarDescription] = useState<string>('');
   const [clientConcerns, setClientConcerns] = useState<string>('');
   const [customDoctorNotes, setCustomDoctorNotes] = useState<string>('');
+  const [preferredTier, setPreferredTier] = useState<'high_end' | 'mid_end'>('high_end');
 
   // Stav generovania a spracovania
   const [isProcessing, setIsProcessing] = useState(false);
@@ -113,7 +114,7 @@ export function MeicetUploadModal({
     }
 
     setClientConcerns('Pocit suchej a stiahnutej pleti, vrásky okolo očí, obavy z pigmentácií a ochrana jazvy pred letom.');
-    setCustomDoctorNotes('Kombinovať Meicet Pro-A nález s prísnym zákazom ablatívnych laserov v letnom období a indikovať vaskulárny laser na jazvu viečka.');
+    setCustomDoctorNotes('Kombinovať Meicet Pro-A nález so sezónnym plánom a indikovať cievny laser na cievny erytém a jazvu viečka.');
   }, [isOpen, patient, patientRecords]);
 
   if (!isOpen) return null;
@@ -152,7 +153,7 @@ export function MeicetUploadModal({
 
   // Vyskúšať so vzorovým reportom Meicet Pro-A
   const handleUseDemoMeicet = () => {
-    const demo = createDemoMeicetResult(patient.id, patient.name, patient.birthNumber);
+    const demo = createDemoMeicetResult(patient.id, patient.name, patient.birthNumber, preferredTier);
     setSelectedFile(new File(['dummy meicet pdf content'], 'Meicet_ProA_ISEMECO_Report_2026.pdf', { type: 'application/pdf' }));
     setFileBase64('data:application/pdf;base64,JVBERi0xLjQKJSD...');
     setErrorMsg(null);
@@ -192,7 +193,7 @@ export function MeicetUploadModal({
         }
       ] : [],
       clientConcerns: clientConcerns.split(',').map(s => s.trim()).filter(Boolean),
-      contraindications: ['Striktný zákaz ablatívneho CO2 lasera v slnečnom období (máj-august)'],
+      contraindications: ['Striktný zákaz laserov v letnom období (máj-august)', 'Laser na klinike SAY CLINIC je výhradne cievny (vaskulárny)'],
       lifestyleNotes: 'Klimatizované prostredie, zvýšená expozícia modrému svetlu, pobyt v prírode.'
     };
 
@@ -213,7 +214,8 @@ export function MeicetUploadModal({
           actualAge: patientAge,
           gender: 'žena',
           anamnesis: anamnesisPayload,
-          customDoctorNotes
+          customDoctorNotes,
+          preferredTier
         })
       });
 
@@ -234,7 +236,7 @@ export function MeicetUploadModal({
     } catch (err: any) {
       console.error('Chyba pri AI analýze Meicet:', err);
       // Bezpečný fallback s demo dátami upravenými pre tohto konkrétneho pacienta
-      const fallback = createDemoMeicetResult(patient.id, patient.name, patient.birthNumber);
+      const fallback = createDemoMeicetResult(patient.id, patient.name, patient.birthNumber, preferredTier);
       fallback.pdfSourceFilename = selectedFile?.name || 'Meicet_ProA_Upload.pdf';
       fallback.anamnesis = {
         ...fallback.anamnesis,
@@ -472,6 +474,59 @@ export function MeicetUploadModal({
               </div>
             </div>
 
+            {/* VÝBER PREFEROVANEJ CENOVÝ ÚROVNE SKINCARE Z CENNÍKA */}
+            <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold uppercase text-[#2C2A29] flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Výber úrovne domácej skincare rutiny (z nášho cenníka):</span>
+                </label>
+                <span className="text-[9px] text-[#8C857B] bg-white px-2 py-0.5 rounded border border-[#E8E2D9]">
+                  V reporte možno kedykoľvek prepínať
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreferredTier('high_end')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    preferredTier === 'high_end'
+                      ? 'bg-white border-[#C5A059] ring-2 ring-[#C5A059]/40 shadow-xs'
+                      : 'bg-white/60 border-[#E8E2D9] hover:bg-white text-[#8C857B]'
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-0.5">
+                    <span className="font-bold text-xs text-[#2C2A29]">💎 High-End</span>
+                    <span className="text-[10px] font-bold text-[#C5A059] bg-[#FAF8F5] px-1.5 py-0.5 rounded">~538 €</span>
+                  </div>
+                  <p className="text-[11px] font-bold text-[#C5A059]">SkinCeuticals</p>
+                  <p className="text-[10px] text-[#8C857B]">
+                    C E Ferulic, H.A. Intensifier, Triple Lipid 2:4:2, Phyto Corrective
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPreferredTier('mid_end')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    preferredTier === 'mid_end'
+                      ? 'bg-white border-emerald-600 ring-2 ring-emerald-600/40 shadow-xs'
+                      : 'bg-white/60 border-[#E8E2D9] hover:bg-white text-[#8C857B]'
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-0.5">
+                    <span className="font-bold text-xs text-[#2C2A29]">🌿 Mid-End</span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">~216 €</span>
+                  </div>
+                  <p className="text-[11px] font-bold text-emerald-800">La Roche-Posay, CeraVe, Vichy</p>
+                  <p className="text-[10px] text-[#8C857B]">
+                    Cicaplast B5+, Mela B3, Minéral 89 Booster, CeraVe čistenie
+                  </p>
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="text-[10px] font-bold uppercase text-[#8C857B] block mb-1">
                 Doplňujúce poznámky lekára (MUDr. Ján Mráz)
@@ -480,7 +535,7 @@ export function MeicetUploadModal({
                 rows={2}
                 value={customDoctorNotes}
                 onChange={(e) => setCustomDoctorNotes(e.target.value)}
-                placeholder="Špecifické odporúčania pre generovanie plánu (napr. dôraz na sezónnosť, v lete žiadne ablatívne lasery)..."
+                placeholder="Špecifické odporúčania pre plán (napr. sezónnosť, cievny laser na jazvy a erytém)..."
                 className="w-full border border-[#E8E2D9] rounded-lg p-2 text-xs bg-[#FAF8F5] focus:bg-white focus:ring-1 focus:ring-[#C5A059] outline-none resize-none"
               />
             </div>
