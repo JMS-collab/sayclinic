@@ -151,6 +151,7 @@ export default function Home() {
   // Stav pre vybraného pacienta z Kartotéky pre Generátor alebo detail
   const [activePatient, setActivePatient] = useState<Patient | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<{ 
+    id?: string;
     name: string; 
     birthNumber: string; 
     phone?: string; 
@@ -511,6 +512,7 @@ export default function Home() {
   };
 
   const handleNavigateToGenerator = (patient: { 
+    id?: string;
     name: string; 
     birthNumber: string; 
     phone?: string; 
@@ -521,7 +523,7 @@ export default function Home() {
   }) => {
     setSelectedPatient(patient);
     // Nastaviť ako aktívneho rozpracovaného pacienta, ak je v zozname pacientov
-    const found = patients.find(p => p.birthNumber === patient.birthNumber || p.name.toLowerCase() === patient.name.toLowerCase());
+    const found = patients.find(p => (patient.id && p.id === patient.id) || p.birthNumber === patient.birthNumber || p.name.toLowerCase() === patient.name.toLowerCase());
     if (found) {
       handleSetActivePatient(found);
     }

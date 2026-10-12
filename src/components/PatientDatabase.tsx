@@ -1624,7 +1624,10 @@ export default function PatientDatabase({
                     ))
                   );
                   const currentPatientPlans = allPatientPlans[selectedPatient.id] || [];
-                  const currentRecords = patientRecords[selectedPatient.id] || [];
+                  const currentRecords = patientRecords[selectedPatient.id] || 
+                    (selectedPatient.birthNumber ? patientRecords[selectedPatient.birthNumber.trim()] : undefined) ||
+                    (selectedPatient.name ? patientRecords[selectedPatient.name.trim()] : undefined) ||
+                    [];
                   const totalZaznamyCount = currentRecords.length + patientMaterialLogs.length;
 
                   return (
@@ -1722,7 +1725,7 @@ export default function PatientDatabase({
                           <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
                           <span>Dekurzy & Správy</span>
                           <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${zaznamySubTab === 'dekurzy' ? 'bg-white/20 text-white' : 'bg-white text-gray-700 border border-[#E8E2D9]'}`}>
-                            {(patientRecords[selectedPatient.id] || []).length}
+                            {currentRecords.length}
                           </span>
                         </button>
 
@@ -1821,9 +1824,9 @@ export default function PatientDatabase({
                             </div>
                           </div>
                           
-                          {patientRecords[selectedPatient.id] && patientRecords[selectedPatient.id].length > 0 ? (
+                          {currentRecords && currentRecords.length > 0 ? (
                             <div className="space-y-2">
-                              {patientRecords[selectedPatient.id].map(record => (
+                              {currentRecords.map(record => (
                                 <div key={record.id} className="border border-[#E8E2D9] rounded-xl p-3.5 flex flex-wrap justify-between items-center hover:bg-[#FAF8F5] transition-all bg-white shadow-2xs gap-3">
                                   <div className="space-y-1">
                                     <div className="flex items-center gap-2">
@@ -2574,7 +2577,7 @@ export default function PatientDatabase({
             <div className="xl:col-span-4 sticky top-24 space-y-4 min-w-0">
               <PatientTimelineSidebar
                 patient={selectedPatient}
-                records={patientRecords[selectedPatient.id] || []}
+                records={currentRecords}
                 calendarEvents={storedEvents.filter(evt => 
                   (evt.patientId && evt.patientId === selectedPatient.id) ||
                   (evt.patientName && selectedPatient.name && (
