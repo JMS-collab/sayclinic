@@ -111,15 +111,12 @@ function findBestBreakRow(
 }
 
 /**
- * Export an HTML DOM element to a crisp multi-page or single-page A4 or A6 PDF
- * with offscreen sandboxing, smart whitespace-aware slicing, standard typography scaling,
- * running headers, and page numbering.
+ * Internal core: renders an HTML element into a configured jsPDF instance
  */
-export async function exportElementToPdf(
-  element: HTMLElement, 
-  filename: string,
+export async function renderElementToJsPdf(
+  element: HTMLElement,
   formatOrOptions: 'a4' | 'a6' | PdfExportOptions = 'a4'
-): Promise<void> {
+): Promise<jsPDF> {
   const options: PdfExportOptions = typeof formatOrOptions === 'string'
     ? { format: formatOrOptions }
     : (formatOrOptions || {});
@@ -228,8 +225,7 @@ export async function exportElementToPdf(
       const renderHeightMm = isA6 ? pageHeightMm : Math.min(pageHeightMm, totalHeightMm);
       const imgData = canvas.toDataURL('image/jpeg', 0.96);
       pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMm, renderHeightMm, undefined, 'FAST');
-      pdf.save(filename);
-      return;
+      return pdf;
     }
 
     // 5. Multi-page document calculation:
@@ -365,11 +361,50 @@ export async function exportElementToPdf(
       }
     }
 
-    pdf.save(filename);
+    return pdf;
   } finally {
     if (sandbox.parentNode) {
       sandbox.parentNode.removeChild(sandbox);
     }
   }
+}
+
+/**
+ * Export an HTML DOM element directly as a downloaded PDF file
+ */
+export async function exportElementToPdf(
+  element: HTMLElement, 
+  filename: string,
+  formatOrOptions: 'a4' | 'a6' | PdfExportOptions = 'a4'
+): Promise<void> {
+  const pdf = await renderElementToJsPdf(element, formatOrOptions);
+  pdf.save(filename);
+}
+
+/**
+ * Render an HTML DOM element to a Base64-encoded PDF string (ideal for Drive upload)
+ */
+export async function generatePdfBase64(
+  element: HTMLElement,
+  formatOrOptions: 'a4' | 'a6' | PdfExportOptions = 'a4'
+): Promise<string> {
+  const pdf = await renderElementToJsPdf(element, formatOrOptions);
+  const dataUri = pdf.output('datauristring');
+  const base64Index = dataUri.indexOf('base64,');
+  if (base64Index !== -1) {
+    return dataUri.substring(base64Index + 7);
+  }
+  return dataUri;
+}
+
+/**
+ * Render an HTML DOM element to a binary PDF Blob
+ */
+export async function generatePdfBlob(
+  element: HTMLElement,
+  formatOrOptions: 'a4' | 'a6' | PdfExportOptions = 'a4'
+): Promise<Blob> {
+  const pdf = await renderElementToJsPdf(element, formatOrOptions);
+  return pdf.output('blob');
 }
 

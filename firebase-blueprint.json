@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "MedicalRecord": {
+      "title": "MedicalRecord",
+      "description": "Zdravotný záznam, vstupné vyšetrenie alebo dekurz pacienta",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "patientBirthNumber": { "type": "string" },
+        "type": { "type": "string" },
+        "typeColor": { "type": "string" },
+        "title": { "type": "string" },
+        "doctor": { "type": "string" },
+        "diagnosis": { "type": "string" },
+        "date": { "type": "string" },
+        "content": { "type": "string" },
+        "driveFileId": { "type": "string" },
+        "driveWebViewLink": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["patientId", "type", "title", "doctor", "date", "content"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Karta pacienta v kartotéke",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "birthNumber": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "dob": { "type": "string" },
+        "insurance": { "type": "string" },
+        "driveFolderId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "birthNumber"]
+    }
+  },
+  "firestore": {
+    "/medical_records/{recordId}": {
+      "schema": "MedicalRecord",
+      "description": "Zoznam všetkých lekárskych vyšetrení, dekurzov a protokolov"
+    },
+    "/patients/{patientId}": {
+      "schema": "Patient",
+      "description": "Karty pacientov"
+    }
+  }
+}

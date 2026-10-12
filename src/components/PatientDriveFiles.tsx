@@ -68,6 +68,17 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
     fetchDriveFiles();
   }, [fetchDriveFiles]);
 
+  // Automatické prečítanie súborov po uložení nového vyšetrenia / dokumentu
+  useEffect(() => {
+    const handleSaved = (e: any) => {
+      if (!patientName || !e?.detail?.patientName || e.detail.patientName.toLowerCase() === patientName.toLowerCase()) {
+        fetchDriveFiles();
+      }
+    };
+    window.addEventListener('say_clinic_record_saved', handleSaved);
+    return () => window.removeEventListener('say_clinic_record_saved', handleSaved);
+  }, [fetchDriveFiles, patientName]);
+
   const handleSignIn = async () => {
     setIsSigningIn(true);
     try {

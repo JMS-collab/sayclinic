@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { HealthProService, HealthProResponse } from '../services/healthpro';
 import { MKCHItem } from '../data/mkch';
-import { generatePdfFilename, exportElementToPdf } from '../lib/pdfGenerator';
+import { generatePdfFilename, exportElementToPdf, generatePdfBase64 } from '../lib/pdfGenerator';
 import { 
   findSurgeryConsentProfile, 
   saveSurgeryConsentProfile, 
@@ -17,7 +16,11 @@ import { DermatologyExamData, INITIAL_DERMATOLOGY_DATA } from './dermatology/der
 import { Sliders, Save, RotateCcw, Check } from './Icons';
 import { InventoryService, InventoryItem } from '../services/inventoryService';
 import { AuditLogService } from '../services/auditLogService';
-import { RealtimeSyncService } from '../services/realtimeSyncService';
+import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
+import { useSession } from 'next-auth/react';
+import { getAccessToken } from '../lib/workspaceAuth';
+import html2canvas from 'html2canvas-pro';
+import jsPDF from 'jspdf';
 
 export interface ServiceCategory {
   id: string;
@@ -557,7 +560,6 @@ export const DOC_TITLES: Record<DocumentType, string> = {
 interface FormProps {
   onRecordCreated?: (sale: { date: string; patientName: string; doctorName: string; serviceType: string; amount: number; }) => void;
   initialPatient?: { 
-    id?: string;
     name: string; 
     birthNumber: string; 
     phone?: string; 
@@ -1350,119 +1352,6 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
       notes: recordNote,
       doctorLicenseCode: 'LEK-123456',
     });
-
-    // 5. ULOŽENIE ZÁZNAMU PRIAMO DO KARTOTÉKY PACIENTA A REAL-TIME SYNCHRONIZÁCIA DO CLOUDU
-    try {
-      const targetDate = new Date().toISOString().split('T')[0];
-      const newRecId = `rec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      
-      // Farba badge podľa typu dokumentu
-      const typeColor = (docType === 'operacny_protokol')
-        ? 'bg-[#2C2A29]'
-        : (docType === 'vstupne_vysetrenie')
-        ? 'bg-[#C5A059]'
-        : (docType === 'dermatologicke_vysetrenie')
-        ? 'bg-purple-700'
-        : (docType === 'kontrolne_vysetrenie')
-        ? 'bg-sky-700'
-        : (docType === 'lekarsky_recept')
-        ? 'bg-emerald-700'
-        : 'bg-[#2C2A29]';
-
-      // Podrobný štruktúrovaný obsah pre dekurz a tlačový náhľad
-      let fullContent = '';
-      if (docType === 'vstupne_vysetrenie') {
-        const parts: string[] = [];
-        if (vvPlan) parts.push(`PLÁNOVANÝ VÝKON:\n${vvPlan}`);
-        if (vvDate) parts.push(`Plánovaný termín zákroku: ${new Date(vvDate).toLocaleDateString('sk-SK')}`);
-        parts.push(`Anestézia: ${anesthesiaType} (${anesthesiaType === 'Lokálna' ? '---' : `${anesthesiaHours} hod`}) | Hospitalizácia: ${hospitalizationType === 'none' ? 'Ambulantne' : hospitalizationType === 'half' ? '1/2 dňa (dospanie)' : '1 deň'}`);
-        
-        const anam: string[] = [];
-        if (vvVek) anam.push(`Vek: ${vvVek}`);
-        if (vvVyska) anam.push(`Výška: ${vvVyska} cm`);
-        if (vvVaha) anam.push(`Váha: ${vvVaha} kg`);
-        if (vvVyska && vvVaha) anam.push(`BMI: ${calcBMI()}`);
-        if (vvAA) anam.push(`AA: ${vvAA}`);
-        if (vvOA) anam.push(`OA: ${vvOA}`);
-        if (vvLA) anam.push(`LA: ${vvLA}`);
-        if (vvGA) anam.push(`GA: ${vvGA}`);
-        if (anam.length > 0) parts.push(`ANAMNÉZA:\n${anam.join(' | ')}`);
-        
-        if (vvCave) parts.push(`CAVE: ${vvCave}`);
-        if (vvSPL) parts.push(`STATUS LOCALIS (SPL):\n${vvSPL}`);
-        if (vvExams && vvExams.length > 0) {
-          parts.push(`Predoperačné vyšetrenia: ${vvExams.map(ex => ex === 'Iné' ? `Iné: ${vvExamsOther}` : ex).join(', ')}`);
-        }
-        if (vvImplants && vvImplants.some(i => i.vyrobca || i.kat || i.objem)) {
-          parts.push(`Plánované implantáty: ${vvImplants.map(i => `${i.vyrobca || ''} ${i.kat || ''} ${i.objem || ''}`.trim()).filter(Boolean).join('; ')}`);
-        }
-        if (vvMaterial) parts.push(`Špeciálny materiál: ${vvMaterial}`);
-        parts.push(vvNoContra ? 'Záver: Bez zjavnej kontraindikácie k výkonu.' : `Kontraindikácia: ${vvContraReason}`);
-        fullContent = parts.join('\n\n');
-      } else if (docType === 'kontrolne_vysetrenie') {
-        fullContent = `KONTROLNÉ VYŠETRENIE\nOperácia: ${checkupData.operationName} (${checkupData.operationDate})\nSubjektívne: ${checkupData.subjective}\nObjektívne: ${checkupData.objective}\nOdporúčania a terapia:\n${checkupData.recommendations}`;
-      } else if (docType === 'dermatologicke_vysetrenie') {
-        fullContent = `DERMATOLOGICKÉ VYŠETRENIE & DERMATOSKOPIA\nFototyp: ${dermatologyData.fitzpatrick}\nHlavná diagnóza: ${dermatologyData.primaryDiagnosis.code} - ${dermatologyData.primaryDiagnosis.name}\n${dermatologyData.secondaryDiagnoses.length > 0 ? `Vedľajšie diagnózy:\n${dermatologyData.secondaryDiagnoses.map(d => `• ${d.code} - ${d.name}`).join('\n')}\n` : ''}Stav kože: ${dermatologyData.skinHydration}, ${dermatologyData.skinTurgor}\nDermatoskopia (${dermatologyData.neviCountCategory}): ${dermatologyData.dermoscopySummary}\nVyšetrené lézie (${dermatologyData.examinedLesions.length}): ${dermatologyData.examinedLesions.map(l => `${l.location} (${l.sizeMm}) -> ${l.conclusion} [${l.recommendation}]`).join('; ')}\nLokálna terapia: ${dermatologyData.localTherapy}\nRežimové opatrenia: ${dermatologyData.regimeRecommendations}\nĎalšia kontrola: ${dermatologyData.nextCheckup}`;
-      } else if (docType === 'operacny_protokol') {
-        fullContent = `OPERAČNÝ PROTOKOL: ${manualProcedure || serviceTitle}\nDátum a čas: ${surgeryDetails.opDate} (${surgeryDetails.opStart} - ${surgeryDetails.opEnd})\nOperatér: ${surgeryDetails.operator} | Asistent: ${surgeryDetails.assistant}\nAnestéziológ: ${surgeryDetails.anesthesiologist} (${anesthesiaType})\nInštrumentárka: ${surgeryDetails.instrumentalist} | Sestra: ${surgeryDetails.anestNurse}\n\nPriebeh a nález:\n${notes}\n\nPoužité materiály a implantáty:\n${surgeryMaterials}`;
-      } else {
-        fullContent = recordNote || notes || DOC_TITLES[docType];
-      }
-
-      const newRecord = {
-        id: newRecId,
-        type: DOC_TITLES[docType] || 'Lekárska správa',
-        typeColor,
-        title: serviceTitle || DOC_TITLES[docType],
-        doctor: doctor || 'MUDr. Ján Mráz',
-        diagnosis: diagnosis || 'Z00.0',
-        date: targetDate,
-        content: fullContent,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      // Získame existujúce záznamy z centrálneho syncu alebo localStorage
-      let recordsMap: Record<string, any[]> = {};
-      try {
-        const stored = localStorage.getItem('say_clinic_patient_records');
-        if (stored) recordsMap = JSON.parse(stored);
-      } catch (e) {}
-
-      // Určíme primárny kľúč pacienta (id, rodné číslo, alebo normalizované meno)
-      const patientIdKey = (initialPatient?.id) 
-        ? initialPatient.id 
-        : (birthNumber && birthNumber.trim()) 
-        ? birthNumber.trim() 
-        : (patientName && patientName.trim()) 
-        ? patientName.trim() 
-        : 'general';
-
-      const existingForPatient = recordsMap[patientIdKey] || [];
-      recordsMap[patientIdKey] = [newRecord, ...existingForPatient];
-
-      // Ak máme aj rodné číslo aj ID, prepojíme ich navzájom pre bezpečné vyhľadanie
-      if (initialPatient?.id && birthNumber && birthNumber.trim() && birthNumber.trim() !== initialPatient.id) {
-        recordsMap[birthNumber.trim()] = recordsMap[patientIdKey];
-      }
-
-      // Okamžitý broadcast cez RealtimeSyncService (HTTP POST do cloudu + SSE broadcast do celej kliniky)
-      RealtimeSyncService.publish('patient_records', recordsMap);
-
-      // Audit log pre bezpečnosť a prehľad
-      try {
-        AuditLogService.logAction({
-          category: 'PATIENT_RECORD',
-          action: 'VYTVORENIE LEKÁRSKEHO ZÁZNAMU',
-          details: `${doctor} vytvoril a uložil záznam '${DOC_TITLES[docType]}: ${serviceTitle}' pre pacienta ${patientName || '---'} (RČ: ${birthNumber || '---'}).`,
-          patientId: patientIdKey,
-          patientName: patientName || 'Neznámy pacient',
-        });
-      } catch (auditErr) {}
-
-    } catch (saveErr) {
-      console.error('Chyba pri ukladaní záznamu pacienta:', saveErr);
-    }
 
     if (response && autoLoggedCount > 0) {
       response.message = `${response.message || 'Záznam úspešne odoslaný.'} (📦 Sklad: ${autoLoggedCount} položiek minutého materiálu bolo automaticky zalogovaných a odpísaných).`;

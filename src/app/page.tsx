@@ -151,7 +151,6 @@ export default function Home() {
   // Stav pre vybraného pacienta z Kartotéky pre Generátor alebo detail
   const [activePatient, setActivePatient] = useState<Patient | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<{ 
-    id?: string;
     name: string; 
     birthNumber: string; 
     phone?: string; 
@@ -521,9 +520,8 @@ export default function Home() {
     insurance?: string; 
     initialDocType?: any;
   }) => {
-    setSelectedPatient(patient);
-    // Nastaviť ako aktívneho rozpracovaného pacienta, ak je v zozname pacientov
     const found = patients.find(p => (patient.id && p.id === patient.id) || p.birthNumber === patient.birthNumber || p.name.toLowerCase() === patient.name.toLowerCase());
+    setSelectedPatient(found ? { ...found, initialDocType: patient.initialDocType } : patient);
     if (found) {
       handleSetActivePatient(found);
     }
@@ -1312,7 +1310,15 @@ export default function Home() {
                 </div>
                 <MedicalRecordForm 
                   onRecordCreated={handleAddSale} 
-                  initialPatient={selectedPatient} 
+                  initialPatient={selectedPatient}
+                  onNavigateToPatient={(pId) => {
+                    const found = patients.find(p => p.id === pId || p.birthNumber === selectedPatient?.birthNumber);
+                    if (found) {
+                      handleSetActivePatient(found);
+                      setSelectedPatientForFolder(found);
+                    }
+                    changeTab('patients');
+                  }}
                 />
               </div>
             )}
