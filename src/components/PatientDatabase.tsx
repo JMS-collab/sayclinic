@@ -2,7 +2,28 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
-import { Search, X, Sparkles, Clock, PanelRightOpen, PanelRightClose, ShieldAlert } from 'lucide-react';
+import { 
+  Search, 
+  X, 
+  Sparkles, 
+  Clock, 
+  PanelRightOpen, 
+  PanelRightClose, 
+  ShieldAlert,
+  FileText,
+  Calendar,
+  Camera,
+  Activity,
+  Pill,
+  Syringe,
+  ShoppingBag,
+  Boxes,
+  FileCheck,
+  HardDrive,
+  MoreHorizontal,
+  ChevronDown,
+  Stethoscope
+} from 'lucide-react';
 import { filterAndRankPatients, RankedPatient } from '../utils/fuzzySearch';
 import { googleSignIn, subscribeWorkspaceAuth } from '@/lib/workspaceAuth';
 import PatientDriveFiles from './PatientDriveFiles';
@@ -111,7 +132,7 @@ interface PatientDatabaseProps {
   onNavigateToAesthetics?: (patient: Patient) => void;
   onNavigateToCosmetics?: (patient?: Patient | null, prefillItems?: any[]) => void;
   initialPatient?: Patient | null;
-  initialFolder?: 'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy' | 'terminy' | 'plany' | 'roadmap' | 'meicet';
+  initialFolder?: 'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy' | 'terminy' | 'plany' | 'roadmap' | 'meicet' | 'zaznamy' | 'diagnostika' | string;
   onPatientsUpdated?: (patients: Patient[]) => void;
   calendarEvents?: CalendarEvent[];
   onAddCalendarEvent?: (event: CalendarEvent) => void;
@@ -120,6 +141,11 @@ interface PatientDatabaseProps {
   onSetActivePatient?: (patient: Patient | null) => void;
   currentUser?: any;
 }
+
+export type MainPatientFolder = 'zaznamy' | 'plany' | 'diagnostika' | 'terminy';
+export type ZaznamySubTab = 'dekurzy' | 'vysetrenia' | 'materialy' | 'drive';
+export type PlanySubTab = 'roadmap' | 'protokoly';
+export type DiagnostikaSubTab = 'meicet' | 'foto';
 
 export default function PatientDatabase({ 
   onNavigateToGenerator, 
@@ -139,7 +165,77 @@ export default function PatientDatabase({
   const { data: session } = useSession();
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || activePatient || null);
-  const [activeFolder, setActiveFolder] = useState<'dokumenty' | 'fotodokumentacia' | 'predoperacne' | 'drive' | 'materialy' | 'terminy' | 'plany' | 'roadmap' | 'meicet'>(initialFolder || 'dokumenty');
+
+  // POMOCNÝ RESOLVER PRE ZLÚČENÉ ZÁLOŽKY S RETRO-KOMPATIBILITOU
+  const resolveFolderAndSub = (folder?: string) => {
+    switch (folder) {
+      case 'roadmap':
+        return { main: 'plany' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+      case 'plany':
+        return { main: 'plany' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'protokoly' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+      case 'meicet':
+        return { main: 'diagnostika' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+      case 'fotodokumentacia':
+        return { main: 'diagnostika' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
+      case 'diagnostika':
+        return { main: 'diagnostika' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+      case 'predoperacne':
+        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'vysetrenia' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+      case 'materialy':
+        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'materialy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+      case 'drive':
+        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'drive' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+      case 'terminy':
+        return { main: 'terminy' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+      case 'zaznamy':
+      case 'dokumenty':
+      default:
+        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+    }
+  };
+
+  const initialResolved = resolveFolderAndSub(initialFolder);
+  const [activeFolder, setActiveFolderRaw] = useState<MainPatientFolder>(initialResolved.main);
+  const [zaznamySubTab, setZaznamySubTab] = useState<ZaznamySubTab>(initialResolved.zaznamySub);
+  const [planySubTab, setPlanySubTab] = useState<PlanySubTab>(initialResolved.planySub);
+  const [diagnostikaSubTab, setDiagnostikaSubTab] = useState<DiagnostikaSubTab>(initialResolved.diagSub);
+  const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
+  const actionsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside listener pre rozbaľovacie menu ďalších klinických akcií
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (actionsDropdownRef.current && !actionsDropdownRef.current.contains(e.target as Node)) {
+        setIsActionsDropdownOpen(false);
+      }
+    };
+    if (isActionsDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isActionsDropdownOpen]);
+
+  // Univerzálny setter priečinka zabezpečujúci kompatibilitu s pôvodnými volaniami
+  const setActiveFolder = (folder: string) => {
+    const resolved = resolveFolderAndSub(folder);
+    setActiveFolderRaw(resolved.main);
+    if (folder === 'roadmap' || folder === 'plany') {
+      setPlanySubTab(resolved.planySub);
+    } else if (folder === 'meicet' || folder === 'fotodokumentacia') {
+      setDiagnostikaSubTab(resolved.diagSub);
+    } else if (['predoperacne', 'materialy', 'drive', 'dokumenty', 'zaznamy'].includes(folder)) {
+      setZaznamySubTab(resolved.zaznamySub);
+    }
+  };
+
+  useEffect(() => {
+    if (initialFolder) {
+      setActiveFolder(initialFolder);
+    }
+  }, [initialFolder]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
 
@@ -1314,147 +1410,182 @@ export default function PatientDatabase({
               </div>
             </div>
 
-            {/* KOMPAKTNÉ 360° CENTRUM RÝCHLYCH KLINICKÝCH AKCIÍ PACIENTA */}
-            <div className="bg-white border border-[#E8E2D9] rounded-2xl p-4 shadow-xs space-y-3">
-              <div className="flex items-center justify-between border-b border-[#E8E2D9] pb-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-[#C5A059] flex items-center gap-1.5">
+            {/* ŠTÍHLA KLINICKÁ AKČNÁ LIŠTA (QUICK ACTION BAR) */}
+            <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-2xl p-3 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase font-bold tracking-widest text-[#C5A059] flex items-center gap-1.5 px-2 py-1 bg-white rounded-lg border border-[#E8E2D9]">
                   <span>⚡</span>
-                  <span>Rýchle akcie pre pacienta (1-Click Hub)</span>
+                  <span className="font-brand">Rýchle akcie</span>
                 </span>
-                <span className="text-[10px] text-[#8C857B]">
-                  Kliknutím prejdete do príslušného modulu s predvyplnenými údajmi
+                <span className="text-xs text-[#8C857B] hidden md:inline">
+                  Priamy prístup k vyšetreniam, receptom a estetickým výkonom
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
-                {/* 1. Vystaviť recept ŠEVT */}
-                <button
-                  type="button"
-                  onClick={() => onNavigateToPrescriptions?.(selectedPatient)}
-                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-emerald-600 hover:bg-emerald-50/40 text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
-                  title="Vystaviť a vytlačiť lekársky recept ŠEVT pre tohto pacienta"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl p-1.5 bg-emerald-100 rounded-lg text-emerald-800">💊</span>
-                    <span className="text-xs text-emerald-600 font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-emerald-800">Vystaviť recept</p>
-                    <p className="text-[10px] text-[#8C857B]">ŠEVT 14 282 2s</p>
-                  </div>
-                </button>
-
-                {/* 2. Aplikovať výplne / Botox */}
-                <button
-                  type="button"
-                  onClick={() => onNavigateToAesthetics?.(selectedPatient)}
-                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-[#C5A059] hover:bg-[#FAF8F5] text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
-                  title="Aplikovať botulotoxín alebo dermálnu výplň v interaktívnej mape tváre"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl p-1.5 bg-[#C5A059]/15 rounded-lg text-[#C5A059]">💉</span>
-                    <span className="text-xs text-[#C5A059] font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-[#C5A059]">Výplne & Botox</p>
-                    <p className="text-[10px] text-[#8C857B]">Face Mapping</p>
-                  </div>
-                </button>
-
-                {/* 3. Meicet Pro-A Skin AI */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveFolder('meicet');
-                    setActivePhotoCategory(null);
-                  }}
-                  className="p-3 rounded-xl border-2 border-[#C5A059] bg-[#FAF8F5] hover:bg-white text-left transition-all group flex flex-col justify-between cursor-pointer shadow-xs hover:shadow-md"
-                  title="3D spektrálna analýza pleti Meicet Pro-A, posúdenie s anamnézou a ročný plán"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl p-1.5 bg-[#C5A059]/20 rounded-lg text-[#2C2A29]">🔬</span>
-                    <span className="text-[9px] bg-[#C5A059] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">AI 3D</span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-[#C5A059]">Meicet Pro-A</p>
-                    <p className="text-[10px] text-[#8C857B]">Skin AI & Plán</p>
-                  </div>
-                </button>
-
-                {/* 3. Lekárska správa / Nález */}
+              <div className="flex flex-wrap items-center gap-2 relative">
+                {/* 1. Primárna akcia: Nová lekárska správa / Nález */}
                 <button
                   type="button"
                   onClick={() => onNavigateToGenerator?.(selectedPatient)}
-                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-[#2C2A29] hover:bg-gray-50 text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
-                  title="Vystaviť operačný protokol, prepúšťaciu správu alebo nález"
+                  className="px-3.5 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer group"
+                  title="Vytvoriť lekársku správu, dekurzus alebo operačný protokol"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl p-1.5 bg-gray-100 rounded-lg text-[#2C2A29]">📄</span>
-                    <span className="text-xs text-[#2C2A29] font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-[#2C2A29]">Lekárska správa</p>
-                    <p className="text-[10px] text-[#8C857B]">Protokol & nález</p>
-                  </div>
+                  <FileText className="w-3.5 h-3.5 text-[#C5A059] group-hover:text-white transition-colors" />
+                  <span>+ Nová správa / Nález</span>
                 </button>
 
-                {/* 4. Termín & Kontrola */}
-                <button
-                  type="button"
-                  onClick={() => handleOpenScheduleModal()}
-                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-sky-600 hover:bg-sky-50/40 text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
-                  title="Naplánovať termín zákroku alebo pooperačnej kontroly do kalendára sál"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl p-1.5 bg-sky-100 rounded-lg text-sky-800">📅</span>
-                    <span className="text-xs text-sky-600 font-bold group-hover:translate-x-0.5 transition-transform">+</span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-sky-800">Termín / Sála</p>
-                    <p className="text-[10px] text-[#8C857B]">Harmonogram</p>
-                  </div>
-                </button>
+                {/* 2. Recept ŠEVT */}
+                {onNavigateToPrescriptions && (
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToPrescriptions(selectedPatient)}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    title="Vystaviť lekársky recept ŠEVT 14 282 2s pre tohto pacienta"
+                  >
+                    <Pill className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Vystaviť recept ŠEVT</span>
+                  </button>
+                )}
 
-                {/* 5. Plán liečby & Ročný balík */}
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingPlan(true)}
-                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-amber-600 hover:bg-amber-50/40 text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
-                  title="Vytvoriť ročný estetický alebo pred/pooperačný plán starostlivosti"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl p-1.5 bg-amber-100 rounded-lg text-amber-800">📋</span>
-                    <span className="text-xs text-amber-600 font-bold group-hover:translate-x-0.5 transition-transform">+</span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-amber-800">Plán liečby</p>
-                    <p className="text-[10px] text-[#8C857B]">Ročný plán</p>
-                  </div>
-                </button>
+                {/* 3. Výplne & Botox (Face Mapping) */}
+                {onNavigateToAesthetics && (
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToAesthetics(selectedPatient)}
+                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F5] border border-[#C5A059] text-[#2C2A29] text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    title="Aplikovať botulotoxín alebo dermálnu výplň v interaktívnej 3D mape tváre"
+                  >
+                    <Syringe className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Výplne & Botox</span>
+                  </button>
+                )}
 
-                {/* 6. Predaj kozmetiky & POS */}
-                <button
-                  type="button"
-                  onClick={() => onNavigateToCosmetics?.(selectedPatient)}
-                  className="p-3 rounded-xl border border-[#E8E2D9] hover:border-purple-600 hover:bg-purple-50/40 text-left transition-all group flex flex-col justify-between cursor-pointer shadow-2xs"
-                  title="Otvoriť pokladňu POS a predať pooperačnú kozmetiku pacientke"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl p-1.5 bg-purple-100 rounded-lg text-purple-800">🛍️</span>
-                    <span className="text-xs text-purple-600 font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-[#2C2A29] group-hover:text-purple-800">Predaj kozmetiky</p>
-                    <p className="text-[10px] text-[#8C857B]">Pokladňa POS</p>
-                  </div>
-                </button>
+                {/* 4. Dropdown s ďalšími klinickými akciami */}
+                <div className="relative" ref={actionsDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsActionsDropdownOpen(prev => !prev)}
+                    className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                      isActionsDropdownOpen
+                        ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
+                        : 'bg-white border-[#E8E2D9] text-[#6B6357] hover:border-[#C5A059] hover:text-[#2C2A29]'
+                    }`}
+                    title="Zobraziť ďalšie klinické akcie"
+                  >
+                    <MoreHorizontal className="w-4 h-4 text-[#C5A059]" />
+                    <span>Ďalšie akcie</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isActionsDropdownOpen ? 'rotate-180 text-white' : 'text-[#8C857B]'}`} />
+                  </button>
+
+                  {isActionsDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-[#E8E2D9] rounded-2xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                      <div className="px-2 py-1 text-[9px] uppercase tracking-wider font-bold text-[#8C857B] border-b border-[#F0EBE1]">
+                        Klinické moduly & Pokladňa
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveFolder('diagnostika');
+                          setDiagnostikaSubTab('meicet');
+                          setIsActionsDropdownOpen(false);
+                        }}
+                        className="w-full text-left p-2 rounded-xl hover:bg-[#FAF8F5] transition-colors flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-[#2C2A29]"
+                      >
+                        <span className="p-1.5 rounded-lg bg-[#C5A059]/15 text-[#C5A059] text-sm">🔬</span>
+                        <div>
+                          <p className="font-bold">Meicet Pro-A (Skin AI)</p>
+                          <p className="text-[10px] text-[#8C857B]">3D spektrálna analýza pleti</p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleOpenScheduleModal();
+                          setIsActionsDropdownOpen(false);
+                        }}
+                        className="w-full text-left p-2 rounded-xl hover:bg-[#FAF8F5] transition-colors flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-[#2C2A29]"
+                      >
+                        <span className="p-1.5 rounded-lg bg-sky-100 text-sky-800 text-sm">📅</span>
+                        <div>
+                          <p className="font-bold">Naplánovať termín / Sálu</p>
+                          <p className="text-[10px] text-[#8C857B]">Zákrok alebo kontrola</p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCreatingPlan(true);
+                          setIsActionsDropdownOpen(false);
+                        }}
+                        className="w-full text-left p-2 rounded-xl hover:bg-[#FAF8F5] transition-colors flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-[#2C2A29]"
+                      >
+                        <span className="p-1.5 rounded-lg bg-amber-100 text-amber-800 text-sm">📋</span>
+                        <div>
+                          <p className="font-bold">Vytvoriť plán liečby</p>
+                          <p className="text-[10px] text-[#8C857B]">Ročný estetický / operačný plán</p>
+                        </div>
+                      </button>
+
+                      {onNavigateToCosmetics && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onNavigateToCosmetics(selectedPatient);
+                            setIsActionsDropdownOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded-xl hover:bg-[#FAF8F5] transition-colors flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-[#2C2A29]"
+                        >
+                          <span className="p-1.5 rounded-lg bg-purple-100 text-purple-800 text-sm">🛍️</span>
+                          <div>
+                            <p className="font-bold">Predaj kozmetiky (POS)</p>
+                            <p className="text-[10px] text-[#8C857B]">Pokladňa po ošetrení</p>
+                          </div>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onNavigateToGenerator?.({ ...selectedPatient, initialDocType: 'dermatologicke_vysetrenie' });
+                          setIsActionsDropdownOpen(false);
+                        }}
+                        className="w-full text-left p-2 rounded-xl hover:bg-[#FAF8F5] transition-colors flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-[#2C2A29]"
+                      >
+                        <span className="p-1.5 rounded-lg bg-violet-100 text-violet-800 text-sm">🩺</span>
+                        <div>
+                          <p className="font-bold">Dermatologické vyšetrenie</p>
+                          <p className="text-[10px] text-[#8C857B]">Dermatoskopia & fototyp</p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsDispensingMaterial(true);
+                          setDispenseItemId(allStockItems[0]?.id || '');
+                          setIsActionsDropdownOpen(false);
+                        }}
+                        className="w-full text-left p-2 rounded-xl hover:bg-[#FAF8F5] transition-colors flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-[#2C2A29]"
+                      >
+                        <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-sm">📦</span>
+                        <div>
+                          <p className="font-bold">Odpísať / Vystaviť materiál</p>
+                          <p className="text-[10px] text-[#8C857B]">Implantáty, kanyly, prádlo</p>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* SEKCIA ZLOŽKY PACIENTA S BOČNOU ČASOVOU OSOU (TIMELINE) */}
+            {/* SEKCIA KARTY PACIENTA S BOČNOU ČASOVOU OSOU (TIMELINE) */}
             <div className={`grid grid-cols-1 ${isTimelineOpen ? 'xl:grid-cols-12' : ''} gap-6 items-start`}>
               
-              {/* ĽAVÁ ČASŤ (ZLOŽKY & DOKUMENTÁCIA) */}
+              {/* ĽAVÁ HLAVNÁ ČASŤ (4 SEKCIE & OBSAH) */}
               <div className={`${isTimelineOpen ? 'xl:col-span-8' : 'w-full'} space-y-4 min-w-0`}>
                 
                 {/* AK JE PANEL ZBALENÝ, ZOBRAZÍ SA KOMPAKTNÁ LIŠTA PRE RÝCHLE ROZBALENIE */}
@@ -1484,712 +1615,959 @@ export default function PatientDatabase({
                   </div>
                 )}
 
-                {/* PREPOJENIE SO ZLOŽKOU "KLIENTI SAY" NA GOOGLE DRIVE */}
-                <PatientDriveFiles patientName={selectedPatient.name} />
-
-            {(() => {
-              const patientEvents = storedEvents.filter(evt => 
-                (evt.patientId && evt.patientId === selectedPatient.id) ||
-                (evt.patientName && selectedPatient.name && (
-                  evt.patientName.toLowerCase().includes(selectedPatient.name.toLowerCase()) ||
-                  selectedPatient.name.toLowerCase().includes(evt.patientName.toLowerCase())
-                ))
-              );
-              const currentPatientPlans = allPatientPlans[selectedPatient.id] || [];
-
-              return (
-                <div className="flex flex-wrap gap-2 border-b border-[#E8E2D9]">
-                  <button onClick={() => { setActiveFolder('dokumenty'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'dokumenty' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📄 Dokumenty & Záznamy</button>
-                  <button onClick={() => { setActiveFolder('roadmap'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'roadmap' ? 'bg-[#2C2A29] text-white shadow-xs' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
-                    <span className="text-[#C5A059]">✨</span>
-                    <span>AI Plán Liečby</span>
-                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'roadmap' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
-                      12M
-                    </span>
-                  </button>
-                  <button onClick={() => { setActiveFolder('meicet'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'meicet' ? 'bg-[#2C2A29] text-white shadow-xs' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
-                    <span className="text-[#C5A059]">🔬</span>
-                    <span>Meicet Pro-A Analýza</span>
-                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'meicet' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
-                      AI 3D
-                    </span>
-                  </button>
-                  <button onClick={() => { setActiveFolder('plany'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'plany' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
-                    <span>📋 Plán pacienta & Starostlivosť</span>
-                    {currentPatientPlans.length > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'plany' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
-                        {currentPatientPlans.length}
-                      </span>
-                    )}
-                  </button>
-                  <button onClick={() => { setActiveFolder('terminy'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'terminy' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
-                    <span>📅 Termíny & Kontroly</span>
-                    {patientEvents.length > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'terminy' ? 'bg-sky-600 text-white' : 'bg-sky-100 text-sky-800'}`}>
-                        {patientEvents.length}
-                      </span>
-                    )}
-                  </button>
-                  <button onClick={() => setActiveFolder('fotodokumentacia')} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'fotodokumentacia' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>📸 Fotodokumentácia</button>
-                  <button onClick={() => { setActiveFolder('predoperacne'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors ${ activeFolder === 'predoperacne' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>🩸 Výsledky & Vyšetrenia</button>
-                  <button onClick={() => { setActiveFolder('materialy'); setActivePhotoCategory(null); }} className={`px-4 py-2 text-xs uppercase font-bold tracking-wider rounded-t-lg transition-colors flex items-center gap-1.5 ${ activeFolder === 'materialy' ? 'bg-[#2C2A29] text-white' : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]' }`}>
-                    <span>📦 Minutý materiál & Prádlo</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'materialy' ? 'bg-[#C5A059] text-white' : 'bg-[#E8E2D9] text-[#2C2A29]'}`}>
-                      {patientMaterialLogs.length}
-                    </span>
-                  </button>
-                </div>
-              );
-            })()}
-
-            <div className="min-h-[350px] border border-[#E8E2D9] rounded-b-xl rounded-tr-xl p-5 bg-white">
-              
-              {/* ZÁLOŽKA DOKUMENTY */}
-              {activeFolder === 'dokumenty' && (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-                    <p className="text-[10px] uppercase text-[#8C857B] font-bold">História zdravotných záznamov & Protokolov</p>
-                    <div className="flex items-center gap-2">
-                      {onNavigateToAesthetics && (
-                        <button 
-                          onClick={() => onNavigateToAesthetics(selectedPatient)} 
-                          className="text-[11px] bg-[#2C2A29] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#C5A059] transition-colors flex items-center gap-1"
-                        >
-                          💉 + Face Mapping
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => onNavigateToGenerator && onNavigateToGenerator({ ...selectedPatient, initialDocType: 'dermatologicke_vysetrenie' })} 
-                        className="text-[11px] bg-[#9333ea] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#7e22ce] transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Vytvoriť dermatologické vyšetrenie s dermatoskopiou, Fitzpatrick fototypom a MKCH diagnózami"
-                      >
-                        🩺 + Dermatológia
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (onNavigateToPrescriptions && selectedPatient) {
-                            onNavigateToPrescriptions(selectedPatient);
-                          } else if (onNavigateToGenerator) {
-                            onNavigateToGenerator({ ...selectedPatient, initialDocType: 'lekarsky_recept' });
-                          }
-                        }}
-                        className="text-[11px] bg-[#047857] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#065f46] transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Vystaviť lekársky recept ŠEVT 14 282 2s pre tohto pacienta"
-                      >
-                        💊 + Vystaviť recept (ŠEVT)
-                      </button>
-                      <button 
-                        onClick={() => handleOpenScheduleModal()} 
-                        className="text-[11px] bg-sky-700 hover:bg-sky-800 text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Naplánovať pooperačnú kontrolu alebo termín do kalendára"
-                      >
-                        <span>📅</span> + Naplánovať kontrolu
-                      </button>
-                      <button onClick={() => onNavigateToGenerator && onNavigateToGenerator(selectedPatient)} className="text-[11px] bg-[#C5A059] text-white px-3 py-1.5 rounded uppercase font-bold shadow-sm hover:bg-[#b38d45] cursor-pointer">
-                        + Vytvoriť nový záznam
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {patientRecords[selectedPatient.id] && patientRecords[selectedPatient.id].length > 0 ? (
-                    patientRecords[selectedPatient.id].map(record => (
-                      <div key={record.id} className="border border-[#E8E2D9] rounded-lg p-3 flex justify-between items-center hover:bg-[#FBF9F6] transition-colors">
-                        <div>
-                          <span className={`text-[9px] text-white px-2 py-0.5 rounded uppercase mr-2 font-bold ${record.typeColor}`}>{record.type}</span>
-                          <span className="text-xs font-bold text-[#2C2A29]">{record.title}</span>
-                          <p className="text-[10px] text-[#8C857B] mt-1">Lekár: {record.doctor} {record.diagnosis && `| Diagnóza: ${record.diagnosis}`}</p>
-                        </div>
-                        
-                        <div className="flex flex-col items-end gap-2">
-                          <p className="text-xs font-mono text-[#8C857B] font-bold">{new Date(record.date).toLocaleDateString('sk-SK')}</p>
-                          <div className="flex flex-wrap items-center gap-2">
-                            {(record.type?.toLowerCase().includes('opera') || record.type?.toLowerCase().includes('protokol') || record.title?.toLowerCase().includes('augmentác') || record.title?.toLowerCase().includes('lipo')) && (
-                              <button 
-                                onClick={() => handleOpenScheduleModal(record)} 
-                                className="text-[10px] text-sky-900 bg-sky-100 hover:bg-sky-200 border border-sky-300 px-2.5 py-1 rounded uppercase font-bold transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                                title="Naplánovať pooperačnú kontrolu s automaticky načítanými údajmi z tohto operačného protokolu"
-                              >
-                                <span>🩺</span> Naplánovať kontrolu
-                              </button>
-                            )}
-                            <button onClick={() => setEditingRecord(record)} className="text-[10px] text-[#8C857B] hover:text-[#C5A059] uppercase font-bold transition-colors">✏️ Upraviť</button>
-                            <button onClick={() => handleDeleteRecord(record.id)} className="text-[10px] text-[#8C857B] hover:text-rose-600 uppercase font-bold transition-colors">🗑️ Zmazať</button>
-                            <button onClick={() => setPreviewRecord(record)} className="text-[10px] text-[#C5A059] uppercase font-bold transition-colors border-l border-[#E8E2D9] pl-2 ml-1">
-                              📄 Náhľad & PDF
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                {(() => {
+                  const patientEvents = storedEvents.filter(evt => 
+                    (evt.patientId && evt.patientId === selectedPatient.id) ||
+                    (evt.patientName && selectedPatient.name && (
+                      evt.patientName.toLowerCase().includes(selectedPatient.name.toLowerCase()) ||
+                      selectedPatient.name.toLowerCase().includes(evt.patientName.toLowerCase())
                     ))
-                  ) : (
-                    <p className="text-xs text-[#8C857B] text-center py-6">Tento pacient zatiaľ nemá žiadne lokálne záznamy.</p>
-                  )}
-                </div>
-              )}
+                  );
+                  const currentPatientPlans = allPatientPlans[selectedPatient.id] || [];
+                  const currentRecords = patientRecords[selectedPatient.id] || [];
+                  const totalZaznamyCount = currentRecords.length + patientMaterialLogs.length;
 
-              {/* ZÁLOŽKA FOTOGRAFIE */}
-              {activeFolder === 'fotodokumentacia' && (
-                <div>
-                  {!activePhotoCategory ? (
-                    <>
-                      <p className="text-[10px] uppercase text-[#8C857B] font-bold mb-4">Fotografické zložky pacienta</p>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {PHOTO_CATEGORIES.map(cat => {
-                          const key = `${selectedPatient.id}_${cat}`;
-                          const count = patientPhotos[key]?.length || 0;
-                          return (
-                            <div key={cat} onClick={() => setActivePhotoCategory(cat)} className="border border-[#E8E2D9] rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#C5A059] hover:bg-[#FBF9F6] transition-all group">
-                              <span className="text-3xl mb-2 grayscale opacity-80 group-hover:grayscale-0 transition-all">📁</span>
-                              <span className="text-xs font-bold text-[#2C2A29] uppercase">{cat}</span>
-                              <span className="text-[10px] text-[#8C857B] mt-1">{count} fotografií</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
-                        <div className="flex items-center gap-3">
-                          <button onClick={() => setActivePhotoCategory(null)} className="text-[18px] text-[#8C857B] hover:text-[#2C2A29] transition-colors">←</button>
-                          <h3 className="text-sm font-bold text-[#2C2A29] uppercase">📁 {activePhotoCategory}</h3>
-                        </div>
-                        <label className="cursor-pointer bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-colors flex items-center gap-1 shadow-sm">
-                          <span>+ Hromadné nahratie fotiek</span>
-                          <input type="file" multiple accept="image/*" className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
-                        </label>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {patientPhotos[`${selectedPatient.id}_${activePhotoCategory}`]?.map((photo, idx) => (
-                          <div key={idx} className="relative group rounded-lg overflow-hidden border border-[#E8E2D9] aspect-square bg-[#FBF9F6]">
-                            <img src={photo.url} alt={photo.name} className="w-full h-full object-cover" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ZÁLOŽKA PREDOPERAČNÉ */}
-              {activeFolder === 'predoperacne' && (
-                <div>
-                  <p className="text-[10px] uppercase text-[#8C857B] font-bold mb-4">Výsledky laboratórií a vyšetrení</p>
-                  <div className="border border-[#E8E2D9] rounded-lg p-3 flex justify-between items-center hover:bg-[#FBF9F6] transition-colors cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-rose-100 text-rose-600 p-2 rounded text-xs font-bold">PDF</div>
-                      <div><p className="text-xs font-bold text-[#2C2A29]">Predoperačné interné vyšetrenie</p></div>
-                    </div>
-                    <button className="text-[10px] text-[#C5A059] uppercase font-bold">Stiahnuť</button>
-                  </div>
-                </div>
-              )}
-
-              {/* ZÁLOŽKA MINUTÝ MATERIÁL & PRÁDLO */}
-              {activeFolder === 'materialy' && (
-                <div className="space-y-4">
-                  {/* Horný panel: Štatistiky a akcie */}
-                  <div className="flex flex-wrap justify-between items-center gap-3 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E2D9]">
-                    <div className="flex flex-wrap items-center gap-4 text-xs">
-                      <div>
-                        <span className="text-[10px] uppercase text-[#8C857B] font-bold block">Minuté položky</span>
-                        <span className="text-base font-bold text-[#2C2A29]">{patientMaterialLogs.length} záznamov</span>
-                      </div>
-                      <div className="h-8 w-px bg-[#E8E2D9] hidden sm:block" />
-                      <div>
-                        <span className="text-[10px] uppercase text-[#8C857B] font-bold block">Implantáty & Špeciál</span>
-                        <span className="text-base font-bold text-[#C5A059]">
-                          {patientMaterialLogs.filter(l => l.category === 'implantaty').length} ks
-                        </span>
-                      </div>
-                      <div className="h-8 w-px bg-[#E8E2D9] hidden sm:block" />
-                      <div>
-                        <span className="text-[10px] uppercase text-[#8C857B] font-bold block">Pooperačné prádlo</span>
-                        <span className="text-base font-bold text-[#2C2A29]">
-                          {patientMaterialLogs.filter(l => l.category === 'kompresivne_pradlo').length} ks
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsDispensingMaterial(true);
-                        setDispenseItemId(allStockItems[0]?.id || '');
-                      }}
-                      className="text-xs bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3.5 py-2 rounded-xl uppercase font-bold tracking-wider shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span>+ Vystaviť / Odpísať materiál</span>
-                    </button>
-                  </div>
-
-                  {/* Filtre */}
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                    <span className="text-[10px] uppercase font-bold text-[#8C857B] mr-1">Filter:</span>
-                    {[
-                      { id: 'all', label: 'Všetko' },
-                      { id: 'operacia', label: '🏥 Operácie' },
-                      { id: 'estetika', label: '💉 Estetika' },
-                      { id: 'pradlo', label: '👙 Vydané prádlo' },
-                      { id: 'ambulancia', label: '🩺 Ambulancia' },
-                    ].map(f => (
-                      <button
-                        key={f.id}
-                        onClick={() => setMaterialFilterType(f.id)}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                          materialFilterType === f.id
-                            ? 'bg-[#2C2A29] text-white'
-                            : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]'
+                  return (
+                    <div className="flex flex-wrap gap-1.5 border-b border-[#E8E2D9] pt-1">
+                      {/* 1. ZÁZNAMY & DOKUMENTÁCIA */}
+                      <button 
+                        onClick={() => { setActiveFolder('zaznamy'); setActivePhotoCategory(null); }} 
+                        className={`px-4 py-2.5 text-xs font-bold tracking-wider rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${ 
+                          activeFolder === 'zaznamy' 
+                            ? 'bg-white border-t-2 border-x border-[#E8E2D9] border-t-[#C5A059] text-[#2C2A29] shadow-2xs' 
+                            : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]' 
                         }`}
                       >
-                        {f.label}
+                        <FileText className={`w-4 h-4 ${activeFolder === 'zaznamy' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
+                        <span>Záznamy & Dokumentácia</span>
+                        {totalZaznamyCount > 0 && (
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'zaznamy' ? 'bg-[#2C2A29] text-white' : 'bg-gray-100 text-gray-700'}`}>
+                            {totalZaznamyCount}
+                          </span>
+                        )}
                       </button>
-                    ))}
-                  </div>
 
-                  {/* Zoznam položiek */}
-                  {patientMaterialLogs.length === 0 ? (
-                    <div className="text-center py-12 border border-dashed border-[#E8E2D9] rounded-xl bg-[#FAF8F5]">
-                      <p className="text-3xl mb-2">📦</p>
-                      <p className="text-sm font-semibold text-[#2C2A29]">Zatiaľ nebol zaznamenaný žiadny minutý materiál</p>
-                      <p className="text-xs text-[#8C857B] max-w-md mx-auto mt-1">
-                        Materiál sa automaticky odpisuje zo skladu pri ukladaní operačného protokolu, estetického ošetrenia (Face Mapping), kontrolného vyšetrenia alebo priamom výdaji pooperačnej bielizne.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsDispensingMaterial(true);
-                          setDispenseItemId(allStockItems[0]?.id || '');
-                        }}
-                        className="mt-4 text-xs bg-[#C5A059] text-white px-4 py-2 rounded-xl uppercase font-bold hover:bg-[#b08d48] cursor-pointer"
+                      {/* 2. PLÁNY & STAROSTLIVOSŤ */}
+                      <button 
+                        onClick={() => { setActiveFolder('plany'); setActivePhotoCategory(null); }} 
+                        className={`px-4 py-2.5 text-xs font-bold tracking-wider rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${ 
+                          activeFolder === 'plany' 
+                            ? 'bg-white border-t-2 border-x border-[#E8E2D9] border-t-[#C5A059] text-[#2C2A29] shadow-2xs' 
+                            : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]' 
+                        }`}
                       >
-                        + Zaznamenať výdaj materiálu
+                        <Sparkles className={`w-4 h-4 ${activeFolder === 'plany' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
+                        <span>Plány & Starostlivosť</span>
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'plany' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/15 text-[#9C7D2B]'}`}>
+                          12M + Protokoly
+                        </span>
+                      </button>
+
+                      {/* 3. DIAGNOSTIKA & FOTODOKUMENTÁCIA */}
+                      <button 
+                        onClick={() => { setActiveFolder('diagnostika'); setActivePhotoCategory(null); }} 
+                        className={`px-4 py-2.5 text-xs font-bold tracking-wider rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${ 
+                          activeFolder === 'diagnostika' 
+                            ? 'bg-white border-t-2 border-x border-[#E8E2D9] border-t-[#C5A059] text-[#2C2A29] shadow-2xs' 
+                            : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]' 
+                        }`}
+                      >
+                        <Activity className={`w-4 h-4 ${activeFolder === 'diagnostika' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
+                        <span>Diagnostika & Foto</span>
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'diagnostika' ? 'bg-[#2C2A29] text-white' : 'bg-gray-100 text-gray-700'}`}>
+                          Meicet 3D
+                        </span>
+                      </button>
+
+                      {/* 4. TERMÍNY & KONTROLY */}
+                      <button 
+                        onClick={() => { setActiveFolder('terminy'); setActivePhotoCategory(null); }} 
+                        className={`px-4 py-2.5 text-xs font-bold tracking-wider rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${ 
+                          activeFolder === 'terminy' 
+                            ? 'bg-white border-t-2 border-x border-[#E8E2D9] border-t-[#C5A059] text-[#2C2A29] shadow-2xs' 
+                            : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]' 
+                        }`}
+                      >
+                        <Calendar className={`w-4 h-4 ${activeFolder === 'terminy' ? 'text-sky-600' : 'text-[#8C857B]'}`} />
+                        <span>Termíny & Kontroly</span>
+                        {patientEvents.length > 0 && (
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'terminy' ? 'bg-sky-600 text-white' : 'bg-sky-100 text-sky-800'}`}>
+                            {patientEvents.length}
+                          </span>
+                        )}
                       </button>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {patientMaterialLogs
-                        .filter(log => materialFilterType === 'all' || log.sourceType === materialFilterType)
-                        .map(log => (
-                          <div
-                            key={log.id}
-                            className="border border-[#E8E2D9] rounded-xl p-3.5 bg-white hover:border-[#C5A059]/50 transition-all shadow-2xs space-y-2"
-                          >
-                            <div className="flex flex-wrap justify-between items-start gap-2">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                                    log.sourceType === 'operacia'
-                                      ? 'bg-rose-100 text-rose-800'
-                                      : log.sourceType === 'estetika'
-                                      ? 'bg-purple-100 text-purple-800'
-                                      : log.sourceType === 'pradlo'
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-blue-100 text-blue-800'
-                                  }`}>
-                                    {log.sourceType === 'operacia' ? '🏥 Operácia' : log.sourceType === 'estetika' ? '💉 Estetika' : log.sourceType === 'pradlo' ? '👙 Prádlo' : '🩺 Ambulancia'}
-                                  </span>
-                                  <span className="text-xs font-bold text-[#2C2A29]">{log.itemName}</span>
-                                </div>
-                                <p className="text-[11px] text-[#8C857B] mt-0.5">
-                                  Výkon: <strong className="text-[#2C2A29]">{log.procedureName}</strong>
-                                </p>
-                              </div>
+                  );
+                })()}
 
-                              <div className="text-right">
-                                <span className="text-sm font-bold text-[#2C2A29] bg-[#FAF8F5] px-2.5 py-1 rounded-lg border border-[#E8E2D9]">
-                                  {log.quantity} {log.unit}
-                                </span>
-                                <span className="block text-[10px] text-[#8C857B] mt-1">
-                                  {new Date(log.timestamp).toLocaleString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </div>
-                            </div>
+                {/* HLAVNÝ OBSAH AKTÍVNEJ SEKCIE */}
+                <div className="min-h-[400px] border border-[#E8E2D9] rounded-b-2xl rounded-tr-2xl p-5 bg-white shadow-2xs">
+                  
+                  {/* ============================================================ */}
+                  {/* SEKCIA 1: ZÁZNAMY & DOKUMENTÁCIA                             */}
+                  {/* ============================================================ */}
+                  {activeFolder === 'zaznamy' && (
+                    <div className="space-y-4">
+                      {/* Sub-navigácia pre Záznamy & Dokumentáciu */}
+                      <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-[#F0EBE1]">
+                        <button
+                          type="button"
+                          onClick={() => setZaznamySubTab('dekurzy')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            zaznamySubTab === 'dekurzy'
+                              ? 'bg-[#2C2A29] text-white shadow-2xs'
+                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
+                          }`}
+                        >
+                          <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>Dekurzy & Správy</span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${zaznamySubTab === 'dekurzy' ? 'bg-white/20 text-white' : 'bg-white text-gray-700 border border-[#E8E2D9]'}`}>
+                            {(patientRecords[selectedPatient.id] || []).length}
+                          </span>
+                        </button>
 
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F0EBE1] text-[11px]">
-                              <div className="flex flex-wrap items-center gap-3 text-[#8C857B]">
-                                {log.lotNumber && (
-                                  <span>Šarža / LOT: <strong className="text-[#C5A059] font-mono">{log.lotNumber}</strong></span>
-                                )}
-                                {log.serialNumber && (
-                                  <span>SN: <strong className="text-[#2C2A29] font-mono">{log.serialNumber}</strong></span>
-                                )}
-                                {log.performerName && (
-                                  <span>Personál: <strong className="text-[#2C2A29]">{log.performerName}</strong></span>
-                                )}
-                              </div>
-                              {log.notes && (
-                                <span className="text-[#8C857B] italic text-[10px]">
-                                  {log.notes}
-                                </span>
+                        <button
+                          type="button"
+                          onClick={() => setZaznamySubTab('vysetrenia')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            zaznamySubTab === 'vysetrenia'
+                              ? 'bg-[#2C2A29] text-white shadow-2xs'
+                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
+                          }`}
+                        >
+                          <FileCheck className="w-3.5 h-3.5 text-rose-500" />
+                          <span>Výsledky & Predoperačné</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setZaznamySubTab('materialy')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            zaznamySubTab === 'materialy'
+                              ? 'bg-[#2C2A29] text-white shadow-2xs'
+                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
+                          }`}
+                        >
+                          <Boxes className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Spotrebovaný materiál</span>
+                          {patientMaterialLogs.length > 0 && (
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${zaznamySubTab === 'materialy' ? 'bg-white/20 text-white' : 'bg-white text-gray-700 border border-[#E8E2D9]'}`}>
+                              {patientMaterialLogs.length}
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setZaznamySubTab('drive')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            zaznamySubTab === 'drive'
+                              ? 'bg-[#2C2A29] text-white shadow-2xs'
+                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
+                          }`}
+                        >
+                          <HardDrive className="w-3.5 h-3.5 text-sky-600" />
+                          <span>Google Drive (Klienti SAY)</span>
+                        </button>
+                      </div>
+
+                      {/* SUB-OBSAH 1A: DEKURZY & SPRÁVY */}
+                      {zaznamySubTab === 'dekurzy' && (
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+                            <p className="text-[10px] uppercase text-[#8C857B] font-bold">História zdravotných záznamov, dekurzov & nálezov</p>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {onNavigateToAesthetics && (
+                                <button 
+                                  onClick={() => onNavigateToAesthetics(selectedPatient)} 
+                                  className="text-[11px] bg-[#2C2A29] text-white px-2.5 py-1.5 rounded-lg uppercase font-bold shadow-xs hover:bg-[#C5A059] transition-colors flex items-center gap-1 cursor-pointer"
+                                >
+                                  💉 + Face Mapping
+                                </button>
                               )}
+                              <button 
+                                onClick={() => onNavigateToGenerator && onNavigateToGenerator({ ...selectedPatient, initialDocType: 'dermatologicke_vysetrenie' })} 
+                                className="text-[11px] bg-purple-700 text-white px-2.5 py-1.5 rounded-lg uppercase font-bold shadow-xs hover:bg-purple-800 transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Vytvoriť dermatologické vyšetrenie s dermatoskopiou a fototypom"
+                              >
+                                🩺 + Dermatológia
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (onNavigateToPrescriptions && selectedPatient) {
+                                    onNavigateToPrescriptions(selectedPatient);
+                                  } else if (onNavigateToGenerator) {
+                                    onNavigateToGenerator({ ...selectedPatient, initialDocType: 'lekarsky_recept' });
+                                  }
+                                }}
+                                className="text-[11px] bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg uppercase font-bold shadow-xs hover:bg-emerald-800 transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Vystaviť lekársky recept ŠEVT 14 282 2s pre tohto pacienta"
+                              >
+                                💊 + Recept ŠEVT
+                              </button>
+                              <button 
+                                onClick={() => handleOpenScheduleModal()} 
+                                className="text-[11px] bg-sky-700 hover:bg-sky-800 text-white px-2.5 py-1.5 rounded-lg uppercase font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Naplánovať pooperačnú kontrolu alebo termín do kalendára"
+                              >
+                                <span>📅</span> + Naplánovať kontrolu
+                              </button>
+                              <button 
+                                onClick={() => onNavigateToGenerator && onNavigateToGenerator(selectedPatient)} 
+                                className="text-[11px] bg-[#C5A059] text-white px-3 py-1.5 rounded-lg uppercase font-bold shadow-xs hover:bg-[#b38d45] transition-colors cursor-pointer"
+                              >
+                                + Vytvoriť nový záznam
+                              </button>
                             </div>
                           </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ZÁLOŽKA TERMÍNY & POOPERAČNÉ KONTROLY */}
-              {activeFolder === 'terminy' && (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap justify-between items-center gap-3 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E2D9]">
-                    <div>
-                      <h4 className="text-xs uppercase font-bold text-[#2C2A29] flex items-center gap-1.5">
-                        <span>📅</span> Plánované termíny & Pooperačné kontroly pacienta
-                      </h4>
-                      <p className="text-[11px] text-[#8C857B]">
-                        Prehľad všetkých záznamov v klinickom kalendári s informáciami o predchádzajúcej operácii
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {onNavigateToCalendar && (
-                        <button
-                          onClick={onNavigateToCalendar}
-                          className="text-[11px] bg-white border border-[#E8E2D9] text-[#2C2A29] hover:bg-[#FBF9F6] px-3 py-1.5 rounded-lg uppercase font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>🗓️</span> Otvoriť kalendár
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleOpenScheduleModal()}
-                        className="text-[11px] bg-sky-700 hover:bg-sky-800 text-white px-3.5 py-1.5 rounded-lg uppercase font-bold shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <span>📅</span> + Naplánovať termín / kontrolu
-                      </button>
-                    </div>
-                  </div>
-
-                  {(() => {
-                    const patientEvents = storedEvents.filter(evt => 
-                      (evt.patientId && evt.patientId === selectedPatient.id) ||
-                      (evt.patientName && selectedPatient.name && (
-                        evt.patientName.toLowerCase().includes(selectedPatient.name.toLowerCase()) ||
-                        selectedPatient.name.toLowerCase().includes(evt.patientName.toLowerCase())
-                      ))
-                    );
-
-                    if (patientEvents.length === 0) {
-                      return (
-                        <div className="text-center py-10 border border-dashed border-[#E8E2D9] rounded-xl space-y-3">
-                          <div className="text-3xl">🗓️</div>
-                          <p className="text-xs text-[#8C857B] font-medium">Pacient nemá zatiaľ v kalendári naplánovaný žiadny termín ani pooperačnú kontrolu.</p>
-                          <button
-                            onClick={() => handleOpenScheduleModal()}
-                            className="px-4 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-                          >
-                            <span>📅</span> Naplánovať termín z karty pacienta
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="space-y-3">
-                        {patientEvents.map(evt => {
-                          const isCheckup = evt.type === 'kontrola' || !!evt.operationTitle;
-                          const diff = evt.operationDate ? getPostOpTimeDiff(evt.operationDate, evt.date) : null;
-                          return (
-                            <div
-                              key={evt.id}
-                              className={`border rounded-xl p-4 transition-all shadow-2xs space-y-2.5 ${
-                                evt.isCancelled 
-                                  ? 'bg-gray-50 border-gray-200 opacity-60' 
-                                  : isCheckup 
-                                  ? 'bg-sky-50/50 border-sky-200 hover:border-sky-300' 
-                                  : 'bg-white border-[#E8E2D9] hover:border-[#C5A059]'
-                              }`}
-                            >
-                              <div className="flex flex-wrap justify-between items-start gap-2">
-                                <div className="space-y-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                                      evt.type === 'operacia' ? 'bg-purple-100 text-purple-900 border border-purple-200' :
-                                      evt.type === 'kontrola' ? 'bg-sky-600 text-white' :
-                                      evt.type === 'konzultacia' ? 'bg-amber-100 text-amber-900 border border-amber-200' :
-                                      'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                                    }`}>
-                                      {evt.type === 'operacia' ? '🏥 Operácia' : evt.type === 'kontrola' ? '🩺 Poop. kontrola' : evt.type === 'konzultacia' ? '💬 Konzultácia' : '✨ Ošetrenie'}
-                                    </span>
-                                    <h5 className="font-bold text-sm text-[#2C2A29]">{evt.title}</h5>
-                                    {evt.isCancelled && (
-                                      <span className="text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold uppercase">
-                                        Zrušené ({evt.cancelReason || 'neuvedené'})
-                                      </span>
-                                    )}
+                          
+                          {patientRecords[selectedPatient.id] && patientRecords[selectedPatient.id].length > 0 ? (
+                            <div className="space-y-2">
+                              {patientRecords[selectedPatient.id].map(record => (
+                                <div key={record.id} className="border border-[#E8E2D9] rounded-xl p-3.5 flex flex-wrap justify-between items-center hover:bg-[#FAF8F5] transition-all bg-white shadow-2xs gap-3">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-[9px] text-white px-2 py-0.5 rounded-full uppercase font-bold ${record.typeColor}`}>{record.type}</span>
+                                      <span className="text-xs font-bold text-[#2C2A29]">{record.title}</span>
+                                    </div>
+                                    <p className="text-[11px] text-[#8C857B]">
+                                      Lekár: <strong className="text-[#2C2A29]">{record.doctor}</strong> {record.diagnosis && <>| Diagnóza: <span className="font-mono text-[#C5A059]">{record.diagnosis}</span></>}
+                                    </p>
                                   </div>
-
-                                  <p className="text-xs text-[#8C857B]">
-                                    Lekár: <strong className="text-[#2C2A29]">{evt.assignedTo || evt.doctorName}</strong> • Miestnosť: <strong className="text-[#2C2A29]">{evt.roomId === 'sala_say' ? 'Sála SAY' : evt.roomId === 'ambulancia' ? 'Ambulancia' : evt.roomId}</strong>
-                                  </p>
+                                  
+                                  <div className="flex flex-col items-end gap-1.5">
+                                    <p className="text-xs font-mono text-[#8C857B] font-bold">{new Date(record.date).toLocaleDateString('sk-SK')}</p>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      {(record.type?.toLowerCase().includes('opera') || record.type?.toLowerCase().includes('protokol') || record.title?.toLowerCase().includes('augmentác') || record.title?.toLowerCase().includes('lipo')) && (
+                                        <button 
+                                          onClick={() => handleOpenScheduleModal(record)} 
+                                          className="text-[10px] text-sky-900 bg-sky-100 hover:bg-sky-200 border border-sky-300 px-2 py-1 rounded-lg uppercase font-bold transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                                          title="Naplánovať pooperačnú kontrolu z tohto operačného protokolu"
+                                        >
+                                          <span>🩺</span> Kontrola
+                                        </button>
+                                      )}
+                                      <button onClick={() => setEditingRecord(record)} className="text-[10px] text-[#8C857B] hover:text-[#C5A059] uppercase font-bold px-2 py-1 rounded hover:bg-stone-100 transition-colors">✏️ Upraviť</button>
+                                      <button onClick={() => handleDeleteRecord(record.id)} className="text-[10px] text-[#8C857B] hover:text-rose-600 uppercase font-bold px-2 py-1 rounded hover:bg-rose-50 transition-colors">🗑️ Zmazať</button>
+                                      <button onClick={() => setPreviewRecord(record)} className="text-[10px] text-[#C5A059] hover:text-[#9C7D2B] bg-[#FAF8F5] border border-[#E8E2D9] px-2.5 py-1 rounded-lg uppercase font-bold transition-colors shadow-2xs">
+                                        📄 Náhľad & PDF
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-12 border border-dashed border-[#E8E2D9] rounded-xl bg-[#FAF8F5]">
+                              <p className="text-3xl mb-2">📄</p>
+                              <p className="text-xs text-[#8C857B]">Tento pacient zatiaľ nemá žiadne lokálne lekárske záznamy.</p>
+                              <button 
+                                onClick={() => onNavigateToGenerator && onNavigateToGenerator(selectedPatient)}
+                                className="mt-3 text-xs bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3.5 py-2 rounded-xl uppercase font-bold cursor-pointer transition-colors"
+                              >
+                                + Vystaviť prvú lekársku správu
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                                <div className="text-right">
-                                  <div className="text-xs font-mono font-bold text-[#2C2A29] bg-black/5 px-2.5 py-1 rounded-lg">
-                                    📅 {new Date(evt.date).toLocaleDateString('sk-SK')} • {evt.isAllDay ? 'Celý deň' : `${evt.startTime} – ${evt.endTime}`}
-                                  </div>
+                      {/* SUB-OBSAH 1B: VÝSLEDKY & PREDOPERAČNÉ VYŠETRENIA */}
+                      {zaznamySubTab === 'vysetrenia' && (
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h4 className="text-xs uppercase font-bold text-[#2C2A29]">Výsledky laboratórií, EKG a interných vyšetrení</h4>
+                              <p className="text-[11px] text-[#8C857B]">Predoperačné vyšetrenia k plánovaným anestéziologickým výkonom</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2.5">
+                            <div className="border border-[#E8E2D9] rounded-xl p-3.5 flex justify-between items-center hover:bg-[#FAF8F5] transition-all bg-white shadow-2xs">
+                              <div className="flex items-center gap-3">
+                                <div className="bg-rose-100 text-rose-700 p-2.5 rounded-xl text-xs font-bold flex items-center justify-center">
+                                  PDF
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold text-[#2C2A29]">Predoperačné interné vyšetrenie & EKG</p>
+                                  <p className="text-[10px] text-[#8C857B] mt-0.5">Záver: Schopná výkonu v celkovej anestézii • ASA I</p>
                                 </div>
                               </div>
+                              <button 
+                                onClick={() => alert('Predoperačné vyšetrenie bolo overené a je archivované v elektronickej karte pacienta.')}
+                                className="text-[10px] bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#C5A059] hover:text-[#9C7D2B] px-3 py-1.5 rounded-lg uppercase font-bold transition-all shadow-2xs cursor-pointer"
+                              >
+                                Stiahnuť PDF
+                              </button>
+                            </div>
 
-                              {/* POOPERAČNÉ PODROBNOSTI: PO ČOM A KEDY BOLA OPERÁCIA */}
-                              {(evt.operationTitle || evt.operationDate) && (
-                                <div className="bg-sky-100/70 border border-sky-200 rounded-lg p-2.5 text-xs text-sky-950 space-y-1">
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="flex items-center gap-1.5 font-bold">
-                                      <span>🔪 Pooperačná kontrola po:</span>
-                                      <strong className="text-sky-900">{evt.operationTitle || 'operačnom zákroku'}</strong>
+                            <div className="border border-[#E8E2D9] rounded-xl p-3.5 flex justify-between items-center hover:bg-[#FAF8F5] transition-all bg-white shadow-2xs">
+                              <div className="flex items-center gap-3">
+                                <div className="bg-blue-100 text-blue-700 p-2.5 rounded-xl text-xs font-bold flex items-center justify-center">
+                                  LAB
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold text-[#2C2A29]">Krvný obraz, hemostáza (Quick, aPTT, INR) & Biochémia</p>
+                                  <p className="text-[10px] text-[#8C857B] mt-0.5">Hb, Ery, Leu, Trc, Glykémia, Urea, Kreatinín v referenčnom rozmedzí</p>
+                                </div>
+                              </div>
+                              <button 
+                                onClick={() => alert('Laboratórne výsledky sú platné 14 dní pred plánovaným dňom operácie.')}
+                                className="text-[10px] bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#C5A059] hover:text-[#9C7D2B] px-3 py-1.5 rounded-lg uppercase font-bold transition-all shadow-2xs cursor-pointer"
+                              >
+                                Zobraziť výsledky
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SUB-OBSAH 1C: SPOTREBOVANÝ MATERIÁL & PRÁDLO */}
+                      {zaznamySubTab === 'materialy' && (
+                        <div className="space-y-4">
+                          {/* Horný panel: Štatistiky a akcie */}
+                          <div className="flex flex-wrap justify-between items-center gap-3 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E2D9]">
+                            <div className="flex flex-wrap items-center gap-4 text-xs">
+                              <div>
+                                <span className="text-[10px] uppercase text-[#8C857B] font-bold block">Minuté položky</span>
+                                <span className="text-base font-bold text-[#2C2A29]">{patientMaterialLogs.length} záznamov</span>
+                              </div>
+                              <div className="h-8 w-px bg-[#E8E2D9] hidden sm:block" />
+                              <div>
+                                <span className="text-[10px] uppercase text-[#8C857B] font-bold block">Implantáty & Špeciál</span>
+                                <span className="text-base font-bold text-[#C5A059]">
+                                  {patientMaterialLogs.filter(l => l.category === 'implantaty').length} ks
+                                </span>
+                              </div>
+                              <div className="h-8 w-px bg-[#E8E2D9] hidden sm:block" />
+                              <div>
+                                <span className="text-[10px] uppercase text-[#8C857B] font-bold block">Pooperačné prádlo</span>
+                                <span className="text-base font-bold text-[#2C2A29]">
+                                  {patientMaterialLogs.filter(l => l.category === 'kompresivne_pradlo').length} ks
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsDispensingMaterial(true);
+                                setDispenseItemId(allStockItems[0]?.id || '');
+                              }}
+                              className="text-xs bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3.5 py-2 rounded-xl uppercase font-bold tracking-wider shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <span>+ Vystaviť / Odpísať materiál</span>
+                            </button>
+                          </div>
+
+                          {/* Filtre */}
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                            <span className="text-[10px] uppercase font-bold text-[#8C857B] mr-1">Filter:</span>
+                            {[
+                              { id: 'all', label: 'Všetko' },
+                              { id: 'operacia', label: '🏥 Operácie' },
+                              { id: 'estetika', label: '💉 Estetika' },
+                              { id: 'pradlo', label: '👙 Vydané prádlo' },
+                              { id: 'ambulancia', label: '🩺 Ambulancia' },
+                            ].map(f => (
+                              <button
+                                key={f.id}
+                                onClick={() => setMaterialFilterType(f.id)}
+                                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                                  materialFilterType === f.id
+                                    ? 'bg-[#2C2A29] text-white'
+                                    : 'bg-[#FBF9F6] text-[#8C857B] hover:bg-[#E8E2D9]'
+                                }`}
+                              >
+                                {f.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Zoznam položiek */}
+                          {patientMaterialLogs.length === 0 ? (
+                            <div className="text-center py-12 border border-dashed border-[#E8E2D9] rounded-xl bg-[#FAF8F5]">
+                              <p className="text-3xl mb-2">📦</p>
+                              <p className="text-sm font-semibold text-[#2C2A29]">Zatiaľ nebol zaznamenaný žiadny minutý materiál</p>
+                              <p className="text-xs text-[#8C857B] max-w-md mx-auto mt-1">
+                                Materiál sa automaticky odpisuje zo skladu pri ukladaní operačného protokolu, estetického ošetrenia, kontrolného vyšetrenia alebo priamom výdaji pooperačnej bielizne.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsDispensingMaterial(true);
+                                  setDispenseItemId(allStockItems[0]?.id || '');
+                                }}
+                                className="mt-4 text-xs bg-[#C5A059] text-white px-4 py-2 rounded-xl uppercase font-bold hover:bg-[#b08d48] cursor-pointer"
+                              >
+                                + Zaznamenať výdaj materiálu
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {patientMaterialLogs
+                                .filter(log => materialFilterType === 'all' || log.sourceType === materialFilterType)
+                                .map(log => (
+                                  <div
+                                    key={log.id}
+                                    className="border border-[#E8E2D9] rounded-xl p-3.5 bg-white hover:border-[#C5A059]/50 transition-all shadow-2xs space-y-2"
+                                  >
+                                    <div className="flex flex-wrap justify-between items-start gap-2">
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                                            log.sourceType === 'operacia'
+                                              ? 'bg-rose-100 text-rose-800'
+                                              : log.sourceType === 'estetika'
+                                              ? 'bg-purple-100 text-purple-800'
+                                              : log.sourceType === 'pradlo'
+                                              ? 'bg-amber-100 text-amber-800'
+                                              : 'bg-blue-100 text-blue-800'
+                                          }`}>
+                                            {log.sourceType === 'operacia' ? '🏥 Operácia' : log.sourceType === 'estetika' ? '💉 Estetika' : log.sourceType === 'pradlo' ? '👙 Prádlo' : '🩺 Ambulancia'}
+                                          </span>
+                                          <span className="text-xs font-bold text-[#2C2A29]">{log.itemName}</span>
+                                        </div>
+                                        <p className="text-[11px] text-[#8C857B] mt-0.5">
+                                          Výkon: <strong className="text-[#2C2A29]">{log.procedureName}</strong>
+                                        </p>
+                                      </div>
+
+                                      <div className="text-right">
+                                        <span className="text-sm font-bold text-[#2C2A29] bg-[#FAF8F5] px-2.5 py-1 rounded-lg border border-[#E8E2D9]">
+                                          {log.quantity} {log.unit}
+                                        </span>
+                                        <span className="block text-[10px] text-[#8C857B] mt-1">
+                                          {new Date(log.timestamp).toLocaleString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      </div>
                                     </div>
-                                    {evt.operationDate && diff && (
-                                      <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded shadow-2xs">
-                                        Operácia: {evt.operationDate} ({diff.displayText})
-                                      </span>
-                                    )}
+
+                                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F0EBE1] text-[11px]">
+                                      <div className="flex flex-wrap items-center gap-3 text-[#8C857B]">
+                                        {log.lotNumber && (
+                                          <span>Šarža / LOT: <strong className="text-[#C5A059] font-mono">{log.lotNumber}</strong></span>
+                                        )}
+                                        {log.serialNumber && (
+                                          <span>SN: <strong className="text-[#2C2A29] font-mono">{log.serialNumber}</strong></span>
+                                        )}
+                                        {log.performerName && (
+                                          <span>Personál: <strong className="text-[#2C2A29]">{log.performerName}</strong></span>
+                                        )}
+                                      </div>
+                                      {log.notes && (
+                                        <span className="text-[#8C857B] italic text-[10px]">
+                                          {log.notes}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                  {evt.operationDoctor && (
-                                    <p className="text-[11px] text-sky-800">
-                                      Operatér: <strong>{evt.operationDoctor}</strong> {evt.controlInterval ? `• Odporúčaná fáza: ${evt.controlInterval}` : ''}
-                                    </p>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* SUB-OBSAH 1D: GOOGLE DRIVE DOKUMENTY (PREPOJENIE SO ZLOŽKOU KLIENTI SAY) */}
+                      {zaznamySubTab === 'drive' && (
+                        <div className="space-y-3 pt-1">
+                          <PatientDriveFiles patientName={selectedPatient.name} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ============================================================ */}
+                  {/* SEKCIA 2: PLÁNY & STAROSTLIVOSŤ                              */}
+                  {/* ============================================================ */}
+                  {activeFolder === 'plany' && (
+                    <div className="space-y-5">
+                      {/* Sub-navigácia pre Plány & Starostlivosť */}
+                      <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-[#F0EBE1]">
+                        <button
+                          type="button"
+                          onClick={() => setPlanySubTab('roadmap')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            planySubTab === 'roadmap'
+                              ? 'bg-[#2C2A29] text-white shadow-2xs'
+                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
+                          }`}
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>12-Mesačný AI Liečebný Plán</span>
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${planySubTab === 'roadmap' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
+                            AI Skincare
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPlanySubTab('protokoly')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            planySubTab === 'protokoly'
+                              ? 'bg-[#2C2A29] text-white shadow-2xs'
+                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
+                          }`}
+                        >
+                          <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>Protokoly starostlivosti & Plány pacienta</span>
+                          {(allPatientPlans[selectedPatient.id] || []).length > 0 && (
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${planySubTab === 'protokoly' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
+                              {(allPatientPlans[selectedPatient.id] || []).length}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* SUB-OBSAH 2A: 12-MESAČNÝ AI LIEČEBNÝ PLÁN */}
+                      {planySubTab === 'roadmap' && (
+                        <AIHealthRoadmapView
+                          patient={selectedPatient}
+                          proceduresHistory={patientRecords[selectedPatient.id] || []}
+                          aestheticsHistory={(() => {
+                            try {
+                              const saved = localStorage.getItem('say_clinic_aesthetic_sessions');
+                              if (saved) {
+                                const parsed = JSON.parse(saved);
+                                if (parsed[selectedPatient.id] && parsed[selectedPatient.id].length > 0) {
+                                  return parsed[selectedPatient.id];
+                                }
+                              }
+                            } catch (e) {
+                              console.error(e);
+                            }
+                            if (selectedPatient.id === 'P1') {
+                              return [
+                                {
+                                  id: 'aes-p1-1',
+                                  patientId: 'P1',
+                                  date: '2026-06-15',
+                                  formattedDate: '15.06.2026',
+                                  title: 'Tvár – Aplikácia Dysport & Restylane Kysse',
+                                  doctor: 'MUDr. Ján Mráz',
+                                  protocolNumber: 'AES-2026-441',
+                                  notes: 'Aplikácia botulotoxínu do glabely a frontalis s cieľom eliminácie dynamických vrások. Decentná hydratácia pier prípravkom Restylane Kysse. Aplikácia bez komplikácií.',
+                                  vectors: [
+                                    {
+                                      id: 'vec-1',
+                                      type: 'point',
+                                      view: 'front',
+                                      color: '#3B82F6',
+                                      startPoint: { x: 250, y: 210 },
+                                      zoneName: 'Čelo (m. frontalis)',
+                                      productName: 'Dysport 300IU (Botulotoxín A)',
+                                      lotNumber: 'DYSP-4412B',
+                                      details: '20 Speywood U (intramuskulárne)',
+                                      createdAt: '11:15'
+                                    },
+                                    {
+                                      id: 'vec-2',
+                                      type: 'point',
+                                      view: 'front',
+                                      color: '#3B82F6',
+                                      startPoint: { x: 250, y: 245 },
+                                      zoneName: 'Glabela (m. procerus + corrugator)',
+                                      productName: 'Dysport 300IU (Botulotoxín A)',
+                                      lotNumber: 'DYSP-4412B',
+                                      details: '30 Speywood U (intramuskulárne)',
+                                      createdAt: '11:20'
+                                    },
+                                    {
+                                      id: 'vec-3',
+                                      type: 'fanning',
+                                      view: 'front',
+                                      color: '#EC4899',
+                                      startPoint: { x: 250, y: 395 },
+                                      zoneName: 'Pery (vermilion border + stred)',
+                                      productName: 'Restylane Kysse 1ml s Lidokaínom',
+                                      lotNumber: 'RST-KYS-993A',
+                                      details: '0.8 ml (retrográdne kanylou 25G)',
+                                      createdAt: '11:35'
+                                    }
+                                  ],
+                                  bodyTreatments: []
+                                }
+                              ];
+                            }
+                            if (selectedPatient.id === 'P2') {
+                              return [
+                                {
+                                  id: 'aes-p2-1',
+                                  patientId: 'P2',
+                                  date: '2026-05-20',
+                                  formattedDate: '20.05.2026',
+                                  title: 'Tvár – Brotox & Mezoterapia vitamínmi',
+                                  doctor: 'MUDr. Ján Mráz',
+                                  protocolNumber: 'AES-2026-382',
+                                  notes: 'Aplikácia botulotoxínu pre muža do glabely a periokulárnej oblasti. Zohľadnená väčšia svalová hmota. Doplnená mezoterapia s kyselinou hyalurónovou na revitalizáciu kože.',
+                                  vectors: [
+                                    {
+                                      id: 'vec-p2-1',
+                                      type: 'point',
+                                      view: 'front',
+                                      color: '#3B82F6',
+                                      startPoint: { x: 250, y: 240 },
+                                      zoneName: 'Glabela (m. corrugator supercilii)',
+                                      productName: 'Dysport 300IU',
+                                      lotNumber: 'DYSP-4412B',
+                                      details: '40 Speywood U',
+                                      createdAt: '14:20'
+                                    }
+                                  ],
+                                  bodyTreatments: []
+                                }
+                              ];
+                            }
+                            return [];
+                          })()}
+                          onScheduleEvent={(evtData) => {
+                            setSchedulingInitialDetails({
+                              title: evtData.title,
+                              eventType: (evtData.type as string) === 'surgical_followup' ? 'kontrola' : 'osetrenie',
+                              notes: evtData.notes
+                            });
+                            setIsSchedulingEvent(true);
+                          }}
+                          onNavigateToCalendar={onNavigateToCalendar}
+                        />
+                      )}
+
+                      {/* SUB-OBSAH 2B: PROTOKOLY STAROSTLIVOSTI & DETAIL VYBRANÉHO PLÁNU */}
+                      {planySubTab === 'protokoly' && (
+                        <div className="space-y-6">
+                          {(() => {
+                            const patientPlans = allPatientPlans[selectedPatient.id] || [];
+                            const currentActivePlan = patientPlans.find(p => p.id === selectedPlanId) || patientPlans[0];
+
+                            return (
+                              <div className="space-y-5">
+                                {/* HORNÁ LIŠTA: PREPÍNAČ MEDZI PLÁNMI + VYTVORENIE NOVÉHO */}
+                                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#FAF8F5] rounded-2xl border border-[#E8E2D9]">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-[#8C857B] mr-1">
+                                      Plány ({patientPlans.length}):
+                                    </span>
+                                    {patientPlans.map((pl) => {
+                                      const isSel = currentActivePlan && currentActivePlan.id === pl.id;
+                                      return (
+                                        <button
+                                          key={pl.id}
+                                          onClick={() => setSelectedPlanId(pl.id)}
+                                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                            isSel
+                                              ? 'bg-[#2C2A29] text-white shadow-xs'
+                                              : 'bg-white border border-[#E8E2D9] text-[#6B6357] hover:border-[#C5A059]'
+                                          }`}
+                                        >
+                                          <span>{pl.planType === 'pre_post_op' ? '🏥' : '✨'}</span>
+                                          <span className="truncate max-w-[200px]">{pl.title}</span>
+                                          <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${
+                                            isSel ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                                          }`}>
+                                            {new Date(pl.createdAt).toLocaleDateString('sk-SK')}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+
+                                  <button
+                                    onClick={() => setIsCreatingPlan(true)}
+                                    className="px-3.5 py-1.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ml-auto"
+                                  >
+                                    <span>✨</span>
+                                    <span>+ Nový plán pacienta</span>
+                                  </button>
+                                </div>
+
+                                {/* OBSAH: DETAIL VYBRANÉHO PLÁNU ALEBO PRÁZDNA OBRAZOVKA */}
+                                {currentActivePlan ? (
+                                  <PatientPlanViewer
+                                    plan={currentActivePlan}
+                                    patient={selectedPatient}
+                                    onUpdatePlan={handleUpdatePlan}
+                                    onScheduleTreatment={handleScheduleTreatmentFromPlan}
+                                    onOpenInCosmeticsPOS={(items) => onNavigateToCosmetics?.(selectedPatient, items)}
+                                  />
+                                ) : (
+                                  <div className="text-center py-16 px-4 bg-[#FAF8F5]/50 rounded-2xl border border-dashed border-[#E8E2D9] space-y-4">
+                                    <div className="w-16 h-16 rounded-full bg-[#C5A059]/15 text-[#C5A059] flex items-center justify-center mx-auto text-2xl">
+                                      ✨
+                                    </div>
+                                    <div className="max-w-md mx-auto">
+                                      <h3 className="text-base font-bold text-[#2C2A29]">Žiaden plán pacienta</h3>
+                                      <p className="text-xs text-[#8C857B] mt-1">
+                                        Vytvorte personalizovaný ročný estetický plán (odporúčaná ranná a večerná kozmetika, procedúry na 12 mesiacov) alebo kompletný plán pred a po operácii.
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-wrap justify-center gap-3 pt-2">
+                                      <button
+                                        onClick={() => setIsCreatingPlan(true)}
+                                        className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <span>✨</span>
+                                        <span>Vytvoriť plán s AI asistentom</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ============================================================ */}
+                  {/* SEKCIA 3: DIAGNOSTIKA & FOTODOKUMENTÁCIA                     */}
+                  {/* ============================================================ */}
+                  {activeFolder === 'diagnostika' && (
+                    <div className="space-y-4">
+                      {/* Sub-navigácia pre Diagnostiku & Foto */}
+                      <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-[#F0EBE1]">
+                        <button
+                          type="button"
+                          onClick={() => setDiagnostikaSubTab('meicet')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            diagnostikaSubTab === 'meicet'
+                              ? 'bg-[#2C2A29] text-white shadow-2xs'
+                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
+                          }`}
+                        >
+                          <Activity className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>Meicet Pro-A (3D Spektrálna analýza pleti)</span>
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${diagnostikaSubTab === 'meicet' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
+                            AI 3D
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => { setDiagnostikaSubTab('foto'); setActivePhotoCategory(null); }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            diagnostikaSubTab === 'foto'
+                              ? 'bg-[#2C2A29] text-white shadow-2xs'
+                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
+                          }`}
+                        >
+                          <Camera className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>Fotodokumentácia etáp</span>
+                        </button>
+                      </div>
+
+                      {/* SUB-OBSAH 3A: MEICET PRO-A 3D ANALÝZA */}
+                      {diagnostikaSubTab === 'meicet' && (
+                        <MeicetModule
+                          patient={selectedPatient}
+                          patientRecords={patientRecords[selectedPatient.id] || []}
+                          onSaveToPatientPlans={handleSaveNewPlan}
+                          onScheduleTreatment={(evt) => {
+                            setSchedulingInitialDetails({
+                              title: evt.title,
+                              eventType: evt.type || 'osetrenie',
+                              notes: evt.notes,
+                              targetDate: evt.date,
+                              doctor: evt.doctor
+                            });
+                            setIsSchedulingEvent(true);
+                          }}
+                          onTransferToCosmeticsPOS={(items) => onNavigateToCosmetics?.(selectedPatient, items)}
+                        />
+                      )}
+
+                      {/* SUB-OBSAH 3B: FOTODOKUMENTÁCIA ETÁP */}
+                      {diagnostikaSubTab === 'foto' && (
+                        <div>
+                          {!activePhotoCategory ? (
+                            <>
+                              <p className="text-[10px] uppercase text-[#8C857B] font-bold mb-4">Fotografické zložky pacienta podľa klinických etáp</p>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {PHOTO_CATEGORIES.map(cat => {
+                                  const key = `${selectedPatient.id}_${cat}`;
+                                  const count = patientPhotos[key]?.length || 0;
+                                  return (
+                                    <div key={cat} onClick={() => setActivePhotoCategory(cat)} className="border border-[#E8E2D9] rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#C5A059] hover:bg-[#FAF8F5] transition-all group bg-white shadow-2xs">
+                                      <span className="text-3xl mb-2 grayscale opacity-80 group-hover:grayscale-0 transition-all">📁</span>
+                                      <span className="text-xs font-bold text-[#2C2A29] uppercase">{cat}</span>
+                                      <span className="text-[10px] text-[#8C857B] mt-1">{count} fotografií</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
+                                <div className="flex items-center gap-3">
+                                  <button onClick={() => setActivePhotoCategory(null)} className="text-[18px] text-[#8C857B] hover:text-[#2C2A29] transition-colors cursor-pointer">←</button>
+                                  <h3 className="text-sm font-bold text-[#2C2A29] uppercase">📁 {activePhotoCategory}</h3>
+                                </div>
+                                <label className="cursor-pointer bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-colors flex items-center gap-1 shadow-sm">
+                                  <span>+ Hromadné nahratie fotiek</span>
+                                  <input type="file" multiple accept="image/*" className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
+                                </label>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                {patientPhotos[`${selectedPatient.id}_${activePhotoCategory}`]?.map((photo, idx) => (
+                                  <div key={idx} className="relative group rounded-lg overflow-hidden border border-[#E8E2D9] aspect-square bg-[#FAF8F5]">
+                                    <img src={photo.url} alt={photo.name} className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ============================================================ */}
+                  {/* SEKCIA 4: TERMÍNY & KONTROLY                                 */}
+                  {/* ============================================================ */}
+                  {activeFolder === 'terminy' && (
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap justify-between items-center gap-3 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E2D9]">
+                        <div>
+                          <h4 className="text-xs uppercase font-bold text-[#2C2A29] flex items-center gap-1.5">
+                            <span>📅</span> Plánované termíny & Pooperačné kontroly pacienta
+                          </h4>
+                          <p className="text-[11px] text-[#8C857B]">
+                            Prehľad všetkých záznamov v klinickom kalendári s informáciami o predchádzajúcej operácii
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {onNavigateToCalendar && (
+                            <button
+                              onClick={onNavigateToCalendar}
+                              className="text-[11px] bg-white border border-[#E8E2D9] text-[#2C2A29] hover:bg-[#FBF9F6] px-3 py-1.5 rounded-lg uppercase font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>🗓️</span> Otvoriť kalendár
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleOpenScheduleModal()}
+                            className="text-[11px] bg-sky-700 hover:bg-sky-800 text-white px-3.5 py-1.5 rounded-lg uppercase font-bold shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span>📅</span> + Naplánovať termín / kontrolu
+                          </button>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const patientEvents = storedEvents.filter(evt => 
+                          (evt.patientId && evt.patientId === selectedPatient.id) ||
+                          (evt.patientName && selectedPatient.name && (
+                            evt.patientName.toLowerCase().includes(selectedPatient.name.toLowerCase()) ||
+                            selectedPatient.name.toLowerCase().includes(evt.patientName.toLowerCase())
+                          ))
+                        );
+
+                        if (patientEvents.length === 0) {
+                          return (
+                            <div className="text-center py-12 border border-dashed border-[#E8E2D9] rounded-xl space-y-3 bg-[#FAF8F5]">
+                              <div className="text-3xl">🗓️</div>
+                              <p className="text-xs text-[#8C857B] font-medium">Pacient nemá zatiaľ v kalendári naplánovaný žiadny termín ani pooperačnú kontrolu.</p>
+                              <button
+                                onClick={() => handleOpenScheduleModal()}
+                                className="px-4 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                              >
+                                <span>📅</span> Naplánovať termín z karty pacienta
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-3">
+                            {patientEvents.map(evt => {
+                              const isCheckup = evt.type === 'kontrola' || !!evt.operationTitle;
+                              const diff = evt.operationDate ? getPostOpTimeDiff(evt.operationDate, evt.date) : null;
+                              return (
+                                <div
+                                  key={evt.id}
+                                  className={`border rounded-xl p-4 transition-all shadow-2xs space-y-2.5 ${
+                                    evt.isCancelled 
+                                      ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                      : isCheckup 
+                                      ? 'bg-sky-50/50 border-sky-200 hover:border-sky-300' 
+                                      : 'bg-white border-[#E8E2D9] hover:border-[#C5A059]'
+                                  }`}
+                                >
+                                  <div className="flex flex-wrap justify-between items-start gap-2">
+                                    <div className="space-y-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                                          evt.type === 'operacia' ? 'bg-purple-100 text-purple-900 border border-purple-200' :
+                                          evt.type === 'kontrola' ? 'bg-sky-600 text-white' :
+                                          evt.type === 'konzultacia' ? 'bg-amber-100 text-amber-900 border border-amber-200' :
+                                          'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                        }`}>
+                                          {evt.type === 'operacia' ? '🏥 Operácia' : evt.type === 'kontrola' ? '🩺 Poop. kontrola' : evt.type === 'konzultacia' ? '💬 Konzultácia' : '✨ Ošetrenie'}
+                                        </span>
+                                        <h5 className="font-bold text-sm text-[#2C2A29]">{evt.title}</h5>
+                                        {evt.isCancelled && (
+                                          <span className="text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold uppercase">
+                                            Zrušené ({evt.cancelReason || 'neuvedené'})
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <p className="text-xs text-[#8C857B]">
+                                        Lekár: <strong className="text-[#2C2A29]">{evt.assignedTo || evt.doctorName}</strong> • Miestnosť: <strong className="text-[#2C2A29]">{evt.roomId === 'sala_say' ? 'Sála SAY' : evt.roomId === 'ambulancia' ? 'Ambulancia' : evt.roomId}</strong>
+                                      </p>
+                                    </div>
+
+                                    <div className="text-right">
+                                      <div className="text-xs font-mono font-bold text-[#2C2A29] bg-black/5 px-2.5 py-1 rounded-lg">
+                                        📅 {new Date(evt.date).toLocaleDateString('sk-SK')} • {evt.isAllDay ? 'Celý deň' : `${evt.startTime} – ${evt.endTime}`}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* POOPERAČNÉ PODROBNOSTI: PO ČOM A KEDY BOLA OPERÁCIA */}
+                                  {(evt.operationTitle || evt.operationDate) && (
+                                    <div className="bg-sky-100/70 border border-sky-200 rounded-lg p-2.5 text-xs text-sky-950 space-y-1">
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex items-center gap-1.5 font-bold">
+                                          <span>🔪 Pooperačná kontrola po:</span>
+                                          <strong className="text-sky-900">{evt.operationTitle || 'operačnom zákroku'}</strong>
+                                        </div>
+                                        {evt.operationDate && diff && (
+                                          <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded shadow-2xs">
+                                            Operácia: {evt.operationDate} ({diff.displayText})
+                                          </span>
+                                        )}
+                                      </div>
+                                      {evt.operationDoctor && (
+                                        <p className="text-[11px] text-sky-800">
+                                          Operatér: <strong>{evt.operationDoctor}</strong> {evt.controlInterval ? `• Odporúčaná fáza: ${evt.controlInterval}` : ''}
+                                        </p>
+                                      )}
+                                      {evt.operationNotes && (
+                                        <p className="text-[10px] text-sky-900 font-mono italic bg-white/70 p-1.5 rounded border border-sky-200/60 mt-1 line-clamp-2">
+                                          📝 {evt.operationNotes}
+                                        </p>
+                                      )}
+                                    </div>
                                   )}
-                                  {evt.operationNotes && (
-                                    <p className="text-[10px] text-sky-900 font-mono italic bg-white/70 p-1.5 rounded border border-sky-200/60 mt-1 line-clamp-2">
-                                      📝 {evt.operationNotes}
+
+                                  {evt.notes && !evt.operationNotes && (
+                                    <p className="text-xs text-[#6B6357] italic bg-[#FAF8F5] p-2 rounded-lg border border-[#E8E2D9]">
+                                      Poznámka: {evt.notes}
                                     </p>
                                   )}
                                 </div>
-                              )}
-
-                              {evt.notes && !evt.operationNotes && (
-                                <p className="text-xs text-[#6B6357] italic bg-[#FAF8F5] p-2 rounded-lg border border-[#E8E2D9]">
-                                  Poznámka: {evt.notes}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* ZÁLOŽKA PLÁN PACIENTA (ROČNÝ ESTETICKÝ & PRED/POOPERAČNÝ PLÁN) */}
-              {activeFolder === 'plany' && (
-                <div className="space-y-6">
-                  {(() => {
-                    const patientPlans = allPatientPlans[selectedPatient.id] || [];
-                    const currentActivePlan = patientPlans.find(p => p.id === selectedPlanId) || patientPlans[0];
-
-                    return (
-                      <div className="space-y-6">
-                        {/* HORNÁ LIŠTA: PREPÍNAČ MEDZI PLÁNMI + VYTVORENIE NOVÉHO */}
-                        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#FBF9F6] rounded-2xl border border-[#E8E2D9]">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold uppercase tracking-wider text-[#8C857B] mr-1">
-                              Plány ({patientPlans.length}):
-                            </span>
-                            {patientPlans.map((pl) => {
-                              const isSel = currentActivePlan && currentActivePlan.id === pl.id;
-                              return (
-                                <button
-                                  key={pl.id}
-                                  onClick={() => setSelectedPlanId(pl.id)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                                    isSel
-                                      ? 'bg-[#2C2A29] text-white shadow-xs'
-                                      : 'bg-white border border-[#E8E2D9] text-[#6B6357] hover:border-[#C5A059]'
-                                  }`}
-                                >
-                                  <span>{pl.planType === 'pre_post_op' ? '🏥' : '✨'}</span>
-                                  <span className="truncate max-w-[220px]">{pl.title}</span>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${
-                                    isSel ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
-                                  }`}>
-                                    {new Date(pl.createdAt).toLocaleDateString('sk-SK')}
-                                  </span>
-                                </button>
                               );
                             })}
                           </div>
+                        );
+                      })()}
+                    </div>
+                  )}
 
-                          <button
-                            onClick={() => setIsCreatingPlan(true)}
-                            className="px-3.5 py-1.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ml-auto"
-                          >
-                            <span>✨</span>
-                            <span>+ Nový plán pacienta</span>
-                          </button>
-                        </div>
-
-                        {/* OBSAH: DETAIL VYBRANÉHO PLÁNU ALEBO PRÁZDNA OBRAZOVKA */}
-                        {currentActivePlan ? (
-                          <PatientPlanViewer
-                            plan={currentActivePlan}
-                            onUpdatePlan={handleUpdatePlan}
-                            onScheduleTreatment={handleScheduleTreatmentFromPlan}
-                          />
-                        ) : (
-                          <div className="text-center py-16 px-4 bg-[#FBF9F6]/50 rounded-2xl border border-dashed border-[#E8E2D9] space-y-4">
-                            <div className="w-16 h-16 rounded-full bg-[#C5A059]/15 text-[#C5A059] flex items-center justify-center mx-auto text-2xl">
-                              ✨
-                            </div>
-                            <div className="max-w-md mx-auto">
-                              <h3 className="text-base font-bold text-[#2C2A29]">Žiaden plán pacienta</h3>
-                              <p className="text-xs text-[#8C857B] mt-1">
-                                Vytvorte personalizovaný ročný estetický plán (odporúčaná ranná a večerná kozmetika, procedúry a biostimulácie na 12 mesiacov) alebo kompletný plán pred a po operácii (príprava, režimové opatrenia, starostlivosť o jazvy, laser a microneedling).
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap justify-center gap-3 pt-2">
-                              <button
-                                onClick={() => setIsCreatingPlan(true)}
-                                className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
-                              >
-                                <span>✨</span>
-                                <span>Vytvoriť plán s AI asistentom</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
                 </div>
-              )}
-
-              {/* ZÁLOŽKA AI HEALTH ROADMAP (12-MESAČNÝ LIEČEBNÝ A SKINCARE PLÁN) */}
-              {activeFolder === 'roadmap' && (
-                <AIHealthRoadmapView
-                  patient={selectedPatient}
-                  proceduresHistory={patientRecords[selectedPatient.id] || []}
-                  aestheticsHistory={(() => {
-                    try {
-                      const saved = localStorage.getItem('say_clinic_aesthetic_sessions');
-                      if (saved) {
-                        const parsed = JSON.parse(saved);
-                        if (parsed[selectedPatient.id] && parsed[selectedPatient.id].length > 0) {
-                          return parsed[selectedPatient.id];
-                        }
-                      }
-                    } catch (e) {
-                      console.error(e);
-                    }
-                    if (selectedPatient.id === 'P1') {
-                      return [
-                        {
-                          id: 'aes-p1-1',
-                          patientId: 'P1',
-                          date: '2026-06-15',
-                          formattedDate: '15.06.2026',
-                          title: 'Tvár – Aplikácia Dysport & Restylane Kysse',
-                          doctor: 'MUDr. Ján Mráz',
-                          protocolNumber: 'AES-2026-441',
-                          notes: 'Aplikácia botulotoxínu do glabely a frontalis s cieľom eliminácie dynamických vrások. Decentná hydratácia pier prípravkom Restylane Kysse. Aplikácia bez komplikácií.',
-                          vectors: [
-                            {
-                              id: 'vec-1',
-                              type: 'point',
-                              view: 'front',
-                              color: '#3B82F6',
-                              startPoint: { x: 250, y: 210 },
-                              zoneName: 'Čelo (m. frontalis)',
-                              productName: 'Dysport 300IU (Botulotoxín A)',
-                              lotNumber: 'DYSP-4412B',
-                              details: '20 Speywood U (intramuskulárne)',
-                              createdAt: '11:15'
-                            },
-                            {
-                              id: 'vec-2',
-                              type: 'point',
-                              view: 'front',
-                              color: '#3B82F6',
-                              startPoint: { x: 250, y: 245 },
-                              zoneName: 'Glabela (m. procerus + corrugator)',
-                              productName: 'Dysport 300IU (Botulotoxín A)',
-                              lotNumber: 'DYSP-4412B',
-                              details: '30 Speywood U (intramuskulárne)',
-                              createdAt: '11:20'
-                            },
-                            {
-                              id: 'vec-3',
-                              type: 'fanning',
-                              view: 'front',
-                              color: '#EC4899',
-                              startPoint: { x: 250, y: 395 },
-                              zoneName: 'Pery (vermilion border + stred)',
-                              productName: 'Restylane Kysse 1ml s Lidokaínom',
-                              lotNumber: 'RST-KYS-993A',
-                              details: '0.8 ml (retrográdne kanylou 25G)',
-                              createdAt: '11:35'
-                            }
-                          ],
-                          bodyTreatments: []
-                        }
-                      ];
-                    }
-                    if (selectedPatient.id === 'P2') {
-                      return [
-                        {
-                          id: 'aes-p2-1',
-                          patientId: 'P2',
-                          date: '2026-05-20',
-                          formattedDate: '20.05.2026',
-                          title: 'Tvár – Brotox & Mezoterapia vitamínmi',
-                          doctor: 'MUDr. Ján Mráz',
-                          protocolNumber: 'AES-2026-382',
-                          notes: 'Aplikácia botulotoxínu pre muža do glabely a periokulárnej oblasti. Zohľadnená väčšia svalová hmota. Doplnená mezoterapia s kyselinou hyalurónovou na revitalizáciu kože.',
-                          vectors: [
-                            {
-                              id: 'vec-p2-1',
-                              type: 'point',
-                              view: 'front',
-                              color: '#3B82F6',
-                              startPoint: { x: 250, y: 240 },
-                              zoneName: 'Glabela (m. corrugator supercilii)',
-                              productName: 'Dysport 300IU',
-                              lotNumber: 'DYSP-4412B',
-                              details: '40 Speywood U',
-                              createdAt: '14:20'
-                            }
-                          ],
-                          bodyTreatments: []
-                        }
-                      ];
-                    }
-                    return [];
-                  })()}
-                  onScheduleEvent={(evtData) => {
-                    setSchedulingInitialDetails({
-                      title: evtData.title,
-                      eventType: (evtData.type as string) === 'surgical_followup' ? 'kontrola' : 'osetrenie',
-                      notes: evtData.notes
-                    });
-                    setIsSchedulingEvent(true);
-                  }}
-                  onNavigateToCalendar={onNavigateToCalendar}
-                />
-              )}
-
-              {/* ZÁLOŽKA MEICET PRO-A 3D ANALÝZA & ROČNÝ PLÁN */}
-              {activeFolder === 'meicet' && (
-                <MeicetModule
-                  patient={selectedPatient}
-                  patientRecords={patientRecords[selectedPatient.id] || []}
-                  onSaveToPatientPlans={handleSaveNewPlan}
-                  onScheduleTreatment={(evt) => {
-                    setSchedulingInitialDetails({
-                      title: evt.title,
-                      eventType: evt.type || 'osetrenie',
-                      notes: evt.notes,
-                      targetDate: evt.date,
-                      doctor: evt.doctor
-                    });
-                    setIsSchedulingEvent(true);
-                  }}
-                  onTransferToCosmeticsPOS={(items) => onNavigateToCosmetics?.(selectedPatient, items)}
-                />
-              )}
-            </div>
-          </div>
+              </div>
 
           {/* PRAVÁ ČASŤ: SKLADACÍ BOČNÝ PANEL S ČASOVOU OSOU (STICKY) */}
           {isTimelineOpen && (

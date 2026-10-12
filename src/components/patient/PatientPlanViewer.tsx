@@ -14,13 +14,20 @@ import {
   AlertCircle, 
   CalendarPlus, 
   Stethoscope,
-  ShoppingBag
+  ShoppingBag,
+  Eye,
+  CheckCircle2,
+  RotateCw,
+  X,
+  FileText
 } from 'lucide-react';
 import { CosmeticRoutineItem } from '@/data/patientPlanConfig';
 import { generatePdfFilename, exportElementToPdf } from '@/lib/pdfGenerator';
+import { PatientPlanPdfDocument } from './PatientPlanPdfDocument';
 
 interface PatientPlanViewerProps {
   plan: PatientPlan;
+  patient?: any;
   onUpdatePlan: (updated: PatientPlan) => void;
   onScheduleTreatment?: (treatment: ScheduledTreatment) => void;
   onOpenInCosmeticsPOS?: (items: CosmeticRoutineItem[], patientId: string) => void;
@@ -29,6 +36,7 @@ interface PatientPlanViewerProps {
 
 export default function PatientPlanViewer({
   plan,
+  patient,
   onUpdatePlan,
   onScheduleTreatment,
   onOpenInCosmeticsPOS
@@ -45,7 +53,10 @@ export default function PatientPlanViewer({
   });
 
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [pdfSuccessMessage, setPdfSuccessMessage] = useState<string | null>(null);
+  const [showPdfPreviewModal, setShowPdfPreviewModal] = useState(false);
   const planPrintRef = useRef<HTMLDivElement>(null);
+  const pdfDocumentRef = useRef<HTMLDivElement>(null);
 
   const toggleChecklistItem = (id: string) => {
     const updated = { ...checklistState, [id]: !checklistState[id] };
@@ -75,8 +86,11 @@ export default function PatientPlanViewer({
       }
       @media print {
         body * { visibility: hidden !important; }
-        #printable-patient-plan, #printable-patient-plan * { visibility: visible !important; }
-        #printable-patient-plan {
+        #printable-patient-plan-container,
+        #printable-patient-plan-container *,
+        #printable-patient-plan-doc,
+        #printable-patient-plan-doc * { visibility: visible !important; }
+        #printable-patient-plan-container {
           position: absolute !important;
           left: 0 !important;
           top: 0 !important;
@@ -85,6 +99,8 @@ export default function PatientPlanViewer({
           margin: 0 !important;
           padding: 0 !important;
           background: #ffffff !important;
+          display: block !important;
+          z-index: 99999 !important;
         }
       }
     `;
@@ -102,16 +118,23 @@ export default function PatientPlanViewer({
   };
 
   const handleDownloadPdf = async () => {
-    if (!planPrintRef.current) return;
+    const targetElement = pdfDocumentRef.current || planPrintRef.current;
+    if (!targetElement) return;
     setGeneratingPdf(true);
+    setPdfSuccessMessage(null);
     try {
       const dateStr = plan.createdAt ? plan.createdAt.split('T')[0] : new Date().toISOString().split('T')[0];
-      const filename = generatePdfFilename('Plan_Starostlivosti_SAY', plan.patientName, dateStr);
-      await exportElementToPdf(planPrintRef.current, filename, {
+      const effectivePatientName = patient?.name || plan.patientName || 'Pacient';
+      const filename = generatePdfFilename('Plan_Starostlivosti_SAY', effectivePatientName, dateStr);
+      await exportElementToPdf(targetElement, filename, {
         format: 'a4',
         headerTitle: plan.title || 'Plán starostlivosti & Liečby',
-        patientName: plan.patientName || 'Pacient',
+        patientName: effectivePatientName,
       });
+      setPdfSuccessMessage(`Plán starostlivosti bol úspešne vygenerovaný v špičkovej A4 kvalite (${filename}).`);
+      setTimeout(() => {
+        setPdfSuccessMessage(null);
+      }, 5000);
     } catch (err) {
       console.error('Chyba exportu plánu do PDF:', err);
       alert('Nastala chyba pri generovaní PDF plánu starostlivosti.');
@@ -131,7 +154,23 @@ export default function PatientPlanViewer({
   };
 
   return (
-    <div id="printable-patient-plan" ref={planPrintRef} className="space-y-6 printable-document">
+    <div id="printable-patient-plan" ref={planPrintRef} className="space-y-6 printable-document relative">
+      {/* OZNAM O ÚSPEŠNOM VYGENEROVANÍ PDF */}
+      {pdfSuccessMessage && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 px-4 py-2.5 rounded-xl text-xs flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-1 print:hidden">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{pdfSuccessMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPdfSuccessMessage(null)}
+            className="text-emerald-700 hover:text-emerald-900 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       {/* HLAVIČKA PLÁNU & AKCIE */}
       <div className="bg-gradient-to-r from-[#2C2A29] via-[#3a3735] to-[#2C2A29] text-white p-6 rounded-2xl shadow-lg border border-[#C5A059]/30">
         <div className="flex flex-wrap justify-between items-start gap-4">
@@ -184,11 +223,29 @@ export default function PatientPlanViewer({
             <button
               onClick={handleDownloadPdf}
               disabled={generatingPdf}
-              className="bg-[#C5A059] hover:bg-[#b08d4b] text-[#2C2A29] px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
-              title="Stiahnuť plán starostlivosti v čistom A4 PDF formáte"
+              className="bg-gradient-to-r from-[#C5A059] to-[#d6b26b] hover:from-[#b08d4b] hover:to-[#c5a059] text-[#2C2A29] px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50 active:scale-95"
+              title="Stiahnuť plán starostlivosti v čistom A4 PDF formáte s hlavičkou kliniky"
             >
-              <Download className="w-3.5 h-3.5 text-[#2C2A29]" />
-              <span>{generatingPdf ? 'Generujem PDF...' : 'Stiahnuť A4 PDF'}</span>
+              {generatingPdf ? (
+                <>
+                  <RotateCw className="w-3.5 h-3.5 text-[#2C2A29] animate-spin" />
+                  <span>Generujem A4 PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5 text-[#2C2A29]" />
+                  <span>Stiahnuť A4 PDF</span>
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPdfPreviewModal(true)}
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm hover:border-[#C5A059]"
+              title="Zobraziť tlačový náhľad certifikovaného A4 dokumentu"
+            >
+              <Eye className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Náhľad A4</span>
             </button>
             <button
               onClick={handlePrint}
@@ -780,6 +837,113 @@ export default function PatientPlanViewer({
           <div className="space-y-0.5">
             <h5 className="font-bold text-[#2C2A29]">Poznámka ošetrujúceho lekára:</h5>
             <p className="italic leading-relaxed">{plan.doctorNote}</p>
+          </div>
+        </div>
+      )}
+
+      {/* 5. SKRYTÝ OFF-SCREEN A4 DOKUMENT PRE ČISTÝ EXPORT DO PDF A TLAČ */}
+      <div
+        id="printable-patient-plan-container"
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: 0,
+          zIndex: -999,
+          pointerEvents: 'none'
+        }}
+        className="printable-document print:static print:left-0 print:top-0 print:block"
+        aria-hidden="true"
+      >
+        <PatientPlanPdfDocument
+          ref={pdfDocumentRef}
+          plan={plan}
+          patient={patient}
+        />
+      </div>
+
+      {/* 6. NÁHĽAD A4 DOKUMENTU PRED TLAČOU / STIAHNUTÍM */}
+      {showPdfPreviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 backdrop-blur-xs print:hidden animate-in fade-in">
+          <div className="bg-[#2C2A29] text-white rounded-2xl max-w-5xl w-full max-h-[95vh] flex flex-col shadow-2xl border border-[#C5A059]/40 overflow-hidden">
+            {/* Hlavička modálu */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#242221]">
+              <div className="flex items-center gap-2.5">
+                <FileText className="w-5 h-5 text-[#C5A059]" />
+                <div>
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <span>Náhľad dokumentu: {plan.title}</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#C5A059] text-[#2C2A29]">
+                      A4 Tlačový formát SAY CLINIC
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-white/60">
+                    Klinický štandard s logom, kompletnou rutinou, ročným harmonogramom, protokolom jaziev a podpisom
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={generatingPdf}
+                  className="px-3.5 py-1.5 bg-[#C5A059] hover:bg-[#B38F46] text-[#2C2A29] font-black hover:text-white rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Stiahnuť PDF súbor do počítača"
+                >
+                  {generatingPdf ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Sťahujem PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5 text-[#2C2A29]" />
+                      <span>Stiahnuť PDF</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer"
+                  title="Vytlačiť cez tlačiareň"
+                >
+                  <Printer className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Tlačiť A4</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPdfPreviewModal(false)}
+                  className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer ml-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Telo modálu - zobrazenie A4 dokumentu */}
+            <div className="p-6 overflow-y-auto bg-[#403D39] flex justify-center">
+              <div className="shadow-2xl rounded-sm overflow-hidden bg-white max-w-[794px] w-full border border-[#D4C7B5]">
+                <PatientPlanPdfDocument
+                  plan={plan}
+                  patient={patient}
+                />
+              </div>
+            </div>
+
+            {/* Pätička modálu */}
+            <div className="p-3 border-t border-white/10 bg-[#242221] flex justify-between items-center text-xs text-white/60">
+              <span>SAY CLINIC • Lazovná 43, Banská Bystrica • MUDr. Ján Mráz</span>
+              <button
+                type="button"
+                onClick={() => setShowPdfPreviewModal(false)}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-white/80 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                Zavrieť náhľad
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 {
-  "summary": "Zjednodušenie a redizajn modulu Estetiky (AestheticsModule):\n- Odstránenie prebujnených bočných panelov a telových záložiek v prospech čistého, sústredeného zobrazenia 2D sochy v strede s rýchlym výberom preparátov (Dysport, Restylane, Profhilo, Radiesse, Sculptra).\n- Zjednodušený prehľad predchádzajúcich ošetrení: vizuálne čisté zobrazenie sochy s presne vyznačenými bodmi aplikácie a intuitívnym časovým prepínačom medzi sedeniami.\n- Zjednodušený, elegantný A4 report pre klienta obsahujúci len kľúčové položky: aplikované látky a zóny, odporúčania lekára pre domáci režim, vyčíslená cena ošetrenia a plánovaný ďalší postup / termín kontroly.",
-  "updatedAt": "2026-10-06T19:33:33.123474868Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Architektonický a UX plán pre sprehľadnenie a modernizáciu karty pacienta v SAY CLINIC.\nZahŕňa zlúčenie 8 chaotických záložiek do 4 prehľadných hlavných sekcií (Záznamy, Plány, Diagnostika, Termíny), transformáciu 7 farebných tlačidiel do štíhlej akčnej lišty s rozbaľovacím menu a zavedenie kompaktného pravého panelu časovej osi s okamžitým zbalením.",
+  "updatedAt":  "2026-10-12T11:20:24.781793343Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }
