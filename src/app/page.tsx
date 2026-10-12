@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check, Shield, ShieldAlert, Monitor, Cpu } from 'lucide-react';
+import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check, Shield, ShieldAlert, Monitor, Cpu, Maximize2, Minimize2 } from 'lucide-react';
 import { DevicePinService } from '../services/devicePinService';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient, MOCK_PATIENTS } from '../components/PatientDatabase';
@@ -118,6 +118,35 @@ export default function Home() {
 
   // Živý čas a dátum
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
+  // Režim šírky monitora: 'full' (100% monitora bez prázdnych bokov), 'wide' (do 2400px), 'compact' (1280px)
+  const [screenWidthMode, setScreenWidthMode] = useState<'full' | 'wide' | 'compact'>('full');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('say_clinic_screen_width_mode');
+      if (saved === 'full' || saved === 'wide' || saved === 'compact') {
+        setScreenWidthMode(saved as 'full' | 'wide' | 'compact');
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleSetScreenWidth = (mode: 'full' | 'wide' | 'compact') => {
+    setScreenWidthMode(mode);
+    try {
+      localStorage.setItem('say_clinic_screen_width_mode', mode);
+    } catch {
+      // ignore
+    }
+  };
+
+  const containerClass = screenWidthMode === 'full'
+    ? 'w-full max-w-none px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12'
+    : screenWidthMode === 'wide'
+    ? 'w-full max-w-[1920px] 2xl:max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10'
+    : 'w-full max-w-7xl mx-auto px-4 sm:px-6';
 
   // Stav pre vybraného pacienta z Kartotéky pre Generátor alebo detail
   const [activePatient, setActivePatient] = useState<Patient | null>(null);
@@ -605,7 +634,7 @@ export default function Home() {
 
       {/* HLAVIČKA A PRECHOD NA HOMESCREEN CEZ LOGO */}
       <header className="bg-white border-b border-[#E8E2D9] sticky top-0 z-40 shadow-sm print:hidden">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className={`${containerClass} py-3.5 flex flex-col md:flex-row justify-between items-center gap-4`}>
           
           {/* LOGO (KLIKNUTIE PRESMERUJE NA HOMESCREEN) */}
           <div className="flex items-center cursor-pointer group" onClick={() => changeTab('home')}>
@@ -655,75 +684,120 @@ export default function Home() {
             })}
           </nav>
 
-          {/* PROFIL */}
-          <div className="border-l border-[#E8E2D9] pl-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full border border-[#C5A059] p-0.5 shadow-sm bg-white flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {currentUser.avatarUrl ? (
-                <img
-                  src={currentUser.avatarUrl}
-                  alt={currentUser.name}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white">
-                  <LiquidAvatar id={currentUser.id} name={currentUser.name} role={currentUser.role} />
-                </div>
+          {/* PROFIL & NASTAVENIE ZOBRAZENIA */}
+          <div className="flex items-center gap-3">
+            {/* PREPÍNAČ ŠÍRKY OBRAZOVKY / VEĽKÉ MONITORY */}
+            <div className="flex items-center bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-1 gap-1 text-xs" title="Prispôsobenie šírky rozhrania podľa veľkosti vášho monitora">
+              <button
+                type="button"
+                onClick={() => handleSetScreenWidth('full')}
+                title="Plná šírka monitora (100% využitie celej plochy bez prázdnych bočných okrajov)"
+                className={`px-2 py-1 rounded-lg flex items-center gap-1.5 transition-all text-[11px] font-bold cursor-pointer ${
+                  screenWidthMode === 'full'
+                    ? 'bg-[#2C2A29] text-white shadow-xs'
+                    : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
+                }`}
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span className="hidden xl:inline">Plná šírka</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetScreenWidth('wide')}
+                title="Širokouhlá šírka (do 2400px - ideálne pre 2K/4K displeje)"
+                className={`px-2 py-1 rounded-lg flex items-center gap-1.5 transition-all text-[11px] font-bold cursor-pointer ${
+                  screenWidthMode === 'wide'
+                    ? 'bg-[#2C2A29] text-white shadow-xs'
+                    : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
+                }`}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                <span className="hidden xl:inline">Širokouhlá</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetScreenWidth('compact')}
+                title="Kompaktná centrovaná šírka (1280px)"
+                className={`px-2 py-1 rounded-lg flex items-center gap-1.5 transition-all text-[11px] font-bold cursor-pointer ${
+                  screenWidthMode === 'compact'
+                    ? 'bg-[#2C2A29] text-white shadow-xs'
+                    : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
+                }`}
+              >
+                <Minimize2 className="w-3.5 h-3.5" />
+                <span className="hidden xl:inline">Kompaktná</span>
+              </button>
+            </div>
+
+            <div className="border-l border-[#E8E2D9] pl-3 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full border border-[#C5A059] p-0.5 shadow-sm bg-white flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {currentUser.avatarUrl ? (
+                  <img
+                    src={currentUser.avatarUrl}
+                    alt={currentUser.name}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white">
+                    <LiquidAvatar id={currentUser.id} name={currentUser.name} role={currentUser.role} />
+                  </div>
+                )}
+              </div>
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-bold text-[#2C2A29]">{currentUser.name}</p>
+                <p className="text-[9px] uppercase tracking-widest text-[#C5A059]">
+                  {currentUser.title || (currentUser.role === 'ceo' ? 'CEO & Primár' : currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra')}
+                </p>
+              </div>
+              
+              {/* TLAČIDLO PRE SPRÁVU OPRÁVNENÍ A PERSONÁLU (PRE CEO A MANAŽMENT) */}
+              {(isRealCeo || currentUser.role === 'manager') && (
+                <button
+                  type="button"
+                  onClick={() => setShowRolePermissionsModal(true)}
+                  title="Správa oprávnení, rolí a profilov personálu SAY CLINIC"
+                  className="p-1.5 text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] rounded-lg border border-transparent hover:border-[#E8E2D9] transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Shield className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span className="hidden lg:inline text-[11px] font-bold text-[#2C2A29]">Oprávnenia & Tím</span>
+                </button>
               )}
-            </div>
-            <div className="text-right hidden sm:block">
-              <p className="text-xs font-bold text-[#2C2A29]">{currentUser.name}</p>
-              <p className="text-[9px] uppercase tracking-widest text-[#C5A059]">
-                {currentUser.title || (currentUser.role === 'ceo' ? 'CEO & Primár' : currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra')}
-              </p>
-            </div>
-            
-            {/* TLAČIDLO PRE SPRÁVU OPRÁVNENÍ A PERSONÁLU (PRE CEO A MANAŽMENT) */}
-            {(isRealCeo || currentUser.role === 'manager') && (
+
+              {/* TLAČIDLO PRE GDPR AUDITNÝ LOG (PRE CEO A MANAŽMENT) */}
+              {(isRealCeo || currentUser.role === 'manager') && (
+                <button
+                  type="button"
+                  onClick={() => setShowAuditLogModal(true)}
+                  title="GDPR Bezpečnostná auditná stopa (Audit Log)"
+                  className="p-1.5 text-[#8C857B] hover:text-amber-600 hover:bg-amber-50/50 rounded-lg border border-transparent hover:border-amber-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                  <span className="hidden lg:inline text-[11px] font-bold text-[#2C2A29]">Audit Log</span>
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={() => setShowRolePermissionsModal(true)}
-                title="Správa oprávnení, rolí a profilov personálu SAY CLINIC"
-                className="p-1.5 text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] rounded-lg border border-transparent hover:border-[#E8E2D9] transition-all flex items-center gap-1.5 cursor-pointer"
+                onClick={() => {
+                  setShowChangePasswordModal(true);
+                  setPasswordChangeStatus(null);
+                  setOldPassword('');
+                  setNewPassword('');
+                  setConfirmNewPassword('');
+                }}
+                title="Zmeniť heslo účtu"
+                className="p-1.5 text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] rounded-lg border border-transparent hover:border-[#E8E2D9] transition-all"
               >
-                <Shield className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span className="hidden lg:inline text-[11px] font-bold text-[#2C2A29]">Oprávnenia & Tím</span>
+                <KeyRound className="w-3.5 h-3.5" />
               </button>
-            )}
 
-            {/* TLAČIDLO PRE GDPR AUDITNÝ LOG (PRE CEO A MANAŽMENT) */}
-            {(isRealCeo || currentUser.role === 'manager') && (
               <button
-                type="button"
-                onClick={() => setShowAuditLogModal(true)}
-                title="GDPR Bezpečnostná auditná stopa (Audit Log)"
-                className="p-1.5 text-[#8C857B] hover:text-amber-600 hover:bg-amber-50/50 rounded-lg border border-transparent hover:border-amber-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                onClick={() => handleLogout()}
+                className="text-xs text-[#8C857B] hover:text-rose-600 transition-colors font-medium underline underline-offset-4 cursor-pointer"
               >
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                <span className="hidden lg:inline text-[11px] font-bold text-[#2C2A29]">Audit Log</span>
+                Odhlásiť
               </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                setShowChangePasswordModal(true);
-                setPasswordChangeStatus(null);
-                setOldPassword('');
-                setNewPassword('');
-                setConfirmNewPassword('');
-              }}
-              title="Zmeniť heslo účtu"
-              className="p-1.5 text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] rounded-lg border border-transparent hover:border-[#E8E2D9] transition-all"
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={() => handleLogout()}
-              className="text-xs text-[#8C857B] hover:text-rose-600 transition-colors font-medium underline underline-offset-4 cursor-pointer"
-            >
-              Odhlásiť
-            </button>
+            </div>
           </div>
         </div>
       </header>
@@ -734,6 +808,7 @@ export default function Home() {
         allPatients={patients}
         currentTab={activeTab}
         currentUser={currentUser}
+        containerClassName={containerClass}
         onNavigateToTab={(tab, extra) => {
           if (extra?.folder && activePatient) {
             setSelectedPatientForFolder(activePatient);
@@ -1013,14 +1088,14 @@ export default function Home() {
       )}
 
       {/* OBSAH */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
+      <main className={`${containerClass} py-6 sm:py-8 flex-1 w-full`}>
         <>
           {/* HOMESCREEN (PREHĽAD KLINIKY) */}
             {activeTab === 'home' && (
               <div className="space-y-6">
                 
                 {/* BANNER A ŽIVÝ ČAS */}
-                <div className="bg-white border border-[#E8E2D9] rounded-2xl p-6 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-white via-[#FAF8F5]/60 to-[#FAF8F5]">
+                <div className="bg-white border border-[#E8E2D9] rounded-2xl p-6 shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-gradient-to-r from-white via-[#FAF8F5]/60 to-[#FAF8F5]">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] uppercase font-bold text-[#C5A059] tracking-widest">Klinický prehľad</span>
@@ -1043,6 +1118,24 @@ export default function Home() {
                     </p>
                   </div>
 
+                  {/* ŠTATISTICKÉ ČIPY PRE VEĽKÉ MONITORY */}
+                  <div className="hidden xl:flex items-center gap-3">
+                    <div className="bg-white/90 border border-[#E8E2D9] rounded-xl px-3.5 py-2 text-center shadow-2xs">
+                      <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Dnes na pláne</span>
+                      <span className="text-base font-bold text-[#2C2A29] font-mono">{todayEvents.length} {todayEvents.length === 1 ? 'zákrok' : 'výkonov'}</span>
+                    </div>
+                    <div className="bg-white/90 border border-[#E8E2D9] rounded-xl px-3.5 py-2 text-center shadow-2xs">
+                      <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Kartotéka</span>
+                      <span className="text-base font-bold text-[#2C2A29] font-mono">{patients.length} pacientov</span>
+                    </div>
+                    <div className="bg-white/90 border border-[#E8E2D9] rounded-xl px-3.5 py-2 text-center shadow-2xs">
+                      <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Režim plochy</span>
+                      <span className="text-xs font-bold text-[#C5A059] uppercase tracking-wider block mt-0.5">
+                        {screenWidthMode === 'full' ? 'Plná šírka 100%' : screenWidthMode === 'wide' ? 'Širokouhlý 2.4k' : 'Kompaktný'}
+                      </span>
+                    </div>
+                  </div>
+
                   {/* ŽIVÝ ČAS A DÁTUM */}
                   <div className="bg-[#2C2A29] text-white px-5 py-2.5 rounded-xl text-right font-mono border border-[#C5A059]/40 shadow-xs min-w-[200px]">
                     <div className="text-[11px] text-[#C5A059] uppercase font-bold tracking-wider">
@@ -1054,11 +1147,11 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* OBSAH HOMESCREENU: 2 STĹPCE */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* OBSAH HOMESCREENU: 12 STĹPCOV PRE EFEKTÍVNE VYUŽITIE PLOCHY */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   
-                  {/* STĹPEC 1: DNEŠNÍ KLIENTI (2 TRETINY) */}
-                  <div className="lg:col-span-2 bg-[#ffffff] border border-[#E8E2D9] rounded-2xl p-6 shadow-sm space-y-4">
+                  {/* STĹPEC 1: DNEŠNÍ KLIENTI (8 STĹPCOV NA VEĽKOM MONITORE) */}
+                  <div className="lg:col-span-7 2xl:col-span-8 bg-[#ffffff] border border-[#E8E2D9] rounded-2xl p-6 shadow-sm space-y-4">
                     <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
                       <div>
                         <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase">Dnešný harmonogram pacientov</h3>
@@ -1078,38 +1171,40 @@ export default function Home() {
                           Na dnešný deň nie sú naplánované žiadne udalosti v Google Kalendári.
                         </div>
                       ) : (
-                        todayEvents.map((evt) => (
-                          <div 
-                            key={evt.id} 
-                            onClick={() => handleOpenPatientFromCalendar(evt.patientId || '')}
-                            className="p-4 border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl flex justify-between items-center bg-[#FBF9F6] hover:bg-white transition-all cursor-pointer group"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="bg-[#2C2A29] text-white p-2.5 rounded-lg text-center font-mono min-w-[75px]">
-                                <span className="text-xs font-bold block">{evt.startTime}</span>
-                                <span className="text-[9px] text-[#C5A059] block">{evt.endTime}</span>
+                        <div className={`grid gap-3 ${todayEvents.length > 1 ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
+                          {todayEvents.map((evt) => (
+                            <div 
+                              key={evt.id} 
+                              onClick={() => handleOpenPatientFromCalendar(evt.patientId || '')}
+                              className="p-4 border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl flex justify-between items-center bg-[#FBF9F6] hover:bg-white transition-all cursor-pointer group shadow-2xs"
+                            >
+                              <div className="flex items-center gap-3.5 min-w-0">
+                                <div className="bg-[#2C2A29] text-white p-2.5 rounded-lg text-center font-mono min-w-[70px] shrink-0">
+                                  <span className="text-xs font-bold block">{evt.startTime}</span>
+                                  <span className="text-[9px] text-[#C5A059] block">{evt.endTime}</span>
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="text-[8px] uppercase font-bold bg-[#C5A059] text-white px-2 py-0.5 rounded">
+                                    {evt.type ? evt.type.replace('_', ' ') : 'ZÁKROK'}
+                                  </span>
+                                  <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors mt-1 truncate">
+                                    {evt.title}
+                                  </h4>
+                                  <p className="text-xs text-[#8C857B] truncate">{evt.patientName} | {evt.doctorName}</p>
+                                </div>
                               </div>
-                              <div>
-                                <span className="text-[8px] uppercase font-bold bg-[#C5A059] text-white px-2 py-0.5 rounded">
-                                  {evt.type ? evt.type.replace('_', ' ') : 'ZÁKROK'}
-                                </span>
-                                <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors mt-1">
-                                  {evt.title}
-                                </h4>
-                                <p className="text-xs text-[#8C857B]">{evt.patientName} | {evt.doctorName}</p>
-                              </div>
+                              <span className="text-xs font-bold text-[#8C857B] group-hover:text-[#2C2A29] shrink-0 ml-2">
+                                ➔
+                              </span>
                             </div>
-                            <span className="text-xs font-bold text-[#8C857B] group-hover:text-[#2C2A29]">
-                              📁 Otvoriť kartu →
-                            </span>
-                          </div>
-                        ))
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
 
-                  {/* STĹPEC 2: RÝCHLE POZNÁMKY & AKCIE (1 TRETINA) */}
-                  <div className="space-y-6">
+                  {/* STĹPEC 2: RÝCHLE POZNÁMKY & AKCIE (4 STĹPCE NA VEĽKOM MONITORE) */}
+                  <div className="lg:col-span-5 2xl:col-span-4 space-y-6">
                     
                     {/* RÝCHLE AKCIE */}
                     <div className="bg-white border border-[#E8E2D9] rounded-2xl p-5 shadow-sm space-y-3">

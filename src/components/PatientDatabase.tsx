@@ -1244,7 +1244,7 @@ export default function PatientDatabase({
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-4">
                 {filteredPatients.map(patient => {
                   const isCurrentActive = activePatient && activePatient.id === patient.id;
                   return (
@@ -2382,7 +2382,7 @@ export default function PatientDatabase({
                           {!activePhotoCategory ? (
                             <>
                               <p className="text-[10px] uppercase text-[#8C857B] font-bold mb-4">Fotografické zložky pacienta podľa klinických etáp</p>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-4">
                                 {PHOTO_CATEGORIES.map(cat => {
                                   const key = `${selectedPatient.id}_${cat}`;
                                   const count = patientPhotos[key]?.length || 0;
@@ -2408,7 +2408,7 @@ export default function PatientDatabase({
                                   <input type="file" multiple accept="image/*" className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
                                 </label>
                               </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-8 gap-4">
                                 {patientPhotos[`${selectedPatient.id}_${activePhotoCategory}`]?.map((photo, idx) => (
                                   <div key={idx} className="relative group rounded-lg overflow-hidden border border-[#E8E2D9] aspect-square bg-[#FAF8F5]">
                                     <img src={photo.url} alt={photo.name} className="w-full h-full object-cover" />

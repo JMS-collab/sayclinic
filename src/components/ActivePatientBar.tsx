@@ -26,6 +26,7 @@ interface ActivePatientBarProps {
   allPatients: Patient[];
   currentTab: string;
   currentUser?: any;
+  containerClassName?: string;
   onNavigateToTab: (tab: any, extra?: any) => void;
   onSelectPatient: (patient: Patient) => void;
   onClearActivePatient: () => void;
@@ -36,6 +37,7 @@ export default function ActivePatientBar({
   allPatients,
   currentTab,
   currentUser,
+  containerClassName,
   onNavigateToTab,
   onSelectPatient,
   onClearActivePatient
@@ -125,7 +127,7 @@ export default function ActivePatientBar({
 
   return (
     <div className="bg-gradient-to-r from-[#FAF8F5] via-white to-[#FAF8F5] border-b-2 border-[#C5A059]/40 shadow-xs z-30 sticky top-[73px] print:hidden animate-in fade-in slide-in-from-top-1 duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+      <div className={`${containerClassName || 'w-full max-w-none px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12'} py-2.5 flex flex-wrap items-center justify-between gap-3`}>
         
         {/* VĽAVO: IDENTIFIKÁCIA ROZPRACOVANÉHO PACIENTA */}
         <div className="flex items-center gap-3 min-w-0">
