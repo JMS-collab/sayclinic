@@ -24,6 +24,13 @@ import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
 import PrescriptionModule from '../components/PrescriptionModule';
 import { 
+  setExternalAccessToken, 
+  subscribeWorkspaceAuth, 
+  googleSignIn, 
+  getAccessToken, 
+  initWorkspaceAuth 
+} from '../lib/workspaceAuth';
+import { 
   PermissionsService, 
   TabId, 
   RoleType, 
@@ -99,9 +106,59 @@ function buildProjectFromNote(noteText: string, currentUser: UserAccount) {
 
 export default function Home() {
   const { data: session, status } = useSession();
-
   const [isMounted, setIsMounted] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    if (typeof window !== 'undefined') {
+      return AuthService.getCurrentSession();
+    }
+    return null;
+  });
+  const [workspaceGoogleUser, setWorkspaceGoogleUser] = useState<any>(null);
+  const [workspaceToken, setWorkspaceToken] = useState<string | null>(null);
+
+  // Sledovanie autorizácie cez Google Workspace
+  useEffect(() => {
+    const unsub = subscribeWorkspaceAuth((user, token) => {
+      setWorkspaceGoogleUser(user);
+      setWorkspaceToken(token);
+    });
+    return () => unsub();
+  }, []);
+
+  // Automatické prepojenie Google Drive & Kalendára pri štarte aplikácie
+  useEffect(() => {
+    if (!isMounted) return;
+
+    // 1. Ak NextAuth session obsahuje token, prepojíme do workspaceAuth
+    if (session && (session as any).accessToken) {
+      setExternalAccessToken((session as any).accessToken, session.user);
+    } else {
+      // 2. Skúsime overiť token cez /api/auth/session alebo tichý init
+      initWorkspaceAuth(
+        (user, token) => {
+          setExternalAccessToken(token, user);
+        },
+        () => {
+          getAccessToken().then((tok) => {
+            if (tok) setExternalAccessToken(tok);
+          });
+        }
+      );
+    }
+  }, [isMounted, session]);
+
+  // Synchronizácia relácie používateľa medzi viacerými oknami/kartami
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'say_clinic_user') {
+        const updated = AuthService.getCurrentSession();
+        setCurrentUser(updated);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [sales, setSales] = useState<SaleItem[]>(INITIAL_SALES);
 
@@ -208,11 +265,14 @@ export default function Home() {
     };
   }, []);
 
-  // 1. STRIKTNÁ BEZPEČNOSŤ: ŽIADNY TICHÝ AUTO-LOGIN (PRI KAŽDOM OTVORENÍ VYŽADOVAŤ OVERENIE)
+  // 1. ZACHOVANIE AKTÍVNEHO PRIHLÁSENIA LEKÁRA AJ PO OBNOVENÍ STRÁNKY (F5 / REFRESH)
   useEffect(() => {
     setIsMounted(true);
-    // Pri každom otvorení aplikácie sa vyžaduje overenie (Passkey / Heslo + 2FA),
-    // žiadne automatické preskočenie prihlasovacieho portálu bez interakcie.
+    // Overenie a obnovenie aktívnej relácie lekára
+    const activeSessionUser = AuthService.getCurrentSession();
+    if (activeSessionUser) {
+      setCurrentUser(activeSessionUser);
+    }
     const savedRole = PermissionsService.getSimulatedRole();
     if (savedRole) {
       setSimulatedRole(savedRole);
@@ -266,6 +326,33 @@ export default function Home() {
     }
     setActiveTab(tab);
     window.history.pushState({ tab }, '', `#${tab}`);
+  };
+
+  const isGoogleConnected = Boolean(workspaceToken || (session as any)?.accessToken || workspaceGoogleUser || session);
+  const connectedGoogleEmail = workspaceGoogleUser?.email || session?.user?.email || null;
+
+  const handleGoogleConnectToggle = async () => {
+    if (isGoogleConnected) {
+      const confirmDisconnect = window.confirm(
+        `Google účet (${connectedGoogleEmail || 'SAY CLINIC'}) je momentálne prepojený s Google Drive a Kalendárom.\n\nChcete odpojiť Google účet?`
+      );
+      if (confirmDisconnect) {
+        const { googleLogout } = await import('../lib/workspaceAuth');
+        await googleLogout();
+        if (session) signOut({ redirect: false });
+      }
+    } else {
+      try {
+        const res = await googleSignIn();
+        if (res?.accessToken) {
+          setExternalAccessToken(res.accessToken, res.user);
+        }
+      } catch (err: any) {
+        if (err?.code !== 'auth/popup-closed-by-user') {
+          signIn('google');
+        }
+      }
+    }
   };
 
   const handleLoginSuccess = (user: UserAccount, rememberMe: boolean = true) => {
@@ -605,10 +692,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FBF9F6]">
-      {/* 15-MINÚTOVÝ AUTO-LOGOUT GUARD (GDPR & ZDRAVOTNÍCKA BEZPEČNOSŤ V AMBULANCII) */}
+      {/* 60-MINÚTOVÝ AUTO-LOGOUT GUARD (GDPR & ZDRAVOTNÍCKA BEZPEČNOSŤ V AMBULANCII) */}
       <AutoLogoutGuard
         currentUser={currentUser}
-        inactivityLimitMinutes={15}
+        inactivityLimitMinutes={60}
         warningCountdownSeconds={120}
         onLogout={(reason) => handleLogout(reason)}
       />
@@ -775,6 +862,27 @@ export default function Home() {
                   <span className="hidden lg:inline text-[11px] font-bold text-[#2C2A29]">Audit Log</span>
                 </button>
               )}
+
+              {/* TLAČIDLO PRE GOOGLE DRIVE & KALENDÁR PREPOJENIE */}
+              <button
+                type="button"
+                onClick={handleGoogleConnectToggle}
+                title={
+                  isGoogleConnected
+                    ? `Google Drive prepojený: ${connectedGoogleEmail || 'SAY CLINIC'}. Kliknite pre správu.`
+                    : 'Automaticky pripojiť Google Drive & Kalendár'
+                }
+                className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isGoogleConnected
+                    ? 'text-emerald-700 bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100/70'
+                    : 'text-amber-800 bg-amber-50/70 border-amber-200 hover:bg-amber-100/70'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${isGoogleConnected ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`}></span>
+                <span className="hidden sm:inline">
+                  {isGoogleConnected ? 'Drive pripojený' : 'Pripojiť Drive'}
+                </span>
+              </button>
 
               <button
                 type="button"
@@ -1102,12 +1210,20 @@ export default function Home() {
                       <span className="text-[#8C857B]">·</span>
                       <button
                         type="button"
-                        onClick={() => (session ? signOut() : signIn('google'))}
+                        onClick={handleGoogleConnectToggle}
                         className="text-[10px] text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1.5 cursor-pointer transition-colors"
-                        title={session ? `Pripojené: ${session.user?.email}` : 'Kliknite pre pripojenie Google Disku & Kalendára'}
+                        title={
+                          isGoogleConnected
+                            ? `Pripojené ku Google Drive & Kalendáru: ${connectedGoogleEmail || 'SAY CLINIC'}`
+                            : 'Kliknite pre automatické pripojenie Google Disku & Kalendára'
+                        }
                       >
-                        <span className={`w-2 h-2 rounded-full ${session ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
-                        <span className="font-semibold">{session ? 'Google prepojené' : 'Pripojiť Google'}</span>
+                        <span className={`w-2 h-2 rounded-full ${isGoogleConnected ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
+                        <span className="font-semibold">
+                          {isGoogleConnected 
+                            ? `Google prepojené${connectedGoogleEmail ? ` (${connectedGoogleEmail})` : ''}` 
+                            : 'Pripojiť Google'}
+                        </span>
                       </button>
                     </div>
                     <h2 className="font-brand text-2xl md:text-3xl font-light text-[#2C2A29] uppercase">

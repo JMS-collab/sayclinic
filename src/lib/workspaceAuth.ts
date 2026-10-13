@@ -61,26 +61,64 @@ export const subscribeWorkspaceAuth = (listener: AuthListener) => {
   };
 };
 
+/**
+ * Umožňuje nastaviť token zvonku (napr. z NextAuth session pri prihlásení)
+ */
+export const setExternalAccessToken = (token: string | null, user?: any) => {
+  cachedAccessToken = token;
+  if (user && !cachedGoogleUser) {
+    cachedGoogleUser = user;
+  }
+  notifyListeners();
+};
+
 // Initialize auth state listener. Call this on app load.
 export const initWorkspaceAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
+  // 1. Skontrolujeme, či máme session z NextAuth API (tichá synchronizácia)
+  if (!cachedAccessToken && typeof window !== 'undefined') {
+    fetch('/api/auth/session')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((sessionData) => {
+        if (sessionData?.accessToken) {
+          cachedAccessToken = sessionData.accessToken;
+          if (sessionData.user && !cachedGoogleUser) {
+            cachedGoogleUser = sessionData.user;
+          }
+          notifyListeners();
+          if (onAuthSuccess && cachedGoogleUser) {
+            onAuthSuccess(cachedGoogleUser, cachedAccessToken);
+          }
+        }
+      })
+      .catch(() => {});
+  }
+
   return onAuthStateChanged(auth, async (user: User | null) => {
-    cachedGoogleUser = user;
     if (user) {
+      cachedGoogleUser = user;
       if (cachedAccessToken) {
         notifyListeners();
         if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
       } else if (!isSigningIn) {
-        cachedAccessToken = null;
+        // Skúsime získať token cez /api/auth/session
+        const token = await getAccessToken();
+        if (token) {
+          notifyListeners();
+          if (onAuthSuccess) onAuthSuccess(user, token);
+        } else {
+          notifyListeners();
+          if (onAuthFailure) onAuthFailure();
+        }
+      }
+    } else {
+      if (!cachedAccessToken) {
+        cachedGoogleUser = null;
         notifyListeners();
         if (onAuthFailure) onAuthFailure();
       }
-    } else {
-      cachedAccessToken = null;
-      notifyListeners();
-      if (onAuthFailure) onAuthFailure();
     }
   });
 };
@@ -117,11 +155,39 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
+  if (cachedAccessToken) {
+    return cachedAccessToken;
+  }
+
+  // Ak je vyrovnávacia pamäť prázdna, automaticky overíme aktívnu session v NextAuth
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/auth/session');
+      if (res.ok) {
+        const sessionData = await res.json();
+        if (sessionData?.accessToken) {
+          cachedAccessToken = sessionData.accessToken;
+          if (sessionData.user && !cachedGoogleUser) {
+            cachedGoogleUser = sessionData.user;
+          }
+          notifyListeners();
+          return cachedAccessToken;
+        }
+      }
+    } catch {
+      // tichý fallback
+    }
+  }
+
+  return null;
 };
 
 export const getGoogleUser = (): User | null => {
   return cachedGoogleUser;
+};
+
+export const isGoogleSignedIn = (): boolean => {
+  return Boolean(cachedAccessToken || cachedGoogleUser);
 };
 
 export const googleLogout = async () => {

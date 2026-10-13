@@ -794,16 +794,18 @@ export default function Calendar({
   };
 
   const handleGoogleConnect = async () => {
-    if (session) {
-      signOut();
-    } else if (isWorkspaceConnected) {
+    if (isGoogleConnected) {
       await performTwoWaySync(false);
     } else {
       try {
-        await googleSignIn();
-        await performTwoWaySync(false);
-      } catch {
-        signIn('google');
+        const res = await googleSignIn();
+        if (res?.accessToken) {
+          await performTwoWaySync(false);
+        }
+      } catch (err: any) {
+        if (err?.code !== 'auth/popup-closed-by-user') {
+          signIn('google');
+        }
       }
     }
   };
