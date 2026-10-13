@@ -18,7 +18,7 @@ const LINKED_EMAILS_STORAGE_KEY = 'say_clinic_linked_personal_emails_v1';
 
 // Zoznam predvolených firemných účtov, ktoré majú oficiálny firemný Google Workspace účet
 export const CORPORATE_USERS_CONFIG: Record<string, { isCorporate: boolean; defaultEmail: string }> = {
-  u1: { isCorporate: true, defaultEmail: 'mraz@sayclinic.sk' },
+  u1: { isCorporate: true, defaultEmail: 'say@sayclinic.sk' },
   u4: { isCorporate: true, defaultEmail: 'mecerodova@sayclinic.sk' },
   u5: { isCorporate: true, defaultEmail: 'solivajsova@sayclinic.sk' },
 };
@@ -386,8 +386,13 @@ export const PasskeyService = {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) return null;
 
-    // 1. Priama zhoda s oficiálnym emailom profilu
-    const directMatch = allUsers.find(u => u.email.toLowerCase() === cleanEmail);
+    // 1. Priama zhoda s oficiálnym emailom profilu alebo aliasom
+    const directMatch = allUsers.find(u => {
+      const uEmail = u.email.toLowerCase();
+      if (uEmail === cleanEmail) return true;
+      if (u.id === 'u1' && (cleanEmail === 'say@sayclinic.sk' || cleanEmail === 'mraz@sayclinic.sk')) return true;
+      return false;
+    });
     if (directMatch) return directMatch;
 
     // 2. Zhoda s prepojenými osobnými emailami

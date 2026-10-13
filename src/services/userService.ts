@@ -12,7 +12,16 @@ export const UserService = {
       if (stored) {
         const parsed: UserAccount[] = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          const sayUser = parsed.find(u => u.email === 'say@sayclinic.sk' || u.id === 'u1');
+          if (sayUser) {
+            return [{
+              ...sayUser,
+              id: 'u1',
+              email: 'say@sayclinic.sk',
+              name: sayUser.name === 'MUDr. Ján Mráz' ? 'SAY CLINIC' : sayUser.name,
+              role: 'ceo',
+            }];
+          }
         }
       }
     } catch (e) {

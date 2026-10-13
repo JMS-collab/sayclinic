@@ -50,6 +50,14 @@ export const AuthService = {
           }
         });
         // Aliases
+        if (!parsed['say@sayclinic.sk'] && parsed['u1']) {
+          parsed['say@sayclinic.sk'] = parsed['u1'];
+          hasChanges = true;
+        }
+        if (!parsed['mraz@sayclinic.sk'] && parsed['u1']) {
+          parsed['mraz@sayclinic.sk'] = parsed['u1'];
+          hasChanges = true;
+        }
         if (!parsed['anestezia@sayclinic.sk'] && parsed['u8']) {
           parsed['anestezia@sayclinic.sk'] = parsed['u8'];
           hasChanges = true;
@@ -85,6 +93,10 @@ export const AuthService = {
     });
 
     // E-mailové aliasy
+    if (initialCreds['u1']) {
+      initialCreds['say@sayclinic.sk'] = initialCreds['u1'];
+      initialCreds['mraz@sayclinic.sk'] = initialCreds['u1'];
+    }
     if (initialCreds['u8']) {
       initialCreds['anestezia@sayclinic.sk'] = initialCreds['u8'];
     }

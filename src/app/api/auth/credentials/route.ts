@@ -47,7 +47,7 @@ function writeServerCredentials(creds: StoredCredentials): boolean {
 
 // Mapovanie aliasov pre SAY CLINIC tím
 const ALIAS_MAP: Record<string, string[]> = {
-  u1: ['mraz@sayclinic.sk'],
+  u1: ['say@sayclinic.sk', 'mraz@sayclinic.sk'],
   u2: ['srokova@sayclinic.sk'],
   u3: ['tran@sayclinic.sk'],
   u4: ['mecerodova@sayclinic.sk'],

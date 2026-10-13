@@ -53,7 +53,7 @@ const INITIAL_SALES: SaleItem[] = [];
 type TabType = TabId;
 
 function buildProjectFromNote(noteText: string, currentUser: UserAccount) {
-  const isCeoUser = currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';
+  const isCeoUser = currentUser.role === 'ceo' || currentUser.email === 'say@sayclinic.sk' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';
   const timestamp = Date.now();
   const dateStr = new Date(timestamp).toISOString().split('T')[0];
   const deadlineStr = new Date(timestamp + 7 * 86400000).toISOString().split('T')[0];
@@ -248,7 +248,7 @@ export default function Home() {
   const [permissionsVersion, setPermissionsVersion] = useState(0);
   const [simulatedRole, setSimulatedRole] = useState<RoleType | null>(null);
 
-  const isRealCeo = currentUser ? (currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1') : false;
+  const isRealCeo = currentUser ? (currentUser.role === 'ceo' || currentUser.email === 'say@sayclinic.sk' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1') : false;
 
   // Počúvanie zmien oprávnení a simulácie rolí
   useEffect(() => {
@@ -349,7 +349,7 @@ export default function Home() {
         }
       } catch (err: any) {
         if (err?.code !== 'auth/popup-closed-by-user') {
-          signIn('google');
+          signIn('google', undefined, { login_hint: 'say@sayclinic.sk' });
         }
       }
     }

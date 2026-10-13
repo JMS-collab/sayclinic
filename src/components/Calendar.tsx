@@ -804,7 +804,7 @@ export default function Calendar({
         }
       } catch (err: any) {
         if (err?.code !== 'auth/popup-closed-by-user') {
-          signIn('google');
+          signIn('google', undefined, { login_hint: 'say@sayclinic.sk' });
         }
       }
     }

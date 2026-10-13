@@ -258,7 +258,7 @@ export const PermissionsService = {
   // Overí, či má používateľ právo spravovať systém (CEO a Manažment)
   canUserManageSystem(user: UserAccount | null): boolean {
     if (!user) return false;
-    return user.role === 'ceo' || user.role === 'manager' || user.email === 'mraz@sayclinic.sk' || user.id === 'u1';
+    return user.role === 'ceo' || user.role === 'manager' || user.email === 'say@sayclinic.sk' || user.email === 'mraz@sayclinic.sk' || user.id === 'u1';
   },
 
   // Načítanie aktuálnych oprávnení rolí z úložiska
@@ -309,7 +309,7 @@ export const PermissionsService = {
   getEffectiveRole(user: UserAccount | null): RoleType {
     if (!user) return 'nurse';
     // Ak je používateľ CEO / Manažér a má aktívnu simuláciu inej roly
-    const canSimulate = user.role === 'ceo' || user.role === 'manager' || user.email === 'mraz@sayclinic.sk' || user.id === 'u1';
+    const canSimulate = user.role === 'ceo' || user.role === 'manager' || user.email === 'say@sayclinic.sk' || user.email === 'mraz@sayclinic.sk' || user.id === 'u1';
     if (canSimulate && typeof window !== 'undefined') {
       const sim = localStorage.getItem(SIMULATED_ROLE_KEY) as RoleType | null;
       if (sim && (sim === 'ceo' || sim === 'doctor' || sim === 'manager' || sim === 'nurse' || sim === 'receptionist')) {

@@ -12,6 +12,7 @@ export const authOptions: NextAuthOptions = {
           prompt: 'consent',
           access_type: 'offline',
           response_type: 'code',
+          login_hint: 'say@sayclinic.sk',
         },
       },
     }),

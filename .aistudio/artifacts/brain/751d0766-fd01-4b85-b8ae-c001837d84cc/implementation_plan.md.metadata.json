@@ -1,6 +1,6 @@
 {
-  "summary": "Revidovaný implementačný plán: Úplný prechod z localStorage na bezpečné cloudové úložisko. Zdravotné záznamy, vstupné vyšetrenia a dekurzy sa ukladajú priamo do Cloud Firestore databázy a vygenerované dokumenty/PDF sa automaticky ukladajú do priečinka pacienta na Google Drive.",
-  "updatedAt": "2026-10-12T15:02:29.788354898Z",
+  "summary": "Implementačný plán pre zjednotenie a nastavenie účtu na say@sayclinic.sk ako jediného primárneho prihlasovacieho účtu pre klinický systém SAY CLINIC, Google Drive a Google Kalendár.",
+  "updatedAt": "2026-10-13T15:00:18.914600268Z",
   "requestFeedback": true,
   "userFacing": true
 }

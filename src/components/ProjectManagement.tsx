@@ -515,7 +515,7 @@ export default function ProjectManagement({ currentUser }: ProjectManagementProp
   }, []);
 
   // Is CEO permission check
-  const isCeo = currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';
+  const isCeo = currentUser.role === 'ceo' || currentUser.email === 'say@sayclinic.sk' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';
 
   // Filters and views
   const [activeView, setActiveView] = useState<'kanban' | 'list' | 'team'>('kanban');

@@ -50,94 +50,13 @@ export interface UserAccount {
 export const SAY_CLINIC_USERS: UserAccount[] = [
   {
     id: 'u1',
-    name: 'MUDr. Ján Mráz',
-    email: 'mraz@sayclinic.sk',
+    name: 'SAY CLINIC',
+    email: 'say@sayclinic.sk',
     role: 'ceo',
-    title: 'Plastický chirurg & CEO',
+    title: 'Ambulantný systém & Primár',
     avatarBg: 'bg-[#2C2A29]',
     avatarUrl: ''
-  },
-  {
-    id: 'u2',
-    name: 'MUDr. Zuzana Sroková',
-    email: 'srokova@sayclinic.sk',
-    role: 'doctor',
-    title: 'Lekár / Chirurg',
-    avatarBg: 'bg-[#3A3532]',
-    avatarUrl: ''
-  },
-  {
-    id: 'u3',
-    name: 'MUDr. Minh Tuong Tran',
-    email: 'tran@sayclinic.sk',
-    role: 'doctor',
-    title: 'Lekár / Chirurg',
-    avatarBg: 'bg-[#2C2A29]',
-    avatarUrl: ''
-  },
-  {
-    id: 'u4',
-    name: 'Ing. Barbara Mecerodová, MBA',
-    email: 'mecerodova@sayclinic.sk',
-    role: 'manager',
-    title: 'Klinický manažment',
-    avatarBg: 'bg-[#C5A059]',
-    avatarUrl: ''
-  },
-  {
-    id: 'u5',
-    name: 'Mgr. Elena Solivajsová',
-    email: 'solivajsova@sayclinic.sk',
-    role: 'manager',
-    title: 'Recepcia & Manažment',
-    avatarBg: 'bg-[#B59148]',
-    avatarUrl: ''
-  },
-  {
-    id: 'u6',
-    name: 'Ema Foltáni',
-    email: 'foltani@sayclinic.sk',
-    role: 'nurse',
-    title: 'Zdravotná sestra',
-    avatarBg: 'bg-[#2A4736]',
-    avatarUrl: '/avatars/foltani.jpg?v=3'
-  },
-  {
-    id: 'u7',
-    name: 'Sabina Lenhartová',
-    email: 'lenhartova@sayclinic.sk',
-    role: 'nurse',
-    title: 'Zdravotná sestra',
-    avatarBg: 'bg-[#2A4736]',
-    avatarUrl: ''
-  },
-  {
-    id: 'u8',
-    name: 'Anesteziológ',
-    email: 'anesteziolog@sayclinic.sk',
-    role: 'doctor',
-    title: 'Anesteziológ (OAIM)',
-    avatarBg: 'bg-[#2E3C48]',
-    avatarUrl: '/avatars/anesteziolog.jpg?v=3'
-  },
-  {
-    id: 'u9',
-    name: 'Anesteziologická sestra',
-    email: 'anest.sestra@sayclinic.sk',
-    role: 'nurse',
-    title: 'Anesteziologická sestra',
-    avatarBg: 'bg-[#1E3A3A]',
-    avatarUrl: ''
-  },
-  {
-    id: 'u10',
-    name: 'Viktória Foltániová',
-    email: 'foltaniova@sayclinic.sk',
-    role: 'receptionist',
-    title: 'Recepčná & Koordinátorka',
-    avatarBg: 'bg-[#4C1D95]',
-    avatarUrl: '/avatars/foltaniova.jpg?v=3'
-  },
+  }
 ];
 
 const PRESET_PORTRAITS = [
@@ -749,6 +668,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     const matchedUser = users.find(u => {
       const email = u.email.toLowerCase();
       if (email === searchEmail) return true;
+      if (u.id === 'u1' && (searchEmail === 'say@sayclinic.sk' || searchEmail === 'mraz@sayclinic.sk')) return true;
       if (u.id === 'u8' && (searchEmail === 'anesteziolog@sayclinic.sk' || searchEmail === 'anestezia@sayclinic.sk')) return true;
       if (u.id === 'u9' && (searchEmail === 'anest.sestra@sayclinic.sk' || searchEmail === 'anesteziologicka.sestra@sayclinic.sk' || searchEmail === 'anesteziologickasestra@sayclinic.sk')) return true;
       if (u.id === 'u10' && (searchEmail === 'foltaniova@sayclinic.sk' || searchEmail === 'viktoria.foltaniova@sayclinic.sk' || searchEmail === 'viktoria@sayclinic.sk')) return true;
@@ -1766,7 +1686,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                     type="email"
                     required
                     autoFocus
-                    placeholder="napr. mraz@sayclinic.sk"
+                    placeholder="napr. say@sayclinic.sk"
                     value={resetEmailInput}
                     onChange={(e) => setResetEmailInput(e.target.value)}
                     className="w-full border border-white/90 p-3.5 rounded-2xl text-sm bg-white/80 backdrop-blur-md outline-none focus:border-[#C5A059] pl-11"
