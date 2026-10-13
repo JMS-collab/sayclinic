@@ -1311,8 +1311,9 @@ export default function Home() {
                 <MedicalRecordForm 
                   onRecordCreated={handleAddSale} 
                   initialPatient={selectedPatient}
+                  allPatients={patients}
                   onNavigateToPatient={(pId) => {
-                    const found = patients.find(p => p.id === pId || p.birthNumber === selectedPatient?.birthNumber);
+                    const found = patients.find(p => p.id === pId || (selectedPatient && p.birthNumber === selectedPatient.birthNumber));
                     if (found) {
                       handleSetActivePatient(found);
                       setSelectedPatientForFolder(found);

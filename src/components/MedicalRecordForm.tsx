@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { HealthProService, HealthProResponse } from '../services/healthpro';
 import { MKCHItem } from '../data/mkch';
 import { generatePdfFilename, exportElementToPdf, generatePdfBase64 } from '../lib/pdfGenerator';
 import { 
@@ -560,6 +561,7 @@ export const DOC_TITLES: Record<DocumentType, string> = {
 interface FormProps {
   onRecordCreated?: (sale: { date: string; patientName: string; doctorName: string; serviceType: string; amount: number; }) => void;
   initialPatient?: { 
+    id?: string;
     name: string; 
     birthNumber: string; 
     phone?: string; 
@@ -570,10 +572,21 @@ interface FormProps {
     initialDocType?: DocumentType;
     insurance?: string;
   } | null;
+  allPatients?: any[];
+  onNavigateToPatient?: (patientId: string) => void;
 }
 
-export default function MedicalRecordForm({ onRecordCreated, initialPatient }: FormProps) {
+export default function MedicalRecordForm({ onRecordCreated, initialPatient, allPatients, onNavigateToPatient }: FormProps) {
+  const { data: session } = useSession();
   const [docType, setDocType] = useState<DocumentType>(initialPatient?.initialDocType || 'vstupne_vysetrenie');
+  const [patientId, setPatientId] = useState<string>(initialPatient?.id || '');
+  const [cloudSaveFeedback, setCloudSaveFeedback] = useState<{
+    success: boolean;
+    message: string;
+    record?: CloudMedicalRecord;
+    driveLink?: string;
+    patientId?: string;
+  } | null>(null);
   
   // ZÁKLADNÉ ÚDAJE
   const [patientName, setPatientName] = useState(initialPatient?.name || '');
@@ -611,6 +624,7 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
   // Synchronizácia údajov pri zmene initialPatient
   useEffect(() => {
     if (initialPatient) {
+      if (initialPatient.id) setPatientId(initialPatient.id);
       if (initialPatient.name) setPatientName(initialPatient.name);
       if (initialPatient.birthNumber) setBirthNumber(initialPatient.birthNumber);
       if (initialPatient.phone) setPatientPhone(initialPatient.phone);
@@ -1207,16 +1221,46 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
     setLoading(true);
     setResult(null);
 
+    setCloudSaveFeedback(null);
+
     const serviceTitle = (docType === 'cenova_ponuka' || docType === 'dohoda_o_cene')
       ? selectedItems.map((i) => i.name).join(', ') || DOC_TITLES[docType]
       : docType === 'kontrolne_vysetrenie'
       ? `Kontrola po: ${checkupData.operationName}`
       : docType === 'dermatologicke_vysetrenie'
       ? `Dermatologické vyšetrenie: ${dermatologyData.primaryDiagnosis.code || 'Z01.8'}`
+      : docType === 'vstupne_vysetrenie'
+      ? (vvPlan ? `Vstupné vyšetrenie: ${vvPlan}` : 'Vstupné predoperačné vyšetrenie')
       : manualProcedure || DOC_TITLES[docType];
 
+    // Kompletný štruktúrovaný obsah pre vstupné vyšetrenie
+    const vvContent = `PLÁNOVANÝ VÝKON / ZÁKROK:
+${vvPlan || '---'}
+Termín výkonu: ${vvDate ? new Date(vvDate).toLocaleDateString('sk-SK') : 'Neurčený'}
+Druh anestézie: ${anesthesiaType} (${anesthesiaType === 'Lokálna' ? 'Lokálna anestézia' : `${anesthesiaHours} hod`})
+Hospitalizácia: ${hospitalizationType === 'none' ? 'Ambulantne' : hospitalizationType === 'half' ? '1/2 dňa (dospanie)' : '1 deň (do ďalšieho dňa)'}
+
+ANAMNÉZA PACIENTA:
+Vek: ${vvVek || '---'} | Výška: ${vvVyska ? `${vvVyska} cm` : '---'} | Váha: ${vvVaha ? `${vvVaha} kg` : '---'} | BMI: ${calcBMI()}
+Alergie (AA): ${vvAA || 'neudáva žiadne'}
+Osobná anamnéza (OA): ${vvOA || 'neudáva žiadne'}
+Lieková anamnéza (LA): ${vvLA || 'neudáva žiadne'}
+Gynekologická anamnéza (GA): ${vvGA || 'neudáva žiadne'}
+${vvCave ? `CAVE: ${vvCave}\n` : ''}
+STATUS LOCALIS (SPL):
+${vvSPL || 'V norme, bez patologického nálezu.'}
+
+PREDOPERAČNÉ VYŠETRENIA:
+${vvExams.length > 0 ? vvExams.map(ex => `• ${ex === 'Iné' ? `Iné: ${vvExamsOther}` : ex}`).join('\n') : 'Nevyžadujú sa špeciálne vyšetrenia'}
+${vvImplants.some(impl => impl.vyrobca || impl.kat || impl.objem) ? `\nPLÁNOVANÉ IMPLANTÁTY:\n${vvImplants.filter(i => i.vyrobca || i.kat || i.objem).map(i => `• ${i.vyrobca} kat. ${i.kat} (${i.objem})`).join('\n')}` : ''}
+${vvMaterial ? `\nŠPECIÁLNY MATERIÁL:\n${vvMaterial}` : ''}
+
+ZÁVER A POUČENIE:
+${vvNoContra ? 'Bez zjavnej kontraindikácie k výkonu (t.č.). Po vyšetreniach a zhodnotení anamnézy je možné očakávať priaznivý efekt výkonu.' : `Kontraindikácia: ${vvContraReason}`}
+Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačnom režime.`;
+
     const recordNote = docType === 'vstupne_vysetrenie' 
-      ? vvPlan 
+      ? vvContent 
       : docType === 'kontrolne_vysetrenie' 
       ? `Operácia: ${checkupData.operationName} (${checkupData.operationDate})\nSubjektívne: ${checkupData.subjective}\nObjektívne: ${checkupData.objective}\nOdporúčania:\n${checkupData.recommendations}` 
       : docType === 'dermatologicke_vysetrenie'
@@ -1346,6 +1390,58 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
       console.error('Chyba pri automatickom logovaní skladu:', invErr);
     }
 
+    // 1. ZISTENIE CIELOVÉHO PACIENTA PRE TRVALÉ CLOUDOVÉ ULOŽENIE
+    const cleanBn = (birthNumber || '').replace(/\D/g, '');
+    const matchedPatient = (allPatients || []).find((p: any) => 
+      (patientId && p.id === patientId) ||
+      (cleanBn && p.birthNumber && p.birthNumber.replace(/\D/g, '') === cleanBn) ||
+      (patientName && p.name && p.name.trim().toLowerCase() === patientName.trim().toLowerCase())
+    );
+    const resolvedPatientId = patientId || matchedPatient?.id || (cleanBn ? `P_${cleanBn}` : `P_${Date.now()}`);
+
+    // 2. GENEROVANIE A4 PDF DOKUMENTU PRE GOOGLE DRIVE
+    let generatedPdfBase64: string | undefined;
+    if (printRef.current) {
+      try {
+        generatedPdfBase64 = await generatePdfBase64(printRef.current, {
+          format: 'a4',
+          headerTitle: DOC_TITLES[docType],
+          patientName: patientName || 'Pacient',
+        });
+      } catch (pdfErr) {
+        console.warn('PDF base64 generovanie zlyhalo, posielam text:', pdfErr);
+      }
+    }
+
+    // 3. ZÍSKANIE GOOGLE ACCESS TOKENU PRE DRIVE
+    let authToken: string | null = null;
+    try {
+      authToken = (await getAccessToken()) || (session as any)?.accessToken || null;
+    } catch {
+      authToken = (session as any)?.accessToken || null;
+    }
+
+    // 4. BEZPEČNÉ ULOŽENIE DO CLOUD FIRESTORE DATABÁZY A GOOGLE DISKU
+    const cloudSaveResult = await CloudRecordService.saveRecordToCloud(
+      {
+        id: resolvedPatientId,
+        name: patientName || 'Neznámy pacient',
+        birthNumber: birthNumber || ''
+      },
+      {
+        type: DOC_TITLES[docType],
+        typeColor: docType === 'vstupne_vysetrenie' ? 'bg-[#C5A059]' : (docType === 'operacny_protokol' ? 'bg-[#2C2A29]' : 'bg-emerald-700'),
+        title: serviceTitle,
+        doctor: doctor,
+        diagnosis: diagnosis,
+        date: new Date().toISOString().split('T')[0],
+        content: recordNote
+      },
+      generatedPdfBase64,
+      authToken || undefined
+    );
+
+    // 5. ZASLANIE DO NCZI (HealthPro Service)
     const response = await HealthProService.sendMedicalRecord({
       patientBirthNumber: birthNumber,
       diagnosisCode: diagnosis,
@@ -1359,6 +1455,22 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
 
     setResult(response);
     setLoading(false);
+
+    if (cloudSaveResult.success) {
+      setCloudSaveFeedback({
+        success: true,
+        message: `${DOC_TITLES[docType]} bolo bezpečne a natrvalo uložené do Cloud Firestore databázy aj do zložky pacienta na Google Drive.`,
+        record: cloudSaveResult.record,
+        driveLink: cloudSaveResult.record.driveWebViewLink || (cloudSaveResult.driveFile as any)?.webViewLink,
+        patientId: resolvedPatientId
+      });
+    } else {
+      setCloudSaveFeedback({
+        success: false,
+        message: `Chyba pri ukladaní do Cloudu: ${cloudSaveResult.error || 'Neznáma chyba'}`,
+        patientId: resolvedPatientId
+      });
+    }
 
     if (response.success && onRecordCreated) {
       onRecordCreated({
@@ -1634,7 +1746,32 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
               <div>
                 <label className="block text-[10px] uppercase text-[#8C857B] mb-1">Meno a priezvisko</label>
-                <input type="text" required value={patientName} onChange={(e) => setPatientName(e.target.value)} placeholder="Mária Kováčová" className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" />
+                <input 
+                  type="text" 
+                  required 
+                  list="patients-datalist"
+                  value={patientName} 
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    setPatientName(newName);
+                    const found = (allPatients || []).find((p: any) => p.name?.toLowerCase() === newName.trim().toLowerCase());
+                    if (found) {
+                      setPatientId(found.id);
+                      if (found.birthNumber) setBirthNumber(found.birthNumber);
+                      if (found.phone) setPatientPhone(found.phone);
+                      if (found.email) setPatientEmail(found.email);
+                      if (found.address) setPatientAddress(found.address);
+                      if (found.insurance) setPatientInsurance(found.insurance);
+                    }
+                  }} 
+                  placeholder="Mária Kováčová" 
+                  className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white text-[#2C2A29]" 
+                />
+                <datalist id="patients-datalist">
+                  {(allPatients || []).map((p: any) => (
+                    <option key={p.id} value={p.name}>{p.birthNumber ? `(r.č. ${p.birthNumber})` : ''}</option>
+                  ))}
+                </datalist>
               </div>
             </div>
 
@@ -3403,12 +3540,85 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient }: F
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="w-full bg-[#C5A059] hover:bg-[#b08d48] text-white font-medium py-3 px-6 rounded-xl transition-colors text-xs uppercase tracking-wider disabled:opacity-50 print:hidden cursor-pointer shadow-sm">
-              {loading ? 'Spracovávam...' : '💾 Uložiť záznam do systému'}
+            <button type="submit" disabled={loading} className="w-full bg-[#C5A059] hover:bg-[#b08d48] text-white font-medium py-3 px-6 rounded-xl transition-colors text-xs uppercase tracking-wider disabled:opacity-50 print:hidden cursor-pointer shadow-sm flex items-center justify-center gap-2">
+              {loading ? (
+                <>
+                  <span className="inline-block animate-spin">⏳</span>
+                  <span>Ukladám do Cloudu a Google Disku...</span>
+                </>
+              ) : (
+                <>
+                  <span>☁️</span>
+                  <span>Bezpečne uložiť do Cloudu & Google Disku</span>
+                </>
+              )}
             </button>
           </form>
 
-          {result && (
+          {/* SPÄTNÁ VÄZBA CLOUDOVÉHO ULOŽENIA */}
+          {cloudSaveFeedback && (
+            <div className={`p-4 rounded-xl text-xs border print:hidden shadow-sm transition-all ${
+              cloudSaveFeedback.success ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-rose-50 border-rose-300 text-rose-950'
+            }`}>
+              <div className="flex items-start gap-2.5">
+                <span className="text-xl shrink-0">{cloudSaveFeedback.success ? '✅' : '⚠️'}</span>
+                <div className="space-y-1.5 flex-1">
+                  <p className="font-bold text-sm">
+                    {cloudSaveFeedback.success ? 'Záznam úspešne uložený v Cloude!' : 'Chyba pri ukladaní do Cloudu'}
+                  </p>
+                  <p className="text-xs leading-relaxed opacity-90">
+                    {cloudSaveFeedback.message}
+                  </p>
+
+                  {cloudSaveFeedback.success && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                      <span className="bg-white/90 px-2 py-0.5 rounded border border-emerald-300 font-mono text-[10px]">
+                        ☁️ Firestore ID: {cloudSaveFeedback.record?.id}
+                      </span>
+                      {cloudSaveFeedback.driveLink && (
+                        <span className="bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-300 text-[10px] font-semibold">
+                          📂 Google Drive zosynchronizovaný
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {cloudSaveFeedback.success && (
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-emerald-200">
+                      {onNavigateToPatient && cloudSaveFeedback.patientId && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToPatient(cloudSaveFeedback.patientId!)}
+                          className="bg-emerald-800 hover:bg-emerald-900 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <span>📁</span> Otvoriť kartu pacienta a dekurzy
+                        </button>
+                      )}
+                      {cloudSaveFeedback.driveLink && (
+                        <a
+                          href={cloudSaveFeedback.driveLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-white hover:bg-sky-50 text-sky-800 border border-sky-300 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <span>↗️</span> Otvoriť na Google Disku
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleDownloadPdf}
+                        className="bg-white hover:bg-stone-50 text-stone-800 border border-[#E8E2D9] font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>📄</span> Stiahnuť PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {result && !cloudSaveFeedback && (
             <div className={`p-3 rounded-xl text-xs border print:hidden ${result.success ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'}`}>
               <p className="font-semibold">{result.message}</p>
             </div>

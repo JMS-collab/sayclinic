@@ -38,6 +38,7 @@ import AIHealthRoadmapView from './patient/AIHealthRoadmapView';
 import { MeicetModule } from './meicet/MeicetModule';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
+import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
 import { LiquidAvatar } from './LiquidAvatar';
 
 const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
@@ -111,6 +112,11 @@ export interface MedicalRecord {
   diagnosis: string;
   date: string;
   content: string;
+  driveFileId?: string;
+  driveWebViewLink?: string;
+  patientId?: string;
+  patientName?: string;
+  patientBirthNumber?: string;
 }
 
 export const MOCK_PATIENTS: Patient[] = [
@@ -494,32 +500,84 @@ export default function PatientDatabase({
     }
   }, [initialPatient, activePatient]);
 
-  // Načítanie zdravotných záznamov z localStorage
+  // 1. Pri spustení prenesieme prípadné staré dáta z localStorage do Cloudu a vyčistíme localStorage
   useEffect(() => {
-    const savedRecs = localStorage.getItem('say_clinic_patient_records');
-    if (savedRecs) {
-      try {
-        const parsed = JSON.parse(savedRecs);
-        if (parsed && typeof parsed === 'object') {
-          setPatientRecords(prev => ({ ...prev, ...parsed }));
-        }
-      } catch (e) {
-        console.error('Chyba pri načítaní záznamov pacientov z localStorage:', e);
-      }
-    }
-  }, []);
+    CloudRecordService.migrateLocalStorageToCloud(patients);
+  }, [patients]);
 
-  // Uloženie záznamov do localStorage pri zmene a real-time vysielanie ostatným počítačom
+  // 2. Načítanie zdravotných záznamov z Cloud Firestore pre vybraného pacienta
   useEffect(() => {
-    try {
-      localStorage.setItem('say_clinic_patient_records', JSON.stringify(patientRecords));
-      if (patientRecords && Object.keys(patientRecords).length > 0) {
-        RealtimeSyncService.publish('patient_records', patientRecords);
+    if (!selectedPatient) return;
+
+    let isMounted = true;
+    const loadCloudRecords = async () => {
+      try {
+        const cloudData = await CloudRecordService.getPatientRecordsFromCloud(
+          selectedPatient.id,
+          selectedPatient.birthNumber
+        );
+        if (isMounted && cloudData && cloudData.length > 0) {
+          setPatientRecords(prev => ({
+            ...prev,
+            [selectedPatient.id]: cloudData
+          }));
+        }
+      } catch (err) {
+        console.warn('Chyba pri načítaní záznamov z Cloudu:', err);
       }
-    } catch (e) {
-      console.error('Chyba pri ukladaní záznamov do localStorage:', e);
-    }
-  }, [patientRecords]);
+    };
+
+    loadCloudRecords();
+
+    // Odber zmien pre tohto pacienta v reálnom čase z Cloud Firestore
+    const unsubCloud = CloudRecordService.subscribePatientRecords(selectedPatient.id, (records) => {
+      if (isMounted && records && records.length > 0) {
+        setPatientRecords(prev => ({
+          ...prev,
+          [selectedPatient.id]: records
+        }));
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubCloud();
+    };
+  }, [selectedPatient?.id, selectedPatient?.birthNumber]);
+
+  // 3. Počúvanie okamžitého uloženia záznamu zo systému
+  useEffect(() => {
+    const handleSavedRecord = (e: any) => {
+      const rec = e.detail;
+      if (!rec) return;
+
+      const pId = rec.patientId;
+      if (pId) {
+        setPatientRecords(prev => {
+          const currentList = prev[pId] || [];
+          const exists = currentList.some(r => r.id === rec.id);
+          const updated = exists 
+            ? currentList.map(r => r.id === rec.id ? rec : r)
+            : [rec, ...currentList];
+          return { ...prev, [pId]: updated };
+        });
+      }
+
+      if (selectedPatient && (selectedPatient.id === rec.patientId || (rec.patientBirthNumber && selectedPatient.birthNumber === rec.patientBirthNumber))) {
+        setPatientRecords(prev => {
+          const currentList = prev[selectedPatient.id] || [];
+          const exists = currentList.some(r => r.id === rec.id);
+          const updated = exists 
+            ? currentList.map(r => r.id === rec.id ? rec : r)
+            : [rec, ...currentList];
+          return { ...prev, [selectedPatient.id]: updated };
+        });
+      }
+    };
+
+    window.addEventListener('say_clinic_record_saved', handleSavedRecord);
+    return () => window.removeEventListener('say_clinic_record_saved', handleSavedRecord);
+  }, [selectedPatient]);
 
   // Real-time odber pacientov, záznamov a liečebných plánov z ostatných počítačov v sieti kliniky
   useEffect(() => {
@@ -849,21 +907,23 @@ export default function PatientDatabase({
     }
   };
 
-  const handleDeleteRecord = (recordId: string) => {
+  const handleDeleteRecord = async (recordId: string) => {
     if (!selectedPatient) return;
-    if (confirm('Naozaj chcete natrvalo vymazať tento záznam?')) {
+    if (confirm('Naozaj chcete natrvalo vymazať tento záznam z Cloud databázy?')) {
+      await CloudRecordService.deleteRecordFromCloud(recordId, selectedPatient.id);
       setPatientRecords(prev => ({
         ...prev,
-        [selectedPatient.id]: prev[selectedPatient.id].filter(r => r.id !== recordId)
+        [selectedPatient.id]: (prev[selectedPatient.id] || []).filter(r => r.id !== recordId)
       }));
     }
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!selectedPatient || !editingRecord) return;
+    await CloudRecordService.updateRecordInCloud(editingRecord as any);
     setPatientRecords(prev => ({
       ...prev,
-      [selectedPatient.id]: prev[selectedPatient.id].map(r => r.id === editingRecord.id ? editingRecord : r)
+      [selectedPatient.id]: (prev[selectedPatient.id] || []).map(r => r.id === editingRecord.id ? editingRecord : r)
     }));
     setEditingRecord(null);
   };
@@ -1826,9 +1886,17 @@ export default function PatientDatabase({
                               {patientRecords[selectedPatient.id].map(record => (
                                 <div key={record.id} className="border border-[#E8E2D9] rounded-xl p-3.5 flex flex-wrap justify-between items-center hover:bg-[#FAF8F5] transition-all bg-white shadow-2xs gap-3">
                                   <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                       <span className={`text-[9px] text-white px-2 py-0.5 rounded-full uppercase font-bold ${record.typeColor}`}>{record.type}</span>
                                       <span className="text-xs font-bold text-[#2C2A29]">{record.title}</span>
+                                      <span className="text-[9px] bg-emerald-50 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded font-semibold flex items-center gap-0.5">
+                                        ☁️ Cloud
+                                      </span>
+                                      {record.driveWebViewLink && (
+                                        <span className="text-[9px] bg-sky-50 text-sky-800 border border-sky-300 px-1.5 py-0.5 rounded font-semibold flex items-center gap-0.5">
+                                          📂 Google Drive
+                                        </span>
+                                      )}
                                     </div>
                                     <p className="text-[11px] text-[#8C857B]">
                                       Lekár: <strong className="text-[#2C2A29]">{record.doctor}</strong> {record.diagnosis && <>| Diagnóza: <span className="font-mono text-[#C5A059]">{record.diagnosis}</span></>}
@@ -1838,6 +1906,17 @@ export default function PatientDatabase({
                                   <div className="flex flex-col items-end gap-1.5">
                                     <p className="text-xs font-mono text-[#8C857B] font-bold">{new Date(record.date).toLocaleDateString('sk-SK')}</p>
                                     <div className="flex flex-wrap items-center gap-1.5">
+                                      {record.driveWebViewLink && (
+                                        <a 
+                                          href={record.driveWebViewLink} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer" 
+                                          className="text-[10px] text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-300 px-2 py-1 rounded-lg uppercase font-bold transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                                          title="Otvoriť PDF dokument priamo na Google Disku"
+                                        >
+                                          <span>📂</span> Disk
+                                        </a>
+                                      )}
                                       {(record.type?.toLowerCase().includes('opera') || record.type?.toLowerCase().includes('protokol') || record.title?.toLowerCase().includes('augmentác') || record.title?.toLowerCase().includes('lipo')) && (
                                         <button 
                                           onClick={() => handleOpenScheduleModal(record)} 
@@ -1859,8 +1938,8 @@ export default function PatientDatabase({
                             </div>
                           ) : (
                             <div className="text-center py-12 border border-dashed border-[#E8E2D9] rounded-xl bg-[#FAF8F5]">
-                              <p className="text-3xl mb-2">📄</p>
-                              <p className="text-xs text-[#8C857B]">Tento pacient zatiaľ nemá žiadne lokálne lekárske záznamy.</p>
+                              <p className="text-3xl mb-2">☁️</p>
+                              <p className="text-xs text-[#8C857B]">Tento pacient zatiaľ nemá žiadne zdravotné záznamy v Cloud databáze.</p>
                               <button 
                                 onClick={() => onNavigateToGenerator && onNavigateToGenerator(selectedPatient)}
                                 className="mt-3 text-xs bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3.5 py-2 rounded-xl uppercase font-bold cursor-pointer transition-colors"
