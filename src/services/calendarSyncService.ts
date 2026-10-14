@@ -255,6 +255,9 @@ export function mergeCalendarEvents(
   for (const gEvt of googleEvents) {
     const key = gEvt.googleEventId || gEvt.id;
     if (!processedGoogleIds.has(key)) {
+      processedGoogleIds.add(key);
+      if (gEvt.id) processedGoogleIds.add(gEvt.id);
+      if (gEvt.googleEventId) processedGoogleIds.add(gEvt.googleEventId);
       merged.push({
         ...gEvt,
         isGoogleSynced: true,
@@ -262,5 +265,16 @@ export function mergeCalendarEvents(
     }
   }
 
-  return merged;
+  // 3. Finálna záruka unikátnosti ID pre React kľúče (prevencia kolízie duplicitných záznamov)
+  const finalSeenIds = new Set<string>();
+  const strictlyUnique: CalendarEvent[] = [];
+  for (const evt of merged) {
+    if (!evt || !evt.id) continue;
+    if (!finalSeenIds.has(evt.id)) {
+      finalSeenIds.add(evt.id);
+      strictlyUnique.push(evt);
+    }
+  }
+
+  return strictlyUnique;
 }

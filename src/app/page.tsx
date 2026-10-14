@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check, Shield, ShieldAlert, Monitor, Cpu, Maximize2, Minimize2 } from 'lucide-react';
 import { DevicePinService } from '../services/devicePinService';
@@ -53,7 +53,7 @@ const INITIAL_SALES: SaleItem[] = [];
 type TabType = TabId;
 
 function buildProjectFromNote(noteText: string, currentUser: UserAccount) {
-  const isCeoUser = currentUser.role === 'ceo' || currentUser.email === 'say@sayclinic.sk' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';
+  const isCeoUser = currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';
   const timestamp = Date.now();
   const dateStr = new Date(timestamp).toISOString().split('T')[0];
   const deadlineStr = new Date(timestamp + 7 * 86400000).toISOString().split('T')[0];
@@ -248,7 +248,7 @@ export default function Home() {
   const [permissionsVersion, setPermissionsVersion] = useState(0);
   const [simulatedRole, setSimulatedRole] = useState<RoleType | null>(null);
 
-  const isRealCeo = currentUser ? (currentUser.role === 'ceo' || currentUser.email === 'say@sayclinic.sk' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1') : false;
+  const isRealCeo = currentUser ? (currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1') : false;
 
   // Počúvanie zmien oprávnení a simulácie rolí
   useEffect(() => {
@@ -349,7 +349,7 @@ export default function Home() {
         }
       } catch (err: any) {
         if (err?.code !== 'auth/popup-closed-by-user') {
-          signIn('google', undefined, { login_hint: 'say@sayclinic.sk' });
+          signIn('google');
         }
       }
     }
@@ -502,6 +502,17 @@ export default function Home() {
     }
   }, []);
 
+  // Pomocná funkcia na striktnú deduplikáciu udalostí podľa ID
+  const dedupeEventsList = (events: CalendarEvent[]): CalendarEvent[] => {
+    const seen = new Set<string>();
+    return events.filter((e) => {
+      if (!e || !e.id) return false;
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
+  };
+
   // Načítanie kešovaných kalendárových udalostí
   useEffect(() => {
     const cachedEvents = localStorage.getItem('say_clinic_calendar_events');
@@ -510,8 +521,9 @@ export default function Home() {
         const parsed = JSON.parse(cachedEvents);
         if (Array.isArray(parsed)) {
           const realEvents = parsed.filter((e: any) => !e.id?.startsWith('seed-') && !e.id?.startsWith('demo-'));
-          setCalendarEvents(realEvents);
-          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(realEvents));
+          const deduped = dedupeEventsList(realEvents);
+          setCalendarEvents(deduped);
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(deduped));
         }
       } catch (e) {
         console.error('Chyba načítania kešovaných udalostí kalendára:', e);
@@ -531,7 +543,7 @@ export default function Home() {
 
     const unsubEvents = RealtimeSyncService.subscribe('calendar_events', (updated) => {
       if (Array.isArray(updated)) {
-        setCalendarEvents(updated);
+        setCalendarEvents(dedupeEventsList(updated));
       }
     });
 
@@ -652,9 +664,18 @@ export default function Home() {
     changeTab('projects');
   };
 
-  // Dnešné udalosti pre Homescreen
+  // Dnešné udalosti pre Homescreen so zárukou unikátnych kľúčov
   const todayString = new Date().toISOString().split('T')[0];
-  const todayEvents = calendarEvents.filter(e => e.date === todayString);
+  const todayEvents = useMemo(() => {
+    const seen = new Set<string>();
+    return calendarEvents.filter((e) => {
+      if (!e || e.date !== todayString) return false;
+      const key = e.id || `${e.title}-${e.startTime}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [calendarEvents, todayString]);
 
   // Počas úvodného SSR a hydratácie zobrazíme jednotný čistý loader, aby sa zamedzilo akémukoľvek hydration mismatch
   if (!isMounted) {
@@ -1288,9 +1309,9 @@ export default function Home() {
                         </div>
                       ) : (
                         <div className={`grid gap-3 ${todayEvents.length > 1 ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
-                          {todayEvents.map((evt) => (
+                          {todayEvents.map((evt, idx) => (
                             <div 
-                              key={evt.id} 
+                              key={`${evt.id || 'today-evt'}-${idx}`} 
                               onClick={() => handleOpenPatientFromCalendar(evt.patientId || '')}
                               className="p-4 border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl flex justify-between items-center bg-[#FBF9F6] hover:bg-white transition-all cursor-pointer group shadow-2xs"
                             >
