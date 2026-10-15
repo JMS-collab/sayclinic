@@ -14,6 +14,8 @@ import {
   Search, 
   Calendar as CalendarIcon,
   ChevronDown,
+  ChevronRight,
+  ScanFace,
   ShieldCheck,
   Phone,
   Clock
@@ -126,22 +128,22 @@ export default function ActivePatientBar({
   const patientAge = getAge(activePatient.birthNumber);
 
   return (
-    <div className="bg-gradient-to-r from-[#FAF8F5] via-white to-[#FAF8F5] border-b-2 border-[#C5A059]/40 shadow-xs z-30 sticky top-[73px] print:hidden animate-in fade-in slide-in-from-top-1 duration-200">
-      <div className={`${containerClassName || 'w-full max-w-none px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12'} py-2.5 flex flex-wrap items-center justify-between gap-3`}>
+    <div className="bg-[#FBF9F6]/95 backdrop-blur-md border-b border-[#E8E2D9] z-30 sticky top-[73px] print:hidden animate-in fade-in duration-200">
+      <div className={`${containerClassName || 'w-full max-w-none px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12'} py-2 flex flex-wrap items-center justify-between gap-3`}>
         
         {/* VĽAVO: IDENTIFIKÁCIA ROZPRACOVANÉHO PACIENTA */}
         <div className="flex items-center gap-3 min-w-0">
           
-          {/* ŽIVÝ PULZUJÚCI INDIKÁTOR */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase tracking-wider shrink-0 shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Rozpracovaný pacient</span>
+          {/* JEMNÝ EDITORIÁLOVÝ INDIKÁTOR AKTÍVNEHO PACIENTA */}
+          <div className="hidden sm:flex items-center gap-1.5 pr-2.5 border-r border-[#E8E2D9] text-[#8C857B] text-[10px] font-bold uppercase tracking-[0.14em] shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse"></span>
+            <span>Aktívny pacient</span>
           </div>
 
           {/* AVATAR / INICIÁLY */}
           <div 
             onClick={() => onNavigateToTab('patients')}
-            className="w-8 h-8 rounded-full bg-[#2C2A29] text-[#C5A059] border border-[#C5A059] flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer shadow-xs hover:scale-105 transition-transform"
+            className="w-8 h-8 rounded-full bg-[#2C2A29] text-[#C5A059] border border-[#C5A059]/60 flex items-center justify-center font-brand font-bold text-xs shrink-0 cursor-pointer hover:scale-105 transition-transform"
             title="Kliknutím otvoríte kartu pacienta"
           >
             {activePatient.name ? activePatient.name.split(' ').map(n => n[0]).slice(0, 2).join('') : 'P'}
@@ -153,11 +155,11 @@ export default function ActivePatientBar({
               <button
                 type="button"
                 onClick={() => onNavigateToTab('patients')}
-                className="font-brand font-bold text-sm text-[#2C2A29] hover:text-[#C5A059] transition-colors truncate text-left cursor-pointer flex items-center gap-1"
+                className="font-brand font-bold text-base text-[#2C2A29] hover:text-[#C5A059] transition-colors truncate text-left cursor-pointer flex items-center gap-1"
                 title="Otvoriť zdravotnú kartu pacienta"
               >
                 <span>{activePatient.name}</span>
-                <span className="text-[10px] text-[#8C857B] font-normal hover:underline">➔</span>
+                <ChevronRight className="w-3.5 h-3.5 text-[#C5A059]" />
               </button>
               
               {patientAge && (
@@ -217,93 +219,92 @@ export default function ActivePatientBar({
         )}
 
         {/* V STREDE: RÝCHLE AKCIE S TÝMTO ROZPRACOVANÝM PACIENTOM */}
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <div className="flex flex-wrap items-center gap-1 text-[11px]">
           
           {/* 1. KARTA PACIENTA (KARTOTÉKA) */}
           <button
             type="button"
             onClick={() => onNavigateToTab('patients')}
-            className={`px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer border shadow-xs ${
+            className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
               currentTab === 'patients'
                 ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                : 'bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                : 'bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]'
             }`}
             title="Prejsť na kompletnú zdravotnú kartu a dokumentáciu"
           >
             <FolderOpen className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Karta pacienta</span>
+            <span>Karta 360°</span>
           </button>
 
           {/* 2. LEKÁRSKA SPRÁVA / DEKURZ */}
           <button
             type="button"
             onClick={() => onNavigateToTab('generator')}
-            className={`px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer border shadow-xs ${
+            className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
               currentTab === 'generator'
                 ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                : 'bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                : 'bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]'
             }`}
             title="Otvoriť generátor lekárskeho nálezu pre tohto pacienta"
           >
-            <FileText className="w-3.5 h-3.5 text-[#047857]" />
+            <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
             <span>Nález / Dekurz</span>
           </button>
 
-          {/* 3. RECEPT (ŠEVT) */}
-          <button
-            type="button"
-            onClick={() => onNavigateToTab('prescriptions')}
-            className={`px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer border shadow-xs ${
-              currentTab === 'prescriptions'
-                ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                : 'bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
-            }`}
-            title="Vystaviť lekársky recept ŠEVT 14 282 2s pre tohto pacienta"
-          >
-            <Pill className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Recept Rp.</span>
-          </button>
-
-          {/* 4. ESTETIKA & FOTO */}
+          {/* 3. ESTETIKA & FOTO */}
           <button
             type="button"
             onClick={() => onNavigateToTab('aesthetics')}
-            className={`px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer border shadow-xs ${
+            className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
               currentTab === 'aesthetics'
                 ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                : 'bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                : 'bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]'
             }`}
             title="Aplikácia botoxu, výplní a fotodokumentácia"
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
             <span className="hidden sm:inline">Estetika</span>
+          </button>
+
+          {/* 4. RECEPT (ŠEVT) */}
+          <button
+            type="button"
+            onClick={() => onNavigateToTab('prescriptions')}
+            className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+              currentTab === 'prescriptions'
+                ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
+                : 'bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]'
+            }`}
+            title="Vystaviť lekársky recept ŠEVT 14 282 2s pre tohto pacienta"
+          >
+            <Pill className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Recept Rp.</span>
           </button>
 
           {/* MEICET PRO-A */}
           <button
             type="button"
             onClick={() => onNavigateToTab('patients', { folder: 'meicet' })}
-            className="px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer border shadow-xs bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border-[#C5A059] hover:shadow-xs"
-            title="3D spektrálna analýza pleti Meicet Pro-A a ročný plán ošetrení s AI"
+            className="px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]"
+            title="3D spektrálna analýza pleti Meicet Pro-A a ročný plán ošetrení"
           >
-            <span className="text-xs">🔬</span>
-            <span className="hidden lg:inline">Meicet Pro-A</span>
-            <span className="text-[9px] bg-[#C5A059] text-white px-1 rounded font-bold">AI</span>
+            <ScanFace className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span className="hidden lg:inline">Meicet 3D</span>
           </button>
 
           {/* 5. PREDAJ KOZMETIKY (POS) */}
           <button
             type="button"
             onClick={() => onNavigateToTab('cosmetics')}
-            className={`px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer border shadow-xs ${
+            className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
               currentTab === 'cosmetics'
                 ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                : 'bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                : 'bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]'
             }`}
-            title="Pultový predaj a vydanie dermokozmetiky"
+            title="Pultový predaj a pokladňa POS"
           >
-            <ShoppingBag className="w-3.5 h-3.5 text-purple-600" />
-            <span className="hidden md:inline">POS Predaj</span>
+            <ShoppingBag className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span className="hidden md:inline">Pokladňa POS</span>
           </button>
 
         </div>

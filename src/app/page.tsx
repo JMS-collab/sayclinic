@@ -1,8 +1,37 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check, Shield, ShieldAlert, Monitor, Cpu } from 'lucide-react';
+import { 
+  KeyRound, 
+  X, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  AlertCircle, 
+  Check, 
+  Shield, 
+  ShieldAlert, 
+  Monitor, 
+  Cpu,
+  LayoutDashboard,
+  FolderOpen,
+  Calendar as CalendarIcon,
+  Boxes,
+  Briefcase,
+  ShoppingBag,
+  BarChart3,
+  FileText,
+  Sparkles,
+  Pill,
+  ChevronDown,
+  ChevronRight,
+  ArrowRight,
+  UserPlus,
+  LogOut,
+  Cloud,
+  Plus
+} from 'lucide-react';
 import { DevicePinService } from '../services/devicePinService';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient, MOCK_PATIENTS } from '../components/PatientDatabase';
@@ -216,14 +245,28 @@ export default function Home() {
   const [showNewPin, setShowNewPin] = useState(false);
   const [pinChangeStatus, setPinChangeStatus] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
-  // Stav pre správu oprávnení (RBAC Modal) a simuláciu roly
+  // Stav pre správu oprávnení (RBAC Modal), simuláciu roly a profilové menu
   const [showRolePermissionsModal, setShowRolePermissionsModal] = useState(false);
   const [showAuditLogModal, setShowAuditLogModal] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null);
   const [permissionsVersion, setPermissionsVersion] = useState(0);
   const [simulatedRole, setSimulatedRole] = useState<RoleType | null>(null);
 
   const isRealCeo = currentUser ? (currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1') : false;
+
+  // Zatvorenie používateľského menu pri kliknutí mimo
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserMenu]);
 
   // Počúvanie zmien oprávnení a simulácie rolí
   useEffect(() => {
@@ -725,20 +768,20 @@ export default function Home() {
       )}
 
       {/* HLAVIČKA A PRECHOD NA HOMESCREEN CEZ LOGO */}
-      <header className="bg-white border-b border-[#E8E2D9] sticky top-0 z-40 shadow-sm print:hidden">
-        <div className={`${containerClass} py-3.5 flex flex-col md:flex-row justify-between items-center gap-4`}>
+      <header className="bg-white/95 backdrop-blur-md border-b border-[#E8E2D9] sticky top-0 z-40 print:hidden">
+        <div className={`${containerClass} py-3 flex flex-col md:flex-row justify-between items-center gap-4`}>
           
           {/* LOGO (KLIKNUTIE PRESMERUJE NA HOMESCREEN) */}
           <div className="flex items-center cursor-pointer group" onClick={() => changeTab('home')}>
             <img 
               src="/logo.png" 
               alt="SAY BY MRAZ" 
-              className="h-14 md:h-16 w-auto object-contain transition-transform group-hover:scale-105" 
+              className="h-14 md:h-15 w-auto object-contain transition-transform group-hover:scale-[1.02]" 
             />
           </div>
 
-          {/* 5 PRIAMYCH ZÁLOŽIEK: PREHĽAD, KARTOTÉKA, KALENDÁR, PREVÁDZKA, MANAŽMENT */}
-          <nav className="flex flex-wrap items-center gap-2 text-[11px] tracking-wider">
+          {/* 5 PRIAMYCH PILIEROV S VEKTOROVÝMI IKONAMI */}
+          <nav className="flex flex-wrap items-center gap-1.5 text-[11px] tracking-wider">
             {NAVIGATION_PILLARS.map((pillar) => {
               const hasAccess = pillar.tabs.some(tabId => PermissionsService.canUserAccessTab(currentUser, tabId));
               if (!hasAccess) return null;
@@ -750,24 +793,35 @@ export default function Home() {
                 : pillar.id === 'management'
                 ? (['finance', 'projects'].includes(activeTab) ? activeTab : 'finance')
                 : pillar.id === 'patients'
-                ? 'patients'
+                ? (['patients', 'generator', 'aesthetics', 'prescriptions'].includes(activeTab) ? activeTab : 'patients')
                 : pillar.id === 'calendar'
                 ? 'calendar'
                 : 'home';
+
+              const PillarIcon =
+                pillar.id === 'home'
+                  ? LayoutDashboard
+                  : pillar.id === 'patients'
+                  ? FolderOpen
+                  : pillar.id === 'calendar'
+                  ? CalendarIcon
+                  : pillar.id === 'operations'
+                  ? Boxes
+                  : Briefcase;
 
               return (
                 <button
                   key={pillar.id}
                   onClick={() => changeTab(targetTab)}
-                  className={`px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2 font-medium border ${
+                  className={`px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2 border ${
                     isPillarActive
-                      ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-xs font-bold'
-                      : 'bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                      ? 'bg-[#2C2A29] text-white border-[#2C2A29] font-bold shadow-2xs'
+                      : 'bg-transparent hover:bg-[#FAF8F5] text-[#2C2A29] border-transparent hover:border-[#E8E2D9] font-semibold'
                   }`}
                   title={pillar.description}
                 >
-                  <span className="text-sm">{pillar.icon}</span>
-                  <span className="uppercase text-[11px] font-bold tracking-wider">{pillar.label}</span>
+                  <PillarIcon className={`w-3.5 h-3.5 ${isPillarActive ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
+                  <span className="uppercase text-[11px] tracking-[0.12em]">{pillar.label}</span>
                   {isPillarActive && (
                     <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059] ml-0.5"></span>
                   )}
@@ -776,9 +830,15 @@ export default function Home() {
             })}
           </nav>
 
-          {/* PROFIL & NASTAVENIE ZOBRAZENIA */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full border border-[#C5A059] p-0.5 shadow-sm bg-white flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {/* KOMPAKTNÉ PROFILOVÉ A ADMINISTRÁTORSKÉ MENU */}
+          <div className="relative" ref={userMenuRef}>
+            <button
+              type="button"
+              onClick={() => setShowUserMenu((prev) => !prev)}
+              className="flex items-center gap-3 px-2.5 py-1.5 rounded-2xl border border-transparent hover:border-[#E8E2D9] hover:bg-[#FAF8F5] transition-all cursor-pointer group"
+              title="Účet používateľa, Google Workspace a správa kliniky"
+            >
+              <div className="relative w-9 h-9 rounded-full border border-[#C5A059]/70 p-0.5 bg-white flex items-center justify-center flex-shrink-0">
                 {currentUser.avatarUrl ? (
                   <img
                     src={currentUser.avatarUrl}
@@ -790,84 +850,120 @@ export default function Home() {
                     <LiquidAvatar id={currentUser.id} name={currentUser.name} role={currentUser.role} />
                   </div>
                 )}
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white ${
+                    isGoogleConnected ? 'bg-emerald-500' : 'bg-amber-400'
+                  }`}
+                  title={isGoogleConnected ? 'Google Workspace pripojený' : 'Google Workspace nepripojený'}
+                />
               </div>
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-[#2C2A29]">{currentUser.name}</p>
-                <p className="text-[9px] uppercase tracking-widest text-[#C5A059]">
+
+              <div className="text-left hidden sm:block">
+                <p className="text-xs font-bold text-[#2C2A29] leading-tight">{currentUser.name}</p>
+                <p className="text-[9px] uppercase tracking-[0.15em] text-[#C5A059] font-semibold mt-0.5">
                   {currentUser.title || (currentUser.role === 'ceo' ? 'CEO & Primár' : currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra')}
                 </p>
               </div>
-              
-              {/* TLAČIDLO PRE SPRÁVU OPRÁVNENÍ A PERSONÁLU (PRE CEO A MANAŽMENT) */}
-              {(isRealCeo || currentUser.role === 'manager') && (
-                <button
-                  type="button"
-                  onClick={() => setShowRolePermissionsModal(true)}
-                  title="Správa oprávnení, rolí a profilov personálu SAY CLINIC"
-                  className="p-1.5 text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] rounded-lg border border-transparent hover:border-[#E8E2D9] transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Shield className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span className="hidden lg:inline text-[11px] font-bold text-[#2C2A29]">Oprávnenia & Tím</span>
-                </button>
-              )}
 
-              {/* TLAČIDLO PRE GDPR AUDITNÝ LOG (PRE CEO A MANAŽMENT) */}
-              {(isRealCeo || currentUser.role === 'manager') && (
-                <button
-                  type="button"
-                  onClick={() => setShowAuditLogModal(true)}
-                  title="GDPR Bezpečnostná auditná stopa (Audit Log)"
-                  className="p-1.5 text-[#8C857B] hover:text-amber-600 hover:bg-amber-50/50 rounded-lg border border-transparent hover:border-amber-200 transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                  <span className="hidden lg:inline text-[11px] font-bold text-[#2C2A29]">Audit Log</span>
-                </button>
-              )}
+              <ChevronDown className={`w-3.5 h-3.5 text-[#8C857B] transition-transform duration-200 ${showUserMenu ? 'rotate-180 text-[#C5A059]' : ''}`} />
+            </button>
 
-              {/* TLAČIDLO PRE GOOGLE DRIVE & KALENDÁR PREPOJENIE */}
-              <button
-                type="button"
-                onClick={handleGoogleConnectToggle}
-                title={
-                  isGoogleConnected
-                    ? `Google Drive prepojený: ${connectedGoogleEmail || 'SAY CLINIC'}. Kliknite pre správu.`
-                    : 'Automaticky pripojiť Google Drive & Kalendár'
-                }
-                className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  isGoogleConnected
-                    ? 'text-emerald-700 bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100/70'
-                    : 'text-amber-800 bg-amber-50/70 border-amber-200 hover:bg-amber-100/70'
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${isGoogleConnected ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`}></span>
-                <span className="hidden sm:inline">
-                  {isGoogleConnected ? 'Drive pripojený' : 'Pripojiť Drive'}
-                </span>
-              </button>
+            {/* ROZBAĽOVACÍ PANEL POUŽÍVATEĽA A SPRÁVY KLINIKY */}
+            {showUserMenu && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white/98 backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(44,42,41,0.14)] border border-[#E8E2D9] p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-3 py-2.5 border-b border-[#E8E2D9]/80">
+                  <p className="text-xs font-bold text-[#2C2A29]">{currentUser.name}</p>
+                  <p className="text-[11px] text-[#8C857B] truncate">{currentUser.email}</p>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowChangePasswordModal(true);
-                  setPasswordChangeStatus(null);
-                  setOldPassword('');
-                  setNewPassword('');
-                  setConfirmNewPassword('');
-                }}
-                title="Zmeniť heslo účtu"
-                className="p-1.5 text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] rounded-lg border border-transparent hover:border-[#E8E2D9] transition-all"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-              </button>
+                <div className="py-1.5 space-y-0.5">
+                  {/* GOOGLE WORKSPACE / DRIVE */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      handleGoogleConnectToggle();
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center justify-between transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Cloud className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>Google Drive & Kalendár</span>
+                    </span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      isGoogleConnected
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-amber-50 text-amber-800 border border-amber-200'
+                    }`}>
+                      {isGoogleConnected ? 'Pripojené' : 'Pripojiť'}
+                    </span>
+                  </button>
 
-              <button
-                onClick={() => handleLogout()}
-                className="text-xs text-[#8C857B] hover:text-rose-600 transition-colors font-medium underline underline-offset-4 cursor-pointer"
-              >
-                Odhlásiť
-              </button>
-            </div>
+                  {/* SPRÁVA OPRÁVNENÍ A TÍMU (CEO & MANAŽMENT) */}
+                  {(isRealCeo || currentUser.role === 'manager') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setShowRolePermissionsModal(true);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Shield className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>Oprávnenia & Tím kliniky</span>
+                    </button>
+                  )}
+
+                  {/* GDPR AUDIT LOG (CEO & MANAŽMENT) */}
+                  {(isRealCeo || currentUser.role === 'manager') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setShowAuditLogModal(true);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <ShieldAlert className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>GDPR Auditná stopa</span>
+                    </button>
+                  )}
+
+                  {/* ZMENA HESLA A PIN STANICE */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setShowChangePasswordModal(true);
+                      setPasswordChangeStatus(null);
+                      setOldPassword('');
+                      setNewPassword('');
+                      setConfirmNewPassword('');
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Zmena hesla & PIN stanice</span>
+                  </button>
+                </div>
+
+                <div className="pt-1.5 border-t border-[#E8E2D9]/80">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      handleLogout();
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-rose-600 hover:bg-rose-50/70 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Odhlásiť sa zo systému</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
+        </div>
       </header>
 
       {/* PERSISTENTNÁ LIŠTA ROZPRACOVANÉHO PACIENTA (PRE CELÝ KLINICKÝ SYSTÉM) */}
@@ -1162,53 +1258,30 @@ export default function Home() {
             {activeTab === 'home' && (
               <div className="space-y-6">
                 
-                {/* BANNER A ŽIVÝ ČAS */}
-                <div className="bg-white border border-[#E8E2D9] rounded-2xl p-6 shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-gradient-to-r from-white via-[#FAF8F5]/60 to-[#FAF8F5]">
+                {/* BANNER A ŽIVÝ ČAS (VZDUŠNÝ EDITORIÁLOVÝ LUXUS) */}
+                <div className="bg-white border border-[#E8E2D9]/80 rounded-2xl px-6 py-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] uppercase font-bold text-[#C5A059] tracking-widest">Klinický prehľad</span>
-                      <span className="text-[#8C857B]">·</span>
-                      <button
-                        type="button"
-                        onClick={handleGoogleConnectToggle}
-                        className="text-[10px] text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1.5 cursor-pointer transition-colors"
-                        title={
-                          isGoogleConnected
-                            ? `Pripojené ku Google Drive & Kalendáru: ${connectedGoogleEmail || 'SAY CLINIC'}`
-                            : 'Kliknite pre automatické pripojenie Google Disku & Kalendára'
-                        }
-                      >
-                        <span className={`w-2 h-2 rounded-full ${isGoogleConnected ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
-                        <span className="font-semibold">
-                          {isGoogleConnected 
-                            ? `Google prepojené${connectedGoogleEmail ? ` (${connectedGoogleEmail})` : ''}` 
-                            : 'Pripojiť Google'}
-                        </span>
-                      </button>
+                      <span className="text-[10px] uppercase font-bold text-[#C5A059] tracking-[0.2em]">Klinický prehľad</span>
                     </div>
-                    <h2 className="font-brand text-2xl md:text-3xl font-light text-[#2C2A29] uppercase">
-                      Dobrý deň, <span className="font-bold">{currentUser.name}</span>
+                    <h2 className="font-brand text-2xl md:text-3xl font-light text-[#2C2A29] uppercase tracking-wider">
+                      Dobrý deň, <span className="font-semibold">{currentUser.name}</span>
                     </h2>
                     <p className="text-xs text-[#8C857B] mt-1">
                       Vitajte v ambulantnom systéme SAY CLINIC. Tu je váš harmonogram a úlohy na dnešný deň.
                     </p>
                   </div>
 
-                  {/* ŠTATISTICKÉ ČIPY PRE VEĽKÉ MONITORY */}
-                  <div className="hidden xl:flex items-center gap-3">
-                    <div className="bg-white/90 border border-[#E8E2D9] rounded-xl px-3.5 py-2 text-center shadow-2xs">
-                      <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Dnes na pláne</span>
-                      <span className="text-base font-bold text-[#2C2A29] font-mono">{todayEvents.length} {todayEvents.length === 1 ? 'zákrok' : 'výkonov'}</span>
+                  {/* ŠTATISTICKÉ UKAZOVATELE S JEMNÝM PREDELOM */}
+                  <div className="hidden xl:flex items-center gap-6 px-4">
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#8C857B] block">Dnes na pláne</span>
+                      <span className="font-brand text-xl font-bold text-[#2C2A29] tabular-nums">{todayEvents.length} {todayEvents.length === 1 ? 'zákrok' : 'výkonov'}</span>
                     </div>
-                    <div className="bg-white/90 border border-[#E8E2D9] rounded-xl px-3.5 py-2 text-center shadow-2xs">
-                      <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Kartotéka</span>
-                      <span className="text-base font-bold text-[#2C2A29] font-mono">{patients.length} pacientov</span>
-                    </div>
-                    <div className="bg-white/90 border border-[#E8E2D9] rounded-xl px-3.5 py-2 text-center shadow-2xs">
-                      <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Systém</span>
-                      <span className="text-xs font-bold text-[#C5A059] uppercase tracking-wider block mt-0.5">
-                        SAY ONLINE
-                      </span>
+                    <div className="h-7 w-px bg-[#E8E2D9]/80" />
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#8C857B] block">Kartotéka</span>
+                      <span className="font-brand text-xl font-bold text-[#2C2A29] tabular-nums">{patients.length} pacientov</span>
                     </div>
                   </div>
 
@@ -1254,24 +1327,25 @@ export default function Home() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   
                   {/* STĹPEC 1: DNEŠNÍ KLIENTI (8 STĹPCOV NA VEĽKOM MONITORE) */}
-                  <div className="lg:col-span-7 2xl:col-span-8 bg-[#ffffff] border border-[#E8E2D9] rounded-2xl p-6 shadow-sm space-y-4">
-                    <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
+                  <div className="lg:col-span-7 2xl:col-span-8 bg-white border border-[#E8E2D9]/80 rounded-2xl p-6 space-y-4">
+                    <div className="flex justify-between items-center border-b border-[#E8E2D9]/70 pb-3.5">
                       <div>
-                        <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase">Dnešný harmonogram pacientov</h3>
-                        <p className="text-[10px] text-[#8C857B] uppercase tracking-wider">Naplánované operácie a vyšetrenia na dnes</p>
+                        <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase tracking-wider">Dnešný harmonogram pacientov</h3>
+                        <p className="text-[10px] text-[#8C857B] uppercase tracking-[0.14em] mt-0.5">Naplánované operácie a vyšetrenia na dnes</p>
                       </div>
                       <button 
                         onClick={() => changeTab('calendar')}
-                        className="text-xs text-[#C5A059] hover:underline font-bold uppercase tracking-wider"
+                        className="text-xs text-[#C5A059] hover:text-[#2C2A29] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
                       >
-                        Otvoriť celý kalendár →
+                        <span>Celý kalendár</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       {todayEvents.length === 0 ? (
-                        <div className="text-center py-10 text-[#8C857B] text-xs italic bg-[#FBF9F6] rounded-xl border border-[#E8E2D9]">
-                          Na dnešný deň nie sú naplánované žiadne udalosti v Google Kalendári.
+                        <div className="text-center py-12 text-[#8C857B] text-xs italic bg-[#FBF9F6]/60 rounded-xl border border-dashed border-[#E8E2D9]">
+                          Na dnešný deň nie sú naplánované žiadne udalosti v kalendári.
                         </div>
                       ) : (
                         <div className={`grid gap-3 ${todayEvents.length > 1 ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
@@ -1279,26 +1353,24 @@ export default function Home() {
                             <div 
                               key={`${evt.id || 'today-evt'}-${idx}`} 
                               onClick={() => handleOpenPatientFromCalendar(evt.patientId || '')}
-                              className="p-4 border border-[#E8E2D9] hover:border-[#C5A059] rounded-xl flex justify-between items-center bg-[#FBF9F6] hover:bg-white transition-all cursor-pointer group shadow-2xs"
+                              className="p-3.5 border border-[#E8E2D9]/80 hover:border-[#C5A059] rounded-xl flex justify-between items-center bg-[#FBF9F6]/50 hover:bg-white transition-all cursor-pointer group"
                             >
                               <div className="flex items-center gap-3.5 min-w-0">
-                                <div className="bg-[#2C2A29] text-white p-2.5 rounded-lg text-center font-mono min-w-[70px] shrink-0">
-                                  <span className="text-xs font-bold block">{evt.startTime}</span>
-                                  <span className="text-[9px] text-[#C5A059] block">{evt.endTime}</span>
+                                <div className="border-r border-[#E8E2D9] pr-3.5 text-right font-mono min-w-[64px] shrink-0">
+                                  <span className="text-xs font-bold text-[#2C2A29] block">{evt.startTime}</span>
+                                  <span className="text-[10px] text-[#C5A059] block">{evt.endTime}</span>
                                 </div>
                                 <div className="min-w-0">
-                                  <span className="text-[8px] uppercase font-bold bg-[#C5A059] text-white px-2 py-0.5 rounded">
+                                  <span className="text-[9px] uppercase font-bold tracking-wider text-[#C5A059] block">
                                     {evt.type ? evt.type.replace('_', ' ') : 'ZÁKROK'}
                                   </span>
-                                  <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors mt-1 truncate">
+                                  <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors truncate">
                                     {evt.title}
                                   </h4>
-                                  <p className="text-xs text-[#8C857B] truncate">{evt.patientName} | {evt.doctorName}</p>
+                                  <p className="text-xs text-[#8C857B] truncate">{evt.patientName} · {evt.doctorName}</p>
                                 </div>
                               </div>
-                              <span className="text-xs font-bold text-[#8C857B] group-hover:text-[#2C2A29] shrink-0 ml-2">
-                                ➔
-                              </span>
+                              <ChevronRight className="w-4 h-4 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
                             </div>
                           ))}
                         </div>
@@ -1309,22 +1381,22 @@ export default function Home() {
                   {/* STĹPEC 2: RÝCHLE POZNÁMKY & AKCIE (4 STĹPCE NA VEĽKOM MONITORE) */}
                   <div className="lg:col-span-5 2xl:col-span-4 space-y-6">
                     
-                    {/* RÝCHLE AKCIE */}
-                    <div className="bg-white border border-[#E8E2D9] rounded-2xl p-5 shadow-sm space-y-3">
-                      <h3 className="font-brand text-sm font-bold text-[#2C2A29] uppercase border-b border-[#E8E2D9] pb-2">
+                    {/* RÝCHLE AKCIE (VEKTOROVÁ IKONOGRAFIA & JEMNÉ LINKY) */}
+                    <div className="bg-white border border-[#E8E2D9]/80 rounded-2xl p-5 space-y-3">
+                      <h3 className="font-brand text-sm font-bold text-[#2C2A29] uppercase tracking-wider border-b border-[#E8E2D9]/70 pb-2.5">
                         Rýchle Akcie
                       </h3>
-                      <div className="grid grid-cols-1 gap-2.5 text-xs">
+                      <div className="divide-y divide-[#E8E2D9]/60 text-xs">
                         {PermissionsService.canUserAccessTab(currentUser, 'patients') && (
                           <button 
                             onClick={() => { setSelectedPatientForFolder(null); changeTab('patients'); }}
-                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer shadow-2xs group"
+                            className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
                           >
-                            <span className="flex items-center gap-2">
-                              <span className="text-base">🗂️</span>
-                              <span>Kartotéka pacientov</span>
+                            <span className="flex items-center gap-2.5">
+                              <FolderOpen className="w-4 h-4 text-[#C5A059]" />
+                              <span>Kartotéka pacientov 360°</span>
                             </span>
-                            <span className="text-[#C5A059] font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all" />
                           </button>
                         )}
                         {PermissionsService.canUserAccessTab(currentUser, 'patients') && (
@@ -1333,49 +1405,49 @@ export default function Home() {
                               setSelectedPatientForFolder(null); 
                               changeTab('patients'); 
                             }}
-                            className="w-full bg-white border border-[#E8E2D9] hover:border-[#2C2A29] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer shadow-2xs"
+                            className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
                           >
-                            <span className="flex items-center gap-2">
-                              <span className="text-base">➕</span>
+                            <span className="flex items-center gap-2.5">
+                              <UserPlus className="w-4 h-4 text-[#C5A059]" />
                               <span>Zaevidovať nového pacienta</span>
                             </span>
-                            <span className="text-[#8C857B] font-bold">+</span>
+                            <Plus className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#2C2A29]" />
                           </button>
                         )}
                         {PermissionsService.canUserAccessTab(currentUser, 'calendar') && (
                           <button 
                             onClick={() => changeTab('calendar')}
-                            className="w-full bg-[#2C2A29] text-white hover:bg-[#C5A059] p-3 rounded-xl text-left font-bold transition-all flex items-center justify-between cursor-pointer shadow-xs"
+                            className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
                           >
-                            <span className="flex items-center gap-2">
-                              <span className="text-base">📅</span>
+                            <span className="flex items-center gap-2.5">
+                              <CalendarIcon className="w-4 h-4 text-[#C5A059]" />
                               <span>Kalendár operačných sál</span>
                             </span>
-                            <span className="text-white font-bold">+</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all" />
                           </button>
                         )}
                         {PermissionsService.canUserAccessTab(currentUser, 'inventory') && (
                           <button 
                             onClick={() => changeTab('inventory')}
-                            className="w-full bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer shadow-2xs group"
+                            className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
                           >
-                            <span className="flex items-center gap-2">
-                              <span className="text-base">📦</span>
+                            <span className="flex items-center gap-2.5">
+                              <Boxes className="w-4 h-4 text-[#C5A059]" />
                               <span>Sklad materiálu & Implantáty</span>
                             </span>
-                            <span className="text-[#C5A059] font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all" />
                           </button>
                         )}
                         {PermissionsService.canUserAccessTab(currentUser, 'projects') && (
                           <button 
                             onClick={() => changeTab('projects')}
-                            className="w-full bg-[#FAF4E9] border border-[#E6D4B2] hover:border-[#C5A059] p-3 rounded-xl text-left font-bold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer shadow-2xs group"
+                            className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
                           >
-                            <span className="flex items-center gap-2">
-                              <span className="text-base">📑</span>
-                              <span className="text-[#8A6827]">Projekty & Smernice kliniky</span>
+                            <span className="flex items-center gap-2.5">
+                              <Briefcase className="w-4 h-4 text-[#C5A059]" />
+                              <span>Projekty & Smernice kliniky</span>
                             </span>
-                            <span className="text-[#C5A059] font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all" />
                           </button>
                         )}
                       </div>
@@ -1394,150 +1466,180 @@ export default function Home() {
               </div>
             )}
 
-            {/* GENERÁTOR DOKUMENTOV (SPRÁVY & NÁLEZY) */}
-            {activeTab === 'generator' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-[#E8E2D9]">
-                  <button
-                    type="button"
-                    onClick={() => changeTab('patients')}
-                    className="text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <span>← Späť do Kartotéky</span>
-                  </button>
-                  {(activePatient || selectedPatient) && (
-                    <span className="text-xs font-medium text-[#2C2A29]">
-                      Pacient: <strong className="font-bold">{(activePatient || selectedPatient)?.name}</strong>
-                    </span>
-                  )}
-                </div>
-                <MedicalRecordForm 
-                  onRecordCreated={handleAddSale} 
-                  initialPatient={selectedPatient || (activePatient ? {
-                    id: activePatient.id,
-                    name: activePatient.name,
-                    birthNumber: activePatient.birthNumber,
-                    phone: activePatient.phone,
-                    email: activePatient.email,
-                    address: activePatient.address,
-                    insurance: activePatient.insurance
-                  } : null)}
-                  allPatients={patients}
-                  onSelectPatient={(foundPatient) => {
-                    if (foundPatient && foundPatient.id) {
-                      handleSetActivePatient(foundPatient);
-                    }
-                  }}
-                  onNavigateToPatient={(pId) => {
-                    const found = patients.find(p => p.id === pId || (selectedPatient && p.birthNumber === selectedPatient.birthNumber));
-                    if (found) {
-                      handleSetActivePatient(found);
-                    }
-                    changeTab('patients');
-                  }}
-                />
-              </div>
-            )}
+            {/* KLINICKÝ PILIER: JEDNOTNÁ 4-DIELNA PODNAVIGÁCIA (KARTOTÉKA 360°, ZÁZNAM, ESTETIKA, RECEPTY) */}
+            {(['patients', 'generator', 'aesthetics', 'prescriptions'] as TabId[]).includes(activeTab) && (
+              <div className="space-y-6">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-[#E8E2D9]/80 pb-4 print:hidden">
+                  <div>
+                    <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase tracking-wider">
+                      Klinika & Kartotéka
+                    </h2>
+                    <p className="text-xs text-[#8C857B]">
+                      {activePatient
+                        ? `Aktívna karta: ${activePatient.name} (RČ: ${activePatient.birthNumber})`
+                        : 'Komplexná zdravotná dokumentácia, operačné protokoly, estetická mapa a recepty'}
+                    </p>
+                  </div>
 
-            {/* LEKÁRSKE RECEPTY ŠEVT 14 282 2s */}
-            {activeTab === 'prescriptions' && PermissionsService.canUserAccessTab(currentUser, 'prescriptions') && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-[#E8E2D9]">
-                  <button
-                    type="button"
-                    onClick={() => changeTab('patients')}
-                    className="text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <span>← Späť do Kartotéky</span>
-                  </button>
-                  {(activePatient || selectedPatientForFolder || selectedPatient) && (
-                    <span className="text-xs font-medium text-[#2C2A29]">
-                      Pacient: <strong className="font-bold">{(activePatient || selectedPatientForFolder || selectedPatient)?.name}</strong>
-                    </span>
-                  )}
+                  {/* JEDNOTNÝ 4-DIELNY KLINICKÝ PREPÍNAČ */}
+                  <div className="flex flex-wrap items-center gap-1 p-1 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl">
+                    {PermissionsService.canUserAccessTab(currentUser, 'patients') && (
+                      <button
+                        type="button"
+                        onClick={() => changeTab('patients')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                          activeTab === 'patients'
+                            ? 'bg-[#2C2A29] text-white shadow-2xs'
+                            : 'text-[#8C857B] hover:text-[#2C2A29]'
+                        }`}
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>Kartotéka 360°</span>
+                      </button>
+                    )}
+                    {PermissionsService.canUserAccessTab(currentUser, 'generator') && (
+                      <button
+                        type="button"
+                        onClick={() => changeTab('generator')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                          activeTab === 'generator'
+                            ? 'bg-[#2C2A29] text-white shadow-2xs'
+                            : 'text-[#8C857B] hover:text-[#2C2A29]'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>Záznam & Protokol</span>
+                      </button>
+                    )}
+                    {PermissionsService.canUserAccessTab(currentUser, 'aesthetics') && (
+                      <button
+                        type="button"
+                        onClick={() => changeTab('aesthetics')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                          activeTab === 'aesthetics'
+                            ? 'bg-[#2C2A29] text-white shadow-2xs'
+                            : 'text-[#8C857B] hover:text-[#2C2A29]'
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>Estetická mapa</span>
+                      </button>
+                    )}
+                    {PermissionsService.canUserAccessTab(currentUser, 'prescriptions') && (
+                      <button
+                        type="button"
+                        onClick={() => changeTab('prescriptions')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                          activeTab === 'prescriptions'
+                            ? 'bg-[#2C2A29] text-white shadow-2xs'
+                            : 'text-[#8C857B] hover:text-[#2C2A29]'
+                        }`}
+                      >
+                        <Pill className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>Recepty Rp.</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <PrescriptionModule
-                  initialPatient={activePatient || selectedPatientForFolder || (selectedPatient ? {
-                    name: selectedPatient.name,
-                    birthNumber: selectedPatient.birthNumber || '',
-                    address: selectedPatient.address || '',
-                    insurance: selectedPatient.insurance || 'Samoplatca'
-                  } : undefined)}
-                />
-              </div>
-            )}
 
-            {/* KARTOTÉKA PACIENTOV (360° CENTRUM PACIENTA) */}
-            {activeTab === 'patients' && (
-              <PatientDatabase 
-                onNavigateToGenerator={handleNavigateToGenerator} 
-                onNavigateToPrescriptions={(patient) => {
-                  handleSetActivePatient(patient);
-                  changeTab('prescriptions');
-                }}
-                onNavigateToAesthetics={(patient) => {
-                  handleSetActivePatient(patient);
-                  changeTab('aesthetics');
-                }}
-                onNavigateToCosmetics={(patient, prefillItems) => {
-                  if (patient) {
-                    handleSetActivePatient(patient);
-                  }
-                  if (prefillItems) {
-                    setPosPrefillItems(prefillItems);
-                  }
-                  changeTab('cosmetics');
-                }}
-                initialPatient={activePatient || selectedPatientForFolder}
-                initialFolder={patientActiveFolder}
-                activePatient={activePatient}
-                onSetActivePatient={handleSetActivePatient}
-                onPatientsUpdated={(updatedList) => {
-                  setPatients(updatedList);
-                  if (activePatient) {
-                    const updatedActive = updatedList.find(p => p.id === activePatient.id);
-                    if (updatedActive) {
-                      handleSetActivePatient(updatedActive);
-                    }
-                  }
-                }}
-                calendarEvents={calendarEvents}
-                onAddCalendarEvent={handleAddCalendarEvent}
-                onNavigateToCalendar={() => changeTab('calendar')}
-                currentUser={currentUser}
-              />
-            )}
+                {/* 1. KARTOTÉKA PACIENTOV */}
+                {activeTab === 'patients' && (
+                  <PatientDatabase 
+                    onNavigateToGenerator={handleNavigateToGenerator} 
+                    onNavigateToPrescriptions={(patient) => {
+                      handleSetActivePatient(patient);
+                      changeTab('prescriptions');
+                    }}
+                    onNavigateToAesthetics={(patient) => {
+                      handleSetActivePatient(patient);
+                      changeTab('aesthetics');
+                    }}
+                    onNavigateToCosmetics={(patient, prefillItems) => {
+                      if (patient) {
+                        handleSetActivePatient(patient);
+                      }
+                      if (prefillItems) {
+                        setPosPrefillItems(prefillItems);
+                      }
+                      changeTab('cosmetics');
+                    }}
+                    initialPatient={activePatient || selectedPatientForFolder}
+                    initialFolder={patientActiveFolder}
+                    activePatient={activePatient}
+                    onSetActivePatient={handleSetActivePatient}
+                    onPatientsUpdated={(updatedList) => {
+                      setPatients(updatedList);
+                      if (activePatient) {
+                        const updatedActive = updatedList.find(p => p.id === activePatient.id);
+                        if (updatedActive) {
+                          handleSetActivePatient(updatedActive);
+                        }
+                      }
+                    }}
+                    calendarEvents={calendarEvents}
+                    onAddCalendarEvent={handleAddCalendarEvent}
+                    onNavigateToCalendar={() => changeTab('calendar')}
+                    currentUser={currentUser}
+                  />
+                )}
 
-            {/* ESTETICKÁ MEDICÍNA & FACE MAPPING */}
-            {activeTab === 'aesthetics' && PermissionsService.canUserAccessTab(currentUser, 'aesthetics') && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-[#E8E2D9] print:hidden">
-                  <button
-                    type="button"
-                    onClick={() => changeTab('patients')}
-                    className="text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <span>← Späť do Kartotéky</span>
-                  </button>
-                  {(activePatient || selectedPatientForFolder) && (
-                    <span className="text-xs font-medium text-[#2C2A29]">
-                      Klientka: <strong className="font-bold">{(activePatient || selectedPatientForFolder)?.name}</strong>
-                    </span>
-                  )}
-                </div>
-                <AestheticsModule 
-                  patients={patients}
-                  selectedPatientId={activePatient?.id || selectedPatientForFolder?.id || (patients.length > 0 ? patients[0].id : undefined)}
-                  onSelectPatient={(id) => {
-                    const p = patients.find(pat => pat.id === id);
-                    if (p) handleSetActivePatient(p);
-                  }}
-                  onOpenPatientFolder={(patient) => {
-                    handleSetActivePatient(patient);
-                    changeTab('patients');
-                  }}
-                  onSessionCompleted={handleAddSale}
-                />
+                {/* 2. GENERÁTOR DOKUMENTOV (SPRÁVY & NÁLEZY) */}
+                {activeTab === 'generator' && (
+                  <MedicalRecordForm 
+                    onRecordCreated={handleAddSale} 
+                    initialPatient={selectedPatient || (activePatient ? {
+                      id: activePatient.id,
+                      name: activePatient.name,
+                      birthNumber: activePatient.birthNumber,
+                      phone: activePatient.phone,
+                      email: activePatient.email,
+                      address: activePatient.address,
+                      insurance: activePatient.insurance
+                    } : null)}
+                    allPatients={patients}
+                    onSelectPatient={(foundPatient) => {
+                      if (foundPatient && foundPatient.id) {
+                        handleSetActivePatient(foundPatient);
+                      }
+                    }}
+                    onNavigateToPatient={(pId) => {
+                      const found = patients.find(p => p.id === pId || (selectedPatient && p.birthNumber === selectedPatient.birthNumber));
+                      if (found) {
+                        handleSetActivePatient(found);
+                      }
+                      changeTab('patients');
+                    }}
+                  />
+                )}
+
+                {/* 3. ESTETICKÁ MEDICÍNA & FACE MAPPING */}
+                {activeTab === 'aesthetics' && PermissionsService.canUserAccessTab(currentUser, 'aesthetics') && (
+                  <AestheticsModule 
+                    patients={patients}
+                    selectedPatientId={activePatient?.id || selectedPatientForFolder?.id || (patients.length > 0 ? patients[0].id : undefined)}
+                    onSelectPatient={(id) => {
+                      const p = patients.find(pat => pat.id === id);
+                      if (p) handleSetActivePatient(p);
+                    }}
+                    onOpenPatientFolder={(patient) => {
+                      handleSetActivePatient(patient);
+                      changeTab('patients');
+                    }}
+                    onSessionCompleted={handleAddSale}
+                  />
+                )}
+
+                {/* 4. LEKÁRSKE RECEPTY ŠEVT 14 282 2s */}
+                {activeTab === 'prescriptions' && PermissionsService.canUserAccessTab(currentUser, 'prescriptions') && (
+                  <PrescriptionModule
+                    initialPatient={activePatient || selectedPatientForFolder || (selectedPatient ? {
+                      name: selectedPatient.name,
+                      birthNumber: selectedPatient.birthNumber || '',
+                      address: selectedPatient.address || '',
+                      insurance: selectedPatient.insurance || 'Samoplatca'
+                    } : undefined)}
+                  />
+                )}
               </div>
             )}
 
@@ -1554,9 +1656,9 @@ export default function Home() {
             {/* PREVÁDZKA: SKLAD & POKLADŇA */}
             {(activeTab === 'inventory' || activeTab === 'cosmetics') && (
               <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#E8E2D9] pb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#E8E2D9]/80 pb-4">
                   <div>
-                    <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">
+                    <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase tracking-wider">
                       Prevádzka & Logistika
                     </h2>
                     <p className="text-xs text-[#8C857B]">
@@ -1564,19 +1666,19 @@ export default function Home() {
                     </p>
                   </div>
                   
-                  {/* PREPÍNAČ MEDZI SKLADOM A POKLADŇOU */}
-                  <div className="flex items-center gap-1 p-1 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl shadow-2xs">
+                  {/* PREPÍNAČ MEDZI SKLADOM A POKLADŇOU (VEKTOROVÉ IKONY) */}
+                  <div className="flex items-center gap-1 p-1 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl">
                     {PermissionsService.canUserAccessTab(currentUser, 'inventory') && (
                       <button
                         type="button"
                         onClick={() => changeTab('inventory')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                           activeTab === 'inventory'
-                            ? 'bg-[#2C2A29] text-white shadow-xs'
+                            ? 'bg-[#2C2A29] text-white shadow-2xs'
                             : 'text-[#8C857B] hover:text-[#2C2A29]'
                         }`}
                       >
-                        <span>📦</span>
+                        <Boxes className="w-3.5 h-3.5 text-[#C5A059]" />
                         <span>Sklad & Materiál</span>
                       </button>
                     )}
@@ -1584,13 +1686,13 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => changeTab('cosmetics')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                           activeTab === 'cosmetics'
-                            ? 'bg-[#2C2A29] text-white shadow-xs'
+                            ? 'bg-[#2C2A29] text-white shadow-2xs'
                             : 'text-[#8C857B] hover:text-[#2C2A29]'
                         }`}
                       >
-                        <span>🛍️</span>
+                        <ShoppingBag className="w-3.5 h-3.5 text-[#C5A059]" />
                         <span>Pokladňa POS</span>
                       </button>
                     )}
@@ -1616,9 +1718,9 @@ export default function Home() {
             {/* MANAŽMENT: FINANCIE & PROJEKTY */}
             {(activeTab === 'finance' || activeTab === 'projects') && (
               <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#E8E2D9] pb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#E8E2D9]/80 pb-4">
                   <div>
-                    <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">
+                    <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase tracking-wider">
                       Manažment & Financie
                     </h2>
                     <p className="text-xs text-[#8C857B]">
@@ -1626,19 +1728,19 @@ export default function Home() {
                     </p>
                   </div>
                   
-                  {/* PREPÍNAČ MEDZI FINANCIAMI A PROJEKTAMI */}
-                  <div className="flex items-center gap-1 p-1 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl shadow-2xs">
+                  {/* PREPÍNAČ MEDZI FINANCIAMI A PROJEKTAMI (VEKTOROVÉ IKONY) */}
+                  <div className="flex items-center gap-1 p-1 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl">
                     {PermissionsService.canUserAccessTab(currentUser, 'finance') && (
                       <button
                         type="button"
                         onClick={() => changeTab('finance')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                           activeTab === 'finance'
-                            ? 'bg-[#2C2A29] text-white shadow-xs'
+                            ? 'bg-[#2C2A29] text-white shadow-2xs'
                             : 'text-[#8C857B] hover:text-[#2C2A29]'
                         }`}
                       >
-                        <span>📊</span>
+                        <BarChart3 className="w-3.5 h-3.5 text-[#C5A059]" />
                         <span>Finančné výsledky</span>
                       </button>
                     )}
@@ -1646,13 +1748,13 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => changeTab('projects')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                           activeTab === 'projects'
-                            ? 'bg-[#2C2A29] text-white shadow-xs'
+                            ? 'bg-[#2C2A29] text-white shadow-2xs'
                             : 'text-[#8C857B] hover:text-[#2C2A29]'
                         }`}
                       >
-                        <span>📑</span>
+                        <Briefcase className="w-3.5 h-3.5 text-[#C5A059]" />
                         <span>Projekty & Úlohy</span>
                       </button>
                     )}
