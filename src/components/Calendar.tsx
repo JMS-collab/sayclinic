@@ -804,7 +804,7 @@ export default function Calendar({
         }
       } catch (err: any) {
         if (err?.code !== 'auth/popup-closed-by-user') {
-          signIn('google', undefined, { login_hint: 'say@sayclinic.sk' });
+          signIn('google');
         }
       }
     }
@@ -1397,9 +1397,9 @@ export default function Calendar({
               <span>☀️ Celodenné udalosti ({allDayEvents.length})</span>
             </div>
             <div className="flex flex-col gap-2">
-              {allDayEvents.map(evt => (
+              {allDayEvents.map((evt, idx) => (
                 <div 
-                  key={evt.id} 
+                  key={`${evt.id || 'allday'}-${idx}`} 
                   data-event-id={evt.id}
                   onClick={() => setSelectedEvent(evt)} 
                   className={`bg-white border hover:border-[#C5A059] p-2.5 rounded-xl cursor-pointer flex justify-between items-center shadow-sm transition-all ${evt.isCancelled ? 'opacity-60 border-rose-200' : 'border-[#E8E2D9]'}`}
@@ -1519,8 +1519,8 @@ export default function Calendar({
                   <span className="text-sm">{date.getDate()}.{date.getMonth() + 1}.</span>
                 </div>
                 <div className="p-1.5 flex-1 space-y-1.5">
-                  {dayEvents.map(evt => (
-                    <div key={evt.id} data-event-id={evt.id} onClick={() => setSelectedEvent(evt)} className={`text-[9px] p-1.5 rounded cursor-pointer border hover:border-[#C5A059] ${evt.isCancelled ? 'line-through opacity-50 bg-gray-100' : 'bg-gray-50 text-gray-800 space-y-0.5'}`}>
+                  {dayEvents.map((evt, idx) => (
+                    <div key={`${evt.id || 'day-evt'}-${idx}`} data-event-id={evt.id} onClick={() => setSelectedEvent(evt)} className={`text-[9px] p-1.5 rounded cursor-pointer border hover:border-[#C5A059] ${evt.isCancelled ? 'line-through opacity-50 bg-gray-100' : 'bg-gray-50 text-gray-800 space-y-0.5'}`}>
                       <strong className="block">{evt.isAllDay ? 'Celý deň' : `${evt.startTime} - ${evt.endTime}`}</strong>
                       <span className="truncate block font-bold text-[#2C2A29]">{evt.patientName || evt.title}</span>
                       <span className="block text-[8px] font-bold text-[#C5A059] uppercase">{getEventTypeLabel(evt.type)}</span>
@@ -1692,8 +1692,8 @@ export default function Calendar({
               <div key={formattedDate} className={`border-b border-r border-[#E8E2D9]/50 p-1 flex flex-col ${isToday ? 'bg-amber-50/30' : ''}`}>
                 <span className={`text-[10px] font-bold self-end w-5 h-5 flex items-center justify-center rounded-full ${isToday ? 'bg-[#C5A059] text-white' : 'text-[#8C857B]'}`}>{date.getDate()}</span>
                 <div className="flex-1 overflow-y-auto space-y-1 mt-1">
-                  {dayEvents.slice(0, 3).map(evt => (
-                    <div key={evt.id} data-event-id={evt.id} onClick={() => setSelectedEvent(evt)} className="text-[8px] bg-gray-100 p-1 rounded truncate cursor-pointer hover:bg-[#C5A059] hover:text-white">
+                  {dayEvents.slice(0, 3).map((evt, idx) => (
+                    <div key={`${evt.id || 'month-evt'}-${idx}`} data-event-id={evt.id} onClick={() => setSelectedEvent(evt)} className="text-[8px] bg-gray-100 p-1 rounded truncate cursor-pointer hover:bg-[#C5A059] hover:text-white">
                       {evt.isAllDay ? '☀️' : evt.startTime} {evt.title}
                     </div>
                   ))}

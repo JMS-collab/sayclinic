@@ -37,11 +37,6 @@ WORKSPACE_SCOPES.forEach((scope) => {
   googleProvider.addScope(scope);
 });
 
-googleProvider.setCustomParameters({
-  login_hint: 'say@sayclinic.sk',
-  prompt: 'select_account',
-});
-
 // Flag to prevent race conditions during sign-in popup
 let isSigningIn = false;
 
@@ -93,7 +88,7 @@ export const initWorkspaceAuth = (
             cachedGoogleUser = sessionData.user;
           }
           notifyListeners();
-          if (onAuthSuccess && cachedGoogleUser) {
+          if (onAuthSuccess && cachedGoogleUser && cachedAccessToken) {
             onAuthSuccess(cachedGoogleUser, cachedAccessToken);
           }
         }

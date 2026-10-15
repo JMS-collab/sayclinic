@@ -12,16 +12,31 @@ export const UserService = {
       if (stored) {
         const parsed: UserAccount[] = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const sayUser = parsed.find(u => u.email === 'say@sayclinic.sk' || u.id === 'u1');
-          if (sayUser) {
-            return [{
-              ...sayUser,
-              id: 'u1',
-              email: 'say@sayclinic.sk',
-              name: sayUser.name === 'MUDr. Ján Mráz' ? 'SAY CLINIC' : sayUser.name,
-              role: 'ceo',
-            }];
-          }
+          const storedMap = new Map<string, UserAccount>();
+          parsed.forEach(u => {
+            if (u && u.id) storedMap.set(u.id, u);
+          });
+
+          // Zlúčime predvolených 10 členov s prípadnými zmenami v úložisku
+          const merged: UserAccount[] = SAY_CLINIC_USERS.map(defaultUser => {
+            const custom = storedMap.get(defaultUser.id);
+            if (!custom) return defaultUser;
+            return {
+              ...defaultUser,
+              ...custom,
+              avatarUrl: custom.avatarUrl || defaultUser.avatarUrl,
+              role: custom.role || defaultUser.role,
+            };
+          });
+
+          // Doplníme prípadných dodatočne manuálne vytvorených používateľov
+          parsed.forEach(u => {
+            if (u && u.id && !SAY_CLINIC_USERS.some(def => def.id === u.id)) {
+              merged.push(u);
+            }
+          });
+
+          return merged;
         }
       }
     } catch (e) {

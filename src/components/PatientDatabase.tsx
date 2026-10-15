@@ -2447,7 +2447,7 @@ export default function PatientDatabase({
                               eventType: evt.type || 'osetrenie',
                               notes: evt.notes,
                               targetDate: evt.date,
-                              doctor: evt.doctor
+                              doctor: (evt as any).doctor || evt.doctorName
                             });
                             setIsSchedulingEvent(true);
                           }}

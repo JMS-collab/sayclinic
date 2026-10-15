@@ -141,12 +141,15 @@ export class CloudRecordService {
 
       // 3. GDPR Audit Log
       try {
-        AuditLogService.logAction({
-          userId: 'u1',
-          userName: recordData.doctor,
-          userRole: 'doctor',
+        AuditLogService.log({
+          user: {
+            id: 'u1',
+            name: recordData.doctor,
+            role: 'doctor',
+            email: 'mraz@sayclinic.sk'
+          },
           action: 'CREATE_MEDICAL_RECORD',
-          category: 'clinical',
+          category: 'DOCUMENT',
           patientId: targetPatientId,
           patientName: patient.name,
           details: `Vytvorené ${recordData.type}: "${recordData.title}" (Diagnóza: ${recordData.diagnosis}). Bezpečne uložené v Cloude${driveFileId ? ' a na Google Drive' : ''}.`

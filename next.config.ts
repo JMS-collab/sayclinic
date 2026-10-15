@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
     if (config.optimization) {
       config.optimization.minimize = false;
     }
+    if (config.plugins) {
+      config.plugins = config.plugins.filter(
+        (p: any) => p?.constructor?.name !== 'TraceEntryPointsPlugin'
+      );
+    }
     return config;
   },
   async headers() {

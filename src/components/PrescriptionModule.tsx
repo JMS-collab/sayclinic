@@ -278,7 +278,7 @@ export default function PrescriptionModule({
   const [prescriptionOrderNumber] = useState('');
 
   // Režim tlače: 'preprinted' (tlač IBA textov do zakúpeného tlačiva ŠEVT)
-  const [printMode] = useState<'preprinted' | 'full'>('preprinted');
+  const [printMode, setPrintMode] = useState<'preprinted' | 'full'>('preprinted');
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [previewZoom] = useState<number>(100);
 

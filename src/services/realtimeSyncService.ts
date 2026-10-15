@@ -19,6 +19,7 @@ export type SyncCollection =
   | 'projects'
   | 'custom_avatars'
   | 'users_updated'
+  | 'meicet_reports'
   | 'audit_logs';
 
 interface CollectionMapping {
@@ -98,6 +99,10 @@ const COLLECTION_MAP: Record<SyncCollection, CollectionMapping> = {
   users_updated: {
     storageKey: 'say_clinic_users_custom',
     eventName: 'say_clinic_users_updated',
+  },
+  meicet_reports: {
+    storageKey: 'say_clinic_meicet_reports',
+    eventName: 'say_clinic_meicet_reports_changed',
   },
   audit_logs: {
     storageKey: 'say_clinic_audit_logs_v1',

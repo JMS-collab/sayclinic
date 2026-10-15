@@ -50,12 +50,93 @@ export interface UserAccount {
 export const SAY_CLINIC_USERS: UserAccount[] = [
   {
     id: 'u1',
-    name: 'SAY CLINIC',
+    name: 'MUDr. Ján Mráz',
     email: 'say@sayclinic.sk',
     role: 'ceo',
-    title: 'Ambulantný systém & Primár',
+    title: 'Plastický chirurg & CEO',
     avatarBg: 'bg-[#2C2A29]',
-    avatarUrl: ''
+    avatarUrl: '/avatars/mraz.jpg?v=4'
+  },
+  {
+    id: 'u2',
+    name: 'MUDr. Zuzana Sroková',
+    email: 'srokova@sayclinic.sk',
+    role: 'doctor',
+    title: 'Lekárka / Plastický chirurg',
+    avatarBg: 'bg-[#4A3B32]',
+    avatarUrl: '/avatars/srokova.jpg?v=2'
+  },
+  {
+    id: 'u3',
+    name: 'MUDr. Minh Tuong Tran',
+    email: 'tran@sayclinic.sk',
+    role: 'doctor',
+    title: 'Lekár / Plastický chirurg',
+    avatarBg: 'bg-[#334155]',
+    avatarUrl: '/avatars/tran.jpg?v=2'
+  },
+  {
+    id: 'u4',
+    name: 'Ing. Barbara Mecerodová, MBA',
+    email: 'mecerodova@sayclinic.sk',
+    role: 'manager',
+    title: 'Klinický manažment & Operatíva',
+    avatarBg: 'bg-[#503E2C]',
+    avatarUrl: '/avatars/mecerodova.jpg?v=2'
+  },
+  {
+    id: 'u5',
+    name: 'Mgr. Elena Solivajsová',
+    email: 'solivajsova@sayclinic.sk',
+    role: 'manager',
+    title: 'Klientsky servis & Recepcia',
+    avatarBg: 'bg-[#5C3D2E]',
+    avatarUrl: '/avatars/solivajsova.jpg?v=2'
+  },
+  {
+    id: 'u6',
+    name: 'Ema Foltáni',
+    email: 'foltani@sayclinic.sk',
+    role: 'nurse',
+    title: 'Zdravotná sestra / Inštrumentárka',
+    avatarBg: 'bg-[#2D4A3E]',
+    avatarUrl: '/avatars/foltani.jpg?v=2'
+  },
+  {
+    id: 'u7',
+    name: 'Sabina Lenhartová',
+    email: 'lenhartova@sayclinic.sk',
+    role: 'nurse',
+    title: 'Inštrumentárka / Sestra',
+    avatarBg: 'bg-[#2A4736]',
+    avatarUrl: '/avatars/nurse_scrub_cap.jpg'
+  },
+  {
+    id: 'u8',
+    name: 'Anesteziológ (OAIM)',
+    email: 'anesteziolog@sayclinic.sk',
+    role: 'doctor',
+    title: 'Špecialista anestéziológie a resuscitácie',
+    avatarBg: 'bg-[#1E293B]',
+    avatarUrl: '/avatars/anesteziolog.jpg?v=3'
+  },
+  {
+    id: 'u9',
+    name: 'Anesteziologická sestra',
+    email: 'anest.sestra@sayclinic.sk',
+    role: 'nurse',
+    title: 'Špecializovaná sestra OAIM',
+    avatarBg: 'bg-[#1E3A5F]',
+    avatarUrl: '/avatars/anest_sestra.jpg?v=1'
+  },
+  {
+    id: 'u10',
+    name: 'Viktória Foltániová',
+    email: 'foltaniova@sayclinic.sk',
+    role: 'receptionist',
+    title: 'Recepčná & Koordinátorka starostlivosti',
+    avatarBg: 'bg-[#3D3A37]',
+    avatarUrl: '/avatars/foltaniova.jpg?v=1'
   }
 ];
 
@@ -88,7 +169,12 @@ function maskEmail(email: string): string {
 }
 
 export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
-  const [users, setUsers] = useState<UserAccount[]>(SAY_CLINIC_USERS);
+  const [users, setUsers] = useState<UserAccount[]>(() => {
+    if (typeof window !== 'undefined') {
+      return UserService.getUsers();
+    }
+    return SAY_CLINIC_USERS;
+  });
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
   const [step, setStep] = useState<AuthStep>('select_user');
   const [loginMethodTab, setLoginMethodTab] = useState<'cards' | 'direct'>('cards');
@@ -507,21 +593,33 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     });
   }, []);
 
-  // Načítanie uložených fotografií z LocalStorage
+  // Načítanie personálu a uložených fotografií z LocalStorage
   useEffect(() => {
     try {
+      const latestUsers = UserService.getUsers();
       const savedAvatars = localStorage.getItem('say_clinic_custom_avatars');
-      if (savedAvatars) {
-        const avatarMap: Record<string, string> = JSON.parse(savedAvatars);
-        setUsers(prevUsers =>
-          prevUsers.map(u => ({
-            ...u,
-            avatarUrl: avatarMap[u.id] !== undefined ? avatarMap[u.id] : u.avatarUrl
-          }))
-        );
-      }
+      const avatarMap: Record<string, string> = savedAvatars ? JSON.parse(savedAvatars) : {};
+      
+      const mapped = latestUsers.map(u => ({
+        ...u,
+        avatarUrl: avatarMap[u.id] !== undefined ? avatarMap[u.id] : u.avatarUrl
+      }));
+      setUsers(mapped);
+
+      const handleUsersChanged = (e: any) => {
+        const currentUsers = e.detail && Array.isArray(e.detail) ? e.detail : UserService.getUsers();
+        const currentAvatars = localStorage.getItem('say_clinic_custom_avatars');
+        const currentAvatarMap: Record<string, string> = currentAvatars ? JSON.parse(currentAvatars) : {};
+        setUsers(currentUsers.map((u: UserAccount) => ({
+          ...u,
+          avatarUrl: currentAvatarMap[u.id] !== undefined ? currentAvatarMap[u.id] : u.avatarUrl
+        })));
+      };
+
+      window.addEventListener('say_clinic_users_changed', handleUsersChanged);
+      return () => window.removeEventListener('say_clinic_users_changed', handleUsersChanged);
     } catch (e) {
-      console.error('Chyba pri načítaní vlastných avatarov:', e);
+      console.error('Chyba pri načítaní personálu a avatarov:', e);
     }
   }, []);
 

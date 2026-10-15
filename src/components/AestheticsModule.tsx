@@ -1091,6 +1091,8 @@ ${sessionNextStep}`;
       const newRecord: MedicalRecord = {
         id: `rec-aes-${Date.now()}`,
         type: 'Estetický protokol',
+        typeColor: 'bg-pink-100 text-pink-800',
+        diagnosis: 'Estetická dermatológia a korektívna chirurgia',
         date: formattedDate,
         doctor: 'MUDr. Ján Mráz',
         title: `Estetika: ${lineItems[0]?.title || 'Estetické ošetrenie'} (${finalTotalPrice} €)`,
@@ -1308,7 +1310,7 @@ ${sessionNextStep}`;
                       setVectors([]);
                       setAppliedTemplateTitles([]);
                       setSelectedVectorId(null);
-                      setSessionPrice(120);
+                      setLineItems([]);
                     }
                   }}
                   className="p-2 rounded-xl text-[#8C857B] hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer border border-transparent hover:border-red-200"

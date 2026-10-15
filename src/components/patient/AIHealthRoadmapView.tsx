@@ -417,7 +417,7 @@ export default function AIHealthRoadmapView({
             )}
 
             <button
-              onClick={handleGenerateRoadmap}
+              onClick={() => handleGenerateRoadmap()}
               disabled={isLoading}
               className="px-4 py-2 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold transition-all border border-white/20 shadow-xs flex items-center gap-2 disabled:opacity-50 cursor-pointer"
             >
@@ -514,7 +514,7 @@ export default function AIHealthRoadmapView({
             </button>
 
             <button
-              onClick={handleGenerateRoadmap}
+              onClick={() => handleGenerateRoadmap()}
               disabled={isLoading}
               className="px-5 py-2.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
             >
@@ -1182,7 +1182,7 @@ export default function AIHealthRoadmapView({
               </button>
               <button
                 type="button"
-                onClick={handleGenerateRoadmap}
+                onClick={() => handleGenerateRoadmap()}
                 disabled={isLoading}
                 className="px-5 py-2 rounded-xl text-xs font-bold bg-[#C5A059] hover:bg-[#B38F46] text-white shadow-sm flex items-center gap-2 cursor-pointer"
               >

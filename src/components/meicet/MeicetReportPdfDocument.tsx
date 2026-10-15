@@ -257,7 +257,7 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
             5. Personalizovaná domáca dermokozmetická rutina — {tierTitle}
           </h4>
           <span className="text-[9px] font-bold text-[#8C857B] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E8E2D9]">
-            {routineData.totalEstimatedPrice ? `Sada z cenníka: ${routineData.totalEstimatedPrice} €` : 'Z nášho cenníka'}
+            {(routineData as any)?.totalEstimatedPrice ? `Sada z cenníka: ${(routineData as any).totalEstimatedPrice} €` : 'Z nášho cenníka'}
           </span>
         </div>
 

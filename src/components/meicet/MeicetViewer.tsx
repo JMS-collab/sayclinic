@@ -122,11 +122,10 @@ export function MeicetViewer({
         patientName: report.patientName,
         patientId: report.patientId,
         date: new Date().toISOString().split('T')[0],
-        time: '10:00',
-        duration: 45,
+        startTime: '10:00',
+        endTime: '10:45',
         type: treatment.category === 'laser' ? 'osetrenie' : treatment.category === 'surgery' ? 'operacia' : 'kontrola',
-        category: 'laser',
-        doctor: 'MUDr. Ján Mráz',
+        doctorName: 'MUDr. Ján Mráz',
         notes: `Zákrok z ročného plánu Meicet Pro-A: ${treatment.name} (${treatment.seasonOrMonth}). Cieľ: ${treatment.targetArea}. Dôvod: ${treatment.reasoning}`
       });
       setBookedTreatments(prev => ({ ...prev, [treatment.id]: true }));
@@ -1097,9 +1096,9 @@ export function MeicetViewer({
                   </li>
                 ))}
               </ul>
-              {activeTierRoutine.seasonalTips || skincareRoutine.seasonalTips ? (
+              {((activeTierRoutine as any)?.seasonalTips || skincareRoutine.seasonalTips) ? (
                 <p className="text-[11px] text-amber-900 bg-amber-50 p-2 rounded border border-amber-200 mt-2">
-                  <strong>Sezónne striedanie:</strong> {activeTierRoutine.seasonalTips || skincareRoutine.seasonalTips}
+                  <strong>Sezónne striedanie:</strong> {(activeTierRoutine as any)?.seasonalTips || skincareRoutine.seasonalTips}
                 </p>
               ) : null}
             </div>
