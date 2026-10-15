@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
     if (!accessToken) {
       return NextResponse.json(
-        { error: 'Neautorizovaný prístup k Google Drive. Prihláste sa cez Google účet.' },
+        { error: 'Neautorizovaný prístup k Google Drive. Prihláste sa cez Google účet.', needsReauth: true },
         { status: 401 }
       );
     }
@@ -31,10 +31,22 @@ export async function POST(req: Request) {
     };
 
     // 1. Nájdeme hlavnú zložku "Klienti SAY"
+    const rootQuery = "name = 'Klienti SAY' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
     const searchRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=name='Klienti SAY' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(rootQuery)}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
       { headers }
     );
+
+    if (searchRes.status === 401 || searchRes.status === 403) {
+      return NextResponse.json(
+        {
+          error: 'Platnosť pripojenia ku Google Drive vypršala alebo chýbajú povolenia. Pripojte účet znova.',
+          needsReauth: true,
+        },
+        { status: 401 }
+      );
+    }
+
     const searchData = await searchRes.json();
 
     let parentFolderId = '';
@@ -56,8 +68,9 @@ export async function POST(req: Request) {
 
     // 2. Skontrolujeme, či zložka pre pacienta už neexistuje v "Klienti SAY"
     const escapedName = patientName.replace(/'/g, "\\'");
+    const patientQuery = `name = '${escapedName}' and '${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
     const existingPatientFolderRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=name='${escapedName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(patientQuery)}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
       { headers }
     );
     const existingData = await existingPatientFolderRes.json();
@@ -86,15 +99,16 @@ export async function POST(req: Request) {
 
     // 3. Vytvoríme podzložky: Fotodokumentácia, Dokumentácia, Predoperačné vyšetrenia, Súhlasy a protokoly
     const subfolders = [
-      'Fotodokumentácia', 
-      'Dokumentácia', 
-      'Predoperačné vyšetrenia', 
-      'Súhlasy a protokoly'
+      'Fotodokumentácia',
+      'Dokumentácia',
+      'Predoperačné vyšetrenia',
+      'Súhlasy a protokoly',
     ];
 
     // Zistíme existujúce podzložky, aby sme nevytvárali duplikáty
+    const subsQuery = `'${patientFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
     const existingSubsRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q='${patientFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(subsQuery)}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
       { headers }
     );
     const existingSubsData = await existingSubsRes.json();
@@ -120,7 +134,6 @@ export async function POST(req: Request) {
       webViewLink,
       subfolders,
     });
-
   } catch (error: any) {
     console.error('Chyba pri vytváraní zložky pacienta na Google Drive:', error);
     return NextResponse.json(

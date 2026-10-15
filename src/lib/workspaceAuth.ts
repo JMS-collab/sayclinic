@@ -37,40 +37,51 @@ WORKSPACE_SCOPES.forEach((scope) => {
   googleProvider.addScope(scope);
 });
 
+googleProvider.setCustomParameters({
+  prompt: 'select_account',
+});
+
 // Flag to prevent race conditions during sign-in popup
 let isSigningIn = false;
 
 // In-memory cache for OAuth access token (MANDATORY: never store in localStorage/sessionStorage)
 let cachedAccessToken: string | null = null;
 let cachedGoogleUser: User | null = null;
+let lastAuthError: string | null = null;
 
 // Callbacks for subscribers
-type AuthListener = (user: User | null, token: string | null) => void;
+type AuthListener = (user: User | null, token: string | null, error?: string | null) => void;
 const listeners = new Set<AuthListener>();
 
 export const notifyListeners = () => {
-  listeners.forEach((listener) => listener(cachedGoogleUser, cachedAccessToken));
+  listeners.forEach((listener) => listener(cachedGoogleUser, cachedAccessToken, lastAuthError));
 };
 
 export const subscribeWorkspaceAuth = (listener: AuthListener) => {
   listeners.add(listener);
   // Send immediate current state
-  listener(cachedGoogleUser, cachedAccessToken);
+  listener(cachedGoogleUser, cachedAccessToken, lastAuthError);
   return () => {
     listeners.delete(listener);
   };
 };
 
 /**
- * Umožňuje nastaviť token zvonku (napr. z NextAuth session pri prihlásení)
+ * Umožňuje nastaviť alebo vymazať token zvonku (napr. z NextAuth session alebo pri 401 expirácii)
  */
 export const setExternalAccessToken = (token: string | null, user?: any) => {
   cachedAccessToken = token;
-  if (user && !cachedGoogleUser) {
+  if (user) {
     cachedGoogleUser = user;
+  } else if (!token) {
+    // Ak bol token zneplatnený, necháme používateľa nepripojeného k API, kým sa znova neprihlási
+    cachedAccessToken = null;
   }
+  lastAuthError = null;
   notifyListeners();
 };
+
+export const getLastAuthError = (): string | null => lastAuthError;
 
 // Initialize auth state listener. Call this on app load.
 export const initWorkspaceAuth = (
@@ -109,6 +120,8 @@ export const initWorkspaceAuth = (
           notifyListeners();
           if (onAuthSuccess) onAuthSuccess(user, token);
         } else {
+          // Používateľ má iba starú Firebase session bez OAuth accessTokenu v pamäti
+          cachedAccessToken = null;
           notifyListeners();
           if (onAuthFailure) onAuthFailure();
         }
@@ -127,18 +140,21 @@ export const initWorkspaceAuth = (
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
+    lastAuthError = null;
     const result = await signInWithPopup(auth, googleProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
-      throw new Error('Nepodarilo sa získať prístupový token pre Google Drive.');
+      lastAuthError = 'Nepodarilo sa získať prístupový token pre Google Drive.';
+      notifyListeners();
+      throw new Error(lastAuthError);
     }
 
     cachedAccessToken = credential.accessToken;
     cachedGoogleUser = result.user;
+    lastAuthError = null;
     notifyListeners();
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
-    // Ak používateľ okno prihlásenia zatvoril alebo bola požiadavka zrušená, nejde o chybu aplikácie
     if (
       error?.code === 'auth/popup-closed-by-user' ||
       error?.code === 'auth/cancelled-popup-request' ||
@@ -147,7 +163,13 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     ) {
       return null;
     }
-    console.warn('Upozornenie prihlásenia do Google Workspace / Drive:', error?.message || error);
+    const msg =
+      error?.code === 'auth/popup-blocked'
+        ? 'Prehliadač zablokoval vyskakovacie okno Google prihlásenia. Povoľte prosím vyskakovacie okná pre túto stránku.'
+        : error?.message || 'Prihlásenie do Google Drive zlyhalo.';
+    lastAuthError = msg;
+    notifyListeners();
+    console.warn('Upozornenie prihlásenia do Google Workspace / Drive:', msg);
     return null;
   } finally {
     isSigningIn = false;
@@ -186,13 +208,15 @@ export const getGoogleUser = (): User | null => {
   return cachedGoogleUser;
 };
 
+// DÔLEŽITÉ: Skutočne pripojený k Google Drive/Calendar API sme iba vtedy, keď máme platný OAuth access token!
 export const isGoogleSignedIn = (): boolean => {
-  return Boolean(cachedAccessToken || cachedGoogleUser);
+  return Boolean(cachedAccessToken);
 };
 
 export const googleLogout = async () => {
   await signOut(auth);
   cachedAccessToken = null;
   cachedGoogleUser = null;
+  lastAuthError = null;
   notifyListeners();
 };

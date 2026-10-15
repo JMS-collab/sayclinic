@@ -9,7 +9,10 @@ export async function GET(req: Request) {
   const accessToken = bearerToken || session?.accessToken;
 
   if (!accessToken) {
-    return NextResponse.json({ error: 'Nie ste prihlásený do Google účtu.' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Nie ste pripojený ku Google Drive.', needsReauth: true },
+      { status: 401 }
+    );
   }
 
   const { searchParams } = new URL(req.url);
@@ -19,48 +22,88 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Meno pacienta je povinné.' }, { status: 400 });
   }
 
-  try {
-    // 1. Najprv nájdeme hlavnú zložku "Klienti SAY"
-    const rootFolderRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent("name = 'Klienti SAY' and mimeType = 'application/vnd.google-apps.folder' and trashed = false")}&fields=files(id, name)`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    const rootFolderData = await rootFolderRes.json();
-    const rootFolder = rootFolderData.files?.[0];
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
 
+  try {
+    // 1. Najprv nájdeme hlavnú zložku "Klienti SAY" (vrátane zdieľaných diskov)
+    const rootQuery = "name = 'Klienti SAY' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+    const rootFolderRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(rootQuery)}&fields=files(id,name,webViewLink)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+      { headers }
+    );
+
+    if (rootFolderRes.status === 401 || rootFolderRes.status === 403) {
+      return NextResponse.json(
+        {
+          error: 'Platnosť pripojenia ku Google Drive vypršala alebo chýbajú povolenia. Pripojte účet znova.',
+          needsReauth: true,
+        },
+        { status: 401 }
+      );
+    }
+
+    const rootFolderData = await rootFolderRes.json();
+    let rootFolder = rootFolderData.files?.[0];
+
+    // Ak hlavná zložka "Klienti SAY" ešte na disku neexistuje, automaticky ju vytvoríme
     if (!rootFolder) {
-      return NextResponse.json({ error: 'Hlavná zložka "Klienti SAY" nebola na Google Disku nájdená.' }, { status: 404 });
+      const createRootRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id,name,webViewLink', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          name: 'Klienti SAY',
+          mimeType: 'application/vnd.google-apps.folder',
+        }),
+      });
+      if (createRootRes.ok) {
+        rootFolder = await createRootRes.json();
+      } else {
+        return NextResponse.json({
+          found: false,
+          message: 'Hlavná zložka "Klienti SAY" zatiaľ nebola nájdená.',
+          files: [],
+        });
+      }
     }
 
     // 2. V zložke "Klienti SAY" vyhľadáme podzložku pre daného pacienta
-    const patientFolderQuery = `'${rootFolder.id}' in parents and name contains '${patientName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const escapedPatientName = patientName.replace(/'/g, "\\'");
+    const patientFolderQuery = `'${rootFolder.id}' in parents and name contains '${escapedPatientName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
     const patientFolderRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(patientFolderQuery)}&fields=files(id, name, webViewLink)`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(patientFolderQuery)}&fields=files(id,name,webViewLink)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+      { headers }
     );
     const patientFolderData = await patientFolderRes.json();
     const patientFolder = patientFolderData.files?.[0];
 
     if (!patientFolder) {
-      return NextResponse.json({ found: false, message: `Zložka pre ${patientName} nebola v "Klienti SAY" nájdená.` });
+      return NextResponse.json({
+        found: false,
+        rootFolderId: rootFolder.id,
+        rootFolderLink: rootFolder.webViewLink,
+        files: [],
+        message: `Zložka pre ${patientName} zatiaľ v "Klienti SAY" neexistuje.`,
+      });
     }
 
-    // 3. Načítame všetky súbory (Google Sheety, PDF, fotky) z podzložky pacienta
+    // 3. Načítame všetky súbory a podzložky z podzložky pacienta
     const filesQuery = `'${patientFolder.id}' in parents and trashed = false`;
     const filesRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(filesQuery)}&fields=files(id, name, mimeType, webViewLink, iconLink, thumbnailLink)`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(filesQuery)}&fields=files(id,name,mimeType,webViewLink,iconLink,thumbnailLink)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+      { headers }
     );
     const filesData = await filesRes.json();
 
     return NextResponse.json({
       found: true,
       folderId: patientFolder.id,
-      folderLink: patientFolder.webViewLink,
-      files: filesData.files || []
+      folderLink: patientFolder.webViewLink || `https://drive.google.com/drive/folders/${patientFolder.id}`,
+      files: filesData.files || [],
     });
-
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Chyba komunikácie s Google Drive' }, { status: 500 });
   }
 }

@@ -25,7 +25,7 @@ import {
   Stethoscope
 } from 'lucide-react';
 import { filterAndRankPatients, RankedPatient } from '../utils/fuzzySearch';
-import { googleSignIn, subscribeWorkspaceAuth } from '@/lib/workspaceAuth';
+import { googleSignIn, subscribeWorkspaceAuth, setExternalAccessToken } from '@/lib/workspaceAuth';
 import PatientDriveFiles from './PatientDriveFiles';
 import PatientTimelineSidebar from './PatientTimelineSidebar';
 import { InventoryService, MaterialUsageLog, InventoryItem } from '../services/inventoryService';
@@ -244,6 +244,7 @@ export default function PatientDatabase({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [driveStatusMessage, setDriveStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // STAV PRE SKLADACÍ BOČNÝ PANEL ČASOVEJ OSI A ALERGIÍ PACIENTA
   const [isTimelineOpen, setIsTimelineOpen] = useState<boolean>(() => {
@@ -811,7 +812,11 @@ export default function PatientDatabase({
     handlePatientSelect(createdPatient);
 
     if (driveLink) {
-      alert(`✅ Pacient "${createdName}" bol zaevidovaný.\n\nNa Google Disku v zložke "Klienti SAY" bola vytvorená zložka "${createdName}" s podzložkami:\n• Fotodokumentácia\n• Dokumentácia\n• Predoperačné vyšetrenia\n• Súhlasy a protokoly`);
+      setDriveStatusMessage({
+        type: 'success',
+        text: `Pacient "${createdName}" bol zaevidovaný a jeho zložka v "Klienti SAY" na Google Disku bola automaticky vytvorená.`,
+      });
+      setTimeout(() => setDriveStatusMessage(null), 6000);
     }
   };
 
@@ -843,34 +848,65 @@ export default function PatientDatabase({
   };
 
   const handleRunDriveImport = async () => {
+    setDriveStatusMessage(null);
     let token = workspaceToken || (session as any)?.accessToken;
     if (!token) {
       try {
         const res = await googleSignIn();
         if (res?.accessToken) {
           token = res.accessToken;
+          setExternalAccessToken(res.accessToken, res.user);
         }
       } catch {
-        alert('Pre import z Google Disku musíte byť prihlásený cez Google účet.');
+        setDriveStatusMessage({
+          type: 'error',
+          text: 'Pre import z Google Disku sa prosím prihláste cez Google účet.',
+        });
         return;
       }
     }
 
     if (!token) {
-      alert('Pre import z Google Disku musíte byť prihlásený cez Google účet.');
+      setDriveStatusMessage({
+        type: 'error',
+        text: 'Pre import z Google Disku sa prosím prihláste cez Google účet.',
+      });
       return;
     }
 
     setIsImporting(true);
 
     try {
-      const res = await fetch('/api/drive/import', {
+      let res = await fetch('/api/drive/import', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      const data = await res.json();
+      let data = await res.json();
+
+      // Ak token vypršal (401), automaticky vyžiadame obnovenie cez Google popup
+      if (res.status === 401 || data?.needsReauth) {
+        setExternalAccessToken(null);
+        const signRes = await googleSignIn();
+        if (signRes?.accessToken) {
+          token = signRes.accessToken;
+          setExternalAccessToken(signRes.accessToken, signRes.user);
+          res = await fetch('/api/drive/import', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          data = await res.json();
+        } else {
+          setDriveStatusMessage({
+            type: 'error',
+            text: 'Platnosť pripojenia ku Google Drive vypršala. Kliknite na "Pripojiť Drive" pre obnovenie.',
+          });
+          return;
+        }
+      }
 
       if (res.ok && data.success && data.patients) {
         const importedList: Patient[] = data.patients.map((item: any, idx: number) => ({
@@ -895,13 +931,23 @@ export default function PatientDatabase({
           return updatedAll;
         });
 
-        alert(`🎉 Úspešne sa načítalo a skontrolovalo ${data.totalImported} kariet klientov z Google Disku!`);
+        setDriveStatusMessage({
+          type: 'success',
+          text: `Úspešne sa synchronizovalo ${data.totalImported} kariet klientov zo zložky "${data.parentFolderName || 'Klienti SAY'}" na Google Disku.`,
+        });
+        setTimeout(() => setDriveStatusMessage(null), 6000);
       } else {
-        alert(`Chyba importu: ${data.error || 'Nepodarilo sa načítať zložku Klienti SAY'}`);
+        setDriveStatusMessage({
+          type: 'error',
+          text: `Chyba synchronizácie: ${data.error || 'Nepodarilo sa načítať zložku Klienti SAY'}`,
+        });
       }
     } catch (err) {
       console.error(err);
-      alert('Chyba pri komunikácii s Google Drive API.');
+      setDriveStatusMessage({
+        type: 'error',
+        text: 'Chyba pri komunikácii s Google Drive API.',
+      });
     } finally {
       setIsImporting(false);
     }
@@ -969,6 +1015,24 @@ export default function PatientDatabase({
       </style>
 
       <div className="bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm min-h-[600px] relative print:border-none print:shadow-none print:p-0 print:static">
+        {driveStatusMessage && (
+          <div
+            className={`mb-4 p-3.5 rounded-xl text-xs font-medium flex items-center justify-between gap-3 print:hidden ${
+              driveStatusMessage.type === 'success'
+                ? 'bg-emerald-50 border border-emerald-200 text-emerald-900'
+                : 'bg-amber-50 border border-amber-200 text-amber-900'
+            }`}
+          >
+            <span>{driveStatusMessage.text}</span>
+            <button
+              type="button"
+              onClick={() => setDriveStatusMessage(null)}
+              className="text-xs font-bold opacity-70 hover:opacity-100 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         
         {/* MODAL: PRIDANIE NOVÉHO PACIENTA */}
         {isAddingPatient && (

@@ -249,6 +249,9 @@ export default function Home() {
   const [showRolePermissionsModal, setShowRolePermissionsModal] = useState(false);
   const [showAuditLogModal, setShowAuditLogModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showGoogleDriveModal, setShowGoogleDriveModal] = useState(false);
+  const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
+  const [googleAuthNotice, setGoogleAuthNotice] = useState<string | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null);
   const [permissionsVersion, setPermissionsVersion] = useState(0);
@@ -346,30 +349,44 @@ export default function Home() {
     window.history.pushState({ tab }, '', `#${tab}`);
   };
 
-  const isGoogleConnected = Boolean(workspaceToken || (session as any)?.accessToken || workspaceGoogleUser || session);
+  // Skutočné pripojenie ku Google Drive / Kalendáru vyžaduje platný OAuth access token v pamäti
+  const isGoogleConnected = Boolean(workspaceToken || (session as any)?.accessToken);
   const connectedGoogleEmail = workspaceGoogleUser?.email || session?.user?.email || null;
+
+  const handleDirectGoogleSignIn = async () => {
+    setIsConnectingGoogle(true);
+    setGoogleAuthNotice(null);
+    try {
+      const res = await googleSignIn();
+      if (res?.accessToken) {
+        setExternalAccessToken(res.accessToken, res.user);
+        setShowGoogleDriveModal(false);
+      } else {
+        const { getLastAuthError } = await import('../lib/workspaceAuth');
+        const err = getLastAuthError();
+        if (err) setGoogleAuthNotice(err);
+      }
+    } catch (err: any) {
+      if (err?.code !== 'auth/popup-closed-by-user') {
+        setGoogleAuthNotice(err?.message || 'Prihlásenie do Google Drive sa nepodarilo dokončiť.');
+      }
+    } finally {
+      setIsConnectingGoogle(false);
+    }
+  };
+
+  const handleGoogleDisconnect = async () => {
+    const { googleLogout } = await import('../lib/workspaceAuth');
+    await googleLogout();
+    if (session) signOut({ redirect: false });
+    setShowGoogleDriveModal(false);
+  };
 
   const handleGoogleConnectToggle = async () => {
     if (isGoogleConnected) {
-      const confirmDisconnect = window.confirm(
-        `Google účet (${connectedGoogleEmail || 'SAY CLINIC'}) je momentálne prepojený s Google Drive a Kalendárom.\n\nChcete odpojiť Google účet?`
-      );
-      if (confirmDisconnect) {
-        const { googleLogout } = await import('../lib/workspaceAuth');
-        await googleLogout();
-        if (session) signOut({ redirect: false });
-      }
+      setShowGoogleDriveModal(true);
     } else {
-      try {
-        const res = await googleSignIn();
-        if (res?.accessToken) {
-          setExternalAccessToken(res.accessToken, res.user);
-        }
-      } catch (err: any) {
-        if (err?.code !== 'auth/popup-closed-by-user') {
-          signIn('google');
-        }
-      }
+      await handleDirectGoogleSignIn();
     }
   };
 
@@ -830,141 +847,239 @@ export default function Home() {
             })}
           </nav>
 
-          {/* KOMPAKTNÉ PROFILOVÉ A ADMINISTRÁTORSKÉ MENU */}
-          <div className="relative" ref={userMenuRef}>
+          {/* PRIAMY INDIKÁTOR GOOGLE DRIVE + KOMPAKTNÉ PROFILOVÉ MENU */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowUserMenu((prev) => !prev)}
-              className="flex items-center gap-3 px-2.5 py-1.5 rounded-2xl border border-transparent hover:border-[#E8E2D9] hover:bg-[#FAF8F5] transition-all cursor-pointer group"
-              title="Účet používateľa, Google Workspace a správa kliniky"
+              onClick={handleGoogleConnectToggle}
+              disabled={isConnectingGoogle}
+              title={
+                isGoogleConnected
+                  ? `Google Drive aktívny (${connectedGoogleEmail || 'SAY CLINIC'}). Kliknite pre správu.`
+                  : 'Kliknite pre pripojenie Google Drive a Kalendára'
+              }
+              className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                isGoogleConnected
+                  ? 'bg-[#FAF8F5] text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                  : 'bg-[#FAF8F5] text-[#2C2A29] border-[#C5A059]/60 hover:bg-[#2C2A29] hover:text-white'
+              }`}
             >
-              <div className="relative w-9 h-9 rounded-full border border-[#C5A059]/70 p-0.5 bg-white flex items-center justify-center flex-shrink-0">
-                {currentUser.avatarUrl ? (
-                  <img
-                    src={currentUser.avatarUrl}
-                    alt={currentUser.name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white">
-                    <LiquidAvatar id={currentUser.id} name={currentUser.name} role={currentUser.role} />
-                  </div>
-                )}
-                <span
-                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white ${
-                    isGoogleConnected ? 'bg-emerald-500' : 'bg-amber-400'
-                  }`}
-                  title={isGoogleConnected ? 'Google Workspace pripojený' : 'Google Workspace nepripojený'}
-                />
-              </div>
-
-              <div className="text-left hidden sm:block">
-                <p className="text-xs font-bold text-[#2C2A29] leading-tight">{currentUser.name}</p>
-                <p className="text-[9px] uppercase tracking-[0.15em] text-[#C5A059] font-semibold mt-0.5">
-                  {currentUser.title || (currentUser.role === 'ceo' ? 'CEO & Primár' : currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra')}
-                </p>
-              </div>
-
-              <ChevronDown className={`w-3.5 h-3.5 text-[#8C857B] transition-transform duration-200 ${showUserMenu ? 'rotate-180 text-[#C5A059]' : ''}`} />
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isGoogleConnected ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
+                }`}
+              />
+              <Cloud className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span className="hidden sm:inline">
+                {isConnectingGoogle
+                  ? 'Pripájam...'
+                  : isGoogleConnected
+                  ? 'Drive aktívny'
+                  : 'Pripojiť Drive'}
+              </span>
             </button>
 
-            {/* ROZBAĽOVACÍ PANEL POUŽÍVATEĽA A SPRÁVY KLINIKY */}
-            {showUserMenu && (
-              <div className="absolute right-0 top-full mt-2 w-72 bg-white/98 backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(44,42,41,0.14)] border border-[#E8E2D9] p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-3 py-2.5 border-b border-[#E8E2D9]/80">
-                  <p className="text-xs font-bold text-[#2C2A29]">{currentUser.name}</p>
-                  <p className="text-[11px] text-[#8C857B] truncate">{currentUser.email}</p>
+            <div className="relative" ref={userMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowUserMenu((prev) => !prev)}
+                className="flex items-center gap-3 px-2.5 py-1.5 rounded-2xl border border-transparent hover:border-[#E8E2D9] hover:bg-[#FAF8F5] transition-all cursor-pointer group"
+                title="Účet používateľa, Google Workspace a správa kliniky"
+              >
+                <div className="relative w-9 h-9 rounded-full border border-[#C5A059]/70 p-0.5 bg-white flex items-center justify-center flex-shrink-0">
+                  {currentUser.avatarUrl ? (
+                    <img
+                      src={currentUser.avatarUrl}
+                      alt={currentUser.name}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white">
+                      <LiquidAvatar id={currentUser.id} name={currentUser.name} role={currentUser.role} />
+                    </div>
+                  )}
                 </div>
 
-                <div className="py-1.5 space-y-0.5">
-                  {/* GOOGLE WORKSPACE / DRIVE */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      handleGoogleConnectToggle();
-                    }}
-                    className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center justify-between transition-colors cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Cloud className="w-3.5 h-3.5 text-[#C5A059]" />
-                      <span>Google Drive & Kalendár</span>
-                    </span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                      isGoogleConnected
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-amber-50 text-amber-800 border border-amber-200'
-                    }`}>
-                      {isGoogleConnected ? 'Pripojené' : 'Pripojiť'}
-                    </span>
-                  </button>
+                <div className="text-left hidden sm:block">
+                  <p className="text-xs font-bold text-[#2C2A29] leading-tight">{currentUser.name}</p>
+                  <p className="text-[9px] uppercase tracking-[0.15em] text-[#C5A059] font-semibold mt-0.5">
+                    {currentUser.title || (currentUser.role === 'ceo' ? 'CEO & Primár' : currentUser.role === 'doctor' ? 'Lekár' : currentUser.role === 'manager' ? 'Manažment' : 'Sestra')}
+                  </p>
+                </div>
 
-                  {/* SPRÁVA OPRÁVNENÍ A TÍMU (CEO & MANAŽMENT) */}
-                  {(isRealCeo || currentUser.role === 'manager') && (
+                <ChevronDown className={`w-3.5 h-3.5 text-[#8C857B] transition-transform duration-200 ${showUserMenu ? 'rotate-180 text-[#C5A059]' : ''}`} />
+              </button>
+
+              {/* ROZBAĽOVACÍ PANEL POUŽÍVATEĽA A SPRÁVY KLINIKY */}
+              {showUserMenu && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white/98 backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(44,42,41,0.14)] border border-[#E8E2D9] p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-2.5 border-b border-[#E8E2D9]/80">
+                    <p className="text-xs font-bold text-[#2C2A29]">{currentUser.name}</p>
+                    <p className="text-[11px] text-[#8C857B] truncate">{currentUser.email}</p>
+                  </div>
+
+                  <div className="py-1.5 space-y-0.5">
+                    {/* GOOGLE WORKSPACE / DRIVE */}
                     <button
                       type="button"
                       onClick={() => {
                         setShowUserMenu(false);
-                        setShowRolePermissionsModal(true);
+                        handleGoogleConnectToggle();
                       }}
-                      className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center gap-2.5 transition-colors cursor-pointer"
+                      className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center justify-between transition-colors cursor-pointer"
                     >
-                      <Shield className="w-3.5 h-3.5 text-[#C5A059]" />
-                      <span>Oprávnenia & Tím kliniky</span>
+                      <span className="flex items-center gap-2.5">
+                        <Cloud className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>Google Drive & Kalendár</span>
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                        isGoogleConnected
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-800 border border-amber-200'
+                      }`}>
+                        {isGoogleConnected ? 'Pripojené' : 'Pripojiť'}
+                      </span>
                     </button>
-                  )}
 
-                  {/* GDPR AUDIT LOG (CEO & MANAŽMENT) */}
-                  {(isRealCeo || currentUser.role === 'manager') && (
+                    {/* SPRÁVA OPRÁVNENÍ A TÍMU (CEO & MANAŽMENT) */}
+                    {(isRealCeo || currentUser.role === 'manager') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          setShowRolePermissionsModal(true);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>Oprávnenia & Tím kliniky</span>
+                      </button>
+                    )}
+
+                    {/* GDPR AUDIT LOG (CEO & MANAŽMENT) */}
+                    {(isRealCeo || currentUser.role === 'manager') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          setShowAuditLogModal(true);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>GDPR Auditná stopa</span>
+                      </button>
+                    )}
+
+                    {/* ZMENA HESLA A PIN STANICE */}
                     <button
                       type="button"
                       onClick={() => {
                         setShowUserMenu(false);
-                        setShowAuditLogModal(true);
+                        setShowChangePasswordModal(true);
+                        setPasswordChangeStatus(null);
+                        setOldPassword('');
+                        setNewPassword('');
+                        setConfirmNewPassword('');
                       }}
                       className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center gap-2.5 transition-colors cursor-pointer"
                     >
-                      <ShieldAlert className="w-3.5 h-3.5 text-[#C5A059]" />
-                      <span>GDPR Auditná stopa</span>
+                      <KeyRound className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>Zmena hesla & PIN stanice</span>
                     </button>
-                  )}
+                  </div>
 
-                  {/* ZMENA HESLA A PIN STANICE */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      setShowChangePasswordModal(true);
-                      setPasswordChangeStatus(null);
-                      setOldPassword('');
-                      setNewPassword('');
-                      setConfirmNewPassword('');
-                    }}
-                    className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#2C2A29] hover:bg-[#FAF8F5] flex items-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <KeyRound className="w-3.5 h-3.5 text-[#C5A059]" />
-                    <span>Zmena hesla & PIN stanice</span>
-                  </button>
+                  <div className="pt-1.5 border-t border-[#E8E2D9]/80">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        handleLogout();
+                      }}
+                      className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-rose-600 hover:bg-rose-50/70 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Odhlásiť sa zo systému</span>
+                    </button>
+                  </div>
                 </div>
-
-                <div className="pt-1.5 border-t border-[#E8E2D9]/80">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      handleLogout();
-                    }}
-                    className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-rose-600 hover:bg-rose-50/70 flex items-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Odhlásiť sa zo systému</span>
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </header>
+
+      {/* MODÁLNE OKNO SPRÁVY GOOGLE DRIVE PRIPOJENIA (BEZ WINDOW.CONFIRM) */}
+      {showGoogleDriveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C2A29]/30 backdrop-blur-md animate-in fade-in duration-200 print:hidden">
+          <div className="bg-white border border-[#E8E2D9] w-full max-w-md rounded-3xl shadow-[0_25px_70px_rgba(44,42,41,0.18)] overflow-hidden p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#E8E2D9]/80 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] text-[#C5A059]">
+                  <Cloud className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-brand text-lg font-bold text-[#2C2A29] uppercase tracking-wider">
+                    Google Drive & Kalendár
+                  </h3>
+                  <p className="text-[11px] text-[#8C857B]">
+                    Cloudová synchronizácia zložky Klienti SAY
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGoogleDriveModal(false)}
+                className="p-1.5 text-[#8C857B] hover:text-[#2C2A29] rounded-lg hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-2xl p-4 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${isGoogleConnected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <span className="text-xs font-bold text-[#2C2A29]">
+                  {isGoogleConnected ? 'Aktívne pripojenie ku Google Workspace' : 'Pripojenie vyžaduje autorizáciu'}
+                </span>
+              </div>
+              {connectedGoogleEmail && (
+                <p className="text-xs text-[#8C857B] font-mono">
+                  Pripojený účet: <strong className="text-[#2C2A29]">{connectedGoogleEmail}</strong>
+                </p>
+              )}
+            </div>
+
+            {googleAuthNotice && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{googleAuthNotice}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleDirectGoogleSignIn}
+                disabled={isConnectingGoogle}
+                className="w-full py-2.5 px-4 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isConnectingGoogle ? 'Pripájam Google účet...' : 'Obnoviť pripojenie / Prepnúť Google účet'}
+              </button>
+
+              {isGoogleConnected && (
+                <button
+                  type="button"
+                  onClick={handleGoogleDisconnect}
+                  className="w-full py-2.5 px-4 bg-white hover:bg-rose-50 text-rose-600 border border-[#E8E2D9] hover:border-rose-200 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                >
+                  Odpojiť Google Drive zo stanice
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PERSISTENTNÁ LIŠTA ROZPRACOVANÉHO PACIENTA (PRE CELÝ KLINICKÝ SYSTÉM) */}
       <ActivePatientBar
