@@ -12,6 +12,8 @@ export type SyncCollection =
   | 'calendar_events'
   | 'sales'
   | 'invoices'
+  | 'client_financial_profiles'
+  | 'pending_pos_checkouts'
   | 'inventory'
   | 'inventory_logs'
   | 'opiates'
@@ -72,20 +74,28 @@ const COLLECTION_MAP: Record<SyncCollection, CollectionMapping> = {
     storageKey: 'say_clinic_invoices_v1',
     eventName: 'say_clinic_invoices_changed',
   },
+  client_financial_profiles: {
+    storageKey: 'say_clinic_client_financial_profiles_v1',
+    eventName: 'say_clinic_client_profiles_changed',
+  },
+  pending_pos_checkouts: {
+    storageKey: 'say_clinic_pending_pos_checkouts_v1',
+    eventName: 'say_clinic_pending_pos_checkouts_changed',
+  },
   inventory: {
-    storageKey: 'say_clinic_inventory_v1',
+    storageKey: 'say_clinic_inventory_v2',
     eventName: 'say_clinic_inventory_changed',
   },
   inventory_logs: {
-    storageKey: 'say_clinic_inventory_logs_v1',
+    storageKey: 'say_clinic_material_usage_logs_v2',
     eventName: 'say_clinic_material_usage_logged',
   },
   opiates: {
-    storageKey: 'say_clinic_opiates_v1',
+    storageKey: 'say_clinic_opiates_catalog_v1',
     eventName: 'say_clinic_opiates_changed',
   },
   opiate_logs: {
-    storageKey: 'say_clinic_opiate_logs_v1',
+    storageKey: 'say_clinic_opiate_book_logs_v1',
     eventName: 'say_clinic_opiate_logs_changed',
   },
   projects: {
@@ -97,8 +107,8 @@ const COLLECTION_MAP: Record<SyncCollection, CollectionMapping> = {
     eventName: 'say_clinic_avatars_changed',
   },
   users_updated: {
-    storageKey: 'say_clinic_users_custom',
-    eventName: 'say_clinic_users_updated',
+    storageKey: 'say_clinic_custom_users_v1',
+    eventName: 'say_clinic_users_changed',
   },
   meicet_reports: {
     storageKey: 'say_clinic_meicet_reports',

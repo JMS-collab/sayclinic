@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import { Patient, MedicalRecord } from './PatientDatabase';
 import { InventoryService } from '../services/inventoryService';
+import { FinanceBillingService } from '../services/financeBillingService';
+import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { exportElementToPdf, generatePdfFilename } from '../lib/pdfGenerator';
 import { 
   Sculpture2DViewer, 
@@ -614,12 +616,14 @@ export function AestheticsModule({
   patients = [], 
   selectedPatientId,
   onSelectPatient,
-  onOpenPatientFolder
+  onOpenPatientFolder,
+  onSessionCompleted
 }: { 
   patients?: Patient[]; 
   selectedPatientId?: string | null;
   onSelectPatient?: (id: string) => void;
   onOpenPatientFolder?: (patient: Patient) => void;
+  onSessionCompleted?: (sale: { date: string; patientName: string; doctorName: string; serviceType: string; amount: number }) => void;
 }) {
   const [localPatients, setLocalPatients] = useState<Patient[]>(patients);
 
@@ -1047,28 +1051,53 @@ export function AestheticsModule({
       const updated = [newSession, ...patientSessions];
       allSessions[currentPatient.id] = updated;
       localStorage.setItem('say_clinic_aesthetic_sessions', JSON.stringify(allSessions));
+      RealtimeSyncService.publish('aesthetic_sessions', allSessions);
 
       setSessions(updated);
       setSelectedHistorySessionId(newSession.id);
 
-      // Odpísanie materiálu zo skladu
-      lineItems.forEach(item => {
-        InventoryService.logMaterialUsage({
-          patientId: currentPatient.id,
-          patientName: currentPatient.name,
-          patientBirthNumber: currentPatient.birthNumber,
-          sourceType: 'estetika',
-          procedureName: item.title,
-          itemName: item.title.split(',')[0],
-          category: 'estetika',
-          quantity: 1,
-          lotNumber: item.lot || 'LOT-2026',
-          performerName: 'MUDr. Ján Mráz',
-          notes: `Cena: ${item.price} €`
+      // 1. Odpísanie materiálu zo skladu (z riadkov ošetrenia alebo z nakreslených bodov)
+      if (lineItems.length > 0) {
+        lineItems.forEach(item => {
+          InventoryService.logMaterialUsage({
+            patientId: currentPatient.id,
+            patientName: currentPatient.name,
+            patientBirthNumber: currentPatient.birthNumber,
+            sourceType: 'estetika',
+            procedureName: item.title,
+            itemName: item.title.split(',')[0],
+            category: 'estetika',
+            quantity: 1,
+            lotNumber: item.lot || 'LOT-2026',
+            performerName: 'MUDr. Ján Mráz',
+            notes: `Cena výkonu: ${item.price} € (${sessionProtocolNo})`
+          });
         });
-      });
+      } else if (vectors.length > 0) {
+        const groupedProducts = new Map<string, { lot: string; count: number }>();
+        vectors.forEach(v => {
+          const pName = v.productName || activeMaterial.name;
+          const prev = groupedProducts.get(pName) || { lot: v.lotNumber || activeMaterial.lot, count: 0 };
+          groupedProducts.set(pName, { lot: prev.lot, count: prev.count + 1 });
+        });
+        groupedProducts.forEach((val, pName) => {
+          InventoryService.logMaterialUsage({
+            patientId: currentPatient.id,
+            patientName: currentPatient.name,
+            patientBirthNumber: currentPatient.birthNumber,
+            sourceType: 'estetika',
+            procedureName: newSession.title,
+            itemName: pName,
+            category: 'estetika',
+            quantity: 1,
+            lotNumber: val.lot || 'LOT-2026',
+            performerName: 'MUDr. Ján Mráz',
+            notes: `Aplikované v ${val.count} bodoch (${sessionProtocolNo})`
+          });
+        });
+      }
 
-      // Uloženie do zdravotného záznamu pacienta
+      // 2. Uloženie do zdravotného záznamu pacienta
       const lineItemsSummaryText = lineItems.map(it => `• ${it.title} (${it.price} €)`).join('\n');
       const recordText = `ESTETICKÉ OŠETRENIE TVÁRE (SAY CLINIC)
 Dátum: ${formattedDate}
@@ -1101,10 +1130,48 @@ ${sessionNextStep}`;
 
       const existingRecordsStr = localStorage.getItem(`say_clinic_records_${currentPatient.id}`);
       const existingRecords: MedicalRecord[] = existingRecordsStr ? JSON.parse(existingRecordsStr) : [];
-      localStorage.setItem(`say_clinic_records_${currentPatient.id}`, JSON.stringify([newRecord, ...existingRecords]));
+      const updatedRecords = [newRecord, ...existingRecords];
+      localStorage.setItem(`say_clinic_records_${currentPatient.id}`, JSON.stringify(updatedRecords));
+      window.dispatchEvent(new CustomEvent('say_clinic_patient_records_changed', { detail: { patientId: currentPatient.id, records: updatedRecords } }));
 
-      setToastMsg(`✅ Ošetrenie bolo úspešne uložené do karty pacienta (${formattedDate})`);
-      setTimeout(() => setToastMsg(null), 4000);
+      // 3. Automatické prepojenie do Pokladne POS a Financií (čakajúci účet + nákladová marža)
+      FinanceBillingService.recordClinicalProcedureCheckout({
+        patientId: currentPatient.id,
+        patientName: currentPatient.name,
+        patientBirthNumber: currentPatient.birthNumber,
+        patientPhone: currentPatient.phone,
+        patientEmail: currentPatient.email,
+        patientAddress: currentPatient.address,
+        doctorName: 'MUDr. Ján Mráz',
+        sourceModule: 'aesthetics',
+        procedureTitle: newSession.title,
+        protocolNumber: sessionProtocolNo,
+        items: lineItems.map(li => ({
+          id: li.id,
+          name: li.title,
+          brand: 'Estetická medicína SAY',
+          price: Number(li.price) || 0,
+          quantity: 1,
+          lot: li.lot
+        })),
+        subtotal,
+        discountAmount,
+        totalAmount: finalTotalPrice,
+        notes: `Estetický protokol ${sessionProtocolNo} (${lineItems.length} položiek)`
+      });
+
+      if (onSessionCompleted && finalTotalPrice > 0) {
+        onSessionCompleted({
+          date: todayStr,
+          patientName: currentPatient.name,
+          doctorName: 'MUDr. Ján Mráz',
+          serviceType: `Estetika: ${newSession.title}`,
+          amount: finalTotalPrice
+        });
+      }
+
+      setToastMsg(`✅ Zápis v karte • Odpísané zo skladu • Čakajúci účet v POS (${finalTotalPrice.toFixed(2)} €)`);
+      setTimeout(() => setToastMsg(null), 4500);
     } catch (e) {
       console.error(e);
       setToastMsg('❌ Chyba pri ukladaní ošetrenia.');

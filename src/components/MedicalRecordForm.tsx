@@ -16,6 +16,7 @@ import DermatologyExamPrintView from './dermatology/DermatologyExamPrintView';
 import { DermatologyExamData, INITIAL_DERMATOLOGY_DATA } from './dermatology/dermatologyTypes';
 import { Sliders, Save, RotateCcw, Check } from './Icons';
 import { InventoryService, InventoryItem } from '../services/inventoryService';
+import { FinanceBillingService } from '../services/financeBillingService';
 import { AuditLogService } from '../services/auditLogService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
 import { useSession } from 'next-auth/react';
@@ -574,9 +575,10 @@ interface FormProps {
   } | null;
   allPatients?: any[];
   onNavigateToPatient?: (patientId: string) => void;
+  onSelectPatient?: (patient: any) => void;
 }
 
-export default function MedicalRecordForm({ onRecordCreated, initialPatient, allPatients, onNavigateToPatient }: FormProps) {
+export default function MedicalRecordForm({ onRecordCreated, initialPatient, allPatients, onNavigateToPatient, onSelectPatient }: FormProps) {
   const { data: session } = useSession();
   const [docType, setDocType] = useState<DocumentType>(initialPatient?.initialDocType || 'vstupne_vysetrenie');
   const [patientId, setPatientId] = useState<string>(initialPatient?.id || '');
@@ -1282,6 +1284,15 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
       }
     }
 
+    // 1. ZISTENIE CIEĽOVÉHO PACIENTA PRE TRVALÉ ULOŽENIE A SKLAD
+    const cleanBn = (birthNumber || '').replace(/\D/g, '');
+    const matchedPatient = (allPatients || []).find((p: any) => 
+      (patientId && p.id === patientId) ||
+      (cleanBn && p.birthNumber && p.birthNumber.replace(/\D/g, '') === cleanBn) ||
+      (patientName && p.name && p.name.trim().toLowerCase() === patientName.trim().toLowerCase())
+    );
+    const resolvedPatientId = patientId || matchedPatient?.id || (cleanBn ? `P_${cleanBn}` : `P_${Date.now()}`);
+
     // AUTOMATICKÝ ODPIS MINUTÉHO MATERIÁLU A IMPLANTÁTOV ZO SKLADU SAY CLINIC
     let autoLoggedCount = 0;
     try {
@@ -1293,6 +1304,7 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
         surgeryImplants.forEach(impl => {
           if (impl.vyrobca || impl.model || impl.kat) {
             InventoryService.logMaterialUsage({
+              patientId: resolvedPatientId,
               patientName: clientName,
               patientBirthNumber: birthNumber,
               sourceType: 'operacia',
@@ -1331,6 +1343,7 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
         recognizedSurgicalItems.forEach(item => {
           if (matLower.includes(item.pattern)) {
             InventoryService.logMaterialUsage({
+              patientId: resolvedPatientId,
               patientName: clientName,
               patientBirthNumber: birthNumber,
               sourceType: item.isGarment ? 'pradlo' : 'operacia',
@@ -1351,6 +1364,7 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
       selectedItems.forEach(item => {
         if (SERVICES_DATABASE.aftercareAndGarments.some(g => g.id === item.id)) {
           InventoryService.logMaterialUsage({
+            patientId: resolvedPatientId,
             patientName: clientName,
             patientBirthNumber: birthNumber,
             sourceType: 'pradlo',
@@ -1370,6 +1384,7 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
       if (usedMaterialsToDeduct.length > 0) {
         usedMaterialsToDeduct.forEach(mat => {
           InventoryService.logMaterialUsage({
+            patientId: resolvedPatientId,
             patientName: clientName,
             patientBirthNumber: birthNumber,
             sourceType: docType === 'operacny_protokol' ? 'operacia' : (mat.category === 'kompresivne_pradlo' ? 'pradlo' : 'ambulancia'),
@@ -1389,15 +1404,6 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
     } catch (invErr) {
       console.error('Chyba pri automatickom logovaní skladu:', invErr);
     }
-
-    // 1. ZISTENIE CIELOVÉHO PACIENTA PRE TRVALÉ CLOUDOVÉ ULOŽENIE
-    const cleanBn = (birthNumber || '').replace(/\D/g, '');
-    const matchedPatient = (allPatients || []).find((p: any) => 
-      (patientId && p.id === patientId) ||
-      (cleanBn && p.birthNumber && p.birthNumber.replace(/\D/g, '') === cleanBn) ||
-      (patientName && p.name && p.name.trim().toLowerCase() === patientName.trim().toLowerCase())
-    );
-    const resolvedPatientId = patientId || matchedPatient?.id || (cleanBn ? `P_${cleanBn}` : `P_${Date.now()}`);
 
     // 2. GENEROVANIE A4 PDF DOKUMENTU PRE GOOGLE DRIVE
     let generatedPdfBase64: string | undefined;
@@ -1472,13 +1478,58 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
       });
     }
 
+    // 6. AUTOMATICKÉ PREPOJENIE DO FINANCIÍ A POKLADNE POS (ak ide o výkon s cenou alebo operačný/lekársky výkon)
+    try {
+      const effectivePrice = totalPrice > 0
+        ? totalPrice
+        : (docType === 'vstupne_vysetrenie' || docType === 'dermatologicke_vysetrenie') ? 50 : 0;
+
+      if (effectivePrice > 0 || docType === 'operacny_protokol' || autoLoggedCount > 0) {
+        const checkoutItems = selectedItems.length > 0
+          ? selectedItems.map(si => ({
+              id: si.id,
+              name: si.name,
+              brand: 'SAY CLINIC Výkon',
+              price: si.price,
+              quantity: 1
+            }))
+          : [{
+              id: `proc-${Date.now()}`,
+              name: `${DOC_TITLES[docType]}: ${serviceTitle}`,
+              brand: 'SAY CLINIC Ambulancia',
+              price: effectivePrice,
+              quantity: 1
+            }];
+
+        FinanceBillingService.recordClinicalProcedureCheckout({
+          patientId: resolvedPatientId,
+          patientName: patientName || 'Neznámy pacient',
+          patientBirthNumber: birthNumber,
+          patientPhone: patientPhone,
+          patientEmail: patientEmail,
+          patientAddress: patientAddress,
+          doctorName: doctor,
+          sourceModule: docType === 'operacny_protokol' ? 'surgery' : 'medical_record',
+          procedureTitle: `${DOC_TITLES[docType]}: ${serviceTitle}`,
+          items: checkoutItems,
+          subtotal: effectivePrice,
+          discountAmount: 0,
+          totalAmount: effectivePrice,
+          depositPaid: depositPaid || 0,
+          notes: `${DOC_TITLES[docType]} (${doctor})`
+        });
+      }
+    } catch (finErr) {
+      console.error('Chyba pri automatickom zápise do financií a POS:', finErr);
+    }
+
     if (response.success && onRecordCreated) {
       onRecordCreated({
         date: new Date().toISOString().split('T')[0],
         patientName: patientName || 'Neznámy pacient',
         doctorName: doctor,
         serviceType: `${DOC_TITLES[docType]}: ${serviceTitle}`,
-        amount: (docType === 'cenova_ponuka' || docType === 'dohoda_o_cene') ? totalPrice : 0,
+        amount: totalPrice > 0 ? totalPrice : ((docType === 'vstupne_vysetrenie' || docType === 'dermatologicke_vysetrenie') ? 50 : 0),
       });
     }
   };
@@ -1762,6 +1813,7 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                       if (found.email) setPatientEmail(found.email);
                       if (found.address) setPatientAddress(found.address);
                       if (found.insurance) setPatientInsurance(found.insurance);
+                      if (onSelectPatient) onSelectPatient(found);
                     }
                   }} 
                   placeholder="Mária Kováčová" 

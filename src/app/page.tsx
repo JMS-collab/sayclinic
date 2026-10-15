@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check, Shield, ShieldAlert, Monitor, Cpu, Maximize2, Minimize2 } from 'lucide-react';
+import { KeyRound, X, Lock, Eye, EyeOff, AlertCircle, Check, Shield, ShieldAlert, Monitor, Cpu } from 'lucide-react';
 import { DevicePinService } from '../services/devicePinService';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient, MOCK_PATIENTS } from '../components/PatientDatabase';
@@ -176,38 +176,13 @@ export default function Home() {
   // Živý čas a dátum
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
-  // Režim šírky monitora: 'full' (100% monitora bez prázdnych bokov), 'wide' (do 2400px), 'compact' (1280px)
-  const [screenWidthMode, setScreenWidthMode] = useState<'full' | 'wide' | 'compact'>('full');
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('say_clinic_screen_width_mode');
-      if (saved === 'full' || saved === 'wide' || saved === 'compact') {
-        setScreenWidthMode(saved as 'full' | 'wide' | 'compact');
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const handleSetScreenWidth = (mode: 'full' | 'wide' | 'compact') => {
-    setScreenWidthMode(mode);
-    try {
-      localStorage.setItem('say_clinic_screen_width_mode', mode);
-    } catch {
-      // ignore
-    }
-  };
-
-  const containerClass = screenWidthMode === 'full'
-    ? 'w-full max-w-none px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12'
-    : screenWidthMode === 'wide'
-    ? 'w-full max-w-[1920px] 2xl:max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10'
-    : 'w-full max-w-7xl mx-auto px-4 sm:px-6';
+  // Šírka rozhrania: automatická responzívna šírka prispôsobená pre notebooky, monitory aj 2K/4K displeje
+  const containerClass = 'w-full max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12';
 
   // Stav pre vybraného pacienta z Kartotéky pre Generátor alebo detail
   const [activePatient, setActivePatient] = useState<Patient | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<{ 
+    id?: string;
     name: string; 
     birthNumber: string; 
     phone?: string; 
@@ -300,7 +275,7 @@ export default function Home() {
   useEffect(() => {
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '') as TabType;
-      if (['home', 'generator', 'patients', 'aesthetics', 'cosmetics', 'finance', 'calendar', 'inventory', 'projects'].includes(hash)) {
+      if (['home', 'generator', 'patients', 'prescriptions', 'aesthetics', 'cosmetics', 'finance', 'calendar', 'inventory', 'projects'].includes(hash)) {
         if (currentUser && !PermissionsService.canUserAccessTab(currentUser, hash as TabId)) {
           setActiveTab('home');
         } else {
@@ -538,6 +513,11 @@ export default function Home() {
     const unsubPatients = RealtimeSyncService.subscribe('patients', (updated) => {
       if (Array.isArray(updated) && updated.length > 0) {
         setPatients(updated);
+        setActivePatient((prev) => {
+          if (!prev) return null;
+          const refreshed = updated.find((p: Patient) => p.id === prev.id);
+          return refreshed || prev;
+        });
       }
     });
 
@@ -581,19 +561,22 @@ export default function Home() {
     });
   };
 
-  // Správa aktívneho rozpracovaného pacienta (Active Patient Session)
-  const handleSetActivePatient = (patient: Patient | null) => {
+  // Správa aktívneho rozpracovaného pacienta (Active Patient Session - jediný zdroj pravdy)
+  const handleSetActivePatient = (patient: Patient | null, extraDocType?: any) => {
     setActivePatient(patient);
     setSelectedPatientForFolder(patient);
+    setPosSelectedPatientId(patient ? patient.id : '');
     if (patient) {
-      setSelectedPatient({
+      setSelectedPatient((prev) => ({
+        id: patient.id,
         name: patient.name,
         birthNumber: patient.birthNumber,
         phone: patient.phone,
         email: patient.email,
         address: patient.address,
-        insurance: patient.insurance
-      });
+        insurance: patient.insurance,
+        initialDocType: extraDocType !== undefined ? extraDocType : prev?.initialDocType
+      }));
       try {
         localStorage.setItem('say_clinic_active_patient_session_v1', JSON.stringify(patient));
       } catch {
@@ -620,9 +603,10 @@ export default function Home() {
     initialDocType?: any;
   }) => {
     const found = patients.find(p => (patient.id && p.id === patient.id) || p.birthNumber === patient.birthNumber || p.name.toLowerCase() === patient.name.toLowerCase());
-    setSelectedPatient(found ? { ...found, initialDocType: patient.initialDocType } : patient);
     if (found) {
-      handleSetActivePatient(found);
+      handleSetActivePatient(found, patient.initialDocType);
+    } else {
+      setSelectedPatient(patient);
     }
     changeTab('generator');
   };
@@ -794,51 +778,7 @@ export default function Home() {
 
           {/* PROFIL & NASTAVENIE ZOBRAZENIA */}
           <div className="flex items-center gap-3">
-            {/* PREPÍNAČ ŠÍRKY OBRAZOVKY / VEĽKÉ MONITORY */}
-            <div className="flex items-center bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-1 gap-1 text-xs" title="Prispôsobenie šírky rozhrania podľa veľkosti vášho monitora">
-              <button
-                type="button"
-                onClick={() => handleSetScreenWidth('full')}
-                title="Plná šírka monitora (100% využitie celej plochy bez prázdnych bočných okrajov)"
-                className={`px-2 py-1 rounded-lg flex items-center gap-1.5 transition-all text-[11px] font-bold cursor-pointer ${
-                  screenWidthMode === 'full'
-                    ? 'bg-[#2C2A29] text-white shadow-xs'
-                    : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
-                }`}
-              >
-                <Maximize2 className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span className="hidden xl:inline">Plná šírka</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetScreenWidth('wide')}
-                title="Širokouhlá šírka (do 2400px - ideálne pre 2K/4K displeje)"
-                className={`px-2 py-1 rounded-lg flex items-center gap-1.5 transition-all text-[11px] font-bold cursor-pointer ${
-                  screenWidthMode === 'wide'
-                    ? 'bg-[#2C2A29] text-white shadow-xs'
-                    : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
-                }`}
-              >
-                <Monitor className="w-3.5 h-3.5" />
-                <span className="hidden xl:inline">Širokouhlá</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetScreenWidth('compact')}
-                title="Kompaktná centrovaná šírka (1280px)"
-                className={`px-2 py-1 rounded-lg flex items-center gap-1.5 transition-all text-[11px] font-bold cursor-pointer ${
-                  screenWidthMode === 'compact'
-                    ? 'bg-[#2C2A29] text-white shadow-xs'
-                    : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white'
-                }`}
-              >
-                <Minimize2 className="w-3.5 h-3.5" />
-                <span className="hidden xl:inline">Kompaktná</span>
-              </button>
-            </div>
-
-            <div className="border-l border-[#E8E2D9] pl-3 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full border border-[#C5A059] p-0.5 shadow-sm bg-white flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="w-10 h-10 rounded-full border border-[#C5A059] p-0.5 shadow-sm bg-white flex items-center justify-center flex-shrink-0 overflow-hidden">
                 {currentUser.avatarUrl ? (
                   <img
                     src={currentUser.avatarUrl}
@@ -928,7 +868,6 @@ export default function Home() {
               </button>
             </div>
           </div>
-        </div>
       </header>
 
       {/* PERSISTENTNÁ LIŠTA ROZPRACOVANÉHO PACIENTA (PRE CELÝ KLINICKÝ SYSTÉM) */}
@@ -1266,20 +1205,47 @@ export default function Home() {
                       <span className="text-base font-bold text-[#2C2A29] font-mono">{patients.length} pacientov</span>
                     </div>
                     <div className="bg-white/90 border border-[#E8E2D9] rounded-xl px-3.5 py-2 text-center shadow-2xs">
-                      <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Režim plochy</span>
+                      <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Systém</span>
                       <span className="text-xs font-bold text-[#C5A059] uppercase tracking-wider block mt-0.5">
-                        {screenWidthMode === 'full' ? 'Plná šírka 100%' : screenWidthMode === 'wide' ? 'Širokouhlý 2.4k' : 'Kompaktný'}
+                        SAY ONLINE
                       </span>
                     </div>
                   </div>
 
-                  {/* ŽIVÝ ČAS A DÁTUM */}
-                  <div className="bg-[#2C2A29] text-white px-5 py-2.5 rounded-xl text-right font-mono border border-[#C5A059]/40 shadow-xs min-w-[200px]">
-                    <div className="text-[11px] text-[#C5A059] uppercase font-bold tracking-wider">
-                      {currentTime ? currentTime.toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Načítavam...'}
+                  {/* ŽIVÝ ČAS A DÁTUM (BEZRÁMOVÁ TYPOGRAFIA) */}
+                  <div className="xl:pl-6 xl:border-l xl:border-[#E8E2D9]/80 text-right flex flex-col justify-center select-none">
+                    <div className="flex items-start justify-end gap-1 tabular-nums leading-none">
+                      <span className="font-brand text-3xl md:text-4xl font-light tracking-tight text-[#2C2A29]">
+                        {currentTime
+                          ? String(currentTime.getHours()).padStart(2, '0')
+                          : '--'}
+                      </span>
+                      <span className="font-brand text-3xl md:text-4xl font-light text-[#C5A059] animate-pulse -mt-0.5">
+                        :
+                      </span>
+                      <span className="font-brand text-3xl md:text-4xl font-semibold tracking-tight text-[#2C2A29]">
+                        {currentTime
+                          ? String(currentTime.getMinutes()).padStart(2, '0')
+                          : '--'}
+                      </span>
+                      <span className="font-mono text-[11px] font-bold text-[#C5A059] mt-1 ml-0.5 w-4 text-left">
+                        {currentTime
+                          ? String(currentTime.getSeconds()).padStart(2, '0')
+                          : '--'}
+                      </span>
                     </div>
-                    <div className="text-2xl font-bold tracking-widest text-white mt-0.5">
-                      {currentTime ? currentTime.toLocaleTimeString('sk-SK') : '--:--:--'}
+                    <div className="flex items-center justify-end gap-1.5 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059]" />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8C857B]">
+                        {currentTime
+                          ? currentTime.toLocaleDateString('sk-SK', {
+                              weekday: 'long',
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric',
+                            })
+                          : 'Načítavam...'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1439,21 +1405,33 @@ export default function Home() {
                   >
                     <span>← Späť do Kartotéky</span>
                   </button>
-                  {selectedPatient && (
+                  {(activePatient || selectedPatient) && (
                     <span className="text-xs font-medium text-[#2C2A29]">
-                      Pacient: <strong className="font-bold">{selectedPatient.name}</strong>
+                      Pacient: <strong className="font-bold">{(activePatient || selectedPatient)?.name}</strong>
                     </span>
                   )}
                 </div>
                 <MedicalRecordForm 
                   onRecordCreated={handleAddSale} 
-                  initialPatient={selectedPatient}
+                  initialPatient={selectedPatient || (activePatient ? {
+                    id: activePatient.id,
+                    name: activePatient.name,
+                    birthNumber: activePatient.birthNumber,
+                    phone: activePatient.phone,
+                    email: activePatient.email,
+                    address: activePatient.address,
+                    insurance: activePatient.insurance
+                  } : null)}
                   allPatients={patients}
+                  onSelectPatient={(foundPatient) => {
+                    if (foundPatient && foundPatient.id) {
+                      handleSetActivePatient(foundPatient);
+                    }
+                  }}
                   onNavigateToPatient={(pId) => {
                     const found = patients.find(p => p.id === pId || (selectedPatient && p.birthNumber === selectedPatient.birthNumber));
                     if (found) {
                       handleSetActivePatient(found);
-                      setSelectedPatientForFolder(found);
                     }
                     changeTab('patients');
                   }}
@@ -1498,24 +1476,31 @@ export default function Home() {
                   changeTab('prescriptions');
                 }}
                 onNavigateToAesthetics={(patient) => {
-                  setSelectedPatientForFolder(patient);
+                  handleSetActivePatient(patient);
                   changeTab('aesthetics');
                 }}
                 onNavigateToCosmetics={(patient, prefillItems) => {
                   if (patient) {
-                    setSelectedPatientForFolder(patient);
-                    setPosSelectedPatientId(patient.id);
+                    handleSetActivePatient(patient);
                   }
                   if (prefillItems) {
                     setPosPrefillItems(prefillItems);
                   }
                   changeTab('cosmetics');
                 }}
-                initialPatient={selectedPatientForFolder}
+                initialPatient={activePatient || selectedPatientForFolder}
                 initialFolder={patientActiveFolder}
                 activePatient={activePatient}
                 onSetActivePatient={handleSetActivePatient}
-                onPatientsUpdated={(updatedList) => setPatients(updatedList)}
+                onPatientsUpdated={(updatedList) => {
+                  setPatients(updatedList);
+                  if (activePatient) {
+                    const updatedActive = updatedList.find(p => p.id === activePatient.id);
+                    if (updatedActive) {
+                      handleSetActivePatient(updatedActive);
+                    }
+                  }
+                }}
                 calendarEvents={calendarEvents}
                 onAddCalendarEvent={handleAddCalendarEvent}
                 onNavigateToCalendar={() => changeTab('calendar')}
@@ -1534,23 +1519,24 @@ export default function Home() {
                   >
                     <span>← Späť do Kartotéky</span>
                   </button>
-                  {selectedPatientForFolder && (
+                  {(activePatient || selectedPatientForFolder) && (
                     <span className="text-xs font-medium text-[#2C2A29]">
-                      Klientka: <strong className="font-bold">{selectedPatientForFolder.name}</strong>
+                      Klientka: <strong className="font-bold">{(activePatient || selectedPatientForFolder)?.name}</strong>
                     </span>
                   )}
                 </div>
                 <AestheticsModule 
                   patients={patients}
-                  selectedPatientId={selectedPatientForFolder?.id || (patients.length > 0 ? patients[0].id : undefined)}
+                  selectedPatientId={activePatient?.id || selectedPatientForFolder?.id || (patients.length > 0 ? patients[0].id : undefined)}
                   onSelectPatient={(id) => {
                     const p = patients.find(pat => pat.id === id);
-                    if (p) setSelectedPatientForFolder(p);
+                    if (p) handleSetActivePatient(p);
                   }}
                   onOpenPatientFolder={(patient) => {
-                    setSelectedPatientForFolder(patient);
+                    handleSetActivePatient(patient);
                     changeTab('patients');
                   }}
+                  onSessionCompleted={handleAddSale}
                 />
               </div>
             )}
@@ -1616,7 +1602,11 @@ export default function Home() {
                   <CosmeticsPOSModule 
                     patients={patients}
                     onSaleCompleted={handleAddSale}
-                    initialSelectedPatientId={posSelectedPatientId}
+                    initialSelectedPatientId={activePatient?.id || posSelectedPatientId}
+                    onSelectPatient={(patientId) => {
+                      const p = patients.find(pat => pat.id === patientId) || null;
+                      handleSetActivePatient(p);
+                    }}
                     initialPrefillItems={posPrefillItems}
                   />
                 )}

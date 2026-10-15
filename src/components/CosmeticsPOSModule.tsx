@@ -33,6 +33,7 @@ import {
   resetCosmeticsCatalog 
 } from '@/data/cosmeticsCatalog';
 import { PatientPlan, CosmeticRoutineItem } from '@/data/patientPlanConfig';
+import { FinanceBillingService, PendingPOSCheckout } from '../services/financeBillingService';
 
 interface CartItem {
   product: CosmeticProduct;
@@ -43,6 +44,7 @@ interface CosmeticsPOSModuleProps {
   patients?: Patient[];
   onSaleCompleted?: (saleData: any) => void;
   initialSelectedPatientId?: string;
+  onSelectPatient?: (patientId: string) => void;
   initialPrefillItems?: Array<{
     name: string;
     brand?: string;
@@ -55,6 +57,7 @@ export function CosmeticsPOSModule({
   patients = [],
   onSaleCompleted,
   initialSelectedPatientId,
+  onSelectPatient,
   initialPrefillItems
 }: CosmeticsPOSModuleProps) {
   const [catalog, setCatalog] = useState<CosmeticProduct[]>(() => getCosmeticsCatalog());
@@ -72,14 +75,27 @@ export function CosmeticsPOSModule({
   const [lastReceipt, setLastReceipt] = useState<any>(null);
   const [receiptSeq, setReceiptSeq] = useState<number>(10482);
 
+  // Čakajúce účty z ambulancie (Estetika, Lekárske záznamy, Operácie)
+  const [pendingCheckouts, setPendingCheckouts] = useState<PendingPOSCheckout[]>(() => FinanceBillingService.getPendingPOSCheckouts());
+  const [activePendingCheckoutIds, setActivePendingCheckoutIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setPendingCheckouts(FinanceBillingService.getPendingPOSCheckouts());
+    const handlePendingChanged = () => {
+      setPendingCheckouts(FinanceBillingService.getPendingPOSCheckouts());
+    };
+    window.addEventListener('say_clinic_pending_pos_checkouts_changed', handlePendingChanged);
+    return () => window.removeEventListener('say_clinic_pending_pos_checkouts_changed', handlePendingChanged);
+  }, []);
+
   // Modal editácie / pridania produktu
   const [isEditingProduct, setIsEditingProduct] = useState<boolean>(false);
   const [editingProduct, setEditingProduct] = useState<Partial<CosmeticProduct> | null>(null);
 
   // Synchronizácia predvyplneného pacienta alebo položiek z propov
   useEffect(() => {
-    if (initialSelectedPatientId) {
-      setSelectedPatientId(initialSelectedPatientId);
+    if (initialSelectedPatientId !== undefined) {
+      setSelectedPatientId(initialSelectedPatientId || '');
     }
   }, [initialSelectedPatientId]);
 
@@ -345,6 +361,105 @@ export function CosmeticsPOSModule({
   const total = subtotal - discountAmount;
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Filtrované čakajúce výkony z ambulancie (nezaplatené)
+  const unpaidPendingCheckouts = useMemo(() => {
+    return pendingCheckouts.filter(c => c.status !== 'paid');
+  }, [pendingCheckouts]);
+
+  // Načítanie čakajúceho výkonu z ambulancie do pokladničného košíka
+  const handleLoadPendingCheckoutToCart = (chk: PendingPOSCheckout) => {
+    if (chk.patientId) {
+      setSelectedPatientId(chk.patientId);
+      if (onSelectPatient) onSelectPatient(chk.patientId);
+    } else {
+      const matched = patients.find(p => p.name.toLowerCase().trim() === chk.patientName.toLowerCase().trim());
+      if (matched) {
+        setSelectedPatientId(matched.id);
+        if (onSelectPatient) onSelectPatient(matched.id);
+      }
+    }
+
+    const itemsToAdd: CartItem[] = (chk.items || []).map((item, idx) => ({
+      product: {
+        id: `CLINIC-${chk.id}-${idx}`,
+        brand: (item.brand as CosmeticBrand) || 'SAY Clinic Lab',
+        name: item.name,
+        category: 'post_op',
+        description: `Výkon v ambulancii (${chk.doctorName})${item.lot ? ` • Šarža: ${item.lot}` : ''}`,
+        volume: 'Výkon',
+        price: Number(item.price) || 0,
+        stock: 99,
+        badge: 'Z ambulancie',
+        imageColor: 'from-amber-100 to-amber-200'
+      },
+      quantity: item.quantity || 1
+    }));
+
+    setCart(prev => {
+      const next = [...prev];
+      itemsToAdd.forEach(newItem => {
+        const exists = next.findIndex(c => c.product.id === newItem.product.id || c.product.name === newItem.product.name);
+        if (exists >= 0) {
+          next[exists].quantity += newItem.quantity;
+        } else {
+          next.push(newItem);
+        }
+      });
+      return next;
+    });
+
+    setActivePendingCheckoutIds(prev => prev.includes(chk.id) ? prev : [...prev, chk.id]);
+  };
+
+  // Priama 1-klik úhrada čakajúceho výkonu z ambulancie
+  const handleDirectPayPendingCheckout = (chk: PendingPOSCheckout) => {
+    FinanceBillingService.completePendingPOSCheckout(chk.id, paymentMethod, chk.totalAmount);
+    setPendingCheckouts(FinanceBillingService.getPendingPOSCheckouts());
+
+    const receiptNumStr = `POS-${receiptSeq}`;
+    const receiptItems: CartItem[] = (chk.items || []).map((item, idx) => ({
+      product: {
+        id: `CLINIC-${chk.id}-${idx}`,
+        brand: (item.brand as CosmeticBrand) || 'SAY Clinic Lab',
+        name: item.name,
+        category: 'post_op',
+        description: `Výkon v ambulancii (${chk.doctorName})`,
+        volume: 'Výkon',
+        price: Number(item.price) || 0,
+        stock: 99
+      },
+      quantity: item.quantity || 1
+    }));
+
+    const receiptData = {
+      receiptNumber: receiptNumStr,
+      date: new Date().toLocaleDateString('sk-SK'),
+      time: new Date().toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' }),
+      items: receiptItems,
+      subtotal: chk.subtotal || chk.totalAmount,
+      discountPercent: 0,
+      discountAmount: chk.discountAmount || 0,
+      total: chk.totalAmount,
+      paymentMethod,
+      patientName: chk.patientName,
+      cashier: 'Recepcia SAY CLINIC',
+    };
+
+    setLastReceipt(receiptData);
+    setIsReceiptModalOpen(true);
+    setReceiptSeq(prev => prev + 1);
+
+    if (onSaleCompleted) {
+      onSaleCompleted({
+        date: new Date().toISOString().split('T')[0],
+        patientName: chk.patientName,
+        doctorName: chk.doctorName,
+        serviceType: `Inkaso výkonu: ${chk.procedureTitle}`,
+        amount: chk.totalAmount
+      });
+    }
+  };
+
   // Dokončenie predaja
   const handleCheckout = () => {
     if (cart.length === 0) return;
@@ -365,7 +480,7 @@ export function CosmeticsPOSModule({
       cashier: 'Recepcia SAY CLINIC',
     };
 
-    // Odpočet zo skladu
+    // Odpočet zo skladu pre kozmetiku
     setCatalog(prev => {
       const updated = prev.map(prod => {
         const inCart = cart.find(c => c.product.id === prod.id);
@@ -378,6 +493,15 @@ export function CosmeticsPOSModule({
       return updated;
     });
 
+    // Ak košík obsahoval načítané čakajúce výkony z ambulancie, označíme ich ako uhradené aj vo Financiách
+    if (activePendingCheckoutIds.length > 0) {
+      activePendingCheckoutIds.forEach(chkId => {
+        FinanceBillingService.completePendingPOSCheckout(chkId, paymentMethod, total);
+      });
+      setActivePendingCheckoutIds([]);
+      setPendingCheckouts(FinanceBillingService.getPendingPOSCheckouts());
+    }
+
     setLastReceipt(receiptData);
     setIsReceiptModalOpen(true);
     setCart([]);
@@ -388,8 +512,8 @@ export function CosmeticsPOSModule({
       onSaleCompleted({
         date: new Date().toISOString().split('T')[0],
         patientName: receiptData.patientName,
-        doctorName: 'Recepcia / Predaj kozmetiky',
-        serviceType: `Dermokozmetika & Starostlivosť (${totalItems} ks)`,
+        doctorName: 'Recepcia / Predaj kozmetiky & Výkony',
+        serviceType: `POS Pokladňa (${totalItems} ks)`,
         amount: total
       });
     }
@@ -449,6 +573,95 @@ export function CosmeticsPOSModule({
           </div>
         </div>
       </div>
+
+      {/* ČAKAJÚCE VÝKONY Z AMBULANCIE NA ÚHRADU (AUTOMATICKÝ REŤAZEC Z ESTETIKY A LEKÁRSKYCH ZÁZNAMOV) */}
+      {unpaidPendingCheckouts.length > 0 && (
+        <div className="rounded-3xl p-5 bg-white border-2 border-[#C5A059] shadow-sm space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8E2D9] pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#2C2A29] text-[#C5A059] flex items-center justify-center shadow-xs">
+                <FileCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
+                    Čakajúce výkony z ambulancie na úhradu ({unpaidPendingCheckouts.length})
+                  </h3>
+                  <span className="text-[11px] text-[#8C857B]">
+                    · Automaticky prenesené po dokončení výkonu lekárom
+                  </span>
+                </div>
+                <p className="text-xs text-[#8C857B]">
+                  Materiál bol automaticky odpísaný zo skladu. Načítajte účet do pokladne alebo ho priamo uhraďte.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {unpaidPendingCheckouts.map((chk) => (
+              <div
+                key={chk.id}
+                className="p-3.5 rounded-2xl bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] transition-all flex flex-col justify-between gap-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-[#8C857B]">
+                      <span className="font-bold text-[#2C2A29]">{chk.patientName}</span>
+                      <span>·</span>
+                      <span>{chk.doctorName}</span>
+                      <span>·</span>
+                      <span className="font-mono tabular-nums">{chk.time}</span>
+                    </div>
+                    <p className="text-xs font-bold text-[#2C2A29] mt-0.5">
+                      {chk.procedureTitle}
+                    </p>
+                    {chk.items && chk.items.length > 0 && (
+                      <p className="text-[11px] text-[#8C857B] mt-0.5 line-clamp-1">
+                        {chk.items.map(i => `${i.name} (${i.price} €)`).join(' • ')}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-bold font-mono tabular-nums text-[#C5A059] block">
+                      {chk.totalAmount.toFixed(2)} €
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        FinanceBillingService.removePendingPOSCheckout(chk.id);
+                        setPendingCheckouts(FinanceBillingService.getPendingPOSCheckouts());
+                      }}
+                      className="text-[10px] text-[#8C857B] hover:text-rose-600 underline cursor-pointer"
+                    >
+                      Odstrániť
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleLoadPendingCheckoutToCart(chk)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9] hover:border-[#C5A059] text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Načítať do košíka</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDirectPayPendingCheckout(chk)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Priamo uhradiť</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* NOTIFIKÁCIA ODPORÚČANEJ KOZMETIKY Z PLÁNU VYBRANÉHO PACIENTA */}
       {activePatientPlan && patientPlanRoutine.length > 0 && (
@@ -754,7 +967,11 @@ export function CosmeticsPOSModule({
                 {selectedPatientId && (
                   <button 
                     type="button" 
-                    onClick={() => { setSelectedPatientId(''); setPosPatientSearch(''); }}
+                    onClick={() => {
+                      setSelectedPatientId('');
+                      setPosPatientSearch('');
+                      if (onSelectPatient) onSelectPatient('');
+                    }}
                     className="text-[10px] text-[#8C857B] hover:text-[#2C2A29] underline"
                   >
                     Zrušiť výber
@@ -770,7 +987,11 @@ export function CosmeticsPOSModule({
               />
               <select
                 value={selectedPatientId}
-                onChange={(e) => setSelectedPatientId(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedPatientId(val);
+                  if (onSelectPatient) onSelectPatient(val);
+                }}
                 className="w-full text-xs font-medium p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
               >
                 <option value="">Pultový predaj (Neregistrovaný hosť)</option>

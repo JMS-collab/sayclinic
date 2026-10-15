@@ -99,6 +99,36 @@ export interface CreditTransaction {
   recordedBy: string;
 }
 
+export interface PendingPOSCheckoutItem {
+  id: string;
+  name: string;
+  brand?: string;
+  price: number;
+  quantity: number;
+  lot?: string;
+}
+
+export interface PendingPOSCheckout {
+  id: string;
+  timestamp: string;
+  date: string;
+  time: string;
+  patientId?: string;
+  patientName: string;
+  patientBirthNumber?: string;
+  doctorName: string;
+  sourceModule: 'aesthetics' | 'medical_record' | 'surgery';
+  procedureTitle: string;
+  protocolNumber?: string;
+  items: PendingPOSCheckoutItem[];
+  subtotal: number;
+  discountAmount: number;
+  totalAmount: number;
+  status: 'pending' | 'loaded_in_pos' | 'paid';
+  linkedInvoiceId?: string;
+  linkedProfileId?: string;
+}
+
 // Predvolené počiatočné faktúry a zálohové faktúry (Ostrá prevádzka - čistý štart)
 export const INITIAL_INVOICES: Invoice[] = [];
 
@@ -112,6 +142,7 @@ export class FinanceBillingService {
   private static STORAGE_KEY_INVOICES = 'say_clinic_invoices_v1';
   private static STORAGE_KEY_CLIENT_PROFILES = 'say_clinic_client_financial_profiles_v1';
   private static STORAGE_KEY_CREDIT_LOGS = 'say_clinic_credit_logs_v1';
+  private static STORAGE_KEY_PENDING_POS = 'say_clinic_pending_pos_checkouts_v1';
   private static STORAGE_KEY_CLEAN_INIT = 'say_clinic_finance_clean_v2';
 
   // Overenie a vyčistenie starých demo dát pri prvom spustení ostrej verzie
@@ -240,6 +271,7 @@ export class FinanceBillingService {
     try {
       localStorage.setItem(this.STORAGE_KEY_CLIENT_PROFILES, JSON.stringify(profiles));
       window.dispatchEvent(new CustomEvent('say_clinic_client_profiles_changed', { detail: profiles }));
+      RealtimeSyncService.publish('client_financial_profiles', profiles);
     } catch (e) {
       console.error('Chyba ukladania profilov klientov:', e);
     }
@@ -484,5 +516,251 @@ export class FinanceBillingService {
 
     this.saveClientProfiles(updatedProfiles);
     return updatedProfiles;
+  }
+
+  // ============================================================================
+  // AUTOMATICKÝ REŤAZEC: ZÁKROK (AMBULANCIA) -> SKLAD -> POKLADŇA POS & FINANCIE
+  // ============================================================================
+
+  public static getPendingPOSCheckouts(): PendingPOSCheckout[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem(this.STORAGE_KEY_PENDING_POS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+      return [];
+    } catch (e) {
+      console.error('Chyba načítania čakajúcich účtov pre POS:', e);
+      return [];
+    }
+  }
+
+  public static savePendingPOSCheckouts(list: PendingPOSCheckout[]): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(this.STORAGE_KEY_PENDING_POS, JSON.stringify(list));
+      window.dispatchEvent(new CustomEvent('say_clinic_pending_pos_checkouts_changed', { detail: list }));
+      RealtimeSyncService.publish('pending_pos_checkouts', list);
+    } catch (e) {
+      console.error('Chyba ukladania čakajúcich účtov pre POS:', e);
+    }
+  }
+
+  /**
+   * Zaregistruje dokončený výkon z Estetickej medicíny alebo Lekárskeho záznamu:
+   * 1. Prepočíta reálne skladové náklady a maržu pacienta
+   * 2. Vytvorí alebo zaktualizuje finančný profil pacienta v module Financie
+   * 3. Vystaví čakajúci doklad/faktúru (status: 'unpaid')
+   * 4. Zaradí výkon do čakajúceho poradia v Pokladni POS pre recepciu
+   */
+  public static recordClinicalProcedureCheckout(entry: {
+    patientId?: string;
+    patientName: string;
+    patientBirthNumber?: string;
+    patientPhone?: string;
+    patientEmail?: string;
+    patientAddress?: string;
+    doctorName: string;
+    sourceModule: 'aesthetics' | 'medical_record' | 'surgery';
+    procedureTitle: string;
+    protocolNumber?: string;
+    items: PendingPOSCheckoutItem[];
+    subtotal: number;
+    discountAmount?: number;
+    totalAmount: number;
+    depositPaid?: number;
+    notes?: string;
+  }): {
+    pendingCheckout: PendingPOSCheckout;
+    profile: PatientFinancialProfile;
+    invoice?: Invoice;
+  } {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const timeStr = now.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+
+    // 1. Výpočet reálnej spotreby materiálu zo skladu pre tohto pacienta
+    const materialUsage = this.calculateClientMaterialUsage(entry.patientName, entry.patientId);
+
+    // 2. Vytvorenie alebo aktualizácia finančného profilu klienta
+    const allProfiles = this.getClientProfiles();
+    const existingIdx = allProfiles.findIndex(p =>
+      (entry.patientId && p.patientId === entry.patientId && p.procedureDate === todayStr && p.procedureName === entry.procedureTitle) ||
+      (p.patientName.toLowerCase().trim() === entry.patientName.toLowerCase().trim() && p.procedureDate === todayStr && p.procedureName === entry.procedureTitle)
+    );
+
+    const agreedPrice = Math.max(0, Number(entry.totalAmount) || 0);
+    const depPaid = Math.max(0, Number(entry.depositPaid) || 0);
+    const netMargin = agreedPrice - materialUsage.totalCost;
+    const marginPct = agreedPrice > 0 ? parseFloat(((netMargin / agreedPrice) * 100).toFixed(1)) : 0;
+
+    let profile: PatientFinancialProfile;
+    if (existingIdx >= 0) {
+      profile = {
+        ...allProfiles[existingIdx],
+        totalAgreedPrice: agreedPrice > 0 ? agreedPrice : allProfiles[existingIdx].totalAgreedPrice,
+        materialCost: materialUsage.totalCost,
+        materialItemsCount: materialUsage.itemsCount,
+        netProcedureMargin: (agreedPrice || allProfiles[existingIdx].totalAgreedPrice) - materialUsage.totalCost,
+        marginPercentage: marginPct,
+        balanceDue: Math.max(0, (agreedPrice || allProfiles[existingIdx].totalAgreedPrice) - allProfiles[existingIdx].totalPaid - allProfiles[existingIdx].clientCredit),
+      };
+      allProfiles[existingIdx] = profile;
+    } else {
+      profile = {
+        id: `prof-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        patientId: entry.patientId,
+        patientName: entry.patientName,
+        patientBirthNumber: entry.patientBirthNumber,
+        patientPhone: entry.patientPhone,
+        patientEmail: entry.patientEmail,
+        patientAddress: entry.patientAddress,
+        status: entry.sourceModule === 'surgery' ? 'operated' : 'consultation',
+        procedureName: entry.procedureTitle,
+        procedureDate: todayStr,
+        doctorName: entry.doctorName,
+        totalAgreedPrice: agreedPrice,
+        depositRequired: 0,
+        depositPaid: depPaid,
+        isDepositPaid: depPaid > 0,
+        clientCredit: 0,
+        totalBilled: agreedPrice,
+        totalPaid: depPaid,
+        balanceDue: Math.max(0, agreedPrice - depPaid),
+        materialCost: materialUsage.totalCost,
+        materialItemsCount: materialUsage.itemsCount,
+        netProcedureMargin: netMargin,
+        marginPercentage: marginPct,
+        invoices: [],
+        notes: entry.notes || `Automaticky vytvorené z ambulancie (${entry.protocolNumber || entry.sourceModule})`
+      };
+      allProfiles.unshift(profile);
+    }
+
+    // 3. Vytvorenie čakajúcej faktúry pre evidenciu vo Financiách (ak je suma > 0)
+    let createdInvoice: Invoice | undefined;
+    if (agreedPrice > 0) {
+      const invNum = this.generateNextInvoiceNumber('standard');
+      const lineItems: InvoiceLineItem[] = (entry.items && entry.items.length > 0)
+        ? entry.items.map((it, idx) => ({
+            id: `li-${Date.now()}-${idx}`,
+            description: `${it.name}${it.lot ? ` (Šarža: ${it.lot})` : ''}`,
+            quantity: it.quantity || 1,
+            unit: 'výkon',
+            unitPrice: it.price,
+            vatRate: 0,
+            total: it.price * (it.quantity || 1)
+          }))
+        : [{
+            id: `li-${Date.now()}-0`,
+            description: entry.procedureTitle,
+            quantity: 1,
+            unit: 'výkon',
+            unitPrice: agreedPrice,
+            vatRate: 0,
+            total: agreedPrice
+          }];
+
+      createdInvoice = {
+        id: invNum,
+        invoiceNumber: invNum,
+        type: 'standard',
+        patientId: entry.patientId,
+        patientName: entry.patientName,
+        patientBirthNumber: entry.patientBirthNumber,
+        patientAddress: entry.patientAddress,
+        patientEmail: entry.patientEmail,
+        patientPhone: entry.patientPhone,
+        issueDate: todayStr,
+        dueDate: todayStr,
+        deliveryDate: todayStr,
+        status: depPaid >= agreedPrice ? 'paid' : 'unpaid',
+        paymentMethod: 'card',
+        variableSymbol: invNum.replace(/\D/g, ''),
+        items: lineItems,
+        subtotal: entry.subtotal || agreedPrice,
+        vatAmount: 0,
+        totalAmount: agreedPrice,
+        paidAmount: depPaid,
+        remainingAmount: Math.max(0, agreedPrice - depPaid),
+        appliedCredit: 0,
+        notes: entry.notes || `Výkon v ambulancii (${entry.doctorName})`,
+        createdBy: entry.doctorName
+      };
+
+      if (!profile.invoices.includes(invNum)) {
+        profile.invoices.push(invNum);
+      }
+      this.saveClientProfiles(allProfiles);
+      this.saveInvoice(createdInvoice);
+    } else {
+      this.saveClientProfiles(allProfiles);
+    }
+
+    // 4. Vytvorenie čakajúceho účtu v Pokladni POS pre recepciu
+    const pendingCheckout: PendingPOSCheckout = {
+      id: `pos-chk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: now.toISOString(),
+      date: todayStr,
+      time: timeStr,
+      patientId: entry.patientId,
+      patientName: entry.patientName,
+      patientBirthNumber: entry.patientBirthNumber,
+      doctorName: entry.doctorName,
+      sourceModule: entry.sourceModule,
+      procedureTitle: entry.procedureTitle,
+      protocolNumber: entry.protocolNumber,
+      items: entry.items && entry.items.length > 0 ? entry.items : [{
+        id: `item-${Date.now()}`,
+        name: entry.procedureTitle,
+        brand: 'SAY CLINIC Ambulancia',
+        price: agreedPrice,
+        quantity: 1
+      }],
+      subtotal: entry.subtotal || agreedPrice,
+      discountAmount: entry.discountAmount || 0,
+      totalAmount: Math.max(0, agreedPrice - depPaid),
+      status: depPaid >= agreedPrice && agreedPrice > 0 ? 'paid' : 'pending',
+      linkedInvoiceId: createdInvoice?.id,
+      linkedProfileId: profile.id
+    };
+
+    const currentPending = this.getPendingPOSCheckouts();
+    this.savePendingPOSCheckouts([pendingCheckout, ...currentPending]);
+
+    return { pendingCheckout, profile, invoice: createdInvoice };
+  }
+
+  /**
+   * Označí čakajúci účet v POS ako uhradený a zároveň uhradí prepojenú faktúru a finančný profil pacienta
+   */
+  public static completePendingPOSCheckout(
+    checkoutId: string,
+    paymentMethod: PaymentMethod = 'card',
+    amountPaid?: number
+  ): PendingPOSCheckout | null {
+    const all = this.getPendingPOSCheckouts();
+    const target = all.find(c => c.id === checkoutId);
+    if (!target) return null;
+
+    target.status = 'paid';
+    this.savePendingPOSCheckouts(all);
+
+    const paidVal = amountPaid !== undefined ? amountPaid : target.totalAmount;
+
+    if (target.linkedInvoiceId) {
+      this.markInvoicePaid(target.linkedInvoiceId, paymentMethod, paidVal);
+    } else if (target.linkedProfileId) {
+      this.recordClientPayment(target.linkedProfileId, paidVal, paymentMethod, `Úhrada na recepcii POS (${target.procedureTitle})`);
+    }
+
+    return target;
+  }
+
+  public static removePendingPOSCheckout(checkoutId: string): void {
+    const all = this.getPendingPOSCheckouts();
+    this.savePendingPOSCheckouts(all.filter(c => c.id !== checkoutId));
   }
 }
