@@ -35,6 +35,7 @@ import {
 import { DevicePinService } from '../services/devicePinService';
 import MedicalRecordForm from '../components/MedicalRecordForm';
 import PatientDatabase, { Patient, MOCK_PATIENTS } from '../components/PatientDatabase';
+import { PatientCloudService } from '../services/patientCloudService';
 import ActivePatientBar from '../components/ActivePatientBar';
 import LoginForm, { UserAccount } from '../components/LoginForm';
 import { LiquidAvatar } from '../components/LiquidAvatar';
@@ -489,28 +490,26 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Načítanie uložených pacientov z localStorage (so zachovaním predvolených pacientov)
+  // Načítanie pacientov a synchronizácia s Firestore Cloud
   useEffect(() => {
-    const saved = localStorage.getItem('say_clinic_patients');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingNames = new Set(parsed.map((p: any) => p.name?.toLowerCase().trim()));
-          const missingDefaults = MOCK_PATIENTS.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
-          const combined = missingDefaults.length > 0 ? [...parsed, ...missingDefaults] : parsed;
-          setPatients(combined);
-          if (missingDefaults.length > 0) {
-            localStorage.setItem('say_clinic_patients', JSON.stringify(combined));
-          }
-          return;
-        }
-      } catch (e) {
-        console.error('Chyba načítania pacientov:', e);
-      }
+    const cached = PatientCloudService.getCachedPatients();
+    if (cached.length > 0) {
+      setPatients(cached);
     }
-    setPatients(MOCK_PATIENTS);
-    localStorage.setItem('say_clinic_patients', JSON.stringify(MOCK_PATIENTS));
+
+    const unsubscribe = PatientCloudService.subscribePatients((cloudPatients) => {
+      if (cloudPatients && cloudPatients.length > 0) {
+        setPatients(cloudPatients);
+      } else if (cached.length === 0) {
+        PatientCloudService.seedIfEmpty(MOCK_PATIENTS).then(seeded => {
+          if (seeded && seeded.length > 0) {
+            setPatients(seeded);
+          }
+        });
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Obnovenie rozpracovaného pacienta zo session storage

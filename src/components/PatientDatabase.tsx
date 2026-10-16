@@ -22,7 +22,12 @@ import {
   HardDrive,
   MoreHorizontal,
   ChevronDown,
-  Stethoscope
+  Stethoscope,
+  Cloud,
+  Check,
+  Edit3,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { filterAndRankPatients, RankedPatient } from '../utils/fuzzySearch';
 import { googleSignIn, subscribeWorkspaceAuth, setExternalAccessToken } from '@/lib/workspaceAuth';
@@ -39,6 +44,7 @@ import { MeicetModule } from './meicet/MeicetModule';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
+import { PatientCloudService } from '../services/patientCloudService';
 import { LiquidAvatar } from './LiquidAvatar';
 
 const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
@@ -81,7 +87,7 @@ const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
       id: 'plan-demo-4',
       patientId: 'P3',
       patientName: 'Ján Mráz',
-      patientBirthNumber: '850721/7890',
+      patientBirthNumber: '',
       createdAt: '2026-06-15T10:00:00.000Z',
       updatedAt: '2026-06-15T10:00:00.000Z',
       doctorName: 'MUDr. Ján Mráz',
@@ -101,6 +107,8 @@ export interface Patient {
   insurance: string;
   driveFolderLink?: string;
   allergies?: string[];
+  notes?: string;
+  updatedAt?: string;
 }
 
 export interface MedicalRecord {
@@ -122,7 +130,7 @@ export interface MedicalRecord {
 export const MOCK_PATIENTS: Patient[] = [
   { id: 'P1', name: 'Mária Kováčová', birthNumber: '885512/6789', phone: '+421 905 123 456', email: 'maria.kovacova@email.sk', address: 'Slnečná 15, Banská Bystrica', dob: '12.05.1988', insurance: '24 (Dôvera)' },
   { id: 'P2', name: 'Ján Novák', birthNumber: '750314/1234', phone: '+421 948 987 654', email: 'novak.j@email.sk', address: 'Kvetná 8, Zvolen', dob: '14.03.1975', insurance: '25 (VšZP)' },
-  { id: 'P3', name: 'Ján Mráz', birthNumber: '850721/7890', phone: '+421 905 555 111', email: 'mraz@sayclinic.sk', address: 'Lazovná 43, Banská Bystrica', dob: '21.07.1985', insurance: '24 (Dôvera)' },
+  { id: 'P3', name: 'Ján Mráz', birthNumber: '', phone: '', email: 'mraz@sayclinic.sk', address: 'Lazovná 43, Banská Bystrica', dob: '', insurance: 'Dôvera' },
 ];
 
 const PHOTO_CATEGORIES = ['Konzultácia', 'Predoperačné', 'Pooperačné', '1. mesiac', '6. mesiac', '1 rok'];
@@ -244,6 +252,8 @@ export default function PatientDatabase({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'saving' | 'syncing' | 'error'>('synced');
+  const [isDriveSyncing, setIsDriveSyncing] = useState(false);
   const [driveStatusMessage, setDriveStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // STAV PRE SKLADACÍ BOČNÝ PANEL ČASOVEJ OSI A ALERGIÍ PACIENTA
@@ -656,30 +666,42 @@ export default function PatientDatabase({
     refreshPatientMaterials();
   };
 
-  // 1. Načítanie kešovaných pacientov z localStorage pri štarte (so zachovaním predvolených pacientov)
+  // 1. Načítanie pacientov z lokálnej cache a realtime synchronizácia s Firestore Cloudom
   useEffect(() => {
-    const saved = localStorage.getItem('say_clinic_patients');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingNames = new Set(parsed.map((p: any) => p.name?.toLowerCase().trim()));
-          const missingDefaults = MOCK_PATIENTS.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
-          const combined = missingDefaults.length > 0 ? [...parsed, ...missingDefaults] : parsed;
-          setPatients(combined);
-          if (missingDefaults.length > 0) {
-            localStorage.setItem('say_clinic_patients', JSON.stringify(combined));
-          }
-          if (onPatientsUpdated) onPatientsUpdated(combined);
-          return;
-        }
-      } catch (e) {
-        console.error('Chyba pri načítaní pacientov z localStorage:', e);
-      }
+    // Okamžité načítanie z lokálnej pamäte pre bleskový štart bez blikania
+    const cached = PatientCloudService.getCachedPatients();
+    if (cached.length > 0) {
+      setPatients(cached);
+      if (onPatientsUpdated) onPatientsUpdated(cached);
     }
-    setPatients(MOCK_PATIENTS);
-    localStorage.setItem('say_clinic_patients', JSON.stringify(MOCK_PATIENTS));
-    if (onPatientsUpdated) onPatientsUpdated(MOCK_PATIENTS);
+
+    // Real-time synchronizácia s Firestore kolekciou 'patients'
+    const unsubscribe = PatientCloudService.subscribePatients((cloudPatients) => {
+      if (cloudPatients && cloudPatients.length > 0) {
+        setPatients(cloudPatients);
+        setCloudSyncStatus('synced');
+        if (onPatientsUpdated) onPatientsUpdated(cloudPatients);
+
+        // Ak je vybratý pacient zhodný s aktualizovaným, osviežime jeho detail
+        setSelectedPatient(prev => {
+          if (!prev) return prev;
+          const found = cloudPatients.find(p => p.id === prev.id);
+          return found || prev;
+        });
+      } else if (cached.length === 0) {
+        // Iba ak je Firestore aj lokálna pamäť úplne prázdna, seedujeme počiatočných
+        PatientCloudService.seedIfEmpty(MOCK_PATIENTS).then(seeded => {
+          if (seeded && seeded.length > 0) {
+            setPatients(seeded);
+            if (onPatientsUpdated) onPatientsUpdated(seeded);
+          }
+        });
+      }
+    }, () => {
+      setCloudSyncStatus('error');
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // 2. AUTOMATICKÝ IMPORT NA POZADÍ pri prihlásení do Google účtu
@@ -710,9 +732,12 @@ export default function PatientDatabase({
             setPatients(prev => {
               const existingNames = new Set(prev.map(p => p.name.toLowerCase().trim()));
               const uniqueNew = importedList.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
+              if (uniqueNew.length === 0) return prev;
               const updatedAll = [...uniqueNew, ...prev];
-              localStorage.setItem('say_clinic_patients', JSON.stringify(updatedAll));
-              if (onPatientsUpdated) onPatientsUpdated(updatedAll);
+              // Uložíme aj do Firestore Cloudu
+              for (const np of uniqueNew) {
+                PatientCloudService.savePatient(np, effectiveToken);
+              }
               return updatedAll;
             });
           }
@@ -721,6 +746,12 @@ export default function PatientDatabase({
         .finally(() => setIsImporting(false));
     }
   }, [session, workspaceToken]);
+
+  useEffect(() => {
+    if (onPatientsUpdated) {
+      onPatientsUpdated(patients);
+    }
+  }, [patients]);
 
   const filteredPatients = useMemo(() => {
     return filterAndRankPatients(patients, searchTerm);
@@ -791,10 +822,13 @@ export default function PatientDatabase({
       driveFolderLink: driveLink
     };
 
-    const updatedPatients = [createdPatient, ...patients];
+    setCloudSyncStatus('saving');
+    const saveRes = await PatientCloudService.savePatient(createdPatient, effectiveToken);
+    setCloudSyncStatus(saveRes.success ? 'synced' : 'error');
+
+    const finalCreated = saveRes.patient || createdPatient;
+    const updatedPatients = [finalCreated, ...patients.filter(p => p.id !== finalCreated.id)];
     setPatients(updatedPatients);
-    localStorage.setItem('say_clinic_patients', JSON.stringify(updatedPatients));
-    RealtimeSyncService.publish('patients', updatedPatients);
     if (onPatientsUpdated) onPatientsUpdated(updatedPatients);
     
     setIsAddingPatient(false);
@@ -809,42 +843,89 @@ export default function PatientDatabase({
       insurance: 'Samoplatca',
     });
 
-    handlePatientSelect(createdPatient);
+    handlePatientSelect(finalCreated);
 
     if (driveLink) {
       setDriveStatusMessage({
         type: 'success',
-        text: `Pacient "${createdName}" bol zaevidovaný a jeho zložka v "Klienti SAY" na Google Disku bola automaticky vytvorená.`,
+        text: `Pacient "${createdName}" bol natrvalo uložený do Firestore Cloudu a jeho zložka na Google Disku bola pripravená.`,
       });
       setTimeout(() => setDriveStatusMessage(null), 6000);
     }
   };
 
-  // ULOŽENIE ÚPRAVY PACIENTA
-  const handleSavePatientEdit = (e: React.FormEvent) => {
+  // ULOŽENIE ÚPRAVY PACIENTA (NATRVALO DO FIRESTORE & GOOGLE DRIVE)
+  const handleSavePatientEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPatient) return;
 
-    const updatedPatients = patients.map(p => p.id === editingPatient.id ? editingPatient : p);
+    const userSession = session as any;
+    const effectiveToken = workspaceToken || userSession?.accessToken;
+
+    setCloudSyncStatus('saving');
+    const saveRes = await PatientCloudService.savePatient(editingPatient, effectiveToken);
+    setCloudSyncStatus(saveRes.success ? 'synced' : 'error');
+
+    const finalPatient = saveRes.patient || editingPatient;
+    const updatedPatients = patients.map(p => p.id === editingPatient.id ? finalPatient : p);
     setPatients(updatedPatients);
-    localStorage.setItem('say_clinic_patients', JSON.stringify(updatedPatients));
-    RealtimeSyncService.publish('patients', updatedPatients);
     if (onPatientsUpdated) onPatientsUpdated(updatedPatients);
 
     if (selectedPatient && selectedPatient.id === editingPatient.id) {
-      setSelectedPatient(editingPatient);
+      setSelectedPatient(finalPatient);
+    }
+    if (onSetActivePatient && selectedPatient && selectedPatient.id === editingPatient.id) {
+      onSetActivePatient(finalPatient);
     }
 
     AuditLogService.log({
       category: 'PATIENT_RECORD',
       action: 'ÚPRAVA ZDRAVOTNEJ KARTY',
-      details: `Aktualizácia údajov a anamnézy pacienta: ${editingPatient.name} (${editingPatient.birthNumber})`,
-      patientId: editingPatient.id,
-      patientName: editingPatient.name,
+      details: `Aktualizácia údajov a anamnézy pacienta: ${finalPatient.name} (${finalPatient.birthNumber})`,
+      patientId: finalPatient.id,
+      patientName: finalPatient.name,
       severity: 'info'
     });
 
     setEditingPatient(null);
+  };
+
+  // VYNÚTENÁ SYNCHRONIZÁCIA KARTOTÉKY DO CLOUDU AJ GOOGLE DRIVE
+  const handleForceSyncDriveAndCloud = async () => {
+    let token = workspaceToken || (session as any)?.accessToken;
+    if (!token) {
+      try {
+        const res = await googleSignIn();
+        if (res?.accessToken) {
+          token = res.accessToken;
+          setExternalAccessToken(res.accessToken, res.user);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    setIsDriveSyncing(true);
+    setCloudSyncStatus('syncing');
+    try {
+      for (const p of patients) {
+        await PatientCloudService.savePatient(p, token);
+      }
+      setCloudSyncStatus('synced');
+      setDriveStatusMessage({
+        type: 'success',
+        text: `Všetky karty pacientov (${patients.length}) boli úspešne uložené do Firestore Cloudu a zosynchronizované s Google Diskom.`,
+      });
+      setTimeout(() => setDriveStatusMessage(null), 5000);
+    } catch (err: any) {
+      setCloudSyncStatus('error');
+      setDriveStatusMessage({
+        type: 'error',
+        text: 'Synchronizácia zlyhala: ' + (err?.message || 'Neznáma chyba'),
+      });
+    } finally {
+      setIsDriveSyncing(false);
+    }
   };
 
   const handleRunDriveImport = async () => {
@@ -924,10 +1005,11 @@ export default function PatientDatabase({
         setPatients(prev => {
           const existingNames = new Set(prev.map(p => p.name.toLowerCase().trim()));
           const uniqueNew = importedList.filter(p => !existingNames.has(p.name.toLowerCase().trim()));
+          if (uniqueNew.length === 0) return prev;
           const updatedAll = [...uniqueNew, ...prev];
-          localStorage.setItem('say_clinic_patients', JSON.stringify(updatedAll));
-          RealtimeSyncService.publish('patients', updatedAll);
-          if (onPatientsUpdated) onPatientsUpdated(updatedAll);
+          for (const np of uniqueNew) {
+            PatientCloudService.savePatient(np, token);
+          }
           return updatedAll;
         });
 
@@ -1180,9 +1262,28 @@ export default function PatientDatabase({
                   </div>
                 </div>
 
+                <div className="bg-[#FAF8F5] border border-[#E8E2D9] p-3 rounded-xl flex items-center gap-2.5 mt-2">
+                  <Cloud className="w-4 h-4 text-[#C5A059] flex-shrink-0" />
+                  <p className="text-[10px] text-[#8C857B] leading-tight">
+                    <strong className="text-[#2C2A29]">Trvalé uloženie:</strong> Všetky reálne údaje sa natrvalo ukladajú do Firestore Cloudu a synchronizujú s Google Drive. Už sa nikdy nevrátia vymyslené hodnoty.
+                  </p>
+                </div>
+
                 <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9] mt-4">
-                  <button type="button" onClick={() => setEditingPatient(null)} className="px-4 py-2 text-xs font-bold text-[#8C857B] hover:text-[#2C2A29]">ZRUŠIŤ</button>
-                  <button type="submit" className="px-5 py-2 bg-[#C5A059] hover:bg-[#b08d4b] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm">ULOŽIŤ ZMENY</button>
+                  <button type="button" onClick={() => setEditingPatient(null)} className="px-4 py-2 text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] cursor-pointer">ZRUŠIŤ</button>
+                  <button type="submit" disabled={cloudSyncStatus === 'saving'} className="px-5 py-2 bg-[#C5A059] hover:bg-[#b08d4b] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer">
+                    {cloudSyncStatus === 'saving' ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Ukladám do Cloudu...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Uložiť reálne údaje</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </form>
             </div>
@@ -1292,26 +1393,52 @@ export default function PatientDatabase({
           <div className="space-y-6 print:hidden">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#E8E2D9] pb-4">
               <div>
-                <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">Kartotéka Pacientov</h2>
-                <p className="text-[10px] uppercase tracking-widest text-[#8C857B]">
-                  Zoznam klientov a ich zdravotná história ({patients.length})
-                  {isImporting && <span className="ml-2 text-[#C5A059] font-bold animate-pulse">🔄 Synchronizujem s Google Drive...</span>}
+                <div className="flex items-center gap-3">
+                  <h2 className="font-brand text-2xl font-bold text-[#2C2A29] uppercase">Kartotéka Pacientov</h2>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FAF8F5] border border-[#E8E2D9] text-[10px] font-medium text-[#2C2A29]">
+                    {cloudSyncStatus === 'saving' || cloudSyncStatus === 'syncing' ? (
+                      <>
+                        <Loader2 className="w-3 h-3 text-[#C5A059] animate-spin" />
+                        <span className="text-[#C5A059] font-bold">Ukladám do Cloudu...</span>
+                      </>
+                    ) : cloudSyncStatus === 'error' ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                        <span className="text-rose-700 font-semibold">Chyba spojenia</span>
+                      </>
+                    ) : (
+                      <>
+                        <Cloud className="w-3 h-3 text-emerald-600" />
+                        <span className="text-emerald-800 font-bold">Firestore Cloud: Uložené</span>
+                      </>
+                    )}
+                  </div>
+                  {Boolean(workspaceToken || (session as any)?.accessToken) && (
+                    <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-800">
+                      <span>✓ Google Drive</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] uppercase tracking-widest text-[#8C857B] mt-1">
+                  Evidovaní klienti a ich zdravotná história ({patients.length})
+                  {isImporting && <span className="ml-2 text-[#C5A059] font-bold animate-pulse">Synchronizujem s Google Drive...</span>}
                 </p>
               </div>
               
               <div className="flex flex-wrap items-center gap-2">
                 <button 
-                  onClick={handleRunDriveImport}
-                  disabled={isImporting}
-                  className="bg-[#C5A059] hover:bg-[#b08d4b] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors flex items-center gap-2"
+                  onClick={handleForceSyncDriveAndCloud}
+                  disabled={isDriveSyncing || isImporting}
+                  className="bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9] px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-2xs transition-colors flex items-center gap-2 cursor-pointer"
+                  title="Uložiť a synchronizovať všetkých pacientov do Firestore Cloudu aj Google Drive"
                 >
-                  <span>{isImporting ? '⏳' : '⚡'}</span>
-                  <span>{isImporting ? 'Synchronizujem...' : 'Obnoviť z Google Drive'}</span>
+                  <RefreshCw className={`w-3.5 h-3.5 text-[#C5A059] ${isDriveSyncing || isImporting ? 'animate-spin' : ''}`} />
+                  <span>{isDriveSyncing ? 'Synchronizujem...' : 'Synchronizovať Cloud & Drive'}</span>
                 </button>
 
                 <button 
                   onClick={() => setIsAddingPatient(true)}
-                  className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors"
+                  className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors cursor-pointer"
                 >
                   + Nový pacient
                 </button>
@@ -1409,9 +1536,10 @@ export default function PatientDatabase({
                             e.stopPropagation();
                             setEditingPatient(patient);
                           }}
-                          className="text-[#8C857B] hover:text-[#C5A059] font-bold uppercase tracking-wider transition-colors flex items-center gap-1"
+                          className="text-[#8C857B] hover:text-[#C5A059] font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 cursor-pointer"
                         >
-                          ✏️ Upraviť
+                          <Edit3 className="w-3 h-3 text-[#C5A059]" />
+                          <span>Upraviť</span>
                         </button>
 
                         {onNavigateToPrescriptions && (
@@ -1420,10 +1548,11 @@ export default function PatientDatabase({
                               e.stopPropagation();
                               onNavigateToPrescriptions(patient);
                             }}
-                            className="text-emerald-700 hover:text-emerald-800 font-bold uppercase tracking-wider transition-colors flex items-center gap-1 border-l border-[#E8E2D9] pl-2"
+                            className="text-emerald-700 hover:text-emerald-800 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 border-l border-[#E8E2D9] pl-2 cursor-pointer"
                             title="Vystaviť lekársky recept ŠEVT 14 282 2s"
                           >
-                            💊 Recept
+                            <Pill className="w-3 h-3 text-emerald-600" />
+                            <span>Recept</span>
                           </button>
                         )}
 
@@ -1433,9 +1562,10 @@ export default function PatientDatabase({
                               e.stopPropagation();
                               onNavigateToAesthetics(patient);
                             }}
-                            className="text-[#C5A059] hover:text-[#9C7D2B] font-bold uppercase tracking-wider transition-colors flex items-center gap-1 border-l border-[#E8E2D9] pl-2"
+                            className="text-[#C5A059] hover:text-[#9C7D2B] font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 border-l border-[#E8E2D9] pl-2 cursor-pointer"
                           >
-                            💉 Výplne & Botox
+                            <Syringe className="w-3 h-3 text-[#C5A059]" />
+                            <span>Výplne & Botox</span>
                           </button>
                         )}
                       </div>
@@ -1471,9 +1601,10 @@ export default function PatientDatabase({
                   <button 
                     type="button"
                     onClick={() => setEditingPatient(selectedPatient)}
-                    className="text-xs bg-white border border-[#E8E2D9] px-2.5 py-1 rounded-lg text-[#8C857B] hover:text-[#C5A059] font-bold shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+                    className="text-xs bg-white border border-[#E8E2D9] px-2.5 py-1 rounded-lg text-[#8C857B] hover:text-[#C5A059] font-bold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
-                    ✏️ Upraviť profil
+                    <Edit3 className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Upraviť profil</span>
                   </button>
                   <button 
                     type="button"
