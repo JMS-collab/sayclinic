@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import dns from 'node:dns';
+
+// Zabezpečí okamžité spojenie cez IPv4 namiesto zlyhávajúcich IPv6 timeoutov v cloud prostredí
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {
+  // ignore
+}
 
 export async function POST(req: Request) {
   try {
@@ -30,7 +38,7 @@ export async function POST(req: Request) {
     const rootQuery = "name = 'Klienti SAY' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
     const searchRes = await fetch(
       `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(rootQuery)}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-      { headers }
+      { headers, signal: AbortSignal.timeout(6000) }
     );
 
     if (searchRes.status === 401 || searchRes.status === 403) {
@@ -52,6 +60,7 @@ export async function POST(req: Request) {
           name: 'Klienti SAY',
           mimeType: 'application/vnd.google-apps.folder',
         }),
+        signal: AbortSignal.timeout(6000),
       });
       const parentData = await createParentRes.json();
       parentFolderId = parentData.id;
@@ -62,7 +71,7 @@ export async function POST(req: Request) {
     const patientQuery = `name = '${escapedName}' and '${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
     const patientFolderRes = await fetch(
       `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(patientQuery)}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-      { headers }
+      { headers, signal: AbortSignal.timeout(6000) }
     );
     const patientFolderData = await patientFolderRes.json();
 
@@ -81,6 +90,7 @@ export async function POST(req: Request) {
           mimeType: 'application/vnd.google-apps.folder',
           parents: [parentFolderId],
         }),
+        signal: AbortSignal.timeout(6000),
       });
       const patientFolder = await createPatientFolderRes.json();
       patientFolderId = patientFolder.id;
@@ -96,11 +106,10 @@ export async function POST(req: Request) {
       synchronizedFrom: 'SAY Clinic Cloud System'
     }, null, 2);
 
-    // Skontrolujeme, či profil_klienta.json už existuje
     const profileQuery = `name = 'profil_klienta.json' and '${patientFolderId}' in parents and trashed = false`;
     const profileSearchRes = await fetch(
       `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(profileQuery)}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-      { headers }
+      { headers, signal: AbortSignal.timeout(6000) }
     );
     const profileSearchData = await profileSearchRes.json();
 
@@ -134,6 +143,7 @@ export async function POST(req: Request) {
             'Content-Type': `multipart/related; boundary=${boundary}`,
           },
           body: multipartRequestBody,
+          signal: AbortSignal.timeout(6000),
         }
       );
     } else {
@@ -146,6 +156,7 @@ export async function POST(req: Request) {
             'Content-Type': `multipart/related; boundary=${boundary}`,
           },
           body: multipartRequestBody,
+          signal: AbortSignal.timeout(6000),
         }
       );
     }
@@ -156,7 +167,10 @@ export async function POST(req: Request) {
       driveFolderLink: webViewLink,
     });
   } catch (error: any) {
-    console.error('Chyba pri synchronizácii profilu pacienta na Google Drive:', error);
-    return NextResponse.json({ error: error.message || 'Chyba pri synchronizácii na Drive' }, { status: 500 });
+    console.warn('Upozornenie pri synchronizácii profilu pacienta na Google Drive:', error?.message || error);
+    return NextResponse.json({ 
+      success: false, 
+      warning: error?.message || 'Google Drive je dočasne nedostupný, údaje sú však bezpečne uložené vo Firestore.' 
+    }, { status: 200 });
   }
 }
