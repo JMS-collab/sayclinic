@@ -49,6 +49,7 @@ import OperativeNotesWidget from '../components/OperativeNotesWidget';
 import RolePermissionsModal from '../components/RolePermissionsModal';
 import AutoLogoutGuard from '../components/AutoLogoutGuard';
 import AuditLogModal from '../components/AuditLogModal';
+import GoogleDriveModal from '../components/GoogleDriveModal';
 import { AuthService } from '../services/authService';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
@@ -366,10 +367,12 @@ export default function Home() {
         const { getLastAuthError } = await import('../lib/workspaceAuth');
         const err = getLastAuthError();
         if (err) setGoogleAuthNotice(err);
+        setShowGoogleDriveModal(true);
       }
     } catch (err: any) {
       if (err?.code !== 'auth/popup-closed-by-user') {
         setGoogleAuthNotice(err?.message || 'Prihlásenie do Google Drive sa nepodarilo dokončiť.');
+        setShowGoogleDriveModal(true);
       }
     } finally {
       setIsConnectingGoogle(false);
@@ -384,11 +387,7 @@ export default function Home() {
   };
 
   const handleGoogleConnectToggle = async () => {
-    if (isGoogleConnected) {
-      setShowGoogleDriveModal(true);
-    } else {
-      await handleDirectGoogleSignIn();
-    }
+    setShowGoogleDriveModal(true);
   };
 
   const handleLoginSuccess = (user: UserAccount, rememberMe: boolean = true) => {
@@ -1910,6 +1909,13 @@ export default function Home() {
           currentUser={currentUser}
         />
       )}
+
+      {/* MODÁLNE OKNO PRE SPRÁVU GOOGLE DRIVE A SYNCHRONIZÁCIU */}
+      <GoogleDriveModal
+        isOpen={showGoogleDriveModal}
+        onClose={() => setShowGoogleDriveModal(false)}
+        currentUser={currentUser}
+      />
     </div>
   );
 }

@@ -45,6 +45,7 @@ import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
 import { PatientCloudService } from '../services/patientCloudService';
+import GoogleDriveModal from './GoogleDriveModal';
 import { LiquidAvatar } from './LiquidAvatar';
 
 const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
@@ -254,6 +255,7 @@ export default function PatientDatabase({
   const [isImporting, setIsImporting] = useState(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'saving' | 'syncing' | 'error'>('synced');
   const [isDriveSyncing, setIsDriveSyncing] = useState(false);
+  const [showDriveModal, setShowDriveModal] = useState(false);
   const [driveStatusMessage, setDriveStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // STAV PRE SKLADACÍ BOČNÝ PANEL ČASOVEJ OSI A ALERGIÍ PACIENTA
@@ -1413,11 +1415,23 @@ export default function PatientDatabase({
                       </>
                     )}
                   </div>
-                  {Boolean(workspaceToken || (session as any)?.accessToken) && (
-                    <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-800">
-                      <span>✓ Google Drive</span>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowDriveModal(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold cursor-pointer transition-all hover:border-[#C5A059]"
+                    title="Správa Google Drive zložiek a pripojenia"
+                  >
+                    {Boolean(workspaceToken || (session as any)?.accessToken) ? (
+                      <span className="text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        ✓ Google Drive
+                      </span>
+                    ) : (
+                      <span className="text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1">
+                        <HardDrive className="w-3 h-3 text-[#C5A059]" />
+                        <span>Pripojiť Drive</span>
+                      </span>
+                    )}
+                  </button>
                 </div>
                 <p className="text-[10px] uppercase tracking-widest text-[#8C857B] mt-1">
                   Evidovaní klienti a ich zdravotná história ({patients.length})
@@ -3001,6 +3015,12 @@ export default function PatientDatabase({
             onSavePlan={handleSaveNewPlan}
           />
         )}
+
+        {/* MODAL PRE DIAGNOSTIKU A PRIPOJENIE GOOGLE DRIVE */}
+        <GoogleDriveModal
+          isOpen={showDriveModal}
+          onClose={() => setShowDriveModal(false)}
+        />
       </div>
     </>
   );

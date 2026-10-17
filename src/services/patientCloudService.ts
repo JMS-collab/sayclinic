@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { RealtimeSyncService } from './realtimeSyncService';
+import { DriveClientService } from './driveClientService';
 
 export interface Patient {
   id: string;
@@ -169,21 +170,47 @@ export class PatientCloudService {
       // 2. Synchronizácia na Google Drive (ak je token k dispozícii)
       if (authToken) {
         try {
-          const driveRes = await fetch('/api/drive/sync-patient', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${authToken}`,
-            },
-            body: JSON.stringify(updatedPatient),
-          });
+          // Najprv skúsime bleskový klientsky zápis priamo z prehliadača (bez timeoutov servera)
+          let syncSuccess = false;
+          let driveLink = updatedPatient.driveFolderLink;
 
-          if (driveRes.ok) {
-            const driveData = await driveRes.json();
-            if (driveData.driveFolderLink && driveData.driveFolderLink !== updatedPatient.driveFolderLink) {
-              updatedPatient.driveFolderLink = driveData.driveFolderLink;
-              await setDoc(doc(db, 'patients', patientId), { driveFolderLink: driveData.driveFolderLink }, { merge: true });
+          if (typeof window !== 'undefined') {
+            const clientRes = await DriveClientService.syncPatientProfile(authToken, updatedPatient);
+            if (clientRes.success && clientRes.driveFolderLink) {
+              syncSuccess = true;
+              driveLink = clientRes.driveFolderLink;
             }
+          }
+
+          // Ak klientsky zápis nebol úspešný, skúsime serverový proxy route s bezpečným timeoutom
+          if (!syncSuccess) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 6000);
+            try {
+              const driveRes = await fetch('/api/drive/sync-patient', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${authToken}`,
+                },
+                body: JSON.stringify(updatedPatient),
+                signal: controller.signal,
+              });
+              clearTimeout(timeoutId);
+              if (driveRes.ok) {
+                const driveData = await driveRes.json();
+                if (driveData.driveFolderLink) {
+                  driveLink = driveData.driveFolderLink;
+                }
+              }
+            } catch {
+              // tichý fallback
+            }
+          }
+
+          if (driveLink && driveLink !== updatedPatient.driveFolderLink) {
+            updatedPatient.driveFolderLink = driveLink;
+            await setDoc(doc(db, 'patients', patientId), { driveFolderLink: driveLink }, { merge: true });
           }
         } catch (driveErr) {
           console.warn('Google Drive synchronizácia pacienta zlyhala (lokálne dáta sú v bezpečí vo Firestore):', driveErr);

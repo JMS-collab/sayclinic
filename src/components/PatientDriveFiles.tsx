@@ -22,7 +22,10 @@ import {
   Table2,
   AlertCircle,
   CheckCircle2,
+  Settings,
 } from 'lucide-react';
+import { DriveClientService } from '@/services/driveClientService';
+import GoogleDriveModal from './GoogleDriveModal';
 
 interface DriveFile {
   id: string;
@@ -45,6 +48,7 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [showDriveModal, setShowDriveModal] = useState(false);
   const [statusNotice, setStatusNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [driveData, setDriveData] = useState<{
     found: boolean;
@@ -76,6 +80,14 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
     setLoading(true);
     setStatusNotice(null);
     try {
+      // 1. Primárne načítame súbory priamo cez klientsky servis s CORS (bez serverových timeoutov)
+      const directData = await DriveClientService.getPatientFiles(tokenToUse, patientName);
+      if (directData && (directData.found || directData.files.length > 0)) {
+        setDriveData(directData as any);
+        return;
+      }
+
+      // 2. Fallback na serverless proxy route
       const res = await fetch(`/api/drive?patientName=${encodeURIComponent(patientName)}`, {
         headers: {
           Authorization: `Bearer ${tokenToUse}`,
@@ -128,6 +140,8 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
       if (res?.accessToken) {
         setExternalAccessToken(res.accessToken, res.user);
         await fetchDriveFiles(res.accessToken);
+      } else {
+        setShowDriveModal(true);
       }
     } catch (err: any) {
       if (
@@ -135,6 +149,7 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
         err?.code !== 'auth/cancelled-popup-request'
       ) {
         setAuthError(err?.message || 'Prihlásenie do Google Drive sa nepodarilo dokončiť.');
+        setShowDriveModal(true);
       }
     } finally {
       setIsSigningIn(false);
@@ -151,11 +166,27 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
         token = signResult?.accessToken || null;
       }
       if (!token) {
+        setShowDriveModal(true);
         setStatusNotice({
           type: 'error',
           text: 'Pre vytvorenie zložky na Google Disku sa najprv prihláste cez Google účet.',
         });
         return;
+      }
+
+      // Primárne vytvoríme priamo cez prehliadač
+      try {
+        const directFolder = await DriveClientService.ensurePatientFolder(token, patientName);
+        if (directFolder?.folderId) {
+          setStatusNotice({
+            type: 'success',
+            text: `Zložka a medicínske podzložky pre "${patientName}" boli na Google Disku úspešne pripravené.`,
+          });
+          await fetchDriveFiles(token);
+          return;
+        }
+      } catch (directErr) {
+        console.warn('Priame zakladanie priečinka zlyhalo, prepínam na proxy:', directErr);
       }
 
       const res = await fetch('/api/drive/create-patient', {
@@ -170,6 +201,7 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
       if (res.status === 401) {
         setExternalAccessToken(null);
         setAuthError('Platnosť pripojenia vypršala. Prihláste sa prosím znova.');
+        setShowDriveModal(true);
         return;
       }
       if (data.success) {
@@ -197,45 +229,63 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
 
   if (!isConnected) {
     return (
-      <div className="bg-[#FAF8F5] border border-[#E8E2D9] p-6 rounded-2xl text-center space-y-3.5">
-        <div className="w-10 h-10 rounded-xl bg-white border border-[#E8E2D9] flex items-center justify-center mx-auto text-[#C5A059]">
-          <HardDrive className="w-5 h-5" />
-        </div>
-        <div className="space-y-1 max-w-md mx-auto">
-          <h4 className="font-brand text-base font-bold text-[#2C2A29] uppercase tracking-wider">
-            Pripojenie ku Google Drive
-          </h4>
-          <p className="text-xs text-[#8C857B]">
-            {googleUser?.email
-              ? `Účet ${googleUser.email} vyžaduje obnovenie prístupového tokenu pre prácu so zložkou pacienta v "Klienti SAY".`
-              : 'Pre prístup ku kartotéke a zložke pacienta na Google Disku pripojte svoj Google účet.'}
-          </p>
+      <>
+        <div className="bg-[#FAF8F5] border border-[#E8E2D9] p-6 rounded-2xl text-center space-y-3.5">
+          <div className="w-10 h-10 rounded-xl bg-white border border-[#E8E2D9] flex items-center justify-center mx-auto text-[#C5A059]">
+            <HardDrive className="w-5 h-5" />
+          </div>
+          <div className="space-y-1 max-w-md mx-auto">
+            <h4 className="font-brand text-base font-bold text-[#2C2A29] uppercase tracking-wider">
+              Pripojenie ku Google Drive
+            </h4>
+            <p className="text-xs text-[#8C857B]">
+              {googleUser?.email
+                ? `Účet ${googleUser.email} vyžaduje obnovenie prístupového tokenu pre prácu so zložkou pacienta v "Klienti SAY".`
+                : 'Pre prístup ku kartotéke a zložke pacienta na Google Disku pripojte svoj Google účet.'}
+            </p>
+          </div>
+
+          {authError && (
+            <div className="max-w-md mx-auto p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={handleSignIn}
+              disabled={isSigningIn}
+              className="gsi-material-button inline-flex items-center gap-2.5 px-5 py-2.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold uppercase tracking-wider shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              <div className="w-4 h-4 flex-shrink-0 bg-white p-0.5 rounded-full">
+                <svg viewBox="0 0 48 48" className="w-full h-full">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                </svg>
+              </div>
+              <span>{isSigningIn ? 'Pripájam Google Drive...' : 'Pripojiť Google Drive'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowDriveModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-[#E8E2D9] text-[#2C2A29] text-xs font-semibold hover:border-[#C5A059] transition-all cursor-pointer"
+            >
+              <Settings className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Pomocník & Správa</span>
+            </button>
+          </div>
         </div>
 
-        {authError && (
-          <div className="max-w-md mx-auto p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>{authError}</span>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={handleSignIn}
-          disabled={isSigningIn}
-          className="gsi-material-button inline-flex items-center gap-2.5 px-5 py-2.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold uppercase tracking-wider shadow-xs transition-all cursor-pointer disabled:opacity-50"
-        >
-          <div className="w-4 h-4 flex-shrink-0 bg-white p-0.5 rounded-full">
-            <svg viewBox="0 0 48 48" className="w-full h-full">
-              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-            </svg>
-          </div>
-          <span>{isSigningIn ? 'Pripájam Google Drive...' : 'Pripojiť Google Drive'}</span>
-        </button>
-      </div>
+        <GoogleDriveModal
+          isOpen={showDriveModal}
+          onClose={() => setShowDriveModal(false)}
+        />
+      </>
     );
   }
 

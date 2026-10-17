@@ -39,7 +39,7 @@ export async function GET(req: Request) {
     const rootQuery = "name = 'Klienti SAY' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
     const rootFolderRes = await fetch(
       `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(rootQuery)}&fields=files(id,name,webViewLink)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-      { headers }
+      { headers, signal: AbortSignal.timeout(6000) }
     );
 
     if (rootFolderRes.status === 401 || rootFolderRes.status === 403) {
@@ -64,6 +64,7 @@ export async function GET(req: Request) {
           name: 'Klienti SAY',
           mimeType: 'application/vnd.google-apps.folder',
         }),
+        signal: AbortSignal.timeout(6000),
       });
       if (createRootRes.ok) {
         rootFolder = await createRootRes.json();
@@ -81,7 +82,7 @@ export async function GET(req: Request) {
     const patientFolderQuery = `'${rootFolder.id}' in parents and name contains '${escapedPatientName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
     const patientFolderRes = await fetch(
       `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(patientFolderQuery)}&fields=files(id,name,webViewLink)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-      { headers }
+      { headers, signal: AbortSignal.timeout(6000) }
     );
     const patientFolderData = await patientFolderRes.json();
     const patientFolder = patientFolderData.files?.[0];
@@ -100,7 +101,7 @@ export async function GET(req: Request) {
     const filesQuery = `'${patientFolder.id}' in parents and trashed = false`;
     const filesRes = await fetch(
       `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(filesQuery)}&fields=files(id,name,mimeType,webViewLink,iconLink,thumbnailLink)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-      { headers }
+      { headers, signal: AbortSignal.timeout(6000) }
     );
     const filesData = await filesRes.json();
 
@@ -111,6 +112,11 @@ export async function GET(req: Request) {
       files: filesData.files || [],
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Chyba komunikácie s Google Drive' }, { status: 500 });
+    console.warn('Upozornenie pri načítavaní Google Drive cez server:', error?.message || error);
+    return NextResponse.json({
+      found: false,
+      files: [],
+      warning: error?.message || 'Google Drive je dočasne nedostupný cez server.',
+    }, { status: 200 });
   }
 }
