@@ -10,6 +10,7 @@ import {
 import { db } from '../lib/firebase';
 import { RealtimeSyncService } from './realtimeSyncService';
 import { DriveClientService } from './driveClientService';
+import { handleFirestoreError, OperationType } from '../lib/firestoreErrors';
 
 export interface Patient {
   id: string;
@@ -112,6 +113,9 @@ export class PatientCloudService {
         },
         (error) => {
           console.warn('Firestore onSnapshot error pre pacientov (možno offline):', error);
+          try {
+            handleFirestoreError(error, OperationType.LIST, 'patients');
+          } catch {}
           if (onError) onError(error);
           // Fallback na lokálnu pamäť
           const cached = this.getCachedPatients();

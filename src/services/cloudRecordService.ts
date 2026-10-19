@@ -13,6 +13,7 @@ import {
 import { db } from '../lib/firebase';
 import { RealtimeSyncService } from './realtimeSyncService';
 import { AuditLogService } from './auditLogService';
+import { handleFirestoreError, OperationType } from '../lib/firestoreErrors';
 
 export interface CloudMedicalRecord {
   id: string;
@@ -304,6 +305,9 @@ export class CloudRecordService {
         callback(records);
       }, (err) => {
         console.warn('Realtime listener varovanie:', err);
+        try {
+          handleFirestoreError(err, OperationType.LIST, 'medical_records');
+        } catch {}
       });
 
       return unsubscribe;
