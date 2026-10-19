@@ -1172,12 +1172,22 @@ export default function Calendar({
     const durationMin = timeToMinutes(evt.endTime) - timeToMinutes(evt.startTime);
     const room = getRoomInfo(evt.roomId);
 
+    // Výpočet či udalosť prebieha práve v tomto okamihu
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const evtStartMin = timeToMinutes(evt.startTime);
+    const evtEndMin = timeToMinutes(evt.endTime) || (evtStartMin + 30);
+    const isOngoing = evt.date === todayStr && !evt.isCancelled && nowMinutes >= evtStartMin && nowMinutes < evtEndMin;
+
     return (
       <div 
         key={evt.id} 
         data-event-id={evt.id}
         onMouseDown={(e) => handleMouseDownDrag(e, evt)}
         className={`absolute rounded-xl p-2 shadow-xs border pointer-events-auto cursor-move active:cursor-grabbing transition-all hover:shadow-md flex flex-col justify-between z-10 overflow-hidden group/card ${
+          isOngoing ? 'ring-2 ring-[#C5A059] shadow-lg shadow-[#C5A059]/25 z-20 border-[#C5A059]' : ''
+        } ${
           evt.isCancelled 
             ? 'bg-gray-100 border-gray-300 opacity-60 line-through' 
             : evt.type === 'operacia'
@@ -1199,6 +1209,9 @@ export default function Calendar({
       >
         {isCompact ? (
           <div className="flex items-center gap-1.5 h-full truncate pointer-events-none">
+            {isOngoing && (
+              <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-ping shrink-0" title="Práve prebieha" />
+            )}
             <span className="font-mono text-[9px] font-bold text-[#2C2A29] shrink-0 leading-none">
               {evt.startTime}
             </span>
@@ -1216,7 +1229,15 @@ export default function Calendar({
                 <span className="font-mono text-[10px] font-bold text-[#2C2A29] bg-black/5 px-1 rounded flex items-center gap-1">
                   <span>{room.icon}</span> {evt.startTime} - {evt.endTime}
                 </span>
-                <div className="scale-90 origin-right">{getEventTypeBadge(evt.type, evt.freeformCategory)}</div>
+                <div className="flex items-center gap-1">
+                  {isOngoing && (
+                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-[#C5A059] text-white flex items-center gap-1 shadow-2xs animate-pulse shrink-0">
+                      <span className="w-1 h-1 rounded-full bg-white"></span>
+                      <span>PREBIEHA</span>
+                    </span>
+                  )}
+                  <div className="scale-90 origin-right">{getEventTypeBadge(evt.type, evt.freeformCategory)}</div>
+                </div>
               </div>
               <h4 className="font-bold text-xs text-[#2C2A29] truncate leading-tight">{evt.title}</h4>
               {evt.type === 'volno' ? (
@@ -1268,6 +1289,12 @@ export default function Calendar({
                 {evt.startTime} – {evt.endTime} ({durationMin}m)
               </span>
               <div className="flex items-center gap-1">
+                {isOngoing && (
+                  <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-[#C5A059] text-white flex items-center gap-1 shadow-xs animate-pulse shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                    <span>PRÁVE PREBIEHA</span>
+                  </span>
+                )}
                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${room.badgeColor}`}>
                   {room.icon} {room.shortName}
                 </span>
@@ -1467,6 +1494,28 @@ export default function Calendar({
                 return renderEventCard(item.event, top, height, left, width);
               })}
 
+              {/* ČERVENÁ ČASOVÁ LINKA AKTUÁLNEHO ČASU (DNES) */}
+              {(() => {
+                const now = new Date();
+                const todayFormatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                if (formattedDate !== todayFormatted) return null;
+                const nowMin = now.getHours() * 60 + now.getMinutes();
+                if (nowMin < dayStartMin || nowMin > (21 * 60)) return null;
+                const lineTop = (nowMin - dayStartMin) * pxPerMin;
+                return (
+                  <div 
+                    className="absolute left-0 right-0 z-30 pointer-events-none flex items-center"
+                    style={{ top: `${lineTop}px` }}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full bg-rose-500 -ml-1 shadow-sm ring-2 ring-white shrink-0" />
+                    <div className="flex-1 h-[2px] bg-rose-500 shadow-xs" />
+                    <span className="bg-rose-500 text-white text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full mr-1 shadow-xs shrink-0">
+                      {String(now.getHours()).padStart(2, '0')}:{String(now.getMinutes()).padStart(2, '0')}
+                    </span>
+                  </div>
+                );
+              })()}
+
               {/* DUCH PRE TAHANIE NOVEJ UDALOSTI (LIVE PREVIEW AKO V GOOGLE KALENDÁRI) */}
               {isCreatingDrag && createDragDate === formattedDate && (
                 <div 
@@ -1644,6 +1693,25 @@ export default function Calendar({
 
                     return renderEventCard(item.event, top, height, left, width);
                   })}
+
+                  {/* ČERVENÁ ČASOVÁ LINKA AKTUÁLNEHO ČASU (DNES) */}
+                  {(() => {
+                    const now = new Date();
+                    const todayFormatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                    if (formattedDate !== todayFormatted) return null;
+                    const nowMin = now.getHours() * 60 + now.getMinutes();
+                    if (nowMin < dayStartMin || nowMin > (21 * 60)) return null;
+                    const lineTop = (nowMin - dayStartMin) * pxPerMin;
+                    return (
+                      <div 
+                        className="absolute left-0 right-0 z-30 pointer-events-none flex items-center"
+                        style={{ top: `${lineTop}px` }}
+                      >
+                        <div className="w-2 h-2 rounded-full bg-rose-500 -ml-1 shadow-sm ring-1 ring-white shrink-0" />
+                        <div className="flex-1 h-[2px] bg-rose-500 shadow-xs" />
+                      </div>
+                    );
+                  })()}
 
                   {/* DUCH PRE TAHANIE NOVEJ UDALOSTI V TÝŽDNI */}
                   {isCreatingDrag && createDragDate === formattedDate && (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { 
   KeyRound, 
@@ -40,7 +40,7 @@ import ActivePatientBar from '../components/ActivePatientBar';
 import LoginForm, { UserAccount } from '../components/LoginForm';
 import { LiquidAvatar } from '../components/LiquidAvatar';
 import FinanceCRM from '../components/FinanceCRM';
-import Calendar, { CalendarEvent } from '../components/Calendar';
+import Calendar, { CalendarEvent, getRoomInfo } from '../components/Calendar';
 import InventoryCRM from '../components/InventoryCRM';
 import { AestheticsModule } from '../components/AestheticsModule';
 import { CosmeticsPOSModule } from '../components/CosmeticsPOSModule';
@@ -82,6 +82,22 @@ export interface SaleItem {
 const INITIAL_SALES: SaleItem[] = [];
 
 type TabType = TabId;
+
+export interface ScheduleRoomTab {
+  id: string;
+  label: string;
+  shortLabel: string;
+  icon: string;
+}
+
+const SCHEDULE_ROOM_TABS: ScheduleRoomTab[] = [
+  { id: 'all', label: 'Všetky', shortLabel: 'Všetky', icon: '🌐' },
+  { id: 'ambulancia', label: 'Ambulancia', shortLabel: 'Ambulancia', icon: '🩺' },
+  { id: 'operacky_all', label: 'Operačky', shortLabel: 'Operačky', icon: '🏥' },
+  { id: 'sala_say', label: 'Sála SAY', shortLabel: 'Sála SAY', icon: '✨' },
+  { id: 'sala_rudlova', label: 'Rudlová', shortLabel: 'Rudlová', icon: '🏛️' },
+  { id: 'dospavacia_izba', label: 'Dospávanie', shortLabel: 'Dospávanie', icon: '🛏️' },
+];
 
 function buildProjectFromNote(noteText: string, currentUser: UserAccount) {
   const isCeoUser = currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1';
@@ -706,18 +722,99 @@ export default function Home() {
     changeTab('projects');
   };
 
-  // Dnešné udalosti pre Homescreen so zárukou unikátnych kľúčov
-  const todayString = new Date().toISOString().split('T')[0];
+  // Filter miestností pre dnešný harmonogram na prehľade ('all' | 'ambulancia' | 'operacky_all' | 'sala_say' | 'sala_rudlova' | 'dospavacia_izba')
+  const [todayRoomFilter, setTodayRoomFilter] = useState<string>('all');
+
+  // Pomocná funkcia na zistenie priradenej miestnosti udalosti
+  const getEventRoomId = useCallback((evt: CalendarEvent): string => {
+    if (evt.roomId) return evt.roomId;
+    if (evt.type === 'operacia') return 'sala_say';
+    return 'ambulancia';
+  }, []);
+
+  // Dnešný dátum v tvare YYYY-MM-DD synchronizovaný s hodinami
+  const todayString = useMemo(() => {
+    const d = currentTime || new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, [currentTime]);
+
+  // Dnešné časové udalosti a zákroky pre Homescreen (celodenné udalosti sú vylúčené)
   const todayEvents = useMemo(() => {
     const seen = new Set<string>();
-    return calendarEvents.filter((e) => {
+    const list = calendarEvents.filter((e) => {
       if (!e || e.date !== todayString) return false;
+      // Nezahrnúť celodenné udalosti (dovolenky, sanitárne dni, celodenné záznamy)
+      const isAllDay = Boolean(e.isAllDay || !e.startTime || (e.startTime === '00:00' && (e.endTime === '23:59' || e.endTime === '00:00')));
+      if (isAllDay) return false;
       const key = e.id || `${e.title}-${e.startTime}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+    return list.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
   }, [calendarEvents, todayString]);
+
+  // Filtrované dnešné udalosti podľa vybranej miestnosti
+  const filteredTodayEvents = useMemo(() => {
+    if (todayRoomFilter === 'all') return todayEvents;
+    if (todayRoomFilter === 'operacky_all') {
+      return todayEvents.filter((e) => {
+        const rId = getEventRoomId(e);
+        return rId === 'sala_say' || rId === 'sala_rudlova' || e.type === 'operacia';
+      });
+    }
+    return todayEvents.filter((e) => getEventRoomId(e) === todayRoomFilter);
+  }, [todayEvents, todayRoomFilter, getEventRoomId]);
+
+  // Aktuálny čas v minútach od začiatku dňa
+  const nowMinutes = useMemo(() => {
+    if (!currentTime) return null;
+    return currentTime.getHours() * 60 + currentTime.getMinutes();
+  }, [currentTime]);
+
+  // Počet udalostí pre danú kategóriu / miestnosť
+  const getRoomEventCount = useCallback((tabId: string) => {
+    if (tabId === 'all') return todayEvents.length;
+    if (tabId === 'operacky_all') {
+      return todayEvents.filter((e) => {
+        const rId = getEventRoomId(e);
+        return rId === 'sala_say' || rId === 'sala_rudlova' || e.type === 'operacia';
+      });
+    }
+    return todayEvents.filter((e) => getEventRoomId(e) === tabId).length;
+  }, [todayEvents, getEventRoomId]);
+
+  // Identifikácia najbližšej nasledujúcej udalosti
+  const { nextUpcomingEventId } = useMemo(() => {
+    if (nowMinutes === null || todayEvents.length === 0) {
+      return { ongoingEventId: null, nextUpcomingEventId: null };
+    }
+
+    const parseTimeToMin = (t?: string) => {
+      if (!t) return 0;
+      const [h, m] = t.split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+
+    // 1. Najprv hľadáme udalosť, ktorá práve prebieha
+    const ongoing = todayEvents.find((e) => {
+      if (e.isCancelled) return false;
+      const s = parseTimeToMin(e.startTime);
+      const end = parseTimeToMin(e.endTime) || (s + 30);
+      return nowMinutes >= s && nowMinutes < end;
+    });
+
+    if (ongoing) {
+      return { ongoingEventId: ongoing.id, nextUpcomingEventId: null };
+    }
+
+    // 2. Ak žiadna udalosť neprebieha, určíme najbližšiu nadchádzajúcu dnes
+    const upcoming = todayEvents
+      .filter((e) => !e.isCancelled && parseTimeToMin(e.startTime) > nowMinutes)
+      .sort((a, b) => parseTimeToMin(a.startTime) - parseTimeToMin(b.startTime));
+
+    return { ongoingEventId: null, nextUpcomingEventId: upcoming[0]?.id || null };
+  }, [todayEvents, nowMinutes]);
 
   // Počas úvodného SSR a hydratácie zobrazíme jednotný čistý loader, aby sa zamedzilo akémukoľvek hydration mismatch
   if (!isMounted) {
@@ -1385,16 +1482,11 @@ export default function Home() {
                     </p>
                   </div>
 
-                  {/* ŠTATISTICKÉ UKAZOVATELE S JEMNÝM PREDELOM */}
+                  {/* ŠTATISTICKÝ UKAZOVATEĽ */}
                   <div className="hidden xl:flex items-center gap-6 px-4">
                     <div className="text-right">
                       <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#8C857B] block">Dnes na pláne</span>
                       <span className="font-brand text-xl font-bold text-[#2C2A29] tabular-nums">{todayEvents.length} {todayEvents.length === 1 ? 'zákrok' : 'výkonov'}</span>
-                    </div>
-                    <div className="h-7 w-px bg-[#E8E2D9]/80" />
-                    <div className="text-right">
-                      <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#8C857B] block">Kartotéka</span>
-                      <span className="font-brand text-xl font-bold text-[#2C2A29] tabular-nums">{patients.length} pacientov</span>
                     </div>
                   </div>
 
@@ -1455,37 +1547,165 @@ export default function Home() {
                       </button>
                     </div>
 
+                    {/* PREPÍNAČ MIESTNOSTÍ PRE DNEŠNÝ HARMONOGRAM */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
+                      {SCHEDULE_ROOM_TABS.map((tab) => {
+                        const count = getRoomEventCount(tab.id);
+                        const isSelected = todayRoomFilter === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setTodayRoomFilter(tab.id)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-2xs scale-[1.02]'
+                                : 'bg-[#FAF8F5] text-[#6B6357] hover:bg-white hover:text-[#2C2A29] border-[#E8E2D9]'
+                            }`}
+                          >
+                            <span>{tab.icon}</span>
+                            <span>{tab.label}</span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                                isSelected
+                                  ? 'bg-white/20 text-white'
+                                  : count > 0
+                                  ? 'bg-amber-100 text-amber-900'
+                                  : 'bg-black/5 text-[#8C857B]'
+                              }`}
+                            >
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <div className="space-y-2.5">
-                      {todayEvents.length === 0 ? (
-                        <div className="text-center py-12 text-[#8C857B] text-xs italic bg-[#FBF9F6]/60 rounded-xl border border-dashed border-[#E8E2D9]">
-                          Na dnešný deň nie sú naplánované žiadne udalosti v kalendári.
+                      {filteredTodayEvents.length === 0 ? (
+                        <div className="text-center py-10 text-[#8C857B] text-xs bg-[#FBF9F6]/60 rounded-xl border border-dashed border-[#E8E2D9] space-y-2">
+                          <p>
+                            {todayEvents.length === 0
+                              ? 'Na dnešný deň nie sú naplánované žiadne udalosti v kalendári.'
+                              : `V kategórii "${SCHEDULE_ROOM_TABS.find(t => t.id === todayRoomFilter)?.label || 'Zvolená miestnosť'}" na dnes nie sú žiadne zákroky.`}
+                          </p>
+                          {todayEvents.length > 0 && todayRoomFilter !== 'all' ? (
+                            <button
+                              type="button"
+                              onClick={() => setTodayRoomFilter('all')}
+                              className="text-[11px] text-[#C5A059] font-bold hover:underline cursor-pointer"
+                            >
+                              Zobraziť všetky dnešné zákroky ({todayEvents.length}) →
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => changeTab('calendar')}
+                              className="px-3.5 py-1.5 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer mt-1"
+                            >
+                              <span>+</span>
+                              <span>Naplánovať termín v kalendári</span>
+                            </button>
+                          )}
                         </div>
                       ) : (
-                        <div className={`grid gap-3 ${todayEvents.length > 1 ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
-                          {todayEvents.map((evt, idx) => (
-                            <div 
-                              key={`${evt.id || 'today-evt'}-${idx}`} 
-                              onClick={() => handleOpenPatientFromCalendar(evt.patientId || '')}
-                              className="p-3.5 border border-[#E8E2D9]/80 hover:border-[#C5A059] rounded-xl flex justify-between items-center bg-[#FBF9F6]/50 hover:bg-white transition-all cursor-pointer group"
-                            >
-                              <div className="flex items-center gap-3.5 min-w-0">
-                                <div className="border-r border-[#E8E2D9] pr-3.5 text-right font-mono min-w-[64px] shrink-0">
-                                  <span className="text-xs font-bold text-[#2C2A29] block">{evt.startTime}</span>
-                                  <span className="text-[10px] text-[#C5A059] block">{evt.endTime}</span>
+                        <div className={`grid gap-3 ${filteredTodayEvents.length > 1 ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
+                          {filteredTodayEvents.map((evt, idx) => {
+                            const parseTimeToMin = (t?: string) => {
+                              if (!t) return 0;
+                              const [h, m] = t.split(':').map(Number);
+                              return (h || 0) * 60 + (m || 0);
+                            };
+                            const startMin = parseTimeToMin(evt.startTime);
+                            const endMin = parseTimeToMin(evt.endTime) || (startMin + 45);
+                            const isOngoing = nowMinutes !== null && !evt.isCancelled && nowMinutes >= startMin && nowMinutes < endMin;
+                            const isNext = !isOngoing && evt.id === nextUpcomingEventId;
+                            const isPast = nowMinutes !== null && !evt.isCancelled && nowMinutes >= endMin;
+                            const roomInfo = getRoomInfo(getEventRoomId(evt));
+                            const remainingMin = nowMinutes !== null ? Math.max(0, endMin - nowMinutes) : 0;
+                            const minutesUntil = nowMinutes !== null ? Math.max(0, startMin - nowMinutes) : 0;
+
+                            return (
+                              <div 
+                                key={`${evt.id || 'today-evt'}-${idx}`} 
+                                onClick={() => handleOpenPatientFromCalendar(evt.patientId || '', evt.patientName)}
+                                className={`p-4 rounded-xl border transition-all cursor-pointer group flex flex-col justify-between gap-3 relative overflow-hidden ${
+                                  isOngoing
+                                    ? 'bg-gradient-to-r from-amber-50/95 via-white to-amber-50/40 border-[#C5A059] ring-2 ring-[#C5A059]/40 shadow-md border-l-4 border-l-[#C5A059]'
+                                    : isNext
+                                    ? 'bg-white border-[#C5A059]/60 hover:border-[#C5A059] shadow-xs border-l-4 border-l-[#C5A059]/60'
+                                    : isPast
+                                    ? 'bg-[#FBF9F6]/50 border-[#E8E2D9]/70 opacity-70 hover:opacity-100'
+                                    : 'bg-[#FBF9F6]/50 hover:bg-white border-[#E8E2D9]/80 hover:border-[#C5A059]'
+                                }`}
+                              >
+                                {/* VRCHNÁ LIŠTA: ČAS, MIESTNOSŤ A STAV PRÁVE PREBIEHA */}
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {/* Časový interval */}
+                                    <div className="flex items-center gap-1 font-mono text-xs font-bold text-[#2C2A29] bg-white px-2 py-0.5 rounded-md border border-[#E8E2D9] shadow-2xs">
+                                      <span className={isOngoing ? 'text-[#C5A059]' : 'text-[#2C2A29]'}>{evt.startTime}</span>
+                                      <span className="text-[#8C857B] font-normal">–</span>
+                                      <span className="text-[#8C857B]">{evt.endTime}</span>
+                                    </div>
+
+                                    {/* Miestnosť (Ambulancia, Operačky...) */}
+                                    <span 
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${roomInfo.badgeBg || 'bg-gray-100 text-gray-800 border-gray-200'}`}
+                                      title={roomInfo.name}
+                                    >
+                                      <span>{roomInfo.icon}</span>
+                                      <span>{roomInfo.shortName || roomInfo.name}</span>
+                                    </span>
+
+                                    {/* Typ zákroku */}
+                                    <span className="text-[9px] uppercase font-bold tracking-wider text-[#8C857B] bg-black/5 px-2 py-0.5 rounded-md">
+                                      {evt.type ? evt.type.replace('_', ' ') : 'ZÁKROK'}
+                                    </span>
+                                  </div>
+
+                                  {/* Indikátor aktuálneho stavu */}
+                                  {isOngoing ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#C5A059] text-white shadow-xs animate-pulse">
+                                      <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                                      </span>
+                                      <span>PRÁVE PREBIEHA</span>
+                                      <span className="text-white/80 font-normal font-mono text-[9px] border-l border-white/30 pl-1.5">
+                                        zostáva {remainingMin} min
+                                      </span>
+                                    </span>
+                                  ) : isNext ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                      <span>⏱️</span>
+                                      <span>Nasleduje o {minutesUntil} min</span>
+                                    </span>
+                                  ) : isPast ? (
+                                    <span className="text-[9px] font-semibold text-[#8C857B] flex items-center gap-1 bg-black/5 px-2 py-0.5 rounded-full">
+                                      <span>✓</span> Ukončené
+                                    </span>
+                                  ) : null}
                                 </div>
-                                <div className="min-w-0">
-                                  <span className="text-[9px] uppercase font-bold tracking-wider text-[#C5A059] block">
-                                    {evt.type ? evt.type.replace('_', ' ') : 'ZÁKROK'}
-                                  </span>
-                                  <h4 className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors truncate">
-                                    {evt.title}
-                                  </h4>
-                                  <p className="text-xs text-[#8C857B] truncate">{evt.patientName} · {evt.doctorName}</p>
+
+                                {/* STREDOVÁ ČASŤ: NÁZOV ZÁKROKU A PACIENT */}
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className={`font-bold text-sm truncate transition-colors ${isOngoing ? 'text-[#C5A059]' : 'text-[#2C2A29] group-hover:text-[#C5A059]'}`}>
+                                      {evt.title}
+                                    </h4>
+                                    <p className="text-xs text-[#8C857B] truncate mt-0.5 flex items-center gap-2">
+                                      <span className="font-semibold text-[#2C2A29]">👤 {evt.patientName}</span>
+                                      <span>·</span>
+                                      <span>🩺 {evt.doctorName || evt.operator}</span>
+                                    </p>
+                                  </div>
+
+                                  <ChevronRight className={`w-4 h-4 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all shrink-0 ${isOngoing ? 'text-[#C5A059]' : ''}`} />
                                 </div>
                               </div>
-                              <ChevronRight className="w-4 h-4 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>

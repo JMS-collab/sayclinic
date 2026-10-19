@@ -1,6 +1,6 @@
 {
-  "summary": "Implementácia trvalého ukladania a synchronizácie údajov pacientov (vrátane reálnych údajov Jána Mráza) do Firebase Firestore a Google Drive. Odstránenie prepisovania zmenených údajov hardkódovanými fiktívnymi hodnotami.",
-  "updatedAt": "2026-10-16T11:14:16.690237528Z",
+  "summary": "Komplexný plán na bezpečné odstránenie všetkých fiktívnych a vzorových dát (mock pacientov, termínov kalendára, Meicet analýz, skladových zápisov) pri zachovaní reálnych používateľských účtov tímu SAY CLINIC a klinických šablón.",
+  "updatedAt": "2026-10-19T15:54:48.617386298Z",
   "requestFeedback": true,
   "userFacing": true
 }

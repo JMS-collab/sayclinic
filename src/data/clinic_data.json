@@ -1,13 +1,13 @@
 {
   "patient_presence": {
-    "P2": {
+    "drive-patient-1DJOXeAI5htY72YtN0aNWN5UxaLICQGpZ": {
       "u1": {
         "userId": "u1",
         "userName": "MUDr. Ján Mráz",
         "userTitle": "Plastický chirurg & CEO",
         "userRole": "ceo",
         "avatarUrl": "/avatars/mraz.jpg?v=4",
-        "lastSeen": 1792149426692
+        "lastSeen": 1792423905918
       }
     }
   },
