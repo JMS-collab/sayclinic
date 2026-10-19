@@ -48,7 +48,54 @@ import { PatientCloudService } from '../services/patientCloudService';
 import GoogleDriveModal from './GoogleDriveModal';
 import { LiquidAvatar } from './LiquidAvatar';
 
-const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {};
+const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
+  P1: [
+    {
+      id: 'plan-demo-1',
+      patientId: 'P1',
+      patientName: 'Mária Kováčová',
+      patientBirthNumber: '885512/6789',
+      createdAt: '2026-02-15T10:00:00.000Z',
+      updatedAt: '2026-02-15T10:00:00.000Z',
+      doctorName: 'MUDr. Ján Mráz',
+      ...PRESET_PATIENT_PLANS.breast_surgery_care
+    } as PatientPlan,
+    {
+      id: 'plan-demo-2',
+      patientId: 'P1',
+      patientName: 'Mária Kováčová',
+      patientBirthNumber: '885512/6789',
+      createdAt: '2026-01-10T14:30:00.000Z',
+      updatedAt: '2026-01-10T14:30:00.000Z',
+      doctorName: 'MUDr. Ján Mráz',
+      ...PRESET_PATIENT_PLANS.face_annual_rejuvenation
+    } as PatientPlan
+  ],
+  P2: [
+    {
+      id: 'plan-demo-3',
+      patientId: 'P2',
+      patientName: 'Ján Novák',
+      patientBirthNumber: '750314/1234',
+      createdAt: '2026-02-01T09:00:00.000Z',
+      updatedAt: '2026-02-01T09:00:00.000Z',
+      doctorName: 'MUDr. Ján Mráz',
+      ...PRESET_PATIENT_PLANS.blepharoplasty_care
+    } as PatientPlan
+  ],
+  P3: [
+    {
+      id: 'plan-demo-4',
+      patientId: 'P3',
+      patientName: 'Ján Mráz',
+      patientBirthNumber: '',
+      createdAt: '2026-06-15T10:00:00.000Z',
+      updatedAt: '2026-06-15T10:00:00.000Z',
+      doctorName: 'MUDr. Ján Mráz',
+      ...PRESET_PATIENT_PLANS.face_annual_rejuvenation
+    } as PatientPlan
+  ]
+};
 
 export interface Patient {
   id: string;
@@ -81,7 +128,11 @@ export interface MedicalRecord {
   patientBirthNumber?: string;
 }
 
-export const MOCK_PATIENTS: Patient[] = [];
+export const MOCK_PATIENTS: Patient[] = [
+  { id: 'P1', name: 'Mária Kováčová', birthNumber: '885512/6789', phone: '+421 905 123 456', email: 'maria.kovacova@email.sk', address: 'Slnečná 15, Banská Bystrica', dob: '12.05.1988', insurance: '24 (Dôvera)' },
+  { id: 'P2', name: 'Ján Novák', birthNumber: '750314/1234', phone: '+421 948 987 654', email: 'novak.j@email.sk', address: 'Kvetná 8, Zvolen', dob: '14.03.1975', insurance: '25 (VšZP)' },
+  { id: 'P3', name: 'Ján Mráz', birthNumber: '', phone: '', email: 'mraz@sayclinic.sk', address: 'Lazovná 43, Banská Bystrica', dob: '', insurance: 'Dôvera' },
+];
 
 const PHOTO_CATEGORIES = ['Konzultácia', 'Predoperačné', 'Pooperačné', '1. mesiac', '6. mesiac', '1 rok'];
 
