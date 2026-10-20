@@ -304,9 +304,95 @@ export default function Home() {
     };
   }, []);
 
-  // 1. ZACHOVANIE AKTÍVNEHO PRIHLÁSENIA LEKÁRA AJ PO OBNOVENÍ STRÁNKY (F5 / REFRESH)
+  // 1. ZACHOVANIE AKTÍVNEHO PRIHLÁSENIA LEKÁRA AJ PO OBNOVENÍ STRÁNKY (F5 / REFRESH) & SANITIZÁCIA CACHE
   useEffect(() => {
     setIsMounted(true);
+
+    // JEDNORAZOVÉ DÔKLADNÉ VYČISTENIE MOCK ÚDAJOV Z LOKÁLNEJ CACHE PREHLIADAČA
+    try {
+      const cleanupVersionKey = 'say_clinic_mock_purged_v2';
+      if (typeof window !== 'undefined' && !localStorage.getItem(cleanupVersionKey)) {
+        // 1. Pacienti
+        const rawPatients = localStorage.getItem('say_clinic_patients');
+        if (rawPatients) {
+          const parsed = JSON.parse(rawPatients);
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.filter((p: any) => p && !['P1', 'P2', 'P3'].includes(p.id));
+            localStorage.setItem('say_clinic_patients', JSON.stringify(cleaned));
+          }
+        }
+        // 2. Zdravotné záznamy
+        const rawRecords = localStorage.getItem('say_clinic_patient_records');
+        if (rawRecords) {
+          const parsed = JSON.parse(rawRecords);
+          if (parsed && typeof parsed === 'object') {
+            delete parsed['P1'];
+            delete parsed['P2'];
+            delete parsed['P3'];
+            localStorage.setItem('say_clinic_patient_records', JSON.stringify(parsed));
+          }
+        }
+        // 3. Plány pacientov
+        const rawPlans = localStorage.getItem('say_clinic_patient_plans');
+        if (rawPlans) {
+          const parsed = JSON.parse(rawPlans);
+          if (parsed && typeof parsed === 'object') {
+            delete parsed['P1'];
+            delete parsed['P2'];
+            delete parsed['P3'];
+            localStorage.setItem('say_clinic_patient_plans', JSON.stringify(parsed));
+          }
+        }
+        // 4. Meicet reporty
+        const rawMeicet = localStorage.getItem('say_clinic_meicet_reports');
+        if (rawMeicet) {
+          const parsed = JSON.parse(rawMeicet);
+          if (parsed && typeof parsed === 'object') {
+            delete parsed['P1'];
+            delete parsed['P2'];
+            delete parsed['P3'];
+            localStorage.setItem('say_clinic_meicet_reports', JSON.stringify(parsed));
+          }
+        }
+        // 5. Opiátová kniha & spotreba
+        const rawOplLogs = localStorage.getItem('say_clinic_opiate_book_logs_v1');
+        if (rawOplLogs) {
+          const parsed = JSON.parse(rawOplLogs);
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.filter((l: any) => l && !['P1', 'P2', 'P3'].includes(l.patientId) && !l.id?.startsWith('opl-log-'));
+            localStorage.setItem('say_clinic_opiate_book_logs_v1', JSON.stringify(cleaned));
+          }
+        }
+        const rawUsageLogs = localStorage.getItem('say_clinic_material_usage_logs_v2');
+        if (rawUsageLogs) {
+          const parsed = JSON.parse(rawUsageLogs);
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.filter((l: any) => l && !['P1', 'P2', 'P3'].includes(l.patientId) && !l.id?.startsWith('log-init-'));
+            localStorage.setItem('say_clinic_material_usage_logs_v2', JSON.stringify(cleaned));
+          }
+        }
+        // 6. Fiktívne skladové položky
+        const rawInv = localStorage.getItem('say_clinic_inventory_v2');
+        if (rawInv) {
+          const parsed = JSON.parse(rawInv);
+          if (Array.isArray(parsed) && parsed.some((item: any) => item.id?.startsWith('inv-'))) {
+            localStorage.setItem('say_clinic_inventory_v2', JSON.stringify([]));
+          }
+        }
+        // 7. Aktívny rozpracovaný pacient
+        const rawActive = localStorage.getItem('say_clinic_active_patient_session_v1');
+        if (rawActive) {
+          const parsed = JSON.parse(rawActive);
+          if (parsed && ['P1', 'P2', 'P3'].includes(parsed.id)) {
+            localStorage.removeItem('say_clinic_active_patient_session_v1');
+          }
+        }
+        localStorage.setItem(cleanupVersionKey, 'true');
+      }
+    } catch (cleanErr) {
+      console.warn('Čistenie starej lokálnej cache:', cleanErr);
+    }
+
     // Overenie a obnovenie aktívnej relácie lekára
     const activeSessionUser = AuthService.getCurrentSession();
     if (activeSessionUser) {
@@ -507,21 +593,14 @@ export default function Home() {
 
   // Načítanie pacientov a synchronizácia s Firestore Cloud
   useEffect(() => {
-    const cached = PatientCloudService.getCachedPatients();
+    const cached = PatientCloudService.getCachedPatients().filter(p => p && !['P1', 'P2', 'P3'].includes(p.id));
     if (cached.length > 0) {
       setPatients(cached);
     }
 
     const unsubscribe = PatientCloudService.subscribePatients((cloudPatients) => {
-      if (cloudPatients && cloudPatients.length > 0) {
-        setPatients(cloudPatients);
-      } else if (cached.length === 0) {
-        PatientCloudService.seedIfEmpty(MOCK_PATIENTS).then(seeded => {
-          if (seeded && seeded.length > 0) {
-            setPatients(seeded);
-          }
-        });
-      }
+      const valid = (cloudPatients || []).filter(p => p && !['P1', 'P2', 'P3'].includes(p.id));
+      setPatients(valid);
     });
 
     return () => unsubscribe();
@@ -533,7 +612,7 @@ export default function Home() {
       const saved = localStorage.getItem('say_clinic_active_patient_session_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.id) {
+        if (parsed && parsed.id && !['P1', 'P2', 'P3'].includes(parsed.id)) {
           setActivePatient(parsed);
           setSelectedPatientForFolder(parsed);
           setSelectedPatient({
@@ -544,6 +623,8 @@ export default function Home() {
             address: parsed.address,
             insurance: parsed.insurance
           });
+        } else if (parsed && ['P1', 'P2', 'P3'].includes(parsed.id)) {
+          localStorage.removeItem('say_clinic_active_patient_session_v1');
         }
       }
     } catch {
@@ -585,11 +666,13 @@ export default function Home() {
     RealtimeSyncService.init();
 
     const unsubPatients = RealtimeSyncService.subscribe('patients', (updated) => {
-      if (Array.isArray(updated) && updated.length > 0) {
-        setPatients(updated);
+      if (Array.isArray(updated)) {
+        const filtered = updated.filter((p: Patient) => p && !['P1', 'P2', 'P3'].includes(p.id));
+        setPatients(filtered);
         setActivePatient((prev) => {
           if (!prev) return null;
-          const refreshed = updated.find((p: Patient) => p.id === prev.id);
+          if (['P1', 'P2', 'P3'].includes(prev.id)) return null;
+          const refreshed = filtered.find((p: Patient) => p.id === prev.id);
           return refreshed || prev;
         });
       }

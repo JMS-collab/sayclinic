@@ -265,7 +265,13 @@ export default function Calendar({
       try {
         const parsed = JSON.parse(cachedEvents);
         if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter((e: any) => !e.id?.startsWith('seed-') && !e.id?.startsWith('demo-'));
+          const cleaned = parsed.filter((e: any) => 
+            !e.id?.startsWith('seed-') && 
+            !e.id?.startsWith('demo-') &&
+            !['P1', 'P2', 'P3'].includes(e.patientId) &&
+            !e.patientName?.includes('Mária Kováčová') &&
+            !e.patientName?.includes('Ján Novák')
+          );
           const formatted: CalendarEvent[] = cleaned.map((e: any) => ({
             ...e,
             roomId: e.roomId || (e.type === 'operacia' ? 'sala_say' : 'ambulancia'),

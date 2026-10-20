@@ -1,105 +1,108 @@
-# Vyčistenie fiktívnych a vzorových dát (Production Data Sanitization)
+# Komplexné vyčistenie vzorových a mock údajov SAY CLINIC OS
 
-Kompletná očista ambulantného systému SAY CLINIC od fiktívnych pacientov, demo vyšetrení, vzorových termínov v kalendári a vymyslených skladových záznamov do stavu ostrého štartu (Zero-State), pri striktnom zachovaní tímových účtov a medicínskych šablón.
+Kompletné odstránenie všetkých fiktívnych a vzorových dát zo systému SAY CLINIC — vrátane testovacích pacientov, dekurzov, operačných protokolov, Meicet analýz, kalendárových termínov a skladových zásob, pri striktnom zachovaní autentifikovaných účtov tímu SAY CLINIC a odborných lekárskych šablón.
 
-## User Review & Critical Decisions
+---
+
+## Prehľad overených rozhodnutí (User Decisions)
 
 > [!IMPORTANT]
-> Na základe Vašich odpovedí v úvodnom dialógu sú kľúčové mantinely vyčistenia určené nasledovne:
-
-- **Potvrdené na vymazanie**:
-  - **Vz釐oroví pacienti a fiktívne dekurzy**: Odstránenie mock pacientov (`Mária Kováčová`, `Ján Novák` atď.), ich zdravotných záznamov, liečebných plánov a fotodokumentácie.
-  - **Termíny a kalendár**: Vymazanie akýchkoľvek predvyplnených demo termínov, operácií a kontrol.
-  - **Meicet & Dermatológia**: Odstránenie demo skenov pleti a testovacích dermatologických nálezov.
-  - **Sklad & Opiátová kniha**: Vyčistenie fiktívnych zápisov o spotrebe materiálu a demo výdajov omamných látok.
-- **Potvrdené na zachovanie**:
-  - **Tím kliniky SAY CLINIC**: Zachovanie všetkých autentifikačných profilov (MUDr. Ján Mráz, manažment, lekári a sestry) a ich oprávnení v systéme.
-  - **Medicínske šablóny & Číselníky**: Zachovanie vzorov informovaných súhlasov, operačných postupov, receptového kalibrátora a materiálových balíčkov.
-- **Rozsah prečistenia úložísk**:
-  - Prečistenie predvolených dát v zdrojovom kóde aplikácie, lokálnej cache prehliadača (`localStorage`) a synchronizácia s databázou Firestore.
+> Na základe Vašich predchádzajúcich odpovedí v dotazníku boli schválené nasledujúce parametre vyčistenia:
+> - **Vymazať:** Všetkých vzorových pacientov (Mária Kováčová P1, Ján Novák P2, Ján Mráz P3 ako pacient) a ich fiktívne záznamy (dekurzy, vstupné vyšetrenia, operačné protokoly, fotodokumentáciu, finančné profily a pooperačné plány).
+> - **Vymazať:** Všetky vzorové termíny a udalosti v kalendári (vrátane starých seed udalostí).
+> - **Vymazať:** Všetky vzorové Meicet analýzy, dermatologické vyšetrenia a generované demo skeny.
+> - **Vymazať:** Fiktívne skladové zásoby, demo logy opiátovej knihy a vzorovú spotrebu materiálu.
+> - **Ponechať:** Členov tímu SAY CLINIC (prihlasovacie kontá, roly, PINy, šifrované heslá v systéme) a lekárske šablóny (informované súhlasy, databázu MKCH, katalóg liekov na receptoch, typy výkonov a miestnosti).
 
 ---
 
-## 1. Overview & Core Concept
+## 1. Prehľad & Hlavný cieľ
 
-- **Čo táto zmena prinesie**: Ambulantný systém prejde z demonštračného režimu do čistého, bezpečného produkčného stavu. Databáza pacientov, harmonogram dňa, skladové knihy a diagnostika budú pripravené na zadávanie skutočných údajov reálnych klientov kliniky.
-- **Cieľová skupina**: Primár a zakladateľ (MUDr. Ján Mráz), lekári, operačné sestry a manažment kliniky SAY CLINIC.
-- **Kľúčová hodnota**: Odstránenie rizika zámeny testovacích dát so skutočnými zdravotnými záznamami a čistá evidencia v súlade s GDPR a požiadavkami na zdravotnícku dokumentáciu.
-
----
-
-## 2. User Experience & Visual Design
-
-### Key User Flows (Zero-State zážitok)
-1. **Kartotéka 360°**:
-   - Namiesto zoznamu testovacích mien sa zobrazí čistý, luxusný nulový stav: *"Kartotéka je pripravená na evidenciu prvého pacienta"* s prominentným tlačidlom pre zaevidovanie nového pacienta.
-   - Vyhľadávací riadok a filtre zostávajú okamžite responzívne.
-2. **Dnešný harmonogram a kalendár**:
-   - V harmonograme na prehľade sa zobrazí kultivovaný prázdny stav pre vybrané miestnosti: *"Na dnešný deň nie sú naplánované žiadne zákroky"* s rýchlou akciou na pridanie termínu.
-   - Časová os a prepínanie miestností (Ambulancia, Operačky SAY, Rudlová, Dospávanie) zostávajú 100% funkčné.
-3. **Meicet diagnostika pleti**:
-   - Čisté rozhranie pripravené na priame nahratie alebo import skutočného Meicet reportu z prístroja.
-4. **Sklad & Kniha OPL (Opiáty)**:
-   - Úradná kniha OPL bude pripravená na prvý oficiálny príjem liečiv z lekárne na žiadanku, bez fiktívnych záznamov o spotrebe.
-
-### Vizuálna identita a štýl
-- **Farebná paleta**: Jemné podkladové tóny slonovej kosti (`#FBF9F6`), čistá biela (`#FFFFFF`), teplé zlaté akcenty (`#C5A059`) a luxusná antracitová (`#2C2A29`).
-- **Typografia**: Serifové titulky fontu kliniky, ostré bezserifové texty a tabular-nums pre všetky časové a číselné údaje.
-- **Dizajnová disciplína**: Žiadne preplnené grafické prvky; precízne prázdne stavy s jasnou výzvou na akciu (Call to Action).
+Cieľom úpravy je uviesť operačný systém SAY CLINIC do **100% stavu pripravenosti na ostrú klinickú prevádzku (Clean Production State)**. Po vyčistení bude systém:
+1. Otvárať čistú kartotéku s profesionálnym uvítacím stavom („Žiadni pacienti v kartotéke – kliknite na Pridať pacienta“).
+2. Zobrazovať prázdny kalendár pripravený na reálne synchronizované termíny z Google Kalendára alebo manuálne plánovanie.
+3. Poskytovať prázdny sklad a opiátovú knihu s nulovou spotrebou, pripravené na naskladnenie reálnych šarží a expirácií.
+4. Zachovávať plnú funkcionalitu všetkých lekárskych šablón, kalkulácií, MKCH kódovníka a tímového prístupu lekárov, sestier a manažmentu.
 
 ---
 
-## 3. Key Product Decisions & Trade-Offs
+## 2. Používateľská skúsenosť & Vizuálny dizajn prázdnych stavov (Empty States)
 
-- **Rozhodnutie 1: Zachovanie štruktúry dátových typov a rozhraní**
-  - *Zvolený prístup*: Ponechať všetky TypeScript rozhrania, validačné pravidlá a štruktúry polí nedotknuté, len inicializovať polia na prázdne zoznamy `[]`.
-  - *Dôvod*: Garantuje 100% stabilitu kódu, TypeScript kompiláciu a nulový výskyt chýb `undefined`.
-- **Rozhodnutie 2: Vypnutie automatického opätovného seedovania**
-  - *Zvolený prístup*: V `PatientCloudService.seedIfEmpty` a v kalendárových službách deaktivovať opätovné nahrávanie demo pacientov do Firestore.
-  - *Dôvod*: Ak by sa prázdna databáza opakovane zaplnila demo dátami, vyčistenie by nebolo trvalé.
-- **Rozhodnutie 3: Bezpečný prechod používateľských účtov a hesiel**
-  - *Zvolený prístup*: Účty personálu v `credentials.json` a `clinic_data.json` zostávajú zachované, vrátane PIN staníc a prístupov.
-  - *Dôvod*: Používateľ mraz@sayclinic.sk aj personál sa musia bez prerušenia vedieť prihlásiť a pracovať.
+Po vyčistení dát sa v žiadnej sekcii nezobrazia chybové hlášky ani „rozbité“ tabuľky, ale elegantné klinické prázdne stavy v korporátnej identite SAY CLINIC (tmavá antracitová `#2C2A29`, zlatá `#C5A059`, teplé béžové pozadie `#FAF8F5`):
+
+- **Kartotéka pacientov**:
+  - Elegantný prázdny stav s ikonou zložky a tlačidlom `+ Nový pacient`.
+  - Po kliknutí sa otvorí formulár na zadanie mena, rodného čísla, poisťovne a Google Drive priečinka.
+- **Dnešný harmonogram a Kalendár**:
+  - Hlásenie: *„Na dnes nie sú naplánované žiadne objednané výkony ani vyšetrenia.“*
+  - Tlačidlo pre rýchle naplánovanie nového termínu alebo synchronizáciu s Google Workspace.
+- **Sklad & Opiátová kniha**:
+  - Kniha omamných a psychotropných látok (OPL) začína s čistým evidenčným stavom v zmysle zákona NR SR č. 139/1998 Z. z. bez fiktívnych zápisov.
+  - Možnosť zaevidovať prvý riadny príjem z nemocničnej lekárne so šaržou, expiráciou a podpisom lekára.
+- **Meicet Pro-A & Dermatológia**:
+  - Odstránenie automaticky predvyplnených fiktívnych grafov a percentilov.
+  - Zobrazenie prehľadnej zóny na nahratie reálneho PDF reportu z prístroja Meicet.
 
 ---
 
-## 4. Technical Architecture & Data Strategy
+## 3. Kľúčové produktové a technické rozhodnutia
+
+### Rozhodnutie 1: Centrálne vyčistenie synchronizačného súboru `clinic_data.json`
+- **Prístup**: Odstránenie 100 000+ riadkov fiktívnych záznamov, starých seed finančných profilov a testovacích dekurzov priamo na serveri v `src/data/clinic_data.json`.
+- **Dôvod**: Ak by sa vyčistil iba frontendový kód, serverový synchronizátor `/api/sync` a SSE by pri každom načítaní znovu „nanútili“ staré mock profily a pacientov do prehliadača.
+
+### Rozhodnutie 2: Bezpečný reset lokálnej pamäte (localStorage Migration Guard)
+- **Prístup**: Pridanie automatického čistiaceho mechanizmu pri prvom štarte verzie, ktorý vyčistí kľúče `say_clinic_patients`, `say_clinic_patient_records`, `say_clinic_client_financial_profiles_v1`, `say_clinic_material_usage_logs_v2`, `say_clinic_calendar_events` od záznamov obsahujúcich ID `P1`, `P2`, `P3`, `rec-1`, `seed-`, `demo-`.
+- **Dôvod**: Prehliadače používateľov majú mock dáta uložené v cache. Bez tohto kroku by používateľ aj po nasadení nového kódu videl starých pacientov.
+
+### Rozhodnutie 3: Ponechanie personálu a lekárskych šablón
+- **Prístup**: `credentials.json` a `userService.ts` zostávajú kompletne neporušené so všetkými zamestnancami (MUDr. Ján Mráz, Ing. Barbara Mecerodová, Sabina Lenhartová, atď.).
+- **Dôvod**: Tím sa musí vedieť okamžite prihlásiť heslom, PINom alebo cez Google Workspace bez nutnosti opätovného vytvárania účtov.
+
+---
+
+## 4. Architektúra a tok dát po vyčistení
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                   SAY CLINIC - ARCHITEKTÚRA PO VYČISTENÍ               │
-└────────────────────────────────────────────────────────────────────────┘
-
-  [ Užívateľské rozhranie ]
-       │
-       ├─► Kartotéka 360°      ──► Zoznam pacientov: [] (Čistý Zero-State)
-       ├─► Kalendár & Prehľad  ──► Termíny: [] (Aktuálny časový indikátor aktívny)
-       ├─► Diagnostika Meicet   ──► Reporty: [] (Pripravené na skutočné skeny)
-       ├─► Kniha OPL & Sklad   ──► Pohyby: [] (Čistá úradná evidencia)
-       └─► Tím & Autentifikácia ──► Reálny personál SAY CLINIC (Zachovaný)
-       │
-  [ Lokálna Cache & State ]
-       │
-       ├─► localStorage: 'say_clinic_patients' ──► []
-       ├─► localStorage: 'say_clinic_calendar_events' ──► []
-       ├─► localStorage: 'say_clinic_meicet_reports' ──► []
-       └─► localStorage: 'say_clinic_opiate_logs' ──► []
-       │
-  [ Cloud Perzistencia ]
-       │
-       └─► Google Firestore DB: ai-studio-sayclinic-751d0766-fd01-4b85-b8ae-c001837d84cc
-            ├─► Kolekcia 'patients': Vyčistená od mock ID (P1, P2, P3)
-            ├─► Kolekcia 'calendar_events': Bez demo seedov
-            └─► Kolekcia 'users': Aktívne účty personálu kliniky
+┌─────────────────────────────────────────────────────────────┐
+│                    SAY CLINIC OS ECOSYSTEM                  │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+            ┌──────────────────┴──────────────────┐
+            ▼                                     ▼
+┌──────────────────────────────┐    ┌──────────────────────────────┐
+│      ZACHOVANÉ AKTÍVA        │    │      VYČISTENÉ OBLASTI       │
+│  (Persisted Templates & Auth)│    │   (Cleaned Production Data)  │
+├──────────────────────────────┤    ├──────────────────────────────┤
+│ • Autentifikácia tímu        │    │ • Zoznam pacientov: []       │
+│   (credentials.json)         │    │ • Dekurzy a protokoly: {}    │
+│ • Šablóny súhlasov (chirurgia│    │ • Plány pacientov: {}        │
+│ • Katalóg liekov a receptov  │    │ • Meicet reporty: {}         │
+│ • Kódovník MKCH-10           │    │ • Udalosti kalendára: []     │
+│ • Nastavenia miestností klin.│    │ • Opiátové zápisy: []        │
+│ • Balíčky výkonov (definície)│    │ • Skladové zásoby: []        │
+└──────────────────────────────┘    └──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   ČISTÝ SERVEROVÝ STAV                      │
+│      clinic_data.json (resetovaný bez fiktívnych záznamov)  │
+│      Firestore DB (vyčistené testovacie kolekcie)           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Plán implementačných krokov
-1. **Vyčistenie dátových súborov a predvolených konštánt**:
-   - `src/components/PatientDatabase.tsx`: `MOCK_PATIENTS = []`, `INITIAL_DEMO_PLANS = {}`.
-   - `src/services/patientCloudService.ts`: Zamedzenie opätovnému nahratiu mock pacientov v `seedIfEmpty`.
-   - `src/data/meicetDemoData.ts`: Vyprázdnenie `DEMO_MEICET_REPORTS = []`.
-   - `src/services/inventoryService.ts`: Vyprázdnenie `INITIAL_USAGE_LOGS = []` a `INITIAL_OPIATE_LOGS = []`.
-2. **Očista lokálnej vyrovnávacej pamäte a synchronizačného mechanizmu**:
-   - Skript pre jednorazové bezpečné zmazanie kešovaných mock záznamov zo session a `localStorage` pri štarte, aby prehliadač nezobrazoval staré lokálne dáta.
-3. **Kompilácia a overenie integrity**:
-   - Overenie TypeScript typov a úspešná kompilácia cez `compile_applet`.
+---
+
+## 5. Plán realizácie krok za krokom
+
+1. **Vyčistenie dátových súborov a predvolených hodnôt**:
+   - `src/components/PatientDatabase.tsx`: Nastavenie `MOCK_PATIENTS = []`, `INITIAL_DEMO_PLANS = {}`, predvolených `patientRecords = {}`, a `patientPhotos = {}`.
+   - `src/app/page.tsx`: Nastavenie počiatočného stavu pacientov na prázdne pole `[]`.
+   - `src/services/inventoryService.ts`: Reset `INITIAL_INVENTORY = []`, vyčistenie `INITIAL_OPIATE_LOGS = []`, vyčistenie `INITIAL_USAGE_LOGS = []`.
+   - `src/data/cosmeticsCatalog.ts`: Vynulovanie skladových zásob fiktívnych produktov.
+   - `src/data/clinic_data.json`: Vyčistenie kľúčov `patient_records`, `client_financial_profiles`, `patient_presence`, `patients` od mock dát.
+2. **Čistenie klientskej pamäte (Client Cache Sanitizer)**:
+   - Zavedenie jednorazového prečistenia kľúčov `localStorage` pri štarte, aby sa odstránili lokálne nacachované záznamy P1/P2/P3 a staré mock záznamy.
+3. **Overenie funkčnosti a kompilácia**:
+   - Overenie správneho zobrazenia všetkých modulov (Prehľad, Kartotéka, Kalendár, Sklad, Opiáty, POS, Financie) v prázdnom stave.
+   - Spustenie `compile_applet` pre garanciu bezchybného buildu.

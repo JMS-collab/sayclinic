@@ -48,54 +48,7 @@ import { PatientCloudService } from '../services/patientCloudService';
 import GoogleDriveModal from './GoogleDriveModal';
 import { LiquidAvatar } from './LiquidAvatar';
 
-const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {
-  P1: [
-    {
-      id: 'plan-demo-1',
-      patientId: 'P1',
-      patientName: 'Mária Kováčová',
-      patientBirthNumber: '885512/6789',
-      createdAt: '2026-02-15T10:00:00.000Z',
-      updatedAt: '2026-02-15T10:00:00.000Z',
-      doctorName: 'MUDr. Ján Mráz',
-      ...PRESET_PATIENT_PLANS.breast_surgery_care
-    } as PatientPlan,
-    {
-      id: 'plan-demo-2',
-      patientId: 'P1',
-      patientName: 'Mária Kováčová',
-      patientBirthNumber: '885512/6789',
-      createdAt: '2026-01-10T14:30:00.000Z',
-      updatedAt: '2026-01-10T14:30:00.000Z',
-      doctorName: 'MUDr. Ján Mráz',
-      ...PRESET_PATIENT_PLANS.face_annual_rejuvenation
-    } as PatientPlan
-  ],
-  P2: [
-    {
-      id: 'plan-demo-3',
-      patientId: 'P2',
-      patientName: 'Ján Novák',
-      patientBirthNumber: '750314/1234',
-      createdAt: '2026-02-01T09:00:00.000Z',
-      updatedAt: '2026-02-01T09:00:00.000Z',
-      doctorName: 'MUDr. Ján Mráz',
-      ...PRESET_PATIENT_PLANS.blepharoplasty_care
-    } as PatientPlan
-  ],
-  P3: [
-    {
-      id: 'plan-demo-4',
-      patientId: 'P3',
-      patientName: 'Ján Mráz',
-      patientBirthNumber: '',
-      createdAt: '2026-06-15T10:00:00.000Z',
-      updatedAt: '2026-06-15T10:00:00.000Z',
-      doctorName: 'MUDr. Ján Mráz',
-      ...PRESET_PATIENT_PLANS.face_annual_rejuvenation
-    } as PatientPlan
-  ]
-};
+const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {};
 
 export interface Patient {
   id: string;
@@ -128,11 +81,7 @@ export interface MedicalRecord {
   patientBirthNumber?: string;
 }
 
-export const MOCK_PATIENTS: Patient[] = [
-  { id: 'P1', name: 'Mária Kováčová', birthNumber: '885512/6789', phone: '+421 905 123 456', email: 'maria.kovacova@email.sk', address: 'Slnečná 15, Banská Bystrica', dob: '12.05.1988', insurance: '24 (Dôvera)' },
-  { id: 'P2', name: 'Ján Novák', birthNumber: '750314/1234', phone: '+421 948 987 654', email: 'novak.j@email.sk', address: 'Kvetná 8, Zvolen', dob: '14.03.1975', insurance: '25 (VšZP)' },
-  { id: 'P3', name: 'Ján Mráz', birthNumber: '', phone: '', email: 'mraz@sayclinic.sk', address: 'Lazovná 43, Banská Bystrica', dob: '', insurance: 'Dôvera' },
-];
+export const MOCK_PATIENTS: Patient[] = [];
 
 const PHOTO_CATEGORIES = ['Konzultácia', 'Predoperačné', 'Pooperačné', '1. mesiac', '6. mesiac', '1 rok'];
 
@@ -459,50 +408,14 @@ export default function PatientDatabase({
   // STAV PRE ÚPRAVU PACIENTA
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
 
-  const [patientRecords, setPatientRecords] = useState<Record<string, MedicalRecord[]>>({
-    'P1': [
-      { id: 'rec-1', type: 'Operačný protokol', typeColor: 'bg-[#2C2A29]', title: 'Augmentácia prsníkov', doctor: 'MUDr. Ján Mráz', diagnosis: 'Z41.1', date: '2026-08-12', content: 'Zákrok prebehol bez komplikácií v celkovej anestézii.\n\nBoli použité silikónové implantáty Motiva 320ml, vložené pod sval. Rany zašité vstrebateľným stehom.\n\nPacientka stabilizovaná, poučená o pooperačnom režime a nutnosti nosiť kompresné prádlo Lipoelastic PI ideal na 6 týždňov.' },
-      { id: 'rec-2', type: 'Vstupné vyšetrenie', typeColor: 'bg-[#C5A059]', title: 'Konzultácia - Augmentácia', doctor: 'MUDr. Ján Mráz', diagnosis: 'Z41.1', date: '2026-07-25', content: 'Vstupné vyšetrenie k plánovanej augmentácii prsníkov.\nAnamnéza: negatívna, bez alergií.\n\nObjektívny nález: Prsníky asymetrické, mierna ptóza, koža elastická.\n\nNavrhnutý postup: Augmentácia silikónovými implantátmi, prístup z podprsníkovej ryhy. Pacientka súhlasí s navrhnutým postupom a bola oboznámená s rizikami.' }
-    ],
-    'P2': [
-      { id: 'rec-p2-1', type: 'Operačný protokol', typeColor: 'bg-[#2C2A29]', title: 'Blefaroplastika horných viečok', doctor: 'MUDr. Ján Mráz', diagnosis: 'H02.8', date: '2026-05-18', content: 'Korekcia dermatochalázy horných viečok v lokálnej anestézii.\n\nExcízia prebytočnej kože 8mm obojstranne, parciálna resekcia mediálneho tukového vankúšika. Hemoctáza bipolárnou koaguláciou. Intrakutánna sutura Prolene 6-0.\n\nStehy odstránené na 6. deň, hojenie per primam bez komplikácií. Odporúčaná lokálna silikónová starostlivosť a striktná UV fotoprotekcia.' },
-      { id: 'rec-p2-2', type: 'Vstupné vyšetrenie', typeColor: 'bg-[#C5A059]', title: 'Konzultácia - Solárne lézie & Textúra pleti', doctor: 'MUDr. Ján Mráz', diagnosis: 'L57.0', date: '2026-04-10', content: 'Vstupné dermatologické vyšetrenie.\nAnamnéza: častý pobyt na slnku bez SPF ochrany v minulosti.\n\nObjektívny nález: Solárne lentigá v oblasti líc a nosa, zhrubnutá stratum corneum, hlbšie frontálne vrásky.\n\nNavrhnutý plán: Príprava pleti v jarnom období (antioxidanty, SPF 50+), v jesennom/zimnom období aplikácia vaskulárneho/pigmentového lasera a frakčného resurfacingu.' }
-    ],
-    'P3': [
-      { 
-        id: 'rec-p3-1', 
-        type: 'Vstupné vyšetrenie', 
-        typeColor: 'bg-[#C5A059]', 
-        title: 'Vstupné vyšetrenie a osobná karta pacienta', 
-        doctor: 'MUDr. Ján Mráz', 
-        diagnosis: 'Z00.0', 
-        date: '2026-06-15', 
-        content: 'Vstupné komplexné posúdenie a založenie osobnej zdravotnej karty pacienta v systéme SAY CLINIC.\n\nAnamnéza: Bez chronických ochorení, alergie neguje, nefajčiar.\nObjektívny nález: Celkový stav výborný, vitálne funkcie v norme, kožný kryt intaktný, fyziologický nález.\nDoporučenie: Pravidelná celoročná fotoprotekcia a preventívne sledovanie podľa ročného plánu starostlivosti.' 
-      },
-      { 
-        id: 'rec-p3-2', 
-        type: 'Konzultácia', 
-        typeColor: 'bg-[#2C2A29]', 
-        title: 'Estetická konzultácia & Ročný plán ošetrení', 
-        doctor: 'MUDr. Ján Mráz', 
-        diagnosis: 'Z41.8', 
-        date: '2026-07-02', 
-        content: 'Konzultácia preventívneho anti-aging protokolu, hydratácie pleti a ochrany kožnej bariéry.\n\nNavrhnutá aplikácia revitalizačného mezoterapeutického komplexu a frakčného laserového resurfacingu v jesenných mesiacoch.' 
-      }
-    ]
-  });
+  const [patientRecords, setPatientRecords] = useState<Record<string, MedicalRecord[]>>({});
 
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<MedicalRecord | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const [activePhotoCategory, setActivePhotoCategory] = useState<string | null>(null);
-  const [patientPhotos, setPatientPhotos] = useState<Record<string, UploadedPhoto[]>>({
-    'P1_Predoperačné': [
-      { name: 'pred_zpredu.jpg', url: 'https://images.unsplash.com/photo-1512496015851-a90890f5c246?auto=format&fit=crop&w=300&q=80' },
-      { name: 'pred_zboku.jpg', url: 'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?auto=format&fit=crop&w=300&q=80' }
-    ]
-  });
+  const [patientPhotos, setPatientPhotos] = useState<Record<string, UploadedPhoto[]>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {

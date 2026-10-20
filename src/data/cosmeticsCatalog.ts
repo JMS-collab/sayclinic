@@ -40,7 +40,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Svetový zlatý štandard antioxidantov. Obsahuje 15% čistú kyselinu L-askorbovú, 1% alfa-tokoferol a 0.5% kyselinu ferulovú. 8x vyššia ochrana pred fotostarnutím a stimulácia tvorby kolagénu.',
     volume: '30 ml',
     price: 175,
-    stock: 14,
+    stock: 0,
     badge: 'Klinický etalón',
     imageColor: 'from-amber-100 via-amber-200 to-yellow-100',
     keyIngredients: ['15% Kyselina L-askorbová', '1% Alfa-tokoferol', '0.5% Kyselina ferulová']
@@ -53,7 +53,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Patentovaná synergia 10% čistého vitamínu C, 2% floretínu a 0.5% kyseliny ferulovej. Zlepšuje nerovnomerný tón pleti, zmierňuje diskolorácie a reguluje kožný maz.',
     volume: '30 ml',
     price: 175,
-    stock: 9,
+    stock: 0,
     badge: 'Diskolorácie',
     imageColor: 'from-amber-50 via-yellow-100 to-amber-200',
     keyIngredients: ['10% Vitamín C', '2% Floretín', '0.5% Kyselina ferulová']
@@ -66,7 +66,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Prelomový antioxidant pre mastnú a aknóznu pleť. 0.5% silymarín, 15% kyselina L-askorbová, 0.5% kyselina ferulová a 0.5% kyselina salicylová zabraňujú oxidácii kožného mazu a vzniku vyrážok.',
     volume: '30 ml',
     price: 175,
-    stock: 8,
+    stock: 0,
     badge: 'Akné & Sebum',
     imageColor: 'from-teal-50 via-emerald-100 to-teal-100',
     keyIngredients: ['0.5% Silymarín', '15% Vitamín C', '0.5% Kyselina salicylová']
@@ -79,7 +79,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Najnovšia generácia séra zosilňujúceho vlastné zásoby kyseliny hyalurónovej v pokožke o +30%. Obohatené o Proxylane a extrakt z koreňa sladkého drievka a fialovej ryže pre okamžitý liftingový objem.',
     volume: '30 ml',
     price: 118,
-    stock: 12,
+    stock: 0,
     badge: 'Novinka',
     imageColor: 'from-purple-100 via-violet-200 to-indigo-100',
     keyIngredients: ['Kyselina hyalurónová', 'Proxylane', 'Extrakt zo sladkého drievka']
@@ -92,7 +92,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Klinicky overená terapia odolných pigmentových škvŕn a melazmy. 1.8% kyselina tranexamová, 5% niacínamid a 5% HEPES viditeľne zosvetľujú pozápalovú hyperpigmentáciu.',
     volume: '30 ml',
     price: 112,
-    stock: 10,
+    stock: 0,
     badge: 'Melazma & Škvrny',
     imageColor: 'from-rose-50 via-amber-100 to-orange-100',
     keyIngredients: ['1.8% Kyselina tranexamová', '5% Niacínamid', '5% HEPES']
@@ -105,7 +105,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Špičková inovácia inšpirovaná účinkom neurotoxínu (botulotoxínu). Komplex Argireline Amplified, dipeptidov a niacínamidu redukuje 9 typov kontrakčných vrások na čele a okolo očí.',
     volume: '30 ml',
     price: 142,
-    stock: 7,
+    stock: 0,
     badge: 'Novinka 2025/2026',
     imageColor: 'from-blue-50 via-slate-200 to-indigo-100',
     keyIngredients: ['Argireline Amplified', 'Peptidový komplex', 'Niacínamid', 'Kyselina polyglutámová']
@@ -118,7 +118,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Maximálna obnova medzibunkovej lipidovej matrice. Pomer 2% čistých ceramidov, 4% prírodného cholesterolu a 2% mastných kyselín dramaticky znižuje rekonvalescenciu po procedúrach a vyživuje zrelú pleť.',
     volume: '48 ml',
     price: 155,
-    stock: 11,
+    stock: 0,
     badge: 'Bestseller',
     imageColor: 'from-stone-100 via-amber-50 to-orange-50',
     keyIngredients: ['2% Ceramidy 1 & 3', '4% Cholesterol', '2% Mastné kyseliny']
@@ -131,7 +131,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Cielená ochrana pred glykáciou kolagénových vlákien. Obsahuje 18% koncentrovaný Proxylane, výťažok z lesného ovocia a kyselinu glycyrhetínovú pre obnovu hustoty a elasticity ochabnutej pleti.',
     volume: '48 ml',
     price: 185,
-    stock: 6,
+    stock: 0,
     badge: 'Anti-glykácia',
     imageColor: 'from-purple-50 via-pink-100 to-rose-100',
     keyIngredients: ['18% Proxylane', 'Extrakt z čučoriedok', 'Kyselina glycyrhetínová']
@@ -144,7 +144,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Botanické gélové sérum s uhorkou, tymiánom a kyselinou hyalurónovou. Okamžite tlmí erytém, pálenie a zápal po laseroch, chemickom peelingu či mikroihličkovaní.',
     volume: '30 ml',
     price: 85,
-    stock: 15,
+    stock: 0,
     badge: 'Po laseri',
     imageColor: 'from-emerald-100 via-teal-100 to-green-200',
     keyIngredients: ['Extrakt z uhorky', 'Tymián', 'Kyselina hyalurónová', 'Moruša']
@@ -157,7 +157,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Špeciálna medicínska formulácia určená na ošetrenie narušenej pokožky po ablačných procedúrach. Zrýchľuje epitelizáciu, zabraňuje vzniku jaziev a poskytuje ochranný biologický štít.',
     volume: '40 ml',
     price: 82,
-    stock: 9,
+    stock: 0,
     badge: 'Po operácii',
     imageColor: 'from-slate-100 via-teal-50 to-stone-200',
     keyIngredients: ['Beta-glukán', 'Centella Asiatica', 'Sodná soľ kyseliny hyalurónovej']
@@ -170,7 +170,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Vysoko stabilný enkapsulovaný čistý retinol v koncentrácii 0.3% s bisabololom. Stimuluje bunkovú obnovu a syntézu kolagénu s minimálnym rizikom podráždenia.',
     volume: '30 ml',
     price: 98,
-    stock: 10,
+    stock: 0,
     badge: 'Retinol',
     imageColor: 'from-yellow-100 via-amber-100 to-orange-100',
     keyIngredients: ['0.3% Čistý enkapsulovaný retinol', 'Bisabolol']
@@ -183,7 +183,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Špičková fotoprotekcia s Mexoryl SX/XL a Tinosorb filtrami. Chráni pred hyperpigmentáciou a degradáciou kolagénu UV lúčmi. Nezanecháva biely film.',
     volume: '30 ml',
     price: 42,
-    stock: 22,
+    stock: 0,
     badge: 'SPF 50+',
     imageColor: 'from-amber-100 via-orange-100 to-yellow-200',
     keyIngredients: ['Mexoryl SX & XL', 'Tinosorb S', 'Vitamín E']
@@ -196,7 +196,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Jemný gél s kyselinami a rastlinnými extraktmi účinne čistí póry, odstraňuje make-up a zanecháva pleť hladkú a pripravenú na aplikáciu aktívnych sér.',
     volume: '200 ml',
     price: 45,
-    stock: 16,
+    stock: 0,
     imageColor: 'from-cyan-50 via-sky-100 to-blue-100',
     keyIngredients: ['Kyselina citrónová', 'Aminokyseliny', 'Extrakt z harmančeka']
   },
@@ -210,7 +210,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Najmodernejší UV filter Mexoryl 400 chrániaci pred najzákernejším ultra-dlhým UVA žiarením (380-400 nm). Ultra-ľahká nemastná textúra, rezistentná voči vode a potu.',
     volume: '50 ml',
     price: 21.50,
-    stock: 40,
+    stock: 0,
     badge: 'Bestseller SPF',
     imageColor: 'from-orange-100 via-amber-200 to-yellow-100',
     keyIngredients: ['Mexoryl 400', 'Netlock technológia', 'Termálna voda La Roche-Posay']
@@ -223,7 +223,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Dlhodobý 12h matujúci efekt vďaka technológii Airlicium. Poskytuje najvyššiu UV ochranu s Mexoryl 400 pre zmiešanú, mastnú a k akné náchylnú pleť.',
     volume: '50 ml',
     price: 21.50,
-    stock: 35,
+    stock: 0,
     badge: 'Matujúci SPF',
     imageColor: 'from-emerald-50 via-teal-100 to-amber-100',
     keyIngredients: ['Airlicium', 'Mexoryl 400', 'Zinok']
@@ -236,7 +236,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Nová vylepšená formula s exkluzívnym prebiotickým komplexom Tribioma, 5% pantenolom a madecassoside. Okamžite upokojuje a urýchľuje obnovu poškodenej a podráždenej pokožky.',
     volume: '100 ml',
     price: 17.50,
-    stock: 45,
+    stock: 0,
     badge: 'Po zákroku',
     imageColor: 'from-blue-100 via-sky-100 to-indigo-100',
     keyIngredients: ['5% Pantenol', 'Madecassoside', 'Tribioma prebiotikum', 'Zinok & Meď']
@@ -249,7 +249,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Koncentrované 10% pantenolové sérum, ktoré chráni narušenú kožnú bariéru pred vysušením a podráždením. Ideálne po estetických procedúrach a pri retinoidnej dermatitíde.',
     volume: '30 ml',
     price: 29.00,
-    stock: 20,
+    stock: 0,
     badge: 'Bariéra',
     imageColor: 'from-sky-50 via-indigo-100 to-blue-200',
     keyIngredients: ['10% Vitamín B5 (Pantenol)', 'HEPES', 'Termálna voda']
@@ -262,7 +262,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Ochranný silikónový gél vyvinutý špeciálne pre masáž čerstvých pooperačných jaziev po vybratí stehov, po laseri a chemickom peelingu. Zmierňuje pnutie a podporuje neviditeľné zjazvenie.',
     volume: '40 ml',
     price: 13.50,
-    stock: 28,
+    stock: 0,
     badge: 'Starostlivosť o jazvy',
     imageColor: 'from-teal-50 via-cyan-100 to-blue-100',
     keyIngredients: ['Silikónová textúra', '5% Pantenol', 'Madecassoside', 'Kyselina hyalurónová']
@@ -275,7 +275,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Dva typy čistej kyseliny hyalurónovej s vitamínom B5 a madecassoside. Okamžite vypĺňa jemné vrásky, obnovuje pružnosť a posilňuje odolnosť pleti.',
     volume: '30 ml',
     price: 39.50,
-    stock: 24,
+    stock: 0,
     badge: 'Bestseller',
     imageColor: 'from-blue-100 via-sky-200 to-indigo-100',
     keyIngredients: ['Vysoko a nízkomolekulárna kyselina hyalurónová', 'Vitamín B5', 'Madecassoside']
@@ -288,7 +288,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Prelomová patentovaná molekula Melasyl a 10% niacínamid. Zastavuje nadprodukciu melanínu ešte pred jeho vznikom. Klinicky dokázaná redukcia aj tých najodolnejších škvŕn a melazmy.',
     volume: '30 ml',
     price: 44.50,
-    stock: 18,
+    stock: 0,
     badge: 'Novinka Melasyl',
     imageColor: 'from-rose-100 via-amber-100 to-purple-100',
     keyIngredients: ['Melasyl', '10% Niacínamid', 'LHA', 'Termálna voda']
@@ -301,7 +301,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: '10% čistý vitamín C s kyselinou salicylovou a neurosenzínom pri fyziologickom pH. Zjednocuje štruktúru pleti, redukuje vrásky a rozjasňuje mdlý tón aj pri citlivej pleti.',
     volume: '30 ml',
     price: 41.00,
-    stock: 15,
+    stock: 0,
     badge: 'Rozjasnenie',
     imageColor: 'from-amber-100 via-orange-200 to-yellow-100',
     keyIngredients: ['10% Čistý vitamín C', 'Kyselina salicylová', 'Neurosenzín']
@@ -314,7 +314,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Postupne uvoľňovaný čistý retinol s vitamínom B3 (niacínamid). Koriguje hlboké vrásky, fotopoškodenie a nerovnomerný reliéf pleti s maximálnou toleranciou.',
     volume: '30 ml',
     price: 42.00,
-    stock: 14,
+    stock: 0,
     badge: 'Retinol',
     imageColor: 'from-yellow-50 via-amber-100 to-orange-100',
     keyIngredients: ['Čistý a postupne uvoľňovaný retinol', 'Vitamín B3', 'Glycerín']
@@ -327,7 +327,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Najnovšia vedecká formula obohatená o Phylobioma aktívnu látku cieliacu na phylotyp IA1 baktérie C. acnes. Pôsobí proti zápalom, čiernym bodkám a červeným stopám po akné.',
     volume: '40 ml',
     price: 19.50,
-    stock: 32,
+    stock: 0,
     badge: 'Najnovšia formula',
     imageColor: 'from-teal-50 via-cyan-100 to-blue-100',
     keyIngredients: ['Phylobioma', 'Procerad', 'Niacínamid', 'Kyselina salicylová']
@@ -340,7 +340,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Šetrne čistí pleť od mazu a nečistôt bez vysušovania vďaka fyziologickému pH 5.5 a termálnej vode La Roche-Posay so zinkom PCA.',
     volume: '400 ml',
     price: 19.00,
-    stock: 26,
+    stock: 0,
     imageColor: 'from-sky-50 via-blue-100 to-teal-100',
     keyIngredients: ['Zinok PCA', 'Termálna voda La Roche-Posay']
   },
@@ -352,7 +352,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Každodenná hydratačná a upokojujúca starostlivosť so Sphingobioma a neurosenzínom. Okamžite znižuje začervenanie, pálenie a diskomfort extrémne reaktívnej pokožky.',
     volume: '40 ml',
     price: 23.00,
-    stock: 20,
+    stock: 0,
     badge: 'Citlivá pleť',
     imageColor: 'from-slate-50 via-blue-50 to-indigo-100',
     keyIngredients: ['Sphingobioma', 'Neurosenzín', 'Bambucké maslo']
@@ -365,7 +365,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Trojitá účinnosť proti svrbeniu, obnova mikrobiómu pokožky a protizápalový efekt. Vhodný na suchú a atopickú pokožku celého tela po sprche aj procedúrach.',
     volume: '400 ml',
     price: 24.50,
-    stock: 18,
+    stock: 0,
     imageColor: 'from-blue-50 via-indigo-50 to-slate-100',
     keyIngredients: ['Aqua Posae Filiformis', 'Microresyl', '20% Bambucké maslo', 'Niacínamid']
   },
@@ -379,7 +379,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Ikonický jemný čistiaci gél s 3 esenciálnymi ceramidmi a kyselinou hyalurónovou. Efektívne odstraňuje make-up a nečistoty bez poškodenia prirodzenej kožnej bariéry.',
     volume: '473 ml',
     price: 14.50,
-    stock: 50,
+    stock: 0,
     badge: 'Bestseller',
     imageColor: 'from-emerald-50 via-green-100 to-teal-100',
     keyIngredients: ['3 esenciálne ceramidy (1, 3, 6-II)', 'Kyselina hyalurónová', 'MVE technológia']
@@ -392,7 +392,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Obsahuje kyselinu salicylovú a glukonolaktón pre jemnú chemickú exfoliáciu hrubej, textúrovanej pokožky a keratosis pilaris, doplnenú o ceramidy a niacínamid.',
     volume: '473 ml',
     price: 16.00,
-    stock: 38,
+    stock: 0,
     badge: 'Exfoliácia',
     imageColor: 'from-cyan-50 via-teal-100 to-sky-100',
     keyIngredients: ['Kyselina salicylová', 'Urea', 'Niacínamid', '3 esenciálne ceramidy']
@@ -405,7 +405,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Pre normálnu až mastnú pleť. Jemná gélová pena čistí póry a odstraňuje nadbytočný maz s niacínamidom bez pocitu stiahnutej alebo suchej tváre.',
     volume: '473 ml',
     price: 14.50,
-    stock: 42,
+    stock: 0,
     imageColor: 'from-teal-50 via-sky-100 to-blue-100',
     keyIngredients: ['3 ceramidy', 'Niacínamid', 'Kyselina hyalurónová']
   },
@@ -417,7 +417,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Bohatý, nemastný hydratačný krém s technológiou riadeného uvoľňovania MVE. Poskytuje nepretržitú 24-hodinovú hydratáciu a obnovu suchej a oslabenej kože.',
     volume: '454 g',
     price: 18.00,
-    stock: 45,
+    stock: 0,
     badge: 'Bestseller',
     imageColor: 'from-blue-50 via-indigo-100 to-sky-100',
     keyIngredients: ['3 ceramidy identické s kožou', 'Kyselina hyalurónová', 'MVE technológia']
@@ -430,7 +430,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Ľahký denný fluid s vysokým ochranným faktorom SPF 50 a 3 esenciálnymi ceramidmi. Chráni pred UVA/UVB lúčmi a posilňuje ochrannú bariéru pleti.',
     volume: '52 ml',
     price: 15.50,
-    stock: 35,
+    stock: 0,
     badge: 'Denný krém + SPF',
     imageColor: 'from-amber-50 via-yellow-100 to-blue-100',
     keyIngredients: ['Širokospektrálne UV filtre SPF 50', 'Ceramidy', 'Vitamín E']
@@ -443,7 +443,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Ultra-ľahké nočné mlieko s niacínamidom, kyselinou hyalurónovou a ceramidmi. Upokojuje pokožku počas spánku a obnovuje hydratáciu.',
     volume: '52 ml',
     price: 14.00,
-    stock: 30,
+    stock: 0,
     imageColor: 'from-indigo-50 via-slate-100 to-blue-100',
     keyIngredients: ['Niacínamid', '3 esenciálne ceramidy', 'Kyselina hyalurónová']
   },
@@ -455,7 +455,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Vyvinuté s dermatológmi na redukciu stopových jaziev po akné a stiahnutie rozšírených pórov. Obsahuje enkapsulovaný retinol, extrakt z koreňa sladkého drievka a niacínamid.',
     volume: '30 ml',
     price: 18.50,
-    stock: 25,
+    stock: 0,
     badge: 'Jazvy po akné',
     imageColor: 'from-teal-100 via-emerald-100 to-sky-100',
     keyIngredients: ['Enkapsulovaný retinol', 'Sladké drievko', 'Niacínamid', 'Ceramidy']
@@ -468,7 +468,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Intenzívna okluzívna masť s petrolátom, ceramidmi a kyselinou hyalurónovou. Okamžite chráni praskliny, popáleniny a extrémne suché zóny po chirurgických zákrokoch.',
     volume: '88 ml',
     price: 13.00,
-    stock: 22,
+    stock: 0,
     badge: 'Novinka',
     imageColor: 'from-sky-50 via-blue-100 to-indigo-100',
     keyIngredients: ['Vazelína farmaceutickej čistoty', 'Kyselina hyalurónová', '3 ceramidy']
@@ -481,7 +481,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Redukuje tmavé kruhy pod očami a opuchy s morským komplexom rias a 3 esenciálnymi ceramidmi. Oftalmologicky testovaný.',
     volume: '14 ml',
     price: 13.00,
-    stock: 20,
+    stock: 0,
     imageColor: 'from-blue-50 via-teal-50 to-slate-100',
     keyIngredients: ['Morský a botanický komplex', '3 ceramidy', 'Kyselina hyalurónová']
   },
@@ -493,7 +493,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Gél s 2% kyselinou salicylovou a hektoritovým ílom, ktorý absorbuje prebytočný kožný maz a prečisťuje upchaté póry.',
     volume: '236 ml',
     price: 13.50,
-    stock: 28,
+    stock: 0,
     imageColor: 'from-teal-50 via-emerald-100 to-blue-100',
     keyIngredients: ['2% Kyselina salicylová', 'Hektoritový čistiaci íl', 'Niacínamid']
   },
@@ -507,7 +507,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Kombinácia 89% vulkanickej vody Vichy a čistej kyseliny hyalurónovej. Posilňuje kožnú bariéru proti znečisteniu, stresu a únave. Zanecháva pleť hydratovanú a tonizovanú.',
     volume: '50 ml',
     price: 24.50,
-    stock: 35,
+    stock: 0,
     badge: 'Bestseller',
     imageColor: 'from-sky-100 via-blue-200 to-cyan-100',
     keyIngredients: ['89% Vulkanická voda Vichy s 15 minerálmi', 'Kyselina hyalurónová prírodného pôvodu']
@@ -520,7 +520,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Hĺbková 72-hodinová hydratácia obohatená o čistý skvalán, vitamín B3 (niacínamid) a vitamín E bez minerálnych olejov.',
     volume: '50 ml',
     price: 23.00,
-    stock: 24,
+    stock: 0,
     badge: 'Hydratácia',
     imageColor: 'from-cyan-50 via-sky-100 to-blue-100',
     keyIngredients: ['Skvalán', 'Kyselina hyalurónová', 'Vitamín B3', 'Minerály']
@@ -533,7 +533,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Vysoká 15% koncentrácia čistého vitamínu C s pycnogenolom (antioxidant z borovice prímorskej) a vitamínom E. Viditeľné rozjasnenie a spevnenie za 10 dní.',
     volume: '20 ml',
     price: 38.00,
-    stock: 16,
+    stock: 0,
     badge: '15% Vit C',
     imageColor: 'from-amber-100 via-orange-200 to-yellow-100',
     keyIngredients: ['15% Čistý vitamín C', 'Pycnogenol', 'Vitamín E']
@@ -546,7 +546,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Pokročilé nočné sérum s 0.2% čistým retinolom a frakciami probiotík. Vyhladzuje aj hlboké a statické vrásky a zrýchľuje bunkovú regeneráciu.',
     volume: '30 ml',
     price: 42.00,
-    stock: 14,
+    stock: 0,
     badge: 'Retinol Specialist',
     imageColor: 'from-yellow-100 via-amber-200 to-orange-100',
     keyIngredients: ['0.2% Čistý retinol', 'Probiotické frakcie', 'Vulkanická voda']
@@ -559,7 +559,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Trojnásobná dávka pro-kolagénových peptidov v kombinácii s vitamínom Cg. Kompenzuje stratu kolagénu v pleti, spevňuje ovál tváre a vypína kontúry.',
     volume: '50 ml',
     price: 38.50,
-    stock: 22,
+    stock: 0,
     badge: 'Kolagén Peptidy',
     imageColor: 'from-rose-100 via-red-100 to-amber-100',
     keyIngredients: ['Ryžové peptidy', 'Peptidy matrice', 'Vitamín Cg']
@@ -572,7 +572,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Vysokokoncentrované 13% zloženie s niacínamidom, kyselinou glykolovou a vitamínom Cg. Pôsobí v rôznych vrstvách epidermy na odstránenie pigmentácií.',
     volume: '30 ml',
     price: 39.50,
-    stock: 15,
+    stock: 0,
     badge: 'B3 Pigmentácie',
     imageColor: 'from-red-50 via-rose-100 to-amber-100',
     keyIngredients: ['Niacínamid (B3)', 'Kyselina glykolová', 'Peptidy']
@@ -585,7 +585,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Najnovší ultra-ľahký fluid SPF 50+ s Netlock technológiou špeciálne formulovaný s kyselinou salicylovou a niacínamidom pre pleť so sklonom k akné.',
     volume: '40 ml',
     price: 22.50,
-    stock: 28,
+    stock: 0,
     badge: 'Novinka',
     imageColor: 'from-orange-100 via-amber-100 to-emerald-100',
     keyIngredients: ['Netlock SPF 50+', 'Kyselina salicylová', 'Niacínamid']
@@ -598,7 +598,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Fotoprotekčný fluid proti fotostarnutiu a vráskam s minerálnymi pigmentmi pre zjednotenie tónu pleti a zdravý žiarivý vzhľad bez mastného pocitu.',
     volume: '40 ml',
     price: 23.50,
-    stock: 25,
+    stock: 0,
     badge: 'Tónovaný SPF',
     imageColor: 'from-amber-100 via-stone-200 to-orange-100',
     keyIngredients: ['Peptidy', 'Niacínamid', 'Minerálne pigmenty', 'Mexoryl XL']
@@ -611,7 +611,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Reaktivuje mechanizmy pleti v období menopauzy: hustotu, pevnosť a obnovu lipidov. Obsahuje Proxylane a extrakt z kasie.',
     volume: '50 ml',
     price: 36.00,
-    stock: 18,
+    stock: 0,
     badge: 'Menopauza',
     imageColor: 'from-amber-50 via-yellow-100 to-orange-100',
     keyIngredients: ['Proxylane', 'Extrakt z kasie', 'Kyselina hyalurónová']
@@ -624,7 +624,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Klinicky overený šampón s disulfidom selénu a kyselinou salicylovou. Odstraňuje 100% viditeľných lupín a zabraňuje ich návratu po dobu 6 týždňov.',
     volume: '390 ml',
     price: 18.50,
-    stock: 30,
+    stock: 0,
     badge: 'Bestseller',
     imageColor: 'from-amber-100 via-orange-100 to-yellow-200',
     keyIngredients: ['Disulfid selénu', 'Kyselina salicylová', 'Cohesyl']
@@ -637,7 +637,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Komplexná kúra s 5 cielenými účinkami: upevnenie korienka, mikrocirkulácia, odolnosť vlasového vlákna a rovnováha pokožky hlavy. Balenie 21 ampuliek.',
     volume: '21 ampuliek',
     price: 65.00,
-    stock: 12,
+    stock: 0,
     badge: 'Vlasová kúra',
     imageColor: 'from-slate-100 via-zinc-200 to-amber-100',
     keyIngredients: ['Aminexil', 'Arginín', 'SP94', 'Octeine', 'Minerálna voda']
@@ -652,7 +652,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Vysokokoncentrované omladzujúce sérum s rekombinantnými EGF faktormi, kyselinou hyalurónovou a enkapsulovaným retinolom vyvinuté pre SAY Clinic.',
     volume: '30 ml',
     price: 89.00,
-    stock: 24,
+    stock: 0,
     badge: 'Bestseller',
     imageColor: 'from-amber-100 to-amber-200',
     keyIngredients: ['EGF Rastové faktory', 'Kyselina hyalurónová', '0.5% Enkapsulovaný retinol']
@@ -665,7 +665,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: '100% minerálny fotoprotekčný fluid s oxidom zinočnatým a titaničitým pre pleť po operáciách, blefaroplastike, liftingu a laserovom ošetrení.',
     volume: '50 ml',
     price: 42.00,
-    stock: 38,
+    stock: 0,
     badge: 'Po zákroku',
     imageColor: 'from-orange-100 to-amber-100',
     keyIngredients: ['Oxid zinočnatý', 'Oxid titaničitý', 'Vitamín E', 'Bisabolol']
@@ -678,7 +678,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Intenzívny medicínsky hojivý balzam na rýchlu redukciu hematómov, pooperačných opuchov a bezpečné zjemnenie jaziev po chirurgických zákrokoch.',
     volume: '50 ml',
     price: 38.00,
-    stock: 19,
+    stock: 0,
     badge: 'Hojenie jaziev',
     imageColor: 'from-emerald-100 to-teal-100',
     keyIngredients: ['Arnica Montana extrakt', 'Madecassoside', 'Zinok', 'Kyselina hyalurónová']
@@ -691,7 +691,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Hĺbkovo regeneračný krém s 5 typmi esenciálnych bio-ceramidov a peptidov pre obnovu lipidovej bariéry a okamžitý komfort pleti.',
     volume: '50 ml',
     price: 59.00,
-    stock: 15,
+    stock: 0,
     imageColor: 'from-blue-100 to-indigo-100',
     keyIngredients: ['5 typov ceramidov', 'Bambucké maslo', 'Peptidy']
   },
@@ -703,7 +703,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Prémiový rybí bioaktívny kolagén s vitamínom C, zinkom a biotínom na 30 dní. Podpora elasticity kože a rýchleho hojenia tkanív po operáciách.',
     volume: '30 sáčkov',
     price: 65.00,
-    stock: 42,
+    stock: 0,
     badge: 'Výživa',
     imageColor: 'from-pink-100 to-rose-100',
     keyIngredients: ['10 000 mg Peptidy morského kolagénu', 'Vitamín C', 'Zinok', 'Biotín']
@@ -716,7 +716,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Referenčný regeneračný krém s komplexom vitamínu K, glykoproteínmi a SPF 50 pre okamžité upokojenie začervenania po laseri a mikrodermabrázii.',
     volume: '30 ml',
     price: 49.00,
-    stock: 11,
+    stock: 0,
     badge: 'Po laseri',
     imageColor: 'from-stone-100 to-amber-100',
     keyIngredients: ['K-Komplex (Vitamín K)', 'Glykoproteín', 'Vitamíny C & E', 'SPF 50']
@@ -729,7 +729,7 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     description: 'Hodvábna fyziologická čistiaca pena bez sulfátov s harmančekom, uhorkou a pantenolom pre dokonalé vyčistenie citlivej pleti.',
     volume: '150 ml',
     price: 28.00,
-    stock: 31,
+    stock: 0,
     imageColor: 'from-teal-50 to-blue-50',
     keyIngredients: ['Harmanček', 'Pantenol', 'Glycerín']
   }

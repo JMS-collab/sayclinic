@@ -1,6 +1,6 @@
 {
-  "summary": "Komplexný plán na bezpečné odstránenie všetkých fiktívnych a vzorových dát (mock pacientov, termínov kalendára, Meicet analýz, skladových zápisov) pri zachovaní reálnych používateľských účtov tímu SAY CLINIC a klinických šablón.",
-  "updatedAt": "2026-10-19T15:54:48.617386298Z",
+  "summary": "Plán komplexného odstránenia všetkých vzorových a testovacích údajov (mock pacientov, fiktívnych záznamov, Meicet analýz, skladových zásob a kalendárových termínov) so zachovaním personálu SAY CLINIC a lekárskych šablón.",
+  "updatedAt": "2026-10-20T09:20:37.640299960Z",
   "requestFeedback": true,
   "userFacing": true
 }

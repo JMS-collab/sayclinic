@@ -290,14 +290,19 @@ export class PatientCloudService {
         return list;
       }
 
-      // Firestore je prázdny - seedujeme počiatočných pacientov
+      // Ak sú defaults prázdne, nič neseedujeme
+      if (!defaults || defaults.length === 0) {
+        return [];
+      }
+
+      // Firestore je prázdny a boli poskytnuté reálne dáta
       for (const p of defaults) {
         await this.savePatient(p);
       }
       return defaults;
     } catch (e) {
       console.warn('Nepodarilo sa skontrolovať seedovanie pacientov vo Firestore:', e);
-      return defaults;
+      return [];
     }
   }
 }

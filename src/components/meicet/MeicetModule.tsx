@@ -20,7 +20,6 @@ import { MeicetAnalysisResult } from '@/types/meicet';
 import { MeicetService } from '@/services/meicetService';
 import { MeicetUploadModal } from './MeicetUploadModal';
 import { MeicetViewer } from './MeicetViewer';
-import { createDemoMeicetResult } from '@/data/meicetDemoData';
 import { CalendarEvent } from '@/data/calendarConfig';
 import { PatientPlan } from '@/data/patientPlanConfig';
 
@@ -79,15 +78,6 @@ export function MeicetModule({
     }
   };
 
-  const handleCreateDemo = () => {
-    const demo = createDemoMeicetResult(patient.id, patient.name, patient.birthNumber);
-    MeicetService.saveReport(demo);
-    setReports(prev => [demo, ...prev]);
-    setSelectedReportId(demo.id);
-    if (onSaveToPatientPlans) {
-      onSaveToPatientPlans(MeicetService.convertToPatientPlan(demo));
-    }
-  };
 
   return (
     <div className="space-y-5">
@@ -164,15 +154,6 @@ export function MeicetModule({
             >
               <Upload className="w-4 h-4 text-[#C5A059]" />
               <span>Nahrať Meicet Pro-A PDF report</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleCreateDemo}
-              className="px-5 py-3 rounded-xl bg-white hover:bg-[#FAF8F5] border border-[#C5A059] text-[#2C2A29] font-bold text-xs transition-colors flex items-center gap-2 shadow-2xs cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-[#C5A059]" />
-              <span>Vyskúšať so vzorovým reportom Meicet</span>
             </button>
           </div>
 

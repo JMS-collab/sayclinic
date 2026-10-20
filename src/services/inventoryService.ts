@@ -143,7 +143,7 @@ export interface OpiateLogEntry {
   recordedBy: string; // Meno zapisujúceho pracovníka
 }
 
-// Predvolený katalóg klinických opiátov v trezore SAY CLINIC
+// Katalóg klinických opiátov v trezore SAY CLINIC (čistý počiatočný stav pripravený na reálny príjem)
 export const INITIAL_OPIATES: OpiateItem[] = [
   {
     id: 'op-fentanyl',
@@ -152,10 +152,10 @@ export const INITIAL_OPIATES: OpiateItem[] = [
     form: 'injekčný roztok v ampulkách (5x2ml)',
     strength: '0.1 mg / 2 ml',
     packageUnit: 'ampulka',
-    currentStock: 18,
+    currentStock: 0,
     minStock: 8,
-    lotNumber: 'LOT-FNT-992',
-    expirationDate: '2027-11-30',
+    lotNumber: '',
+    expirationDate: '',
     safeLocation: 'Trezor OPL č. 1 - Operačná sála (dvojitý zámok)',
     responsiblePerson: 'MUDr. Ján Mráz',
     classification: 'omamna_latka_II',
@@ -169,10 +169,10 @@ export const INITIAL_OPIATES: OpiateItem[] = [
     form: 'injekčný roztok v ampulkách (5x2ml)',
     strength: '10 mcg / 2 ml',
     packageUnit: 'ampulka',
-    currentStock: 12,
+    currentStock: 0,
     minStock: 6,
-    lotNumber: 'LOT-SUF-418',
-    expirationDate: '2028-02-28',
+    lotNumber: '',
+    expirationDate: '',
     safeLocation: 'Trezor OPL č. 1 - Operačná sála (dvojitý zámok)',
     responsiblePerson: 'MUDr. Ján Mráz',
     classification: 'omamna_latka_II',
@@ -186,10 +186,10 @@ export const INITIAL_OPIATES: OpiateItem[] = [
     form: 'injekčný roztok v ampulkách (5x2ml)',
     strength: '15 mg / 2 ml',
     packageUnit: 'ampulka',
-    currentStock: 14,
+    currentStock: 0,
     minStock: 5,
-    lotNumber: 'LOT-DPD-770',
-    expirationDate: '2027-09-15',
+    lotNumber: '',
+    expirationDate: '',
     safeLocation: 'Trezor OPL č. 1 - Dospávacia izba (dvojitý zámok)',
     responsiblePerson: 'MUDr. Ján Mráz',
     classification: 'omamna_latka_II',
@@ -203,10 +203,10 @@ export const INITIAL_OPIATES: OpiateItem[] = [
     form: 'injekčný roztok v ampulkách (10x1ml)',
     strength: '10 mg / 1 ml',
     packageUnit: 'ampulka',
-    currentStock: 10,
+    currentStock: 0,
     minStock: 5,
-    lotNumber: 'LOT-MPH-331',
-    expirationDate: '2028-06-30',
+    lotNumber: '',
+    expirationDate: '',
     safeLocation: 'Trezor OPL č. 1 - Operačná sála (dvojitý zámok)',
     responsiblePerson: 'MUDr. Ján Mráz',
     classification: 'omamna_latka_II',
@@ -220,10 +220,10 @@ export const INITIAL_OPIATES: OpiateItem[] = [
     form: 'injekčný roztok vo vialke (10ml)',
     strength: '500 mg / 10 ml',
     packageUnit: 'vialka',
-    currentStock: 6,
+    currentStock: 0,
     minStock: 3,
-    lotNumber: 'LOT-KTM-552',
-    expirationDate: '2028-04-30',
+    lotNumber: '',
+    expirationDate: '',
     safeLocation: 'Trezor OPL č. 1 - Operačná sála',
     responsiblePerson: 'MUDr. Ján Mráz',
     classification: 'psychotropna_latka_II',
@@ -237,10 +237,10 @@ export const INITIAL_OPIATES: OpiateItem[] = [
     form: 'injekčný roztok v ampulkách (10x1ml)',
     strength: '5 mg / 1 ml',
     packageUnit: 'ampulka',
-    currentStock: 22,
+    currentStock: 0,
     minStock: 10,
-    lotNumber: 'LOT-MDZ-889',
-    expirationDate: '2027-12-15',
+    lotNumber: '',
+    expirationDate: '',
     safeLocation: 'Trezor OPL č. 1 - Zákroková miestnosť',
     responsiblePerson: 'MUDr. Ján Mráz',
     classification: 'psychotropna_latka_III',
@@ -249,200 +249,11 @@ export const INITIAL_OPIATES: OpiateItem[] = [
   }
 ];
 
-// Predvolený úradný register (Kniha OPL)
-export const INITIAL_OPIATE_LOGS: OpiateLogEntry[] = [
-  {
-    id: 'opl-log-1',
-    entryNumber: 1,
-    timestamp: '2026-08-28T08:15:00.000Z',
-    date: '2026-08-28',
-    time: '08:15',
-    opiateId: 'op-fentanyl',
-    opiateName: 'Fentanyl Kalceks 0.05 mg/ml (0.1 mg / 2 ml inj.)',
-    activeSubstance: 'Fentanylum',
-    lotNumber: 'LOT-FNT-992',
-    movementType: 'prijem',
-    deliveryNoteNumber: 'Žiadanka OPL č. 2026/08-042',
-    supplier: 'Lekáreň Nemocnice s poliklinikou Banská Bystrica',
-    quantityIn: 20,
-    quantityOut: 0,
-    balanceAfter: 20,
-    unit: 'ampulka',
-    notes: 'Príjem do trezoru na základe úradnej žiadanky s modrým pruhom',
-    recordedBy: 'MUDr. Ján Mráz'
-  },
-  {
-    id: 'opl-log-2',
-    entryNumber: 2,
-    timestamp: '2026-08-28T08:20:00.000Z',
-    date: '2026-08-28',
-    time: '08:20',
-    opiateId: 'op-dipidolor',
-    opiateName: 'Dipidolor 15 mg / 2 ml injekčný roztok',
-    activeSubstance: 'Piritramidum',
-    lotNumber: 'LOT-DPD-770',
-    movementType: 'prijem',
-    deliveryNoteNumber: 'Žiadanka OPL č. 2026/08-042',
-    supplier: 'Lekáreň Nemocnice s poliklinikou Banská Bystrica',
-    quantityIn: 15,
-    quantityOut: 0,
-    balanceAfter: 15,
-    unit: 'ampulka',
-    notes: 'Príjem do trezoru na základe žiadanky OPL',
-    recordedBy: 'MUDr. Ján Mráz'
-  },
-  {
-    id: 'opl-log-3',
-    entryNumber: 3,
-    timestamp: '2026-09-02T10:15:00.000Z',
-    date: '2026-09-02',
-    time: '10:15',
-    opiateId: 'op-fentanyl',
-    opiateName: 'Fentanyl Kalceks 0.05 mg/ml (0.1 mg / 2 ml inj.)',
-    activeSubstance: 'Fentanylum',
-    lotNumber: 'LOT-FNT-992',
-    movementType: 'podanie',
-    patientId: 'P1',
-    patientName: 'Mária Kováčová',
-    patientBirthNumber: '885512/6789',
-    procedureName: 'Augmentácia prsníkov silikónovými implantátmi v CA',
-    prescribingDoctor: 'MUDr. Ján Mráz',
-    administeringNurse: 'Bc. Simona Horváthová',
-    witness: 'PhDr. Veronika Vargová',
-    quantityIn: 0,
-    quantityOut: 2,
-    balanceAfter: 18,
-    unit: 'ampulka',
-    notes: 'Podané v úvode celkovej anestézie a počas intraoperatívnej fázy',
-    recordedBy: 'Bc. Simona Horváthová'
-  },
-  {
-    id: 'opl-log-4',
-    entryNumber: 4,
-    timestamp: '2026-09-02T13:30:00.000Z',
-    date: '2026-09-02',
-    time: '13:30',
-    opiateId: 'op-dipidolor',
-    opiateName: 'Dipidolor 15 mg / 2 ml injekčný roztok',
-    activeSubstance: 'Piritramidum',
-    lotNumber: 'LOT-DPD-770',
-    movementType: 'podanie',
-    patientId: 'P1',
-    patientName: 'Mária Kováčová',
-    patientBirthNumber: '885512/6789',
-    procedureName: 'Pooperačná analgézia po augmentácii prsníkov',
-    prescribingDoctor: 'MUDr. Ján Mráz',
-    administeringNurse: 'Bc. Simona Horváthová',
-    witness: 'MUDr. Ján Mráz',
-    quantityIn: 0,
-    quantityOut: 1,
-    balanceAfter: 14,
-    unit: 'ampulka',
-    notes: 'Aplikované 15 mg i.m. na dospávacej izbe pri VAS 6/10',
-    recordedBy: 'Bc. Simona Horváthová'
-  },
-  {
-    id: 'opl-log-5',
-    entryNumber: 5,
-    timestamp: '2026-09-03T11:00:00.000Z',
-    date: '2026-09-03',
-    time: '11:00',
-    opiateId: 'op-midazolam',
-    opiateName: 'Midazolam Accord 5 mg / 1 ml (bal 10x1ml)',
-    activeSubstance: 'Midazolamum',
-    lotNumber: 'LOT-MDZ-889',
-    movementType: 'podanie',
-    patientId: 'P2',
-    patientName: 'Ján Novák',
-    patientBirthNumber: '750314/1234',
-    procedureName: 'Blefaroplastika horných viečok v analgosedácii',
-    prescribingDoctor: 'MUDr. Ján Mráz',
-    administeringNurse: 'PhDr. Veronika Vargová',
-    witness: 'MUDr. Ján Mráz',
-    quantityIn: 0,
-    quantityOut: 1,
-    quantityWasted: 0.5,
-    balanceAfter: 22,
-    unit: 'ampulka',
-    notes: 'Aplikované 2.5 mg i.v. do sedácie; nespotrebovaný zvyšok 2.5 mg (0.5 ml) znehodnotený do odpadu za prítomnosti lekára',
-    recordedBy: 'PhDr. Veronika Vargová'
-  },
-  {
-    id: 'opl-log-6',
-    entryNumber: 6,
-    timestamp: '2026-09-04T07:30:00.000Z',
-    date: '2026-09-04',
-    time: '07:30',
-    opiateId: 'op-fentanyl',
-    opiateName: 'Všetky OPL v trezore',
-    activeSubstance: 'Komplexná kontrola',
-    lotNumber: 'Všetky šarže',
-    movementType: 'inventura',
-    prescribingDoctor: 'MUDr. Ján Mráz',
-    administeringNurse: 'Bc. Simona Horváthová',
-    witness: 'PhDr. Veronika Vargová',
-    quantityIn: 0,
-    quantityOut: 0,
-    balanceAfter: 18,
-    unit: 'ampulka',
-    notes: 'Riadna mesačná fyzická kontrola trezoru OPL k 01.09.2026. Fyzický stav ampuliek a šarží plne súhlasí so stavom v knihe.',
-    recordedBy: 'MUDr. Ján Mráz'
-  }
-];
+// Úradný register (Kniha OPL) - čistý počiatočný stav
+export const INITIAL_OPIATE_LOGS: OpiateLogEntry[] = [];
 
-// Predvolené skladové zásoby SAY CLINIC
-export const INITIAL_INVENTORY: InventoryItem[] = [
-  // ESTETIKA & VÝPLNE
-  { id: 'inv-dysport', name: 'Dysport 500U vialka', category: 'estetika', quantity: 4, unit: 'vialka', minQuantity: 5, optimalQuantity: 12, costPerUnit: 145, supplier: 'Galderma', lotNumber: 'DY-8821', expirationDate: '2027-08-15', location: 'Chladnička 1' },
-  { id: 'inv-botox', name: 'Botox 100U vialka', category: 'estetika', quantity: 6, unit: 'vialka', minQuantity: 4, optimalQuantity: 10, costPerUnit: 138, supplier: 'Allergan / AbbVie', lotNumber: 'BTX-4491', expirationDate: '2027-06-20', location: 'Chladnička 1' },
-  { id: 'inv-restylane-kysse', name: 'Restylane Kysse 1ml (pery)', category: 'estetika', quantity: 3, unit: 'ks', minQuantity: 5, optimalQuantity: 12, costPerUnit: 105, supplier: 'Galderma', lotNumber: 'RK-7712', expirationDate: '2027-10-10', location: 'Skriňa Estetika' },
-  { id: 'inv-restylane-lyft', name: 'Restylane Lyft 1ml s lidokaínom', category: 'estetika', quantity: 5, unit: 'ks', minQuantity: 4, optimalQuantity: 10, costPerUnit: 108, supplier: 'Galderma', lotNumber: 'RL-5520', expirationDate: '2027-11-15', location: 'Skriňa Estetika' },
-  { id: 'inv-juvederm-voluma', name: 'Juvederm Voluma 2x1ml', category: 'estetika', quantity: 2, unit: 'bal', minQuantity: 3, optimalQuantity: 8, costPerUnit: 215, supplier: 'Allergan / AbbVie', lotNumber: 'JV-9902', expirationDate: '2027-04-30', location: 'Skriňa Estetika' },
-  { id: 'inv-profhilo', name: 'Profhilo Bioremodelácia 2ml', category: 'estetika', quantity: 7, unit: 'ks', minQuantity: 4, optimalQuantity: 12, costPerUnit: 118, supplier: 'IBSA Derma', lotNumber: 'PF-9011', expirationDate: '2027-09-01', location: 'Skriňa Estetika' },
-  { id: 'inv-sculptra', name: 'Sculptra PLLA (balenie 2 vialky)', category: 'estetika', quantity: 1, unit: 'bal', minQuantity: 3, optimalQuantity: 6, costPerUnit: 340, supplier: 'Galderma', lotNumber: 'SC-1022', expirationDate: '2028-02-15', location: 'Skriňa Estetika' },
-  { id: 'inv-radiesse', name: 'Radiesse (+) 1.5ml Lidocaine', category: 'estetika', quantity: 4, unit: 'ks', minQuantity: 3, optimalQuantity: 8, costPerUnit: 135, supplier: 'Merz Aesthetics', lotNumber: 'RAD-3041', expirationDate: '2027-12-05', location: 'Skriňa Estetika' },
-  { id: 'inv-pdo-threads', name: 'Mezonite PDO Barbed 4D 21G/90mm (bal 10ks)', category: 'estetika', quantity: 2, unit: 'bal', minQuantity: 4, optimalQuantity: 8, costPerUnit: 95, supplier: 'Aptos / Medixa', lotNumber: 'PDO-4401', expirationDate: '2028-05-10', location: 'Skriňa Estetika' },
-  { id: 'inv-cannula-tsk', name: 'Sterilné mikro-kanyly TSK 25G/50mm (bal 20ks)', category: 'estetika', quantity: 8, unit: 'bal', minQuantity: 5, optimalQuantity: 15, costPerUnit: 42, supplier: 'TSK Laboratory', lotNumber: 'TSK-901', expirationDate: '2029-01-20', location: 'Skriňa Estetika' },
-
-  // CHIRURGICKÉ IMPLANTÁTY
-  { id: 'inv-motiva-350-dx', name: 'Motiva Ergonomix Full 350cc Vpravo (Dx.)', category: 'implantaty', quantity: 1, unit: 'ks', minQuantity: 2, optimalQuantity: 4, costPerUnit: 690, supplier: 'Establishment Labs (Motiva)', lotNumber: 'LOT-MOT-26A', supplierCode: 'MOT-ERG-350F-DX', location: 'Operačný sklad' },
-  { id: 'inv-motiva-350-sin', name: 'Motiva Ergonomix Full 350cc Vľavo (Sin.)', category: 'implantaty', quantity: 1, unit: 'ks', minQuantity: 2, optimalQuantity: 4, costPerUnit: 690, supplier: 'Establishment Labs (Motiva)', lotNumber: 'LOT-MOT-26B', supplierCode: 'MOT-ERG-350F-SIN', location: 'Operačný sklad' },
-  { id: 'inv-motiva-320-bilat', name: 'Motiva Ergonomix Demi 320cc Pár (Bilat.)', category: 'implantaty', quantity: 2, unit: 'pár', minQuantity: 2, optimalQuantity: 4, costPerUnit: 1380, supplier: 'Establishment Labs (Motiva)', lotNumber: 'LOT-MOT-26D', supplierCode: 'MOT-ERG-320D-PAR', location: 'Operačný sklad' },
-  { id: 'inv-supor-chin', name: 'Tvárový implantát bradový Su-por Large', category: 'implantaty', quantity: 2, unit: 'ks', minQuantity: 2, optimalQuantity: 3, costPerUnit: 380, supplier: 'Porex Surgical', lotNumber: 'SP-9912', location: 'Operačný sklad' },
-
-  // KOMPRESÍVNE PRÁDLO & BANDÁŽE
-  { id: 'inv-bra-ideal-black-m', name: 'Kompresívna podprsenka Lipoelastic PI Ideal čierna M', category: 'kompresivne_pradlo', quantity: 3, unit: 'ks', minQuantity: 6, optimalQuantity: 12, costPerUnit: 39, supplier: 'Lipoelastic', supplierCode: 'PI-IDEAL-BLK-M', location: 'Sklad prádla' },
-  { id: 'inv-bra-ideal-nude-s', name: 'Kompresívna podprsenka Lipoelastic PI Ideal telová S', category: 'kompresivne_pradlo', quantity: 2, unit: 'ks', minQuantity: 5, optimalQuantity: 10, costPerUnit: 39, supplier: 'Lipoelastic', supplierCode: 'PI-IDEAL-NDE-S', location: 'Sklad prádla' },
-  { id: 'inv-bra-special-l', name: 'Kompresívna podprsenka Lipoelastic PI Special biela L', category: 'kompresivne_pradlo', quantity: 4, unit: 'ks', minQuantity: 4, optimalQuantity: 8, costPerUnit: 38, supplier: 'Lipoelastic', supplierCode: 'PI-SPEC-WHT-L', location: 'Sklad prádla' },
-  { id: 'inv-belt-sg', name: 'Stabilizačný prsníkový pás Lipoelastic SG biely', category: 'kompresivne_pradlo', quantity: 5, unit: 'ks', minQuantity: 6, optimalQuantity: 14, costPerUnit: 24, supplier: 'Lipoelastic', supplierCode: 'SG-BELT-WHT', location: 'Sklad prádla' },
-  { id: 'inv-abdo-belt', name: 'Brušný kompresívny pás 3-panelový Lipoelastic (L/XL)', category: 'kompresivne_pradlo', quantity: 1, unit: 'ks', minQuantity: 4, optimalQuantity: 8, costPerUnit: 44, supplier: 'Lipoelastic', supplierCode: 'ABDO-3P-LXL', location: 'Sklad prádla' },
-  { id: 'inv-face-mask', name: 'Tvárová kompresná bandáž Lipoelastic FM special', category: 'kompresivne_pradlo', quantity: 4, unit: 'ks', minQuantity: 3, optimalQuantity: 6, costPerUnit: 32, supplier: 'Lipoelastic', supplierCode: 'FM-SPEC', location: 'Sklad prádla' },
-  { id: 'inv-nasal-splint', name: 'Termoplastická nosová dlaha fixačná po rhinoplastike', category: 'kompresivne_pradlo', quantity: 7, unit: 'ks', minQuantity: 5, optimalQuantity: 15, costPerUnit: 14, supplier: 'SurgiPlast', location: 'Operačný sklad' },
-
-  // ŠIJACÍ MATERIÁL, HEMOSTATIKÁ & DRÉNY
-  { id: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2 (bal 36ks)', category: 'sijaci_material', quantity: 2, unit: 'bal', minQuantity: 3, optimalQuantity: 6, costPerUnit: 98, supplier: 'Ethicon / J&J', lotNumber: 'MNC-2026', location: 'Operačná sála' },
-  { id: 'inv-pds-40', name: 'PDS II 4-0 ihla SH-1 (bal 36ks)', category: 'sijaci_material', quantity: 3, unit: 'bal', minQuantity: 2, optimalQuantity: 5, costPerUnit: 112, supplier: 'Ethicon / J&J', lotNumber: 'PDS-552', location: 'Operačná sála' },
-  { id: 'inv-glycolon-40', name: 'Glycolon 4-0 intrakutánny intrakut. steh (bal 24ks)', category: 'sijaci_material', quantity: 4, unit: 'bal', minQuantity: 3, optimalQuantity: 6, costPerUnit: 84, supplier: 'Resorba', lotNumber: 'GLY-771', location: 'Operačná sála' },
-  { id: 'inv-prolene-50', name: 'Prolene 5-0 ihla P-3 na blepharoplastiku (bal 36ks)', category: 'sijaci_material', quantity: 2, unit: 'bal', minQuantity: 3, optimalQuantity: 6, costPerUnit: 104, supplier: 'Ethicon / J&J', lotNumber: 'PRL-901', location: 'Operačná sála' },
-  { id: 'inv-vicryl-30', name: 'Vicryl 3-0 ihla CT-1 (bal 36ks)', category: 'sijaci_material', quantity: 5, unit: 'bal', minQuantity: 3, optimalQuantity: 6, costPerUnit: 88, supplier: 'Ethicon / J&J', lotNumber: 'VCR-331', location: 'Operačná sála' },
-  { id: 'inv-surgicel', name: 'Surgicel hemostatická gáza 5x7.5cm (bal 10ks)', category: 'sijaci_material', quantity: 3, unit: 'bal', minQuantity: 4, optimalQuantity: 8, costPerUnit: 78, supplier: 'Ethicon / J&J', lotNumber: 'SRG-881', location: 'Operačná sála' },
-  { id: 'inv-floseal', name: 'Floseal hemostatická matrica 5ml', category: 'sijaci_material', quantity: 2, unit: 'ks', minQuantity: 2, optimalQuantity: 4, costPerUnit: 165, supplier: 'Baxter', lotNumber: 'FLS-4410', location: 'Operačná sála' },
-  { id: 'inv-redon-ch10', name: 'Redonov podtlakový drén CH10 so zberačom', category: 'sijaci_material', quantity: 6, unit: 'ks', minQuantity: 10, optimalQuantity: 25, costPerUnit: 6.8, supplier: 'B.Braun', lotNumber: 'RDN-101', location: 'Operačný sklad' },
-
-  // ANESTÉZIA & FARMAKÁ
-  { id: 'inv-marcaine', name: 'Marcaine 0.5% (bupivakain) 20ml', category: 'anestezia', quantity: 14, unit: 'vialka', minQuantity: 10, optimalQuantity: 30, costPerUnit: 4.6, supplier: 'AstraZeneca', lotNumber: 'MAR-8821', expirationDate: '2028-03-10', location: 'Skriňa Anestézia' },
-  { id: 'inv-citanest', name: 'Citanest 2% s octapresinom 50ml', category: 'anestezia', quantity: 8, unit: 'vialka', minQuantity: 6, optimalQuantity: 15, costPerUnit: 8.2, supplier: 'Dentsply Sirona', lotNumber: 'CIT-229', expirationDate: '2027-11-20', location: 'Skriňa Anestézia' },
-  { id: 'inv-adrenaline', name: 'Adrenalín 1mg/1ml injekcie (bal 5ks)', category: 'anestezia', quantity: 9, unit: 'bal', minQuantity: 6, optimalQuantity: 15, costPerUnit: 7.5, supplier: 'Zentiva', lotNumber: 'ADR-904', expirationDate: '2028-06-01', location: 'Skriňa Anestézia' },
-  { id: 'inv-ringer-tumescent', name: 'Ringer-laktát infúzny roztok 1000ml na tumescenciu', category: 'anestezia', quantity: 12, unit: 'ks', minQuantity: 15, optimalQuantity: 40, costPerUnit: 2.8, supplier: 'B.Braun', lotNumber: 'RNG-551', expirationDate: '2028-09-15', location: 'Operačný sklad' },
-  { id: 'inv-augmentin', name: 'Augmentin 1.2g i.v. antibiotikum', category: 'anestezia', quantity: 7, unit: 'vialka', minQuantity: 10, optimalQuantity: 20, costPerUnit: 5.2, supplier: 'GSK', lotNumber: 'AUG-112', expirationDate: '2027-08-30', location: 'Skriňa Anestézia' },
-
-  // AMBULANTNÝ & SPOTREBNÝ MATERIÁL
-  { id: 'inv-mepore', name: 'Sterilné pooperačné krytie Mepore Pro 9x10cm (bal 50ks)', category: 'ambulantny_material', quantity: 3, unit: 'bal', minQuantity: 4, optimalQuantity: 8, costPerUnit: 28, supplier: 'Mölnlycke Health Care', lotNumber: 'MEP-331', location: 'Ambulancia' },
-  { id: 'inv-steri-strip', name: 'Steri-Strip náplasťové stehy 6x75mm (bal 50ks)', category: 'ambulantny_material', quantity: 7, unit: 'bal', minQuantity: 5, optimalQuantity: 12, costPerUnit: 34, supplier: '3M Health Care', lotNumber: 'STS-881', location: 'Ambulancia' },
-  { id: 'inv-dermacyn', name: 'Dermacyn Wound Care 500ml dezinfekčný roztok', category: 'ambulantny_material', quantity: 4, unit: 'ks', minQuantity: 3, optimalQuantity: 6, costPerUnit: 18.5, supplier: 'Oculus Innovative', lotNumber: 'DERM-550', location: 'Ambulancia' },
-  { id: 'inv-gloves-biogel', name: 'Sterilné chirurgické rukavice Biogel 7.5 (bal 50ks)', category: 'spotrebny', quantity: 5, unit: 'bal', minQuantity: 4, optimalQuantity: 10, costPerUnit: 48, supplier: 'Mölnlycke Health Care', lotNumber: 'GLV-752', location: 'Operačný sklad' },
-  { id: 'inv-prp-tubes', name: 'Odberové skúmavky s gélom na PRP plazmu (bal 50ks)', category: 'ambulantny_material', quantity: 1, unit: 'bal', minQuantity: 2, optimalQuantity: 5, costPerUnit: 180, supplier: 'RegenLab', lotNumber: 'PRP-2026', location: 'Ambulancia' },
-];
+// Skladové zásoby SAY CLINIC - čistý počiatočný stav
+export const INITIAL_INVENTORY: InventoryItem[] = [];
 
 // Počiatočné balíčky výkonov
 export const INITIAL_BUNDLES: MaterialBundle[] = [
@@ -506,111 +317,8 @@ export const INITIAL_BUNDLES: MaterialBundle[] = [
   }
 ];
 
-// Počiatočný audit log minutého materiálu (demonštratívne záznamy)
-export const INITIAL_USAGE_LOGS: MaterialUsageLog[] = [
-  {
-    id: 'log-init-1',
-    timestamp: '2026-09-02T10:30:00.000Z',
-    date: '2026-09-02',
-    time: '10:30',
-    patientId: 'P1',
-    patientName: 'Mária Kováčová',
-    patientBirthNumber: '885512/6789',
-    sourceType: 'operacia',
-    procedureName: 'Augmentácia prsníkov silikónovými implantátmi',
-    itemId: 'inv-motiva-350-dx',
-    itemName: 'Motiva Ergonomix Full 350cc Vpravo (Dx.)',
-    category: 'implantaty',
-    quantity: 1,
-    unit: 'ks',
-    lotNumber: 'LOT-MOT-26A',
-    serialNumber: 'MOT-SN-882190',
-    performerName: 'MUDr. Ján Mráz',
-    costAtUsage: 690,
-    notes: 'Subfasciálna insercia bez komplikácií'
-  },
-  {
-    id: 'log-init-2',
-    timestamp: '2026-09-02T10:30:00.000Z',
-    date: '2026-09-02',
-    time: '10:30',
-    patientId: 'P1',
-    patientName: 'Mária Kováčová',
-    patientBirthNumber: '885512/6789',
-    sourceType: 'operacia',
-    procedureName: 'Augmentácia prsníkov silikónovými implantátmi',
-    itemId: 'inv-motiva-350-sin',
-    itemName: 'Motiva Ergonomix Full 350cc Vľavo (Sin.)',
-    category: 'implantaty',
-    quantity: 1,
-    unit: 'ks',
-    lotNumber: 'LOT-MOT-26B',
-    serialNumber: 'MOT-SN-882191',
-    performerName: 'MUDr. Ján Mráz',
-    costAtUsage: 690,
-    notes: 'Subfasciálna insercia bez komplikácií'
-  },
-  {
-    id: 'log-init-3',
-    timestamp: '2026-09-02T11:15:00.000Z',
-    date: '2026-09-02',
-    time: '11:15',
-    patientId: 'P1',
-    patientName: 'Mária Kováčová',
-    patientBirthNumber: '885512/6789',
-    sourceType: 'pradlo',
-    procedureName: 'Výdaj pooperačnej bielizne na izbe',
-    itemId: 'inv-bra-ideal-black-m',
-    itemName: 'Kompresívna podprsenka Lipoelastic PI Ideal čierna M',
-    category: 'kompresivne_pradlo',
-    quantity: 1,
-    unit: 'ks',
-    lotNumber: 'PI-IDEAL-BLK-M',
-    performerName: 'Sestra Bc. Zuzana Solivajsová',
-    costAtUsage: 39,
-    notes: 'Naložená ihneď po operácii na sále'
-  },
-  {
-    id: 'log-init-4',
-    timestamp: '2026-09-02T14:20:00.000Z',
-    date: '2026-09-02',
-    time: '14:20',
-    patientId: 'P2',
-    patientName: 'Ján Novák',
-    patientBirthNumber: '750314/1234',
-    sourceType: 'estetika',
-    procedureName: 'Korekcia vrások glabela a čelo (Dysport)',
-    itemId: 'inv-dysport',
-    itemName: 'Dysport 500U vialka',
-    category: 'estetika',
-    quantity: 1,
-    unit: 'vialka',
-    lotNumber: 'DY-8821',
-    performerName: 'MUDr. Ján Mráz',
-    costAtUsage: 145,
-    notes: 'Aplikované 120 s.u. do m. procerus a corrugator'
-  },
-  {
-    id: 'log-init-5',
-    timestamp: '2026-09-03T08:45:00.000Z',
-    date: '2026-09-03',
-    time: '08:45',
-    patientId: 'P1',
-    patientName: 'Mária Kováčová',
-    patientBirthNumber: '885512/6789',
-    sourceType: 'ambulancia',
-    procedureName: '1. pooperačný preväz a kontrola drénov',
-    itemId: 'inv-mepore',
-    itemName: 'Sterilné pooperačné krytie Mepore Pro 9x10cm (bal 50ks)',
-    category: 'ambulantny_material',
-    quantity: 2,
-    unit: 'ks',
-    lotNumber: 'MEP-331',
-    performerName: 'MUDr. Ján Mráz',
-    costAtUsage: 1.12,
-    notes: 'Rany pokojné, drény odvádzajú serózne'
-  }
-];
+// Audit log minutého materiálu - čistý počiatočný stav
+export const INITIAL_USAGE_LOGS: MaterialUsageLog[] = [];
 
 // Service API pre prácu so skladom a spotrebou
 export class InventoryService {
@@ -625,7 +333,7 @@ export class InventoryService {
       const saved = localStorage.getItem(this.STORAGE_KEY_INVENTORY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
       // Inicializácia pri prvom spustení
       localStorage.setItem(this.STORAGE_KEY_INVENTORY, JSON.stringify(INITIAL_INVENTORY));
@@ -889,7 +597,7 @@ export class InventoryService {
       const saved = localStorage.getItem(this.STORAGE_KEY_OPIATES);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
       localStorage.setItem(this.STORAGE_KEY_OPIATES, JSON.stringify(INITIAL_OPIATES));
       return INITIAL_OPIATES;
@@ -916,7 +624,7 @@ export class InventoryService {
       const saved = localStorage.getItem(this.STORAGE_KEY_OPIATE_LOGS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
       localStorage.setItem(this.STORAGE_KEY_OPIATE_LOGS, JSON.stringify(INITIAL_OPIATE_LOGS));
       return INITIAL_OPIATE_LOGS;
