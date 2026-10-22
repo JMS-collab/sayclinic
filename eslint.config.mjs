@@ -13,6 +13,7 @@ const eslintConfig = defineConfig([
       "@next/next/no-img-element": "off",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/purity": "warn",
     },
   },
   // Override default ignores of eslint-config-next.

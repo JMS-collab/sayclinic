@@ -1136,18 +1136,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               ))}
             </div>
 
-            {/* SPODNÁ LIŠTA - BEZPEČNOSTNÝ STATUS */}
-            <div className="mt-10 pt-6 border-t border-white/60 flex flex-wrap items-center justify-between gap-3 text-xs text-[#8C857B]">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                <span className="font-medium text-[#2C2A29]">Produkčný server SAY CLINIC je online</span>
-              </div>
-              
-              <div className="flex items-center gap-2 text-emerald-800 bg-emerald-50/80 px-3 py-1.5 rounded-full border border-emerald-200/80 text-[11px] font-medium">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>SSL/TLS 256-bit šifrovanie • Ochrana heslom</span>
-              </div>
-            </div>
 
           </div>
 
@@ -1909,21 +1897,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         </div>
       )}
 
-      {/* OSTRÁ PREVÁDZKA: ZERO-TRUST STATUS BADGE */}
-      <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 text-[11px] text-[#5C554F] font-medium">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50/90 border border-emerald-200/80 text-emerald-800 shadow-xs">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-semibold">Ostrá prevádzka aktívna</span>
-          <span className="text-emerald-400">•</span>
-          <span>Zero-Trust Whitelist</span>
-        </div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/70 border border-[#E8E2D9] text-[#8C857B] shadow-xs">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059]" />
-          <span>Auto-Lock 15 min</span>
-          <span>•</span>
-          <span>Biometria Passkey</span>
-        </div>
-      </div>
 
       {/* ========================================================================= */}
       {/* DIALÓG NA ZMENU / PRIDANIE AVATARU (LIQUID GLASS) */}

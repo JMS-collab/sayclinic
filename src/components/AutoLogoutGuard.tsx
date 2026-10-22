@@ -19,8 +19,13 @@ export default function AutoLogoutGuard({
   warningCountdownSeconds = 120,
 }: AutoLogoutGuardProps) {
   const [showWarning, setShowWarning] = useState(false);
-  const [secondsRemaining, setSecondsRemaining] = useState(warningCountdownSeconds);
-  const lastActivityRef = useRef<number>(Date.now());
+  const lastActivityRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (lastActivityRef.current === 0) {
+      lastActivityRef.current = Date.now();
+    }
+  }, []);
   const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const resetActivity = useCallback(() => {
