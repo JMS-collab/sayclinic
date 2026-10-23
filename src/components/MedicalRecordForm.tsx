@@ -275,7 +275,7 @@ export const DEFAULT_CHECKUP_MACROS: Record<string, {
 };
 
 // PREDDEFINOVANÝ PERSONÁL PRE OPERAČNÝ TÍM
-export const SURGICAL_TEAM_PRESETS = {
+export const DEFAULT_SURGICAL_TEAM_PRESETS = {
   operators: [
     'MUDr. Ján Mráz',
     'MUDr. Zuzana Sroková, MPH',
@@ -314,6 +314,43 @@ export const SURGICAL_TEAM_PRESETS = {
     'Bc. Andrea Kmeťová',
     'Bez anest. sestry (Lokálna anestézia)'
   ]
+};
+
+export const SURGICAL_TEAM_PRESETS = DEFAULT_SURGICAL_TEAM_PRESETS;
+
+export type SurgicalTeamRoleKey = 'operators' | 'assistants' | 'anesthesiologists' | 'instrumentalists' | 'anestNurses';
+
+export const STAFF_ROLE_CONFIG: Record<SurgicalTeamRoleKey, { label: string; icon: string; description: string; placeholder: string }> = {
+  operators: {
+    label: 'Operatér',
+    icon: '🩺',
+    description: 'Hlavný chirurg / lekár vykonávajúci zákrok',
+    placeholder: 'napr. MUDr. Ján Mráz'
+  },
+  assistants: {
+    label: 'Asistent',
+    icon: '🤝',
+    description: 'Asistujúci lekár alebo sestra pri operácii',
+    placeholder: 'napr. MUDr. Zuzana Sroková, MPH'
+  },
+  anesthesiologists: {
+    label: 'Anesteziológ',
+    icon: '👨‍⚕️',
+    description: 'Lekár anesteziológ zodpovedný za anestéziu',
+    placeholder: 'napr. MUDr. Peter Kováč'
+  },
+  instrumentalists: {
+    label: 'Inštrumentárka',
+    icon: '✂️',
+    description: 'Inštrumentujúca sestra na operačnej sále',
+    placeholder: 'napr. Sabina Lenhartová'
+  },
+  anestNurses: {
+    label: 'Anestéziologická sestra',
+    icon: '💉',
+    description: 'Sestra pri anestézii a pooperačnej starostlivosti',
+    placeholder: 'napr. Ema Foltáni'
+  }
 };
 
 export interface SurgeryImplantItem {
@@ -677,6 +714,144 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient, all
     instrumentalist: 'Sabina Lenhartová', 
     checkup: '1 týždeň'
   });
+
+  // NASTAVENIA PERSONÁLU PRE OPERAČNÝ TÍM (ULOŽENÉ V LOCALSTORAGE S MOŽNOSŤOU ÚPRAVY A PRIDÁVANIA)
+  const [teamPresets, setTeamPresets] = useState<typeof DEFAULT_SURGICAL_TEAM_PRESETS>(DEFAULT_SURGICAL_TEAM_PRESETS);
+
+  // Načítanie personálu z localStorage po mountnutí
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('say_clinic_surgical_team_presets_v1');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          setTeamPresets({
+            operators: Array.isArray(parsed.operators) && parsed.operators.length > 0 ? parsed.operators : DEFAULT_SURGICAL_TEAM_PRESETS.operators,
+            assistants: Array.isArray(parsed.assistants) && parsed.assistants.length > 0 ? parsed.assistants : DEFAULT_SURGICAL_TEAM_PRESETS.assistants,
+            anesthesiologists: Array.isArray(parsed.anesthesiologists) && parsed.anesthesiologists.length > 0 ? parsed.anesthesiologists : DEFAULT_SURGICAL_TEAM_PRESETS.anesthesiologists,
+            instrumentalists: Array.isArray(parsed.instrumentalists) && parsed.instrumentalists.length > 0 ? parsed.instrumentalists : DEFAULT_SURGICAL_TEAM_PRESETS.instrumentalists,
+            anestNurses: Array.isArray(parsed.anestNurses) && parsed.anestNurses.length > 0 ? parsed.anestNurses : DEFAULT_SURGICAL_TEAM_PRESETS.anestNurses,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Chyba pri načítaní zoznamu personálu:', e);
+    }
+  }, []);
+
+  const saveTeamPresets = (updated: typeof DEFAULT_SURGICAL_TEAM_PRESETS) => {
+    setTeamPresets(updated);
+    try {
+      localStorage.setItem('say_clinic_surgical_team_presets_v1', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Chyba pri ukladaní personálu:', e);
+    }
+  };
+
+  // Stav pre modal správy personálu
+  const [isStaffManagerOpen, setIsStaffManagerOpen] = useState(false);
+  const [activeStaffRole, setActiveStaffRole] = useState<SurgicalTeamRoleKey>('anesthesiologists');
+  const [newStaffInput, setNewStaffInput] = useState('');
+  const [editingStaffIdx, setEditingStaffIdx] = useState<number | null>(null);
+  const [editingStaffVal, setEditingStaffVal] = useState('');
+
+  // Stav pre rýchle inline pridanie mena priamo pod selectom
+  const [inlineAddRole, setInlineAddRole] = useState<SurgicalTeamRoleKey | null>(null);
+  const [inlineAddVal, setInlineAddVal] = useState('');
+
+  const openStaffManager = (role: SurgicalTeamRoleKey) => {
+    setActiveStaffRole(role);
+    setIsStaffManagerOpen(true);
+    setNewStaffInput('');
+    setEditingStaffIdx(null);
+    setEditingStaffVal('');
+  };
+
+  const handleAddStaffMember = (role: SurgicalTeamRoleKey, nameToAdd: string, autoSelect = true) => {
+    const trimmed = nameToAdd.trim();
+    if (!trimmed) return;
+    if (!teamPresets[role].includes(trimmed)) {
+      const updated = {
+        ...teamPresets,
+        [role]: [...teamPresets[role], trimmed]
+      };
+      saveTeamPresets(updated);
+    }
+    if (autoSelect) {
+      if (role === 'operators') {
+        setDoctor(trimmed);
+        setSurgeryDetails(prev => ({ ...prev, operator: trimmed }));
+      } else if (role === 'assistants') {
+        setSurgeryDetails(prev => ({ ...prev, assistant: trimmed }));
+      } else if (role === 'anesthesiologists') {
+        setSurgeryDetails(prev => ({ ...prev, anesthesiologist: trimmed }));
+      } else if (role === 'instrumentalists') {
+        setSurgeryDetails(prev => ({ ...prev, instrumentalist: trimmed }));
+      } else if (role === 'anestNurses') {
+        setSurgeryDetails(prev => ({ ...prev, anestNurse: trimmed }));
+      }
+    }
+  };
+
+  const handleEditStaffMember = (role: SurgicalTeamRoleKey, index: number, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    const oldName = teamPresets[role][index];
+    const updatedList = [...teamPresets[role]];
+    updatedList[index] = trimmed;
+    const updated = {
+      ...teamPresets,
+      [role]: updatedList
+    };
+    saveTeamPresets(updated);
+
+    if (role === 'operators' && doctor === oldName) {
+      setDoctor(trimmed);
+      setSurgeryDetails(prev => ({ ...prev, operator: trimmed }));
+    } else if (role === 'assistants' && surgeryDetails.assistant === oldName) {
+      setSurgeryDetails(prev => ({ ...prev, assistant: trimmed }));
+    } else if (role === 'anesthesiologists' && surgeryDetails.anesthesiologist === oldName) {
+      setSurgeryDetails(prev => ({ ...prev, anesthesiologist: trimmed }));
+    } else if (role === 'instrumentalists' && surgeryDetails.instrumentalist === oldName) {
+      setSurgeryDetails(prev => ({ ...prev, instrumentalist: trimmed }));
+    } else if (role === 'anestNurses' && surgeryDetails.anestNurse === oldName) {
+      setSurgeryDetails(prev => ({ ...prev, anestNurse: trimmed }));
+    }
+    setEditingStaffIdx(null);
+    setEditingStaffVal('');
+  };
+
+  const handleDeleteStaffMember = (role: SurgicalTeamRoleKey, index: number) => {
+    const nameToDelete = teamPresets[role][index];
+    const updatedList = teamPresets[role].filter((_, i) => i !== index);
+    const updated = {
+      ...teamPresets,
+      [role]: updatedList
+    };
+    saveTeamPresets(updated);
+
+    const fallback = updatedList[0] || '';
+    if (role === 'operators' && doctor === nameToDelete) {
+      setDoctor(fallback);
+      setSurgeryDetails(prev => ({ ...prev, operator: fallback }));
+    } else if (role === 'assistants' && surgeryDetails.assistant === nameToDelete) {
+      setSurgeryDetails(prev => ({ ...prev, assistant: fallback }));
+    } else if (role === 'anesthesiologists' && surgeryDetails.anesthesiologist === nameToDelete) {
+      setSurgeryDetails(prev => ({ ...prev, anesthesiologist: fallback }));
+    } else if (role === 'instrumentalists' && surgeryDetails.instrumentalist === nameToDelete) {
+      setSurgeryDetails(prev => ({ ...prev, instrumentalist: fallback }));
+    } else if (role === 'anestNurses' && surgeryDetails.anestNurse === nameToDelete) {
+      setSurgeryDetails(prev => ({ ...prev, anestNurse: fallback }));
+    }
+  };
+
+  const handleResetRoleStaff = (role: SurgicalTeamRoleKey) => {
+    const updated = {
+      ...teamPresets,
+      [role]: [...DEFAULT_SURGICAL_TEAM_PRESETS[role]]
+    };
+    saveTeamPresets(updated);
+  };
 
   // OPERAČNÉ IMPLANTÁTY A ŠPECIÁLNY MATERIÁL
   const [surgeryImplants, setSurgeryImplants] = useState<SurgeryImplantItem[]>([
@@ -1572,6 +1747,222 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
 
   return (
     <>
+      {/* ======================================================= */}
+      {/* MODAL PRE SPRÁVU & ÚPRAVU MIEN PERSONÁLU (OPERAČNÝ TÍM) */}
+      {/* ======================================================= */}
+      {isStaffManagerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl border border-[#E8E2D9] max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
+              <div>
+                <h3 className="font-brand text-lg font-bold uppercase text-[#2C2A29] flex items-center gap-2">
+                  <span>👥</span> Správa personálu & mien
+                </h3>
+                <p className="text-[10px] text-[#8C857B] uppercase tracking-wider">
+                  Pridávajte nové mená, upravujte existujúce alebo odstraňujte personál
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsStaffManagerOpen(false);
+                  setEditingStaffIdx(null);
+                  setNewStaffInput('');
+                }} 
+                className="text-gray-400 hover:text-gray-700 text-lg font-bold cursor-pointer p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Prepínanie rolí (Operatér, Asistent, Anesteziológ, Inštrumentárka, Anestéziologická sestra) */}
+            <div className="flex flex-wrap gap-1.5 p-1 bg-[#FBF9F6] border border-[#E8E2D9] rounded-xl">
+              {(['anesthesiologists', 'instrumentalists', 'anestNurses', 'operators', 'assistants'] as SurgicalTeamRoleKey[]).map(roleKey => {
+                const isActive = activeStaffRole === roleKey;
+                const config = STAFF_ROLE_CONFIG[roleKey];
+                const count = teamPresets[roleKey]?.length || 0;
+                return (
+                  <button
+                    key={roleKey}
+                    type="button"
+                    onClick={() => {
+                      setActiveStaffRole(roleKey);
+                      setEditingStaffIdx(null);
+                      setEditingStaffVal('');
+                      setNewStaffInput('');
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      isActive 
+                        ? 'bg-[#2C2A29] text-white shadow-xs' 
+                        : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-white/80'
+                    }`}
+                  >
+                    <span>{config.icon}</span>
+                    <span>{config.label}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      isActive ? 'bg-[#C5A059] text-white' : 'bg-[#E8E2D9] text-[#2C2A29]'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Popis vybranej role a akcia resetu */}
+            <div className="flex items-center justify-between text-xs text-[#8C857B] px-1">
+              <span>{STAFF_ROLE_CONFIG[activeStaffRole].description}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Naozaj chcete obnoviť predvolený zoznam mien pre pozíciu "${STAFF_ROLE_CONFIG[activeStaffRole].label}"?`)) {
+                    handleResetRoleStaff(activeStaffRole);
+                  }
+                }}
+                className="text-[#C5A059] hover:text-[#9A7B38] text-[10px] font-bold uppercase tracking-wider hover:underline cursor-pointer"
+              >
+                ↺ Obnoviť predvolené
+              </button>
+            </div>
+
+            {/* Pridanie nového mena */}
+            <div className="bg-[#FAF8F5] p-3 rounded-xl border border-[#E8E2D9] space-y-2">
+              <label className="block text-[10px] font-bold uppercase text-[#8C857B]">
+                + Pridať nové meno do zoznamu ({STAFF_ROLE_CONFIG[activeStaffRole].label})
+              </label>
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (newStaffInput.trim()) {
+                    handleAddStaffMember(activeStaffRole, newStaffInput);
+                    setNewStaffInput('');
+                  }
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  value={newStaffInput}
+                  onChange={(e) => setNewStaffInput(e.target.value)}
+                  placeholder={STAFF_ROLE_CONFIG[activeStaffRole].placeholder}
+                  className="flex-1 border border-[#E8E2D9] px-3 py-2 rounded-lg bg-white text-xs outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059]"
+                />
+                <button
+                  type="submit"
+                  disabled={!newStaffInput.trim()}
+                  className="bg-[#C5A059] hover:bg-[#B38F48] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0"
+                >
+                  + Pridať meno
+                </button>
+              </form>
+            </div>
+
+            {/* Zoznam existujúcich mien s možnosťou úpravy a zmazania */}
+            <div className="flex-1 overflow-y-auto max-h-64 border border-[#E8E2D9] rounded-xl divide-y divide-[#E8E2D9] bg-white">
+              {teamPresets[activeStaffRole]?.map((staffName, idx) => {
+                const isEditing = editingStaffIdx === idx;
+                return (
+                  <div 
+                    key={`${staffName}-${idx}`} 
+                    className="p-2.5 flex items-center justify-between gap-2 hover:bg-[#FDFCFB] transition-colors"
+                  >
+                    {isEditing ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="text"
+                          value={editingStaffVal}
+                          onChange={(e) => setEditingStaffVal(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleEditStaffMember(activeStaffRole, idx, editingStaffVal);
+                            } else if (e.key === 'Escape') {
+                              setEditingStaffIdx(null);
+                            }
+                          }}
+                          className="flex-1 border border-[#C5A059] px-2.5 py-1.5 rounded-lg text-xs outline-none bg-white font-medium"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleEditStaffMember(activeStaffRole, idx, editingStaffVal)}
+                          className="bg-[#2C2A29] hover:bg-black text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
+                        >
+                          Uložiť
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingStaffIdx(null)}
+                          className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer"
+                        >
+                          Zrušiť
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-gray-400 text-xs font-mono w-5">{idx + 1}.</span>
+                          <span className="text-xs font-medium text-[#2C2A29] truncate">{staffName}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingStaffIdx(idx);
+                              setEditingStaffVal(staffName);
+                            }}
+                            className="p-1.5 text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] rounded-md transition-colors cursor-pointer text-xs flex items-center gap-1"
+                            title="Upraviť meno"
+                          >
+                            <span>✏️</span>
+                            <span className="text-[10px]">Upraviť</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Naozaj chcete vymazať "${staffName}" zo zoznamu?`)) {
+                                handleDeleteStaffMember(activeStaffRole, idx);
+                              }
+                            }}
+                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer text-xs"
+                            title="Zmazať zo zoznamu"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              {(!teamPresets[activeStaffRole] || teamPresets[activeStaffRole].length === 0) && (
+                <div className="p-6 text-center text-xs text-[#8C857B]">
+                  Žiadne mená v zozname. Pridajte prvé meno vyššie.
+                </div>
+              )}
+            </div>
+
+            {/* Pätička modalu */}
+            <div className="flex justify-between items-center pt-2 border-t border-[#E8E2D9]">
+              <span className="text-[10px] text-[#8C857B]">
+                Zmeny sa automaticky ukladajú a sú okamžite dostupné v roletových výberoch.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsStaffManagerOpen(false);
+                  setEditingStaffIdx(null);
+                  setNewStaffInput('');
+                }}
+                className="bg-[#2C2A29] hover:bg-black text-white px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer shadow-sm"
+              >
+                Hotovo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ======================================================= */}
       {/* MODAL PRE SPRÁVU A ÚPRAVU ŠABLÓN                        */}
       {/* ======================================================= */}
@@ -2853,31 +3244,74 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                   </div>
                 </div>
 
-                {/* VÝBER OPERAČNÉHO TÍMU S PREHĽADNÝMI DROPDOWNS */}
+                {/* VÝBER OPERAČNÉHO TÍMU S PREHĽADNÝMI DROPDOWNS A SPRÁVOU MIEN */}
                 <div className="border-t border-[#E8E2D9] pt-3 space-y-3">
-                  <p className="text-[9px] text-[#C5A059] uppercase font-bold tracking-wider">Operačný tím (Výber personálu)</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[9px] text-[#C5A059] uppercase font-bold tracking-wider">Operačný tím (Výber personálu)</p>
+                    <button
+                      type="button"
+                      onClick={() => openStaffManager(activeStaffRole || 'anesthesiologists')}
+                      className="text-[10px] text-[#C5A059] hover:text-[#9A7B38] font-bold uppercase tracking-wider flex items-center gap-1 hover:underline cursor-pointer"
+                      title="Otvoriť kompletnú správu mien pre operačný tím"
+                    >
+                      <span>⚙️ Upraviť personál</span>
+                    </button>
+                  </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     {/* Operatér */}
                     <div>
-                      <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">Operatér</label>
+                      <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">
+                        <span className="flex items-center justify-between">
+                          <span>Operatér</span>
+                          <span className="flex items-center gap-1.5 normal-case font-semibold text-[9px]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInlineAddRole(inlineAddRole === 'operators' ? null : 'operators');
+                                setInlineAddVal('');
+                              }}
+                              className="text-[#C5A059] hover:text-[#9A7B38] hover:underline cursor-pointer"
+                              title="Rýchlo pridať nové meno operatéra"
+                            >
+                              + Pridať
+                            </button>
+                            <span className="text-gray-300">|</span>
+                            <button
+                              type="button"
+                              onClick={() => openStaffManager('operators')}
+                              className="text-[#8C857B] hover:text-[#2C2A29] hover:underline cursor-pointer"
+                              title="Upraviť alebo zmazať mená operatéra"
+                            >
+                              Upraviť ({teamPresets.operators.length})
+                            </button>
+                          </span>
+                        </span>
+                      </label>
                       <div className="space-y-1">
                         <select
-                          value={SURGICAL_TEAM_PRESETS.operators.includes(doctor) ? doctor : '__custom__'}
+                          value={teamPresets.operators.includes(doctor) ? doctor : '__custom__'}
                           onChange={e => {
-                            if (e.target.value !== '__custom__') {
+                            if (e.target.value === '__add_new__') {
+                              setInlineAddRole('operators');
+                              setInlineAddVal('');
+                            } else if (e.target.value === '__manage__') {
+                              openStaffManager('operators');
+                            } else if (e.target.value !== '__custom__') {
                               setDoctor(e.target.value);
                               setSurgeryDetails({ ...surgeryDetails, operator: e.target.value });
                             }
                           }}
                           className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-semibold"
                         >
-                          {SURGICAL_TEAM_PRESETS.operators.map(name => (
+                          {teamPresets.operators.map(name => (
                             <option key={name} value={name}>{name}</option>
                           ))}
-                          <option value="__custom__">Iné / Vlastné meno...</option>
+                          <option value="__custom__">Iné / Vlastné jednorazové meno...</option>
+                          <option value="__add_new__">➕ Pridať nové meno do zoznamu...</option>
+                          <option value="__manage__">⚙️ Spravovať & Upraviť zoznam mien ({teamPresets.operators.length})...</option>
                         </select>
-                        {(!SURGICAL_TEAM_PRESETS.operators.includes(doctor) || doctor === '') && (
+                        {(!teamPresets.operators.includes(doctor) || doctor === '') && (
                           <input
                             type="text"
                             value={doctor}
@@ -2889,28 +3323,124 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                             className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
                           />
                         )}
+                        {inlineAddRole === 'operators' && (
+                          <div className="flex gap-1.5 p-1.5 bg-[#FBF9F6] border border-[#C5A059]/40 rounded-lg animate-in fade-in">
+                            <input
+                              type="text"
+                              value={inlineAddVal}
+                              onChange={e => setInlineAddVal(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddStaffMember('operators', inlineAddVal);
+                                  setInlineAddRole(null);
+                                  setInlineAddVal('');
+                                } else if (e.key === 'Escape') {
+                                  setInlineAddRole(null);
+                                  setInlineAddVal('');
+                                }
+                              }}
+                              placeholder="Nové meno (napr. MUDr. Martin Novák)..."
+                              className="flex-1 border border-[#E8E2D9] px-2 py-1 rounded bg-white text-xs outline-none focus:border-[#C5A059]"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleAddStaffMember('operators', inlineAddVal);
+                                setInlineAddRole(null);
+                                setInlineAddVal('');
+                              }}
+                              className="bg-[#C5A059] text-white px-2.5 py-1 rounded text-xs font-bold hover:bg-[#B38F48] cursor-pointer"
+                            >
+                              Pridať
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInlineAddRole(null);
+                                setInlineAddVal('');
+                              }}
+                              className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs hover:bg-gray-200 cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-[10px] text-[#8C857B] px-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInlineAddRole(inlineAddRole === 'operators' ? null : 'operators');
+                              setInlineAddVal('');
+                            }}
+                            className="text-[#C5A059] hover:text-[#9A7B38] font-medium inline-flex items-center gap-0.5 hover:underline cursor-pointer"
+                          >
+                            <span>+ Pridať meno</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openStaffManager('operators')}
+                            className="text-[#8C857B] hover:text-[#2C2A29] inline-flex items-center gap-1 hover:underline cursor-pointer"
+                          >
+                            <span>✏️ Upraviť zoznam</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
                     {/* Asistent */}
                     <div>
-                      <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">Asistent</label>
+                      <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">
+                        <span className="flex items-center justify-between">
+                          <span>Asistent</span>
+                          <span className="flex items-center gap-1.5 normal-case font-semibold text-[9px]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInlineAddRole(inlineAddRole === 'assistants' ? null : 'assistants');
+                                setInlineAddVal('');
+                              }}
+                              className="text-[#C5A059] hover:text-[#9A7B38] hover:underline cursor-pointer"
+                              title="Rýchlo pridať nové meno asistenta"
+                            >
+                              + Pridať
+                            </button>
+                            <span className="text-gray-300">|</span>
+                            <button
+                              type="button"
+                              onClick={() => openStaffManager('assistants')}
+                              className="text-[#8C857B] hover:text-[#2C2A29] hover:underline cursor-pointer"
+                              title="Upraviť alebo zmazať mená asistenta"
+                            >
+                              Upraviť ({teamPresets.assistants.length})
+                            </button>
+                          </span>
+                        </span>
+                      </label>
                       <div className="space-y-1">
                         <select
-                          value={SURGICAL_TEAM_PRESETS.assistants.includes(surgeryDetails.assistant) ? surgeryDetails.assistant : '__custom__'}
+                          value={teamPresets.assistants.includes(surgeryDetails.assistant) ? surgeryDetails.assistant : '__custom__'}
                           onChange={e => {
-                            if (e.target.value !== '__custom__') {
+                            if (e.target.value === '__add_new__') {
+                              setInlineAddRole('assistants');
+                              setInlineAddVal('');
+                            } else if (e.target.value === '__manage__') {
+                              openStaffManager('assistants');
+                            } else if (e.target.value !== '__custom__') {
                               setSurgeryDetails({ ...surgeryDetails, assistant: e.target.value });
                             }
                           }}
                           className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
                         >
-                          {SURGICAL_TEAM_PRESETS.assistants.map(name => (
+                          {teamPresets.assistants.map(name => (
                             <option key={name} value={name}>{name}</option>
                           ))}
-                          <option value="__custom__">Iné / Vlastné meno...</option>
+                          <option value="__custom__">Iné / Vlastné jednorazové meno...</option>
+                          <option value="__add_new__">➕ Pridať nové meno do zoznamu...</option>
+                          <option value="__manage__">⚙️ Spravovať & Upraviť zoznam mien ({teamPresets.assistants.length})...</option>
                         </select>
-                        {!SURGICAL_TEAM_PRESETS.assistants.includes(surgeryDetails.assistant) && (
+                        {!teamPresets.assistants.includes(surgeryDetails.assistant) && (
                           <input
                             type="text"
                             value={surgeryDetails.assistant}
@@ -2919,28 +3449,124 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                             className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
                           />
                         )}
+                        {inlineAddRole === 'assistants' && (
+                          <div className="flex gap-1.5 p-1.5 bg-[#FBF9F6] border border-[#C5A059]/40 rounded-lg animate-in fade-in">
+                            <input
+                              type="text"
+                              value={inlineAddVal}
+                              onChange={e => setInlineAddVal(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddStaffMember('assistants', inlineAddVal);
+                                  setInlineAddRole(null);
+                                  setInlineAddVal('');
+                                } else if (e.key === 'Escape') {
+                                  setInlineAddRole(null);
+                                  setInlineAddVal('');
+                                }
+                              }}
+                              placeholder="Nové meno asistenta..."
+                              className="flex-1 border border-[#E8E2D9] px-2 py-1 rounded bg-white text-xs outline-none focus:border-[#C5A059]"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleAddStaffMember('assistants', inlineAddVal);
+                                setInlineAddRole(null);
+                                setInlineAddVal('');
+                              }}
+                              className="bg-[#C5A059] text-white px-2.5 py-1 rounded text-xs font-bold hover:bg-[#B38F48] cursor-pointer"
+                            >
+                              Pridať
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInlineAddRole(null);
+                                setInlineAddVal('');
+                              }}
+                              className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs hover:bg-gray-200 cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-[10px] text-[#8C857B] px-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInlineAddRole(inlineAddRole === 'assistants' ? null : 'assistants');
+                              setInlineAddVal('');
+                            }}
+                            className="text-[#C5A059] hover:text-[#9A7B38] font-medium inline-flex items-center gap-0.5 hover:underline cursor-pointer"
+                          >
+                            <span>+ Pridať meno</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openStaffManager('assistants')}
+                            className="text-[#8C857B] hover:text-[#2C2A29] inline-flex items-center gap-1 hover:underline cursor-pointer"
+                          >
+                            <span>✏️ Upraviť zoznam</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
                     {/* Anesteziológ */}
                     <div>
-                      <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">Anesteziológ</label>
+                      <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">
+                        <span className="flex items-center justify-between">
+                          <span>Anesteziológ</span>
+                          <span className="flex items-center gap-1.5 normal-case font-semibold text-[9px]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInlineAddRole(inlineAddRole === 'anesthesiologists' ? null : 'anesthesiologists');
+                                setInlineAddVal('');
+                              }}
+                              className="text-[#C5A059] hover:text-[#9A7B38] hover:underline cursor-pointer"
+                              title="Rýchlo pridať nové meno anesteziológa"
+                            >
+                              + Pridať
+                            </button>
+                            <span className="text-gray-300">|</span>
+                            <button
+                              type="button"
+                              onClick={() => openStaffManager('anesthesiologists')}
+                              className="text-[#8C857B] hover:text-[#2C2A29] hover:underline cursor-pointer"
+                              title="Upraviť alebo zmazať mená anesteziológa"
+                            >
+                              Upraviť ({teamPresets.anesthesiologists.length})
+                            </button>
+                          </span>
+                        </span>
+                      </label>
                       <div className="space-y-1">
                         <select
-                          value={SURGICAL_TEAM_PRESETS.anesthesiologists.includes(surgeryDetails.anesthesiologist) ? surgeryDetails.anesthesiologist : '__custom__'}
+                          value={teamPresets.anesthesiologists.includes(surgeryDetails.anesthesiologist) ? surgeryDetails.anesthesiologist : '__custom__'}
                           onChange={e => {
-                            if (e.target.value !== '__custom__') {
+                            if (e.target.value === '__add_new__') {
+                              setInlineAddRole('anesthesiologists');
+                              setInlineAddVal('');
+                            } else if (e.target.value === '__manage__') {
+                              openStaffManager('anesthesiologists');
+                            } else if (e.target.value !== '__custom__') {
                               setSurgeryDetails({ ...surgeryDetails, anesthesiologist: e.target.value });
                             }
                           }}
                           className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
                         >
-                          {SURGICAL_TEAM_PRESETS.anesthesiologists.map(name => (
+                          {teamPresets.anesthesiologists.map(name => (
                             <option key={name} value={name}>{name}</option>
                           ))}
-                          <option value="__custom__">Iné / Vlastné meno...</option>
+                          <option value="__custom__">Iné / Vlastné jednorazové meno...</option>
+                          <option value="__add_new__">➕ Pridať nové meno do zoznamu...</option>
+                          <option value="__manage__">⚙️ Spravovať & Upraviť zoznam mien ({teamPresets.anesthesiologists.length})...</option>
                         </select>
-                        {!SURGICAL_TEAM_PRESETS.anesthesiologists.includes(surgeryDetails.anesthesiologist) && (
+                        {!teamPresets.anesthesiologists.includes(surgeryDetails.anesthesiologist) && (
                           <input
                             type="text"
                             value={surgeryDetails.anesthesiologist}
@@ -2949,6 +3575,69 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                             className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
                           />
                         )}
+                        {inlineAddRole === 'anesthesiologists' && (
+                          <div className="flex gap-1.5 p-1.5 bg-[#FBF9F6] border border-[#C5A059]/40 rounded-lg animate-in fade-in">
+                            <input
+                              type="text"
+                              value={inlineAddVal}
+                              onChange={e => setInlineAddVal(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddStaffMember('anesthesiologists', inlineAddVal);
+                                  setInlineAddRole(null);
+                                  setInlineAddVal('');
+                                } else if (e.key === 'Escape') {
+                                  setInlineAddRole(null);
+                                  setInlineAddVal('');
+                                }
+                              }}
+                              placeholder="Nové meno (napr. MUDr. Peter Kováč)..."
+                              className="flex-1 border border-[#E8E2D9] px-2 py-1 rounded bg-white text-xs outline-none focus:border-[#C5A059]"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleAddStaffMember('anesthesiologists', inlineAddVal);
+                                setInlineAddRole(null);
+                                setInlineAddVal('');
+                              }}
+                              className="bg-[#C5A059] text-white px-2.5 py-1 rounded text-xs font-bold hover:bg-[#B38F48] cursor-pointer"
+                            >
+                              Pridať
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInlineAddRole(null);
+                                setInlineAddVal('');
+                              }}
+                              className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs hover:bg-gray-200 cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-[10px] text-[#8C857B] px-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInlineAddRole(inlineAddRole === 'anesthesiologists' ? null : 'anesthesiologists');
+                              setInlineAddVal('');
+                            }}
+                            className="text-[#C5A059] hover:text-[#9A7B38] font-medium inline-flex items-center gap-0.5 hover:underline cursor-pointer"
+                          >
+                            <span>+ Pridať meno</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openStaffManager('anesthesiologists')}
+                            className="text-[#8C857B] hover:text-[#2C2A29] inline-flex items-center gap-1 hover:underline cursor-pointer"
+                          >
+                            <span>✏️ Upraviť zoznam</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -2956,23 +3645,56 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                       <>
                         {/* Inštrumentárka */}
                         <div>
-                          <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">Inštrumentárka</label>
+                          <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">
+                            <span className="flex items-center justify-between">
+                              <span>Inštrumentárka</span>
+                              <span className="flex items-center gap-1.5 normal-case font-semibold text-[9px]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setInlineAddRole(inlineAddRole === 'instrumentalists' ? null : 'instrumentalists');
+                                    setInlineAddVal('');
+                                  }}
+                                  className="text-[#C5A059] hover:text-[#9A7B38] hover:underline cursor-pointer"
+                                  title="Rýchlo pridať nové meno inštrumentárky"
+                                >
+                                  + Pridať
+                                </button>
+                                <span className="text-gray-300">|</span>
+                                <button
+                                  type="button"
+                                  onClick={() => openStaffManager('instrumentalists')}
+                                  className="text-[#8C857B] hover:text-[#2C2A29] hover:underline cursor-pointer"
+                                  title="Upraviť alebo zmazať mená inštrumentárky"
+                                >
+                                  Upraviť ({teamPresets.instrumentalists.length})
+                                </button>
+                              </span>
+                            </span>
+                          </label>
                           <div className="space-y-1">
                             <select
-                              value={SURGICAL_TEAM_PRESETS.instrumentalists.includes(surgeryDetails.instrumentalist) ? surgeryDetails.instrumentalist : '__custom__'}
+                              value={teamPresets.instrumentalists.includes(surgeryDetails.instrumentalist) ? surgeryDetails.instrumentalist : '__custom__'}
                               onChange={e => {
-                                if (e.target.value !== '__custom__') {
+                                if (e.target.value === '__add_new__') {
+                                  setInlineAddRole('instrumentalists');
+                                  setInlineAddVal('');
+                                } else if (e.target.value === '__manage__') {
+                                  openStaffManager('instrumentalists');
+                                } else if (e.target.value !== '__custom__') {
                                   setSurgeryDetails({ ...surgeryDetails, instrumentalist: e.target.value });
                                 }
                               }}
                               className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
                             >
-                              {SURGICAL_TEAM_PRESETS.instrumentalists.map(name => (
+                              {teamPresets.instrumentalists.map(name => (
                                 <option key={name} value={name}>{name}</option>
                               ))}
-                              <option value="__custom__">Iné / Vlastné meno...</option>
+                              <option value="__custom__">Iné / Vlastné jednorazové meno...</option>
+                              <option value="__add_new__">➕ Pridať nové meno do zoznamu...</option>
+                              <option value="__manage__">⚙️ Spravovať & Upraviť zoznam mien ({teamPresets.instrumentalists.length})...</option>
                             </select>
-                            {!SURGICAL_TEAM_PRESETS.instrumentalists.includes(surgeryDetails.instrumentalist) && (
+                            {!teamPresets.instrumentalists.includes(surgeryDetails.instrumentalist) && (
                               <input
                                 type="text"
                                 value={surgeryDetails.instrumentalist}
@@ -2981,28 +3703,124 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                                 className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
                               />
                             )}
+                            {inlineAddRole === 'instrumentalists' && (
+                              <div className="flex gap-1.5 p-1.5 bg-[#FBF9F6] border border-[#C5A059]/40 rounded-lg animate-in fade-in">
+                                <input
+                                  type="text"
+                                  value={inlineAddVal}
+                                  onChange={e => setInlineAddVal(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleAddStaffMember('instrumentalists', inlineAddVal);
+                                      setInlineAddRole(null);
+                                      setInlineAddVal('');
+                                    } else if (e.key === 'Escape') {
+                                      setInlineAddRole(null);
+                                      setInlineAddVal('');
+                                    }
+                                  }}
+                                  placeholder="Nové meno inštrumentárky..."
+                                  className="flex-1 border border-[#E8E2D9] px-2 py-1 rounded bg-white text-xs outline-none focus:border-[#C5A059]"
+                                  autoFocus
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleAddStaffMember('instrumentalists', inlineAddVal);
+                                    setInlineAddRole(null);
+                                    setInlineAddVal('');
+                                  }}
+                                  className="bg-[#C5A059] text-white px-2.5 py-1 rounded text-xs font-bold hover:bg-[#B38F48] cursor-pointer"
+                                >
+                                  Pridať
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setInlineAddRole(null);
+                                    setInlineAddVal('');
+                                  }}
+                                  className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs hover:bg-gray-200 cursor-pointer"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between text-[10px] text-[#8C857B] px-0.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setInlineAddRole(inlineAddRole === 'instrumentalists' ? null : 'instrumentalists');
+                                  setInlineAddVal('');
+                                }}
+                                className="text-[#C5A059] hover:text-[#9A7B38] font-medium inline-flex items-center gap-0.5 hover:underline cursor-pointer"
+                              >
+                                <span>+ Pridať meno</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openStaffManager('instrumentalists')}
+                                className="text-[#8C857B] hover:text-[#2C2A29] inline-flex items-center gap-1 hover:underline cursor-pointer"
+                              >
+                                <span>✏️ Upraviť zoznam</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
 
                         {/* Anesteziologická sestra */}
                         <div className="col-span-1 sm:col-span-2">
-                          <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">Anestéziologická sestra</label>
+                          <label className="block text-[9px] text-[#8C857B] font-bold uppercase mb-1">
+                            <span className="flex items-center justify-between">
+                              <span>Anestéziologická sestra</span>
+                              <span className="flex items-center gap-1.5 normal-case font-semibold text-[9px]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setInlineAddRole(inlineAddRole === 'anestNurses' ? null : 'anestNurses');
+                                    setInlineAddVal('');
+                                  }}
+                                  className="text-[#C5A059] hover:text-[#9A7B38] hover:underline cursor-pointer"
+                                  title="Rýchlo pridať nové meno sestry"
+                                >
+                                  + Pridať
+                                </button>
+                                <span className="text-gray-300">|</span>
+                                <button
+                                  type="button"
+                                  onClick={() => openStaffManager('anestNurses')}
+                                  className="text-[#8C857B] hover:text-[#2C2A29] hover:underline cursor-pointer"
+                                  title="Upraviť alebo zmazať mená sestry"
+                                >
+                                  Upraviť ({teamPresets.anestNurses.length})
+                                </button>
+                              </span>
+                            </span>
+                          </label>
                           <div className="space-y-1">
                             <select
-                              value={SURGICAL_TEAM_PRESETS.anestNurses.includes(surgeryDetails.anestNurse) ? surgeryDetails.anestNurse : '__custom__'}
+                              value={teamPresets.anestNurses.includes(surgeryDetails.anestNurse) ? surgeryDetails.anestNurse : '__custom__'}
                               onChange={e => {
-                                if (e.target.value !== '__custom__') {
+                                if (e.target.value === '__add_new__') {
+                                  setInlineAddRole('anestNurses');
+                                  setInlineAddVal('');
+                                } else if (e.target.value === '__manage__') {
+                                  openStaffManager('anestNurses');
+                                } else if (e.target.value !== '__custom__') {
                                   setSurgeryDetails({ ...surgeryDetails, anestNurse: e.target.value });
                                 }
                               }}
                               className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
                             >
-                              {SURGICAL_TEAM_PRESETS.anestNurses.map(name => (
+                              {teamPresets.anestNurses.map(name => (
                                 <option key={name} value={name}>{name}</option>
                               ))}
-                              <option value="__custom__">Iné / Vlastné meno...</option>
+                              <option value="__custom__">Iné / Vlastné jednorazové meno...</option>
+                              <option value="__add_new__">➕ Pridať nové meno do zoznamu...</option>
+                              <option value="__manage__">⚙️ Spravovať & Upraviť zoznam mien ({teamPresets.anestNurses.length})...</option>
                             </select>
-                            {!SURGICAL_TEAM_PRESETS.anestNurses.includes(surgeryDetails.anestNurse) && (
+                            {!teamPresets.anestNurses.includes(surgeryDetails.anestNurse) && (
                               <input
                                 type="text"
                                 value={surgeryDetails.anestNurse}
@@ -3011,6 +3829,69 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                                 className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
                               />
                             )}
+                            {inlineAddRole === 'anestNurses' && (
+                              <div className="flex gap-1.5 p-1.5 bg-[#FBF9F6] border border-[#C5A059]/40 rounded-lg animate-in fade-in">
+                                <input
+                                  type="text"
+                                  value={inlineAddVal}
+                                  onChange={e => setInlineAddVal(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleAddStaffMember('anestNurses', inlineAddVal);
+                                      setInlineAddRole(null);
+                                      setInlineAddVal('');
+                                    } else if (e.key === 'Escape') {
+                                      setInlineAddRole(null);
+                                      setInlineAddVal('');
+                                    }
+                                  }}
+                                  placeholder="Nové meno anestéziologickej sestry..."
+                                  className="flex-1 border border-[#E8E2D9] px-2 py-1 rounded bg-white text-xs outline-none focus:border-[#C5A059]"
+                                  autoFocus
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleAddStaffMember('anestNurses', inlineAddVal);
+                                    setInlineAddRole(null);
+                                    setInlineAddVal('');
+                                  }}
+                                  className="bg-[#C5A059] text-white px-2.5 py-1 rounded text-xs font-bold hover:bg-[#B38F48] cursor-pointer"
+                                >
+                                  Pridať
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setInlineAddRole(null);
+                                    setInlineAddVal('');
+                                  }}
+                                  className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs hover:bg-gray-200 cursor-pointer"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between text-[10px] text-[#8C857B] px-0.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setInlineAddRole(inlineAddRole === 'anestNurses' ? null : 'anestNurses');
+                                  setInlineAddVal('');
+                                }}
+                                className="text-[#C5A059] hover:text-[#9A7B38] font-medium inline-flex items-center gap-0.5 hover:underline cursor-pointer"
+                              >
+                                <span>+ Pridať meno</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openStaffManager('anestNurses')}
+                                className="text-[#8C857B] hover:text-[#2C2A29] inline-flex items-center gap-1 hover:underline cursor-pointer"
+                              >
+                                <span>✏️ Upraviť zoznam</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </>

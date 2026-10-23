@@ -2018,68 +2018,6 @@ export default function Calendar({
         </div>
       </div>
 
-      {/* LIŠTA PRE ZOOM A TIPY (AKTÍVNA PRE DEŇ A TÝŽDENNÚ ČASOVÚ OS) */}
-      {(view === 'day' || (view === 'week' && weekViewMode === 'grid')) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#FAF8F5] border border-[#E8E2D9] px-3.5 py-2 rounded-xl text-xs">
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B] flex items-center gap-1">
-              <span>🔍</span> Rozostup hodín:
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button 
-                onClick={() => setHourHeight(prev => Math.max(45, prev - 15))}
-                disabled={hourHeight <= 45}
-                className="w-7 h-7 flex items-center justify-center bg-white border border-[#E8E2D9] hover:border-[#C5A059] disabled:opacity-40 rounded font-bold text-xs shadow-2xs"
-                title="Zmenšiť rozostup hodín"
-              >
-                −
-              </button>
-              <input 
-                type="range"
-                min="45"
-                max="220"
-                step="5"
-                value={hourHeight}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setHourHeight(val);
-                  try {
-                    localStorage.setItem('say_clinic_calendar_hour_height', val.toString());
-                  } catch {
-                    // ignore
-                  }
-                }}
-                className="w-24 md:w-36 accent-[#C5A059] cursor-pointer"
-                title={`Aktuálna výška: ${hourHeight}px za hodinu`}
-              />
-              <button 
-                onClick={() => setHourHeight(prev => Math.min(220, prev + 15))}
-                disabled={hourHeight >= 220}
-                className="w-7 h-7 flex items-center justify-center bg-white border border-[#E8E2D9] hover:border-[#C5A059] disabled:opacity-40 rounded font-bold text-xs shadow-2xs"
-                title="Zväčšiť rozostup hodín"
-              >
-                +
-              </button>
-              <button 
-                onClick={() => setHourHeight(85)}
-                className="px-2 py-1 text-[9px] font-bold uppercase bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#8C857B] hover:text-[#2C2A29] rounded shadow-2xs"
-                title="Obnoviť predvolený rozostup (85px)"
-              >
-                Reset ({hourHeight}px)
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-[10px] text-[#8C857B] flex-wrap">
-            <span className="bg-white px-2 py-1 rounded border border-[#E8E2D9] flex items-center gap-1 font-medium">
-              <kbd className="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-300 text-[#2C2A29]">Ctrl</kbd> + <span className="font-medium text-[#2C2A29]">koliesko myši</span> = zoom rozostupu
-            </span>
-            <span className="bg-white px-2 py-1 rounded border border-[#E8E2D9] flex items-center gap-1 font-medium hidden sm:flex">
-              <span className="text-[#C5A059]">✦</span> Ťahaním myšou (drag) vytvoríte ľubovoľne dlhú novú udalosť
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* HLAVNÝ KONTAJNER KALENDÁRA SO ZACHYTÁVANÍM CTRL + SCROLL PRE ZOOM */}
       <div ref={gridContainerRef} className="min-h-[400px]">
