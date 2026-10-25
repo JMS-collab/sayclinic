@@ -19,6 +19,7 @@ import { InventoryService, InventoryItem } from '../services/inventoryService';
 import { FinanceBillingService } from '../services/financeBillingService';
 import { AuditLogService } from '../services/auditLogService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
+import { StaffService } from '../services/staffService';
 import { useSession } from 'next-auth/react';
 import { getAccessToken } from '../lib/workspaceAuth';
 import html2canvas from 'html2canvas-pro';
@@ -715,38 +716,18 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient, all
     checkup: '1 týždeň'
   });
 
-  // NASTAVENIA PERSONÁLU PRE OPERAČNÝ TÍM (ULOŽENÉ V LOCALSTORAGE S MOŽNOSŤOU ÚPRAVY A PRIDÁVANIA)
-  const [teamPresets, setTeamPresets] = useState<typeof DEFAULT_SURGICAL_TEAM_PRESETS>(DEFAULT_SURGICAL_TEAM_PRESETS);
+  // NASTAVENIA PERSONÁLU PRE OPERAČNÝ TÍM (SYNCHRONIZOVANÉ Z CENTRÁLNEHO CLOUDU FIRESTORE V REÁLNOM ČASE PRE VŠETKY ZARIADENIA)
+  const [teamPresets, setTeamPresets] = useState<typeof DEFAULT_SURGICAL_TEAM_PRESETS>(() => StaffService.getCachedPresets());
 
-  // Načítanie personálu z localStorage po mountnutí
+  // Živý poslucháč Firestore - aktualizácia v reálnom čase na všetkých zariadeniach bez localStorage
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('say_clinic_surgical_team_presets_v1');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed && typeof parsed === 'object') {
-          setTeamPresets({
-            operators: Array.isArray(parsed.operators) && parsed.operators.length > 0 ? parsed.operators : DEFAULT_SURGICAL_TEAM_PRESETS.operators,
-            assistants: Array.isArray(parsed.assistants) && parsed.assistants.length > 0 ? parsed.assistants : DEFAULT_SURGICAL_TEAM_PRESETS.assistants,
-            anesthesiologists: Array.isArray(parsed.anesthesiologists) && parsed.anesthesiologists.length > 0 ? parsed.anesthesiologists : DEFAULT_SURGICAL_TEAM_PRESETS.anesthesiologists,
-            instrumentalists: Array.isArray(parsed.instrumentalists) && parsed.instrumentalists.length > 0 ? parsed.instrumentalists : DEFAULT_SURGICAL_TEAM_PRESETS.instrumentalists,
-            anestNurses: Array.isArray(parsed.anestNurses) && parsed.anestNurses.length > 0 ? parsed.anestNurses : DEFAULT_SURGICAL_TEAM_PRESETS.anestNurses,
-          });
-        }
-      }
-    } catch (e) {
-      console.error('Chyba pri načítaní zoznamu personálu:', e);
-    }
+    const unsubscribe = StaffService.subscribeSurgicalTeam((livePresets) => {
+      setTeamPresets(livePresets);
+    });
+    return () => {
+      unsubscribe();
+    };
   }, []);
-
-  const saveTeamPresets = (updated: typeof DEFAULT_SURGICAL_TEAM_PRESETS) => {
-    setTeamPresets(updated);
-    try {
-      localStorage.setItem('say_clinic_surgical_team_presets_v1', JSON.stringify(updated));
-    } catch (e) {
-      console.error('Chyba pri ukladaní personálu:', e);
-    }
-  };
 
   // Stav pre modal správy personálu
   const [isStaffManagerOpen, setIsStaffManagerOpen] = useState(false);
@@ -767,15 +748,14 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient, all
     setEditingStaffVal('');
   };
 
-  const handleAddStaffMember = (role: SurgicalTeamRoleKey, nameToAdd: string, autoSelect = true) => {
+  const handleAddStaffMember = async (role: SurgicalTeamRoleKey, nameToAdd: string, autoSelect = true) => {
     const trimmed = nameToAdd.trim();
     if (!trimmed) return;
-    if (!teamPresets[role].includes(trimmed)) {
-      const updated = {
-        ...teamPresets,
-        [role]: [...teamPresets[role], trimmed]
-      };
-      saveTeamPresets(updated);
+    try {
+      const updated = await StaffService.addStaffMember(role, trimmed);
+      setTeamPresets(updated);
+    } catch (err) {
+      console.error('Chyba pri ukladaní do Firestore:', err);
     }
     if (autoSelect) {
       if (role === 'operators') {
@@ -793,17 +773,16 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient, all
     }
   };
 
-  const handleEditStaffMember = (role: SurgicalTeamRoleKey, index: number, newName: string) => {
+  const handleEditStaffMember = async (role: SurgicalTeamRoleKey, index: number, newName: string) => {
     const trimmed = newName.trim();
     if (!trimmed) return;
     const oldName = teamPresets[role][index];
-    const updatedList = [...teamPresets[role]];
-    updatedList[index] = trimmed;
-    const updated = {
-      ...teamPresets,
-      [role]: updatedList
-    };
-    saveTeamPresets(updated);
+    try {
+      const updated = await StaffService.editStaffMember(role, index, trimmed);
+      setTeamPresets(updated);
+    } catch (err) {
+      console.error('Chyba pri editácii v Firestore:', err);
+    }
 
     if (role === 'operators' && doctor === oldName) {
       setDoctor(trimmed);
@@ -821,36 +800,37 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient, all
     setEditingStaffVal('');
   };
 
-  const handleDeleteStaffMember = (role: SurgicalTeamRoleKey, index: number) => {
+  const handleDeleteStaffMember = async (role: SurgicalTeamRoleKey, index: number) => {
     const nameToDelete = teamPresets[role][index];
-    const updatedList = teamPresets[role].filter((_, i) => i !== index);
-    const updated = {
-      ...teamPresets,
-      [role]: updatedList
-    };
-    saveTeamPresets(updated);
+    try {
+      const updated = await StaffService.deleteStaffMember(role, index);
+      setTeamPresets(updated);
 
-    const fallback = updatedList[0] || '';
-    if (role === 'operators' && doctor === nameToDelete) {
-      setDoctor(fallback);
-      setSurgeryDetails(prev => ({ ...prev, operator: fallback }));
-    } else if (role === 'assistants' && surgeryDetails.assistant === nameToDelete) {
-      setSurgeryDetails(prev => ({ ...prev, assistant: fallback }));
-    } else if (role === 'anesthesiologists' && surgeryDetails.anesthesiologist === nameToDelete) {
-      setSurgeryDetails(prev => ({ ...prev, anesthesiologist: fallback }));
-    } else if (role === 'instrumentalists' && surgeryDetails.instrumentalist === nameToDelete) {
-      setSurgeryDetails(prev => ({ ...prev, instrumentalist: fallback }));
-    } else if (role === 'anestNurses' && surgeryDetails.anestNurse === nameToDelete) {
-      setSurgeryDetails(prev => ({ ...prev, anestNurse: fallback }));
+      const fallback = updated[role][0] || '';
+      if (role === 'operators' && doctor === nameToDelete) {
+        setDoctor(fallback);
+        setSurgeryDetails(prev => ({ ...prev, operator: fallback }));
+      } else if (role === 'assistants' && surgeryDetails.assistant === nameToDelete) {
+        setSurgeryDetails(prev => ({ ...prev, assistant: fallback }));
+      } else if (role === 'anesthesiologists' && surgeryDetails.anesthesiologist === nameToDelete) {
+        setSurgeryDetails(prev => ({ ...prev, anesthesiologist: fallback }));
+      } else if (role === 'instrumentalists' && surgeryDetails.instrumentalist === nameToDelete) {
+        setSurgeryDetails(prev => ({ ...prev, instrumentalist: fallback }));
+      } else if (role === 'anestNurses' && surgeryDetails.anestNurse === nameToDelete) {
+        setSurgeryDetails(prev => ({ ...prev, anestNurse: fallback }));
+      }
+    } catch (err) {
+      console.error('Chyba pri mazaní z Firestore:', err);
     }
   };
 
-  const handleResetRoleStaff = (role: SurgicalTeamRoleKey) => {
-    const updated = {
-      ...teamPresets,
-      [role]: [...DEFAULT_SURGICAL_TEAM_PRESETS[role]]
-    };
-    saveTeamPresets(updated);
+  const handleResetRoleStaff = async (role: SurgicalTeamRoleKey) => {
+    try {
+      const updated = await StaffService.resetRoleToDefaults(role);
+      setTeamPresets(updated);
+    } catch (err) {
+      console.error('Chyba pri obnovení personálu do predvolených hodnôt vo Firestore:', err);
+    }
   };
 
   // OPERAČNÉ IMPLANTÁTY A ŠPECIÁLNY MATERIÁL

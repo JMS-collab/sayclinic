@@ -1,6 +1,6 @@
 {
-  "summary": "Plán komplexného odstránenia všetkých vzorových a testovacích údajov (mock pacientov, fiktívnych záznamov, Meicet analýz, skladových zásob a kalendárových termínov) so zachovaním personálu SAY CLINIC a lekárskych šablón.",
-  "updatedAt": "2026-10-20T09:20:37.640299960Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Implementačný plán na kompletnú centralizáciu personálu a chirurgického tímu do cloudovej databázy Firestore s okamžitou real-time synchronizáciou (onSnapshot) naprieč všetkými zariadeniami a používateľmi, s úplným vylúčením localStorage.",
+  "updatedAt":  "2026-10-23T18:33:18.159025405Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }

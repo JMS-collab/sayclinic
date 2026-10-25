@@ -1,51 +1,16 @@
 import { UserAccount, SAY_CLINIC_USERS } from '../components/LoginForm';
+import { StaffService } from './staffService';
 import { RealtimeSyncService } from './realtimeSyncService';
 
-const USERS_STORAGE_KEY = 'say_clinic_custom_users_v1';
-
 export const UserService = {
-  // Získa zoznam všetkých používateľov (z localStorage alebo predvolených)
+  // Získa zoznam všetkých používateľov z centrálnej cache (synchronizovanej z Firestore)
   getUsers(): UserAccount[] {
     if (typeof window === 'undefined') return SAY_CLINIC_USERS;
-    try {
-      const stored = localStorage.getItem(USERS_STORAGE_KEY);
-      if (stored) {
-        const parsed: UserAccount[] = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const storedMap = new Map<string, UserAccount>();
-          parsed.forEach(u => {
-            if (u && u.id) storedMap.set(u.id, u);
-          });
-
-          // Zlúčime predvolených 10 členov s prípadnými zmenami v úložisku
-          const merged: UserAccount[] = SAY_CLINIC_USERS.map(defaultUser => {
-            const custom = storedMap.get(defaultUser.id);
-            if (!custom) return defaultUser;
-            return {
-              ...defaultUser,
-              ...custom,
-              avatarUrl: custom.avatarUrl || defaultUser.avatarUrl,
-              role: custom.role || defaultUser.role,
-            };
-          });
-
-          // Doplníme prípadných dodatočne manuálne vytvorených používateľov
-          parsed.forEach(u => {
-            if (u && u.id && !SAY_CLINIC_USERS.some(def => def.id === u.id)) {
-              merged.push(u);
-            }
-          });
-
-          return merged;
-        }
-      }
-    } catch (e) {
-      console.error('Chyba pri načítaní používateľov:', e);
-    }
-    return SAY_CLINIC_USERS;
+    const cached = StaffService.getCachedUsers();
+    return (cached && cached.length > 0) ? cached : SAY_CLINIC_USERS;
   },
 
-  // Uloží alebo aktualizuje profil používateľa
+  // Uloží alebo aktualizuje profil používateľa do centrálneho Firestore
   saveUser(user: UserAccount): UserAccount[] {
     const current = this.getUsers();
     const existingIndex = current.findIndex(u => u.id === user.id);
@@ -59,13 +24,11 @@ export const UserService = {
     }
 
     if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('say_clinic_users_changed', { detail: updated }));
-        RealtimeSyncService.publish('users_updated', updated);
-      } catch (e) {
-        console.error('Chyba pri ukladaní používateľa:', e);
-      }
+      window.dispatchEvent(new CustomEvent('say_clinic_users_changed', { detail: updated }));
+      RealtimeSyncService.publish('users_updated', updated);
+      StaffService.saveUser(user).catch(err => {
+        console.error('Chyba pri ukladaní používateľa do Firestore:', err);
+      });
     }
     return updated;
   },
@@ -77,22 +40,22 @@ export const UserService = {
     const updated = current.filter(u => u.id !== id);
 
     if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('say_clinic_users_changed', { detail: updated }));
-        RealtimeSyncService.publish('users_updated', updated);
-      } catch (e) {
-        console.error('Chyba pri odstraňovaní používateľa:', e);
-      }
+      window.dispatchEvent(new CustomEvent('say_clinic_users_changed', { detail: updated }));
+      RealtimeSyncService.publish('users_updated', updated);
+      StaffService.deleteUser(id).catch(err => {
+        console.error('Chyba pri mazaní používateľa z Firestore:', err);
+      });
     }
     return updated;
   },
 
-  // Obnoví používateľov na predvolené továrenské nastavenia
+  // Obnoví používateľov na predvolené továrenské nastavenia v cloudovom Firestore
   resetToDefaults(): UserAccount[] {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(USERS_STORAGE_KEY);
       window.dispatchEvent(new CustomEvent('say_clinic_users_changed', { detail: SAY_CLINIC_USERS }));
+      StaffService.resetUsersToDefaults().catch(err => {
+        console.error('Chyba pri resetovaní používateľov:', err);
+      });
     }
     return SAY_CLINIC_USERS;
   }

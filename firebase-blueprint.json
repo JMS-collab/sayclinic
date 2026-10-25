@@ -39,6 +39,20 @@
         "createdAt": { "type": "string" }
       },
       "required": ["name", "birthNumber"]
+    },
+    "ClinicSettings": {
+      "title": "ClinicSettings",
+      "description": "Centrálne nastavenia kliniky synchronizované naprieč všetkými zariadeniami vrátane chirurgického tímu a používateľov",
+      "type": "object",
+      "properties": {
+        "operators": { "type": "array", "items": { "type": "string" } },
+        "assistants": { "type": "array", "items": { "type": "string" } },
+        "anesthesiologists": { "type": "array", "items": { "type": "string" } },
+        "instrumentalists": { "type": "array", "items": { "type": "string" } },
+        "anestNurses": { "type": "array", "items": { "type": "string" } },
+        "users": { "type": "array", "items": { "type": "object" } },
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -49,6 +63,10 @@
     "/patients/{patientId}": {
       "schema": "Patient",
       "description": "Karty pacientov"
+    },
+    "/clinic_settings/{settingId}": {
+      "schema": "ClinicSettings",
+      "description": "Globálne nastavenia kliniky a zoznamy personálu synchronizované v reálnom čase"
     }
   }
 }
