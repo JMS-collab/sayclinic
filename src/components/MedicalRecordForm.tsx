@@ -4047,132 +4047,35 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                   )}
                 </div>
 
-                {/* Rozpis použitého materiálu */}
-                <div className="space-y-2 pt-2 border-t border-[#E8E2D9]">
-                  <div className="flex justify-between items-center">
-                    <label className="block text-[9px] text-[#8C857B] uppercase font-bold">
-                      Použitý šijací materiál, hemostatiká, drény a krytie:
-                    </label>
-                  </div>
-
-                  {/* Rýchle čipy materiálov */}
-                  <div className="flex flex-wrap gap-1.5 text-[9px]">
-                    {[
-                      'PDS 4-0',
-                      'Monocryl 4-0',
-                      'Glycolon 4-0',
-                      'Prolene 5-0',
-                      'Vicryl 3-0',
-                      'Surgicel',
-                      'Floseal',
-                      'TachoSil',
-                      'Redon CH10 2x',
-                      'Kompresívna podprsenka',
-                      'Brušný pás',
-                      'Fixačná dlaha'
-                    ].map(mat => (
-                      <button
-                        key={mat}
-                        type="button"
-                        onClick={() => {
-                          setSurgeryMaterials(prev => prev ? `${prev}, ${mat}` : mat);
-                        }}
-                        className="bg-white hover:bg-[#FAF8F5] border border-[#E8E2D9] text-[#2C2A29] px-2 py-0.5 rounded-full transition-colors cursor-pointer"
-                      >
-                        + {mat}
-                      </button>
-                    ))}
-                  </div>
-
-                  <textarea
-                    rows={3}
-                    value={surgeryMaterials}
-                    onChange={e => setSurgeryMaterials(e.target.value)}
-                    placeholder="Zadajte použitý šijací materiál, drenáž, bandáže..."
-                    className="w-full border border-[#E8E2D9] p-2.5 rounded-xl text-xs bg-white leading-relaxed"
-                  />
-                </div>
-
-                {/* PREPOJENIE SO SKLADOM: AUTOMATICKÝ ODPIS MATERIÁLU */}
-                <div className="p-3.5 bg-[#FAF7F2] border border-[#C5A059]/30 rounded-xl space-y-2.5">
-                  <div className="flex flex-wrap justify-between items-center gap-1">
+                {/* EVIDENCIA SPOTREBY A ŠITIA DELEGOVANÁ NA SESTRU */}
+                <div className="p-3.5 bg-gradient-to-r from-[#FAF8F5] to-[#F5EFE6] border border-[#C5A059]/40 rounded-xl space-y-2">
+                  <div className="flex flex-wrap justify-between items-center gap-2">
                     <span className="text-[10px] uppercase font-bold text-[#C5A059] flex items-center gap-1.5">
-                      📦 Prepojenie so skladom SAY CLINIC (Automatický odpis)
+                      <span>📦</span>
+                      <span>Spotreba materiálu & odpis zo skladu (Evidencia sestry)</span>
                     </span>
-                    <span className="text-[9px] bg-white border border-[#E8E2D9] px-2 py-0.5 rounded text-[#8C857B] font-medium">
-                      Odpíše sa pri uložení protokolu
+                    <span className="text-[9px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
+                      ✓ Delegované na staničnú / sálovú sestru
                     </span>
                   </div>
 
-                  <p className="text-[10px] text-[#8C857B] leading-relaxed">
-                    Všetky implantáty ({surgeryImplants.length} ks) a rozpoznaný materiál (Monocryl, PDS, Glycolon, Prolene, Surgicel, Floseal, Redon, prádlo) budú po odoslaní automaticky zaevidované do Knihy spotreby klienta. Ak ste použili ďalšie položky zo skladu, vyberte ich nižšie:
+                  <p className="text-[11px] text-[#6B6357] leading-relaxed">
+                    Evidencia spotrebovaného šijacieho materiálu, hemostatík, drénov a pooperačnej bielizne sa zadáva <strong>v karte pacienta cez priame tlačidlo „📦 Odpis spotreby (Sestra)“</strong> s automatickým načítaním balíčka podľa vykonanej operácie.
                   </p>
 
-                  {/* Zoznam manuálne pridaných položiek */}
-                  {usedMaterialsToDeduct.length > 0 && (
-                    <div className="space-y-1.5 pt-1">
-                      {usedMaterialsToDeduct.map((mat, idx) => (
-                        <div key={mat.id} className="flex justify-between items-center bg-white p-2 rounded-lg border border-[#E8E2D9] text-xs shadow-2xs">
-                          <div>
-                            <span className="font-semibold text-[#2C2A29]">{mat.name}</span>
-                            <span className="ml-2 text-[9px] text-[#8C857B] uppercase bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">{mat.category}</span>
-                            {mat.lotNumber && <span className="ml-1 text-[9px] text-[#C5A059] font-mono">LOT: {mat.lotNumber}</span>}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E8E2D9]">{mat.quantity} {mat.unit}</span>
-                            <button
-                              type="button"
-                              onClick={() => setUsedMaterialsToDeduct(prev => prev.filter((_, i) => i !== idx))}
-                              className="text-rose-500 hover:text-rose-700 font-bold px-1"
-                              title="Odstrániť"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Dropdown pre výber ďalšej skladovej položky */}
-                  <div className="flex flex-wrap sm:flex-nowrap gap-2 pt-1">
-                    <select
-                      value={selectedStockItemToAdd}
-                      onChange={e => setSelectedStockItemToAdd(e.target.value)}
-                      className="flex-1 border border-[#E8E2D9] p-2 rounded-lg text-xs bg-white focus:border-[#C5A059] outline-none"
-                    >
-                      <option value="">+ Vyberte ďalší materiál zo skladu na odpis (anestézia, infúzia, krytie, prádlo)...</option>
-                      {availableStockItems.map(item => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} (Zásoba: {item.quantity} {item.unit}) [{item.supplier}]
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={!selectedStockItemToAdd}
-                      onClick={() => {
-                        const item = availableStockItems.find(i => i.id === selectedStockItemToAdd);
-                        if (!item) return;
-                        setUsedMaterialsToDeduct(prev => [
-                          ...prev,
-                          {
-                            id: `deduct-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-                            itemId: item.id,
-                            name: item.name,
-                            quantity: 1,
-                            unit: item.unit,
-                            category: item.category,
-                            lotNumber: item.lotNumber
-                          }
-                        ]);
-                        setSelectedStockItemToAdd('');
-                      }}
-                      className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-40 shrink-0 cursor-pointer"
-                    >
-                      + Pridať k odpisu
-                    </button>
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <span className="text-[10px] text-[#8C857B] italic">
+                      Operatér nemusí manuálne odpisovať materiál v protokole. (Voliteľná poznámka pre sestru / protokol):
+                    </span>
                   </div>
+
+                  <input
+                    type="text"
+                    value={surgeryMaterials}
+                    onChange={e => setSurgeryMaterials(e.target.value)}
+                    placeholder="Voliteľná poznámka operatéra k stehom / drenáži (napr. intrakutánny Monocryl 4-0, bez drénu)..."
+                    className="w-full border border-[#E8E2D9] px-2.5 py-1.5 rounded-lg text-xs bg-white text-[#2C2A29] placeholder:text-[#A89F91]"
+                  />
                 </div>
               </div>
             )}

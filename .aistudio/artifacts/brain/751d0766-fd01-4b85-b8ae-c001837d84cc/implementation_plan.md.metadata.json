@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementačný plán na kompletnú centralizáciu personálu a chirurgického tímu do cloudovej databázy Firestore s okamžitou real-time synchronizáciou (onSnapshot) naprieč všetkými zariadeniami a používateľmi, s úplným vylúčením localStorage.",
-  "updatedAt":  "2026-10-23T18:33:18.159025405Z",
+  "summary":  "Revidovaný implementačný plán: Presun evidencie materiálu a odpisov zo skladu z operačného protokolu na sestru, s priamym tlačidlom 'Odpis spotreby' v karte pacienta a automatickým inteligentným predvýberom balíčka spotreby podľa operácie pacienta.",
+  "updatedAt":  "2026-10-25T19:20:05.526696692Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

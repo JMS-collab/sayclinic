@@ -55,11 +55,21 @@ export interface MaterialUsageLog {
   notes?: string;
 }
 
+export interface MaterialBundleItem {
+  itemId: string;
+  name?: string;
+  quantity: number;
+  unit?: string;
+  category?: InventoryCategory | string;
+}
+
 export interface MaterialBundle {
   id: string;
   serviceName: string;
   description: string;
-  items: { itemId: string; quantity: number }[];
+  category?: string;
+  keywords?: string[];
+  items: MaterialBundleItem[];
 }
 
 export interface OrderItem {
@@ -260,59 +270,124 @@ export const INITIAL_BUNDLES: MaterialBundle[] = [
   {
     id: 'bundle-augmentacia',
     serviceName: 'Augmentácia prsníkov',
-    description: 'Kompletný operačný set pre augmentáciu vrátane prádla a drénov',
+    description: 'Kompletný operačný set pre augmentáciu vrátane prádla, šitia, hemostatík a drénov',
+    category: 'operacia',
+    keywords: ['augment', 'prsník', 'prsnik', 'mamma', 'implantat', 'implantát', 'vloženie implantátov'],
     items: [
-      { itemId: 'inv-marcaine', quantity: 2 },
-      { itemId: 'inv-pds-40', quantity: 1 },
-      { itemId: 'inv-monocryl-40', quantity: 1 },
-      { itemId: 'inv-glycolon-40', quantity: 1 },
-      { itemId: 'inv-surgicel', quantity: 1 },
-      { itemId: 'inv-redon-ch10', quantity: 2 },
-      { itemId: 'inv-bra-ideal-black-m', quantity: 1 },
-      { itemId: 'inv-belt-sg', quantity: 1 },
+      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 2, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-pds-40', name: 'PDS II 4-0 ihla SH-1 (bal 36ks)', quantity: 1, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2 (bal 36ks)', quantity: 1, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-glycolon-40', name: 'Glycolon 4-0 intrakutánny steh', quantity: 1, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-surgicel', name: 'Surgicel hemostatická gáza 5x7.5cm', quantity: 1, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-redon-ch10', name: 'Redonov podtlakový drén CH10 so zberačom', quantity: 2, unit: 'ks', category: 'sijaci_material' },
+      { itemId: 'inv-bra-ideal-black-m', name: 'Kompresívna podprsenka Lipoelastic PI Ideal', quantity: 1, unit: 'ks', category: 'kompresivne_pradlo' },
+      { itemId: 'inv-belt-sg', name: 'Prsný kompresívny fixačný pás SG Lipoelastic', quantity: 1, unit: 'ks', category: 'kompresivne_pradlo' },
     ]
   },
   {
     id: 'bundle-blefaroplastika',
     serviceName: 'Blefaroplastika (operácia očných viečok)',
-    description: 'Lokálna anestézia, jemný šijací materiál a ošetrenie',
+    description: 'Lokálna anestézia, mikro-šijací materiál, krytie a chladivé kompresy',
+    category: 'operacia',
+    keywords: ['blefaro', 'vieč', 'viec', 'očn', 'ocn', 'očných', 'ocnych'],
     items: [
-      { itemId: 'inv-citanest', quantity: 1 },
-      { itemId: 'inv-adrenaline', quantity: 1 },
-      { itemId: 'inv-prolene-50', quantity: 1 },
-      { itemId: 'inv-steri-strip', quantity: 1 },
+      { itemId: 'inv-citanest', name: 'Citanest 1% s Adrenalínom 1:200 000', quantity: 1, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-prolene-50', name: 'Prolene 5-0 ihla P-3 (bal 36ks)', quantity: 1, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-steri-strip', name: 'Steri-Strip sterilné náplasťové stehy 6x75mm', quantity: 1, unit: 'bal', category: 'ambulantny_material' },
+      { itemId: 'inv-mepore', name: 'Mepore sterilné pooperačné krytie', quantity: 1, unit: 'bal', category: 'ambulantny_material' },
     ]
   },
   {
-    id: 'bundle-botox-full',
-    serviceName: 'Aplikácia Dysportu / Botoxu (Full Face)',
-    description: 'Kompletná neurotoxínová kúra čelo, glabela, periorbitálne',
+    id: 'bundle-karpal',
+    serviceName: 'Dekompresia karpálneho tunela',
+    description: 'Lokálne anestetikum, jemná sutúra, sterilné kompresné krytie ruky',
+    category: 'operacia',
+    keywords: ['karpál', 'karpal', 'kanál', 'kanal', 'nervus medianus', 'tunel'],
     items: [
-      { itemId: 'inv-dysport', quantity: 1 },
-      { itemId: 'inv-cannula-tsk', quantity: 1 },
+      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 1, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2 (bal 36ks)', quantity: 1, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-steri-strip', name: 'Steri-Strip sterilné náplasťové stehy', quantity: 1, unit: 'bal', category: 'ambulantny_material' },
+      { itemId: 'inv-mepore', name: 'Mepore sterilné krytie + elastická bandáž', quantity: 1, unit: 'ks', category: 'ambulantny_material' },
+    ]
+  },
+  {
+    id: 'bundle-abdominoplastika',
+    serviceName: 'Abdominoplastika (plastika brucha)',
+    description: 'Kompletný set na resekciu, plikáciu priameho brušného svalu, drény a kompresný pás',
+    category: 'operacia',
+    keywords: ['abdomino', 'brucho', 'bruch', 'diastáza', 'diastaza', 'dermolipectomia'],
+    items: [
+      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 4, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-pds-40', name: 'PDS II 2-0 / 0 slučka na plikáciu diastázy', quantity: 2, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-monocryl-40', name: 'Monocryl 3-0 / 4-0 na podkožie', quantity: 2, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-glycolon-40', name: 'Glycolon 4-0 intrakutánny steh', quantity: 1, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-surgicel', name: 'Surgicel hemostatická gáza 5x7.5cm', quantity: 1, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-redon-ch10', name: 'Redonov podtlakový drén CH14 so zberačom', quantity: 2, unit: 'ks', category: 'sijaci_material' },
+      { itemId: 'inv-belt-sg', name: 'Brušný kompresívny pás 3-panelový Lipoelastic', quantity: 1, unit: 'ks', category: 'kompresivne_pradlo' },
     ]
   },
   {
     id: 'bundle-facelift',
-    serviceName: 'Face-lift & Neck-lift',
-    description: 'Chirurgický lifting tváre, šitie, hemostáza a kompresná bandáž',
+    serviceName: 'SMAS Face-lift & Neck-lift',
+    description: 'Chirurgický lifting tváre, SMAS plikácia, šitie, hemostáza a kompresná bandáž',
+    category: 'operacia',
+    keywords: ['facelift', 'face-lift', 'necklift', 'smas', 'lifting tváre', 'lifting krku'],
     items: [
-      { itemId: 'inv-marcaine', quantity: 3 },
-      { itemId: 'inv-pds-40', quantity: 2 },
-      { itemId: 'inv-monocryl-40', quantity: 2 },
-      { itemId: 'inv-floseal', quantity: 1 },
-      { itemId: 'inv-redon-ch10', quantity: 2 },
-      { itemId: 'inv-face-mask', quantity: 1 },
+      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 3, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-pds-40', name: 'PDS II 3-0 / 4-0 na SMAS fixáciu', quantity: 2, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2 (bal 36ks)', quantity: 2, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-prolene-50', name: 'Prolene 5-0 ihla P-3 na kožu', quantity: 1, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-floseal', name: 'Floseal hemostatická matrica 5ml', quantity: 1, unit: 'ks', category: 'sijaci_material' },
+      { itemId: 'inv-redon-ch10', name: 'Redonov mini-drén CH10 so zberačom', quantity: 2, unit: 'ks', category: 'sijaci_material' },
+      { itemId: 'inv-face-mask', name: 'Kompresívna tvárová a krčná bandáž Lipoelastic', quantity: 1, unit: 'ks', category: 'kompresivne_pradlo' },
+    ]
+  },
+  {
+    id: 'bundle-liposukcia',
+    serviceName: 'Tumescentná liposukcia',
+    description: 'Tumescenčný roztok, kanyly, kožný uzáver, savé krytie a kompresné prádlo',
+    category: 'operacia',
+    keywords: ['liposukc', 'tuku', 'odsatie', 'tumescent'],
+    items: [
+      { itemId: 'inv-marcaine', name: 'Tumescentný infiltračný set s Kleinovým roztokom', quantity: 1, unit: 'set', category: 'anestezia' },
+      { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2 (uzáver vstupov)', quantity: 1, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-mepore', name: 'Mepore absorpčné krytie na vytekanie', quantity: 4, unit: 'ks', category: 'ambulantny_material' },
+      { itemId: 'inv-belt-sg', name: 'Kompresná pooperačná bielizeň Lipoelastic', quantity: 1, unit: 'ks', category: 'kompresivne_pradlo' },
+    ]
+  },
+  {
+    id: 'bundle-labioplastika',
+    serviceName: 'Labioplastika (úprava labií)',
+    description: 'Lokálna anestézia, jemný rýchlovstrebateľný steh a hojivé krytie',
+    category: 'operacia',
+    keywords: ['labio', 'pysk', 'intímna', 'intimna'],
+    items: [
+      { itemId: 'inv-citanest', name: 'Citanest 1% s Adrenalínom', quantity: 1, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-glycolon-40', name: 'Vicryl Rapide / Glycolon 5-0 vstrebateľný steh', quantity: 2, unit: 'bal', category: 'sijaci_material' },
+      { itemId: 'inv-dermacyn', name: 'Dermacyn antiseptický gél na rany', quantity: 1, unit: 'ks', category: 'ambulantny_material' },
     ]
   },
   {
     id: 'bundle-prevaz',
     serviceName: 'Ambulantný pooperačný preväz a kontrola',
     description: 'Antiseptické ošetrenie, výmena pooperačného krytia a náplasťová fixácia',
+    category: 'ambulancia',
+    keywords: ['preväz', 'prevaz', 'kontrola', 'extrakcia', 'stehy', 'ošetrenie'],
     items: [
-      { itemId: 'inv-dermacyn', quantity: 1 },
-      { itemId: 'inv-mepore', quantity: 1 },
-      { itemId: 'inv-steri-strip', quantity: 1 },
+      { itemId: 'inv-dermacyn', name: 'Dermacyn / Betadine antiseptický roztok', quantity: 1, unit: 'ks', category: 'ambulantny_material' },
+      { itemId: 'inv-mepore', name: 'Mepore sterilné náplasťové krytie', quantity: 1, unit: 'ks', category: 'ambulantny_material' },
+      { itemId: 'inv-steri-strip', name: 'Steri-Strip sterilné elastické pásiky', quantity: 1, unit: 'bal', category: 'ambulantny_material' },
+    ]
+  },
+  {
+    id: 'bundle-botox-full',
+    serviceName: 'Aplikácia Dysportu / Botoxu (Full Face)',
+    description: 'Kompletná neurotoxínová kúra čelo, glabela, periorbitálne',
+    category: 'estetika',
+    keywords: ['botox', 'dysport', 'vrásk', 'vrask', 'neurotoxin'],
+    items: [
+      { itemId: 'inv-dysport', name: 'Dysport 500U / Botox 100U', quantity: 1, unit: 'vialka', category: 'estetika' },
+      { itemId: 'inv-cannula-tsk', name: 'TSK ihly 30G/32G mikroneedle set', quantity: 1, unit: 'bal', category: 'spotrebny' },
     ]
   }
 ];
@@ -583,6 +658,108 @@ export class InventoryService {
     const bundles = this.getBundles();
     const updated = bundles.filter(b => b.id !== bundleId);
     this.saveBundles(updated);
+  }
+
+  // Automatické odporučenie balíčka spotreby podľa názvu operácie / výkonu pacienta
+  public static suggestBundleForProcedure(procedureName?: string): MaterialBundle | null {
+    const bundles = this.getBundles();
+    if (!bundles || bundles.length === 0) return null;
+    if (!procedureName || !procedureName.trim()) return bundles[0];
+
+    const lower = procedureName.toLowerCase().trim();
+
+    // 1. Priama zhoda s názvom balíčka
+    const exactMatch = bundles.find(b => 
+      b.serviceName.toLowerCase().includes(lower) || lower.includes(b.serviceName.toLowerCase())
+    );
+    if (exactMatch) return exactMatch;
+
+    // 2. Zhoda s kľúčovými slovami zadefinovanými v balíčku
+    for (const b of bundles) {
+      if (b.keywords && b.keywords.some(kw => lower.includes(kw.toLowerCase()))) {
+        return b;
+      }
+    }
+
+    // 3. Fallback heuristika
+    if (lower.includes('augment') || lower.includes('prsník') || lower.includes('prsnik') || lower.includes('mamma') || lower.includes('implanta')) {
+      return bundles.find(b => b.id === 'bundle-augmentacia') || bundles[0];
+    }
+    if (lower.includes('blefaro') || lower.includes('vieč') || lower.includes('viec') || lower.includes('očn') || lower.includes('ocn')) {
+      return bundles.find(b => b.id === 'bundle-blefaroplastika') || bundles[0];
+    }
+    if (lower.includes('karpál') || lower.includes('karpal') || lower.includes('kanál') || lower.includes('tunel')) {
+      return bundles.find(b => b.id === 'bundle-karpal') || bundles[0];
+    }
+    if (lower.includes('abdomino') || lower.includes('brucho') || lower.includes('bruch') || lower.includes('diastáz')) {
+      return bundles.find(b => b.id === 'bundle-abdominoplastika') || bundles[0];
+    }
+    if (lower.includes('facelift') || lower.includes('face-lift') || lower.includes('necklift') || lower.includes('smas') || lower.includes('lifting')) {
+      return bundles.find(b => b.id === 'bundle-facelift') || bundles[0];
+    }
+    if (lower.includes('liposukc') || lower.includes('tuku') || lower.includes('odsatie')) {
+      return bundles.find(b => b.id === 'bundle-liposukcia') || bundles[0];
+    }
+    if (lower.includes('labio') || lower.includes('pysk') || lower.includes('intím')) {
+      return bundles.find(b => b.id === 'bundle-labioplastika') || bundles[0];
+    }
+    if (lower.includes('preväz') || lower.includes('prevaz') || lower.includes('kontrola') || lower.includes('stehy') || lower.includes('extrakcia')) {
+      return bundles.find(b => b.id === 'bundle-prevaz') || bundles[0];
+    }
+    if (lower.includes('botox') || lower.includes('dysport') || lower.includes('vrásk')) {
+      return bundles.find(b => b.id === 'bundle-botox-full') || bundles[0];
+    }
+
+    return bundles[0];
+  }
+
+  // 1-klikové zaevidovanie celého balíčka spotreby pre pacienta (sestra)
+  public static applyBundle(params: {
+    patientId?: string;
+    patientName: string;
+    patientBirthNumber?: string;
+    bundleId: string;
+    performerName?: string;
+    notes?: string;
+    customQuantities?: Record<string, number>;
+    disabledItems?: string[];
+  }): MaterialUsageLog[] {
+    const bundles = this.getBundles();
+    const bundle = bundles.find(b => b.id === params.bundleId);
+    if (!bundle) return [];
+
+    const inventory = this.getInventory();
+    const entries: Parameters<typeof InventoryService.logMaterialUsage>[0][] = [];
+    const disabledSet = new Set(params.disabledItems || []);
+
+    for (const itemRef of bundle.items) {
+      if (disabledSet.has(itemRef.itemId)) continue;
+
+      const matchedInv = inventory.find(i => i.id === itemRef.itemId);
+      const qty = params.customQuantities && params.customQuantities[itemRef.itemId] !== undefined
+        ? Number(params.customQuantities[itemRef.itemId])
+        : itemRef.quantity;
+
+      if (qty > 0) {
+        entries.push({
+          patientId: params.patientId,
+          patientName: params.patientName || 'Pacient SAY CLINIC',
+          patientBirthNumber: params.patientBirthNumber,
+          sourceType: 'operacia',
+          procedureName: bundle.serviceName,
+          itemId: matchedInv ? matchedInv.id : itemRef.itemId,
+          itemName: matchedInv ? matchedInv.name : (itemRef.name || itemRef.itemId),
+          category: matchedInv?.category || itemRef.category || 'spotrebny',
+          quantity: qty,
+          unit: matchedInv?.unit || itemRef.unit || 'ks',
+          lotNumber: matchedInv?.lotNumber,
+          performerName: params.performerName || 'Sestra SAY CLINIC',
+          notes: params.notes ? `Balíček: ${bundle.serviceName} • ${params.notes}` : `Balíček: ${bundle.serviceName}`
+        });
+      }
+    }
+
+    return this.logMultipleUsages(entries);
   }
 
   // ==========================================

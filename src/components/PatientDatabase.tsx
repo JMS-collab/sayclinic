@@ -18,6 +18,7 @@ import {
   Syringe,
   ShoppingBag,
   Boxes,
+  Package,
   FileCheck,
   HardDrive,
   MoreHorizontal,
@@ -392,6 +393,15 @@ export default function PatientDatabase({
   const [dispenseNote, setDispenseNote] = useState('');
   const [materialFilterType, setMaterialFilterType] = useState<string>('all');
 
+  // STAV PRE ODPIS SPOTREBY PRE SESTRU (BALÍČKY & AUTO-PREDVÝBER)
+  const [dispenseModalMode, setDispenseModalMode] = useState<'bundle' | 'manual'>('bundle');
+  const [selectedBundleId, setSelectedBundleId] = useState<string>('bundle-augmentacia');
+  const [bundleCustomQuantities, setBundleCustomQuantities] = useState<Record<string, number>>({});
+  const [bundleDisabledItems, setBundleDisabledItems] = useState<Record<string, boolean>>({});
+  const [detectedProcedureName, setDetectedProcedureName] = useState<string>('');
+  const [dispensePerformerName, setDispensePerformerName] = useState<string>('Službukonajúca sestra');
+  const [dispenseSuccessToast, setDispenseSuccessToast] = useState<string | null>(null);
+
   // Stav pre pridať pacienta
   const [isAddingPatient, setIsAddingPatient] = useState(false);
   const [isCreatingDriveFolder, setIsCreatingDriveFolder] = useState(false);
@@ -579,6 +589,67 @@ export default function PatientDatabase({
     setDispenseQuantity(1);
     setDispenseNote('');
     refreshPatientMaterials();
+  };
+
+  // Otvorenie modalu odpisu spotreby pre sestru s auto-detekciou operácie a predvýberom balíčka
+  const handleOpenNurseDispense = (preferredMode: 'bundle' | 'manual' = 'bundle') => {
+    if (!selectedPatient) return;
+    setDispenseModalMode(preferredMode);
+
+    // Auto-detekcia najnovšej operácie alebo výkonu pacienta zo zdravotných záznamov
+    const recs = patientRecords[selectedPatient.id] || [];
+    const opRecord = recs.find(r => 
+      (r.type && (r.type.toLowerCase().includes('opera') || r.type.toLowerCase().includes('protokol'))) ||
+      (r.title && (r.title.toLowerCase().includes('augment') || r.title.toLowerCase().includes('blefaro') || r.title.toLowerCase().includes('plastik') || r.title.toLowerCase().includes('facelift') || r.title.toLowerCase().includes('liposuk') || r.title.toLowerCase().includes('karpál') || r.title.toLowerCase().includes('labio')))
+    );
+
+    // Prípadne z kalendára
+    const calOp = storedEvents.find(evt => 
+      ((evt.patientId && evt.patientId === selectedPatient.id) || (evt.patientName && selectedPatient.name && evt.patientName.toLowerCase().includes(selectedPatient.name.toLowerCase()))) &&
+      (evt.type === 'operacia' || (evt.title && (evt.title.toLowerCase().includes('oper') || evt.title.toLowerCase().includes('augment'))))
+    );
+
+    const detected = opRecord?.title || opRecord?.procedureName || calOp?.operationTitle || calOp?.title || '';
+    setDetectedProcedureName(detected);
+
+    // Automatický predvýber najvhodnejšieho balíčka pre sestru
+    const suggested = InventoryService.suggestBundleForProcedure(detected);
+    const bundleToUse = suggested ? suggested.id : 'bundle-augmentacia';
+    setSelectedBundleId(bundleToUse);
+    setBundleCustomQuantities({});
+    setBundleDisabledItems({});
+    setDispenseNote('');
+    setDispenseProcedureName(detected || 'Odpis spotreby materiálu');
+    setDispenseSuccessToast(null);
+    setIsDispensingMaterial(true);
+  };
+
+  // 1-klikové zaevidovanie a odpis balíčka zo skladu pre pacienta
+  const handleApplyBundleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatient || !selectedBundleId) return;
+
+    const disabledList = Object.entries(bundleDisabledItems)
+      .filter(([_, disabled]) => disabled)
+      .map(([id]) => id);
+
+    const logs = InventoryService.applyBundle({
+      patientId: selectedPatient.id,
+      patientName: selectedPatient.name,
+      patientBirthNumber: selectedPatient.birthNumber,
+      bundleId: selectedBundleId,
+      performerName: dispensePerformerName || 'Službukonajúca sestra',
+      notes: dispenseNote || undefined,
+      customQuantities: bundleCustomQuantities,
+      disabledItems: disabledList,
+    });
+
+    refreshPatientMaterials();
+    setDispenseSuccessToast(`Úspešne odpísaných ${logs.length} položiek materiálu zo skladu!`);
+    setTimeout(() => {
+      setDispenseSuccessToast(null);
+      setIsDispensingMaterial(false);
+    }, 1200);
   };
 
   // 1. Načítanie pacientov z lokálnej cache a realtime synchronizácia s Firestore Cloudom
@@ -1642,7 +1713,18 @@ export default function PatientDatabase({
                   </button>
                 )}
 
-                {/* 4. Dropdown s ďalšími klinickými akciami */}
+                {/* 4. Odpis spotreby (Sestra) - Priamy prístup pre sestru s auto-predvýberom balíčka */}
+                <button
+                  type="button"
+                  onClick={() => handleOpenNurseDispense('bundle')}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#FAF8F5] to-[#F5EFE6] hover:from-[#F3EAD8] hover:to-[#EBDDC3] border border-[#C5A059] text-[#2C2A29] text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer group"
+                  title="Odpis spotrebovaného materiálu, šitia a operačných balíčkov (pre staničnú / sálovú sestru)"
+                >
+                  <Package className="w-3.5 h-3.5 text-[#C5A059] group-hover:scale-110 transition-transform" />
+                  <span>Odpis spotreby (Sestra)</span>
+                </button>
+
+                {/* 5. Dropdown s ďalšími klinickými akciami */}
                 <div className="relative" ref={actionsDropdownRef}>
                   <button
                     type="button"
@@ -1746,16 +1828,15 @@ export default function PatientDatabase({
                       <button
                         type="button"
                         onClick={() => {
-                          setIsDispensingMaterial(true);
-                          setDispenseItemId(allStockItems[0]?.id || '');
+                          handleOpenNurseDispense('bundle');
                           setIsActionsDropdownOpen(false);
                         }}
                         className="w-full text-left p-2 rounded-xl hover:bg-[#FAF8F5] transition-colors flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-[#2C2A29]"
                       >
                         <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-sm">📦</span>
                         <div>
-                          <p className="font-bold">Odpísať / Vystaviť materiál</p>
-                          <p className="text-[10px] text-[#8C857B]">Implantáty, kanyly, prádlo</p>
+                          <p className="font-bold">Odpis spotreby (Sestra)</p>
+                          <p className="text-[10px] text-[#8C857B]">Balíčky podľa operácie & manuálny odpis</p>
                         </div>
                       </button>
                     </div>
@@ -2151,13 +2232,11 @@ export default function PatientDatabase({
 
                             <button
                               type="button"
-                              onClick={() => {
-                                setIsDispensingMaterial(true);
-                                setDispenseItemId(allStockItems[0]?.id || '');
-                              }}
+                              onClick={() => handleOpenNurseDispense('bundle')}
                               className="text-xs bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3.5 py-2 rounded-xl uppercase font-bold tracking-wider shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                             >
-                              <span>+ Vystaviť / Odpísať materiál</span>
+                              <Package className="w-3.5 h-3.5 text-[#C5A059]" />
+                              <span>📦 Odpis spotreby (Sestra)</span>
                             </button>
                           </div>
 
@@ -2191,17 +2270,15 @@ export default function PatientDatabase({
                               <p className="text-3xl mb-2">📦</p>
                               <p className="text-sm font-semibold text-[#2C2A29]">Zatiaľ nebol zaznamenaný žiadny minutý materiál</p>
                               <p className="text-xs text-[#8C857B] max-w-md mx-auto mt-1">
-                                Materiál sa automaticky odpisuje zo skladu pri ukladaní operačného protokolu, estetického ošetrenia, kontrolného vyšetrenia alebo priamom výdaji pooperačnej bielizne.
+                                Sestra môže kedykoľvek odpísať spotrebovaný materiál buď 1-klikom cez pripravený balíček podľa operácie, alebo manuálnym výdajom.
                               </p>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setIsDispensingMaterial(true);
-                                  setDispenseItemId(allStockItems[0]?.id || '');
-                                }}
-                                className="mt-4 text-xs bg-[#C5A059] text-white px-4 py-2 rounded-xl uppercase font-bold hover:bg-[#b08d48] cursor-pointer"
+                                onClick={() => handleOpenNurseDispense('bundle')}
+                                className="mt-4 text-xs bg-[#C5A059] text-white px-4 py-2 rounded-xl uppercase font-bold hover:bg-[#b08d48] cursor-pointer inline-flex items-center gap-1.5"
                               >
-                                + Zaznamenať výdaj materiálu
+                                <Package className="w-3.5 h-3.5" />
+                                <span>+ Odpísať balíček spotreby (Sestra)</span>
                               </button>
                             </div>
                           ) : (
@@ -2795,108 +2872,360 @@ export default function PatientDatabase({
       </div>
     )}
 
-        {/* MODAL: RÝCHLY VÝDAJ MATERIÁLU NA PACIENTA */}
+        {/* MODAL: ODPIS SPOTREBY MATERIÁLU PRE SESTRU (BALÍČKY & MANUÁLNY ODPIS) */}
         {isDispensingMaterial && selectedPatient && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E8E2D9] space-y-4">
-              <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
-                <div>
-                  <h3 className="font-bold text-sm text-[#2C2A29] uppercase tracking-wide">
-                    Výdaj / Odpis materiálu zo skladu
-                  </h3>
-                  <p className="text-xs text-[#8C857B]">Klient: <strong className="text-[#2C2A29]">{selectedPatient.name}</strong> ({selectedPatient.birthNumber})</p>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-[#E8E2D9] space-y-4 max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+              {/* Hlavička modalu */}
+              <div className="flex justify-between items-start border-b border-[#E8E2D9] pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FAF7F2] to-[#F3EAD8] border border-[#C5A059]/40 flex items-center justify-center text-xl shrink-0 shadow-2xs">
+                    📦
+                  </div>
+                  <div>
+                    <h3 className="font-brand text-base font-bold text-[#2C2A29] uppercase tracking-wide flex items-center gap-2">
+                      <span>Odpis spotreby materiálu</span>
+                      <span className="text-[10px] bg-[#C5A059]/15 text-[#C5A059] px-2 py-0.5 rounded-full font-sans font-bold">
+                        Evidencia sestry
+                      </span>
+                    </h3>
+                    <p className="text-xs text-[#8C857B]">
+                      Klient: <strong className="text-[#2C2A29] font-semibold">{selectedPatient.name}</strong> • RČ: <span className="font-mono text-[#2C2A29]">{selectedPatient.birthNumber}</span>
+                    </p>
+                  </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsDispensingMaterial(false)}
-                  className="text-[#8C857B] hover:text-[#2C2A29] text-lg font-bold cursor-pointer"
+                  className="w-8 h-8 rounded-lg hover:bg-gray-100 text-[#8C857B] hover:text-[#2C2A29] flex items-center justify-center text-lg font-bold cursor-pointer transition-colors"
+                  title="Zavrieť"
                 >
                   ✕
                 </button>
               </div>
 
-              <form onSubmit={handleDispenseSubmit} className="space-y-3">
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Položka materiálu zo skladu *</label>
-                  <select
-                    value={dispenseItemId}
-                    onChange={e => setDispenseItemId(e.target.value)}
-                    required
-                    className="w-full border border-[#E8E2D9] p-2.5 rounded-xl text-xs bg-white focus:border-[#C5A059] outline-none"
-                  >
-                    <option value="" disabled>Vyberte materiál alebo prádlo zo skladu...</option>
-                    {allStockItems.map(item => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} (Zásoba: {item.quantity} {item.unit}) [{item.supplier}]
-                      </option>
-                    ))}
-                  </select>
+              {/* Úspešná hláška / Toast */}
+              {dispenseSuccessToast && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>{dispenseSuccessToast}</span>
                 </div>
+              )}
 
-                <div className="grid grid-cols-2 gap-3">
+              {/* Prepínač záložiek: Balíček podľa operácie vs. Manuálny odpis */}
+              <div className="flex p-1 bg-[#FAF8F5] rounded-xl border border-[#E8E2D9] gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setDispenseModalMode('bundle')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    dispenseModalMode === 'bundle'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'text-[#6B6357] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  <Package className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Balíček spotreby podľa operácie</span>
+                  {detectedProcedureName && (
+                    <span className="text-[9px] bg-[#C5A059] text-white px-1.5 py-0.2 rounded-full uppercase tracking-wider">
+                      Auto
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDispenseModalMode('manual')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    dispenseModalMode === 'manual'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'text-[#6B6357] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  <span>✍️</span>
+                  <span>Manuálny odpis položiek</span>
+                </button>
+              </div>
+
+              {/* ZÁLOŽKA 1: BALÍČEK SPOTREBY PODĽA OPERÁCIE */}
+              {dispenseModalMode === 'bundle' && (
+                <form onSubmit={handleApplyBundleSubmit} className="space-y-4 overflow-y-auto flex-1 pr-1">
+                  {/* Informácia o automatickej detekcii */}
+                  {detectedProcedureName ? (
+                    <div className="p-3 bg-[#FAF7F2] border border-[#C5A059]/40 rounded-xl text-xs text-[#6B6357] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">💡</span>
+                        <div>
+                          <p className="font-bold text-[#2C2A29]">
+                            Zistená operácia pacienta: <span className="text-[#C5A059]">„{detectedProcedureName}“</span>
+                          </p>
+                          <p className="text-[10px] text-[#8C857B]">
+                            Systém automaticky predvybral odporúčaný balíček šitia, anestézie a materiálu.
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[9px] bg-white border border-[#C5A059]/40 text-[#C5A059] font-bold px-2 py-1 rounded-md uppercase tracking-wider shrink-0">
+                        Predvybraté
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-[11px] text-[#8C857B]">
+                      Vyberte operačný alebo ambulantný výkon pre načítanie štandardizovaného balíčka materiálu:
+                    </div>
+                  )}
+
+                  {/* Výber balíčka */}
                   <div>
-                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Množstvo *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={dispenseQuantity}
-                      onChange={e => setDispenseQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Typ výdaja *</label>
+                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                      Vyberte balíček výkonu:
+                    </label>
                     <select
-                      value={dispenseType}
-                      onChange={e => setDispenseType(e.target.value as any)}
-                      className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
+                      value={selectedBundleId}
+                      onChange={e => {
+                        setSelectedBundleId(e.target.value);
+                        setBundleCustomQuantities({});
+                        setBundleDisabledItems({});
+                      }}
+                      className="w-full border border-[#E8E2D9] p-2.5 rounded-xl text-xs bg-white font-bold text-[#2C2A29] focus:border-[#C5A059] outline-none shadow-2xs"
                     >
-                      <option value="pradlo">👙 Výdaj prádla</option>
-                      <option value="ambulancia">🩺 Ambulancia / Preväz</option>
-                      <option value="operacia">🏥 Operácia / Sála</option>
-                      <option value="estetika">💉 Estetika</option>
+                      {InventoryService.getBundles().map(bundle => (
+                        <option key={bundle.id} value={bundle.id}>
+                          {bundle.serviceName} ({bundle.items.length} položiek)
+                        </option>
+                      ))}
                     </select>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Dôvod / Názov výkonu</label>
-                  <input
-                    type="text"
-                    value={dispenseProcedureName}
-                    onChange={e => setDispenseProcedureName(e.target.value)}
-                    placeholder="napr. Výdaj pooperačného prádla po augmentácii"
-                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
-                  />
-                </div>
+                  {/* Zoznam položiek v balíčku */}
+                  {(() => {
+                    const currentBundle = InventoryService.getBundles().find(b => b.id === selectedBundleId);
+                    if (!currentBundle) return null;
 
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Poznámka / Veľkosť (voliteľné)</label>
-                  <input
-                    type="text"
-                    value={dispenseNote}
-                    onChange={e => setDispenseNote(e.target.value)}
-                    placeholder="napr. Veľkosť M, čierna farba, predané na recepcii"
-                    className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
-                  />
-                </div>
+                    const allItems = currentBundle.items;
+                    const activeCount = allItems.filter(item => !bundleDisabledItems[item.itemId]).length;
 
-                <div className="flex justify-end gap-2 pt-2 border-t border-[#E8E2D9]">
-                  <button
-                    type="button"
-                    onClick={() => setIsDispensingMaterial(false)}
-                    className="px-4 py-2 border border-[#E8E2D9] rounded-xl text-xs font-semibold hover:bg-[#FAF8F5] cursor-pointer"
-                  >
-                    Zrušiť
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-[#C5A059] hover:bg-[#b08d48] text-white rounded-xl text-xs uppercase font-bold tracking-wider cursor-pointer shadow-xs"
-                  >
-                    Zaevidovať & Odpísať zo skladu
-                  </button>
-                </div>
-              </form>
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-[10px] uppercase font-bold text-[#8C857B]">
+                            Rozpis položiek balíčka ({activeCount} / {allItems.length} zvolených):
+                          </span>
+                          <span className="text-[10px] text-[#8C857B] italic">
+                            Upravte množstvá alebo odškrtnite nepoužité položky:
+                          </span>
+                        </div>
+
+                        <div className="border border-[#E8E2D9] rounded-xl overflow-hidden divide-y divide-[#E8E2D9] bg-white max-h-56 overflow-y-auto">
+                          {allItems.map(item => {
+                            const matchedStock = allStockItems.find(i => i.id === item.itemId);
+                            const itemName = matchedStock?.name || item.name || item.itemId;
+                            const isExcluded = !!bundleDisabledItems[item.itemId];
+                            const currentQty = bundleCustomQuantities[item.itemId] !== undefined
+                              ? bundleCustomQuantities[item.itemId]
+                              : item.quantity;
+
+                            return (
+                              <div
+                                key={item.itemId}
+                                className={`p-2.5 flex items-center justify-between gap-3 text-xs transition-colors ${
+                                  isExcluded ? 'bg-gray-50 opacity-40' : 'hover:bg-[#FAF8F5]'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={!isExcluded}
+                                    onChange={e => {
+                                      setBundleDisabledItems(prev => ({
+                                        ...prev,
+                                        [item.itemId]: !e.target.checked
+                                      }));
+                                    }}
+                                    className="rounded border-[#E8E2D9] text-[#C5A059] focus:ring-[#C5A059] cursor-pointer"
+                                  />
+                                  <div className="min-w-0">
+                                    <p className={`font-semibold truncate ${isExcluded ? 'line-through text-gray-500' : 'text-[#2C2A29]'}`}>
+                                      {itemName}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-[10px] text-[#8C857B] mt-0.5">
+                                      <span className="uppercase font-mono bg-black/5 px-1.5 py-0.2 rounded">
+                                        {matchedStock?.category || item.category || 'spotrebny'}
+                                      </span>
+                                      {matchedStock ? (
+                                        <span>Na sklade: <strong className={matchedStock.quantity > 0 ? 'text-emerald-700' : 'text-rose-600'}>{matchedStock.quantity} {matchedStock.unit}</strong></span>
+                                      ) : (
+                                        <span className="text-[#C5A059]">Klinický balíček</span>
+                                      )}
+                                      {matchedStock?.lotNumber && (
+                                        <span className="font-mono text-[#C5A059]">LOT: {matchedStock.lotNumber}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="99"
+                                    disabled={isExcluded}
+                                    value={currentQty}
+                                    onChange={e => {
+                                      const val = Math.max(1, parseInt(e.target.value) || 1);
+                                      setBundleCustomQuantities(prev => ({
+                                        ...prev,
+                                        [item.itemId]: val
+                                      }));
+                                    }}
+                                    className="w-14 border border-[#E8E2D9] px-2 py-1 rounded-lg text-center font-bold text-xs bg-white text-[#2C2A29] focus:border-[#C5A059] outline-none"
+                                  />
+                                  <span className="text-xs text-[#8C857B] font-medium w-8">
+                                    {item.unit || matchedStock?.unit || 'ks'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Personál & Poznámka */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                        Zodpovedná sestra / personál *
+                      </label>
+                      <input
+                        type="text"
+                        value={dispensePerformerName}
+                        onChange={e => setDispensePerformerName(e.target.value)}
+                        placeholder="napr. Bc. Mária Horváthová (sálová sestra)"
+                        required
+                        className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white text-[#2C2A29]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                        Doplňujúca poznámka (voliteľná)
+                      </label>
+                      <input
+                        type="text"
+                        value={dispenseNote}
+                        onChange={e => setDispenseNote(e.target.value)}
+                        placeholder="napr. Šitie dokončené bez komplikácií, drén funkčný"
+                        className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white text-[#2C2A29]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Pätička s akciami */}
+                  <div className="flex justify-between items-center gap-2 pt-3 border-t border-[#E8E2D9]">
+                    <button
+                      type="button"
+                      onClick={() => setIsDispensingMaterial(false)}
+                      className="px-4 py-2 border border-[#E8E2D9] rounded-xl text-xs font-semibold hover:bg-[#FAF8F5] cursor-pointer"
+                    >
+                      Zrušiť
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-[#C5A059] hover:bg-[#b08d48] text-white rounded-xl text-xs uppercase font-bold tracking-wider cursor-pointer shadow-md flex items-center gap-2 transition-all hover:scale-[1.01]"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>✓ Odpísať balíček zo skladu</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* ZÁLOŽKA 2: MANUÁLNY ODPIS JEDNOTLIVÝCH POLOŽIEK */}
+              {dispenseModalMode === 'manual' && (
+                <form onSubmit={handleDispenseSubmit} className="space-y-3 overflow-y-auto flex-1 pr-1">
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">
+                      Položka materiálu zo skladu *
+                    </label>
+                    <select
+                      value={dispenseItemId}
+                      onChange={e => setDispenseItemId(e.target.value)}
+                      required
+                      className="w-full border border-[#E8E2D9] p-2.5 rounded-xl text-xs bg-white focus:border-[#C5A059] outline-none"
+                    >
+                      <option value="" disabled>Vyberte materiál, šitie, anestéziu alebo prádlo...</option>
+                      {allStockItems.map(item => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} (Zásoba: {item.quantity} {item.unit}) [{item.supplier}]
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Množstvo *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={dispenseQuantity}
+                        onChange={e => setDispenseQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Typ výdaja *</label>
+                      <select
+                        value={dispenseType}
+                        onChange={e => setDispenseType(e.target.value as any)}
+                        className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
+                      >
+                        <option value="operacia">🏥 Operácia / Sála</option>
+                        <option value="ambulancia">🩺 Ambulancia / Preväz</option>
+                        <option value="pradlo">👙 Výdaj prádla</option>
+                        <option value="estetika">💉 Estetika</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Dôvod / Názov výkonu</label>
+                    <input
+                      type="text"
+                      value={dispenseProcedureName}
+                      onChange={e => setDispenseProcedureName(e.target.value)}
+                      placeholder="napr. Pooperačný preväz a extrakcia stehov"
+                      className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Poznámka / Veľkosť (voliteľné)</label>
+                    <input
+                      type="text"
+                      value={dispenseNote}
+                      onChange={e => setDispenseNote(e.target.value)}
+                      placeholder="napr. Veľkosť M, čierna farba, predané na recepcii"
+                      className="w-full border border-[#E8E2D9] p-2 rounded-xl text-xs bg-white"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-[#E8E2D9]">
+                    <button
+                      type="button"
+                      onClick={() => setIsDispensingMaterial(false)}
+                      className="px-4 py-2 border border-[#E8E2D9] rounded-xl text-xs font-semibold hover:bg-[#FAF8F5] cursor-pointer"
+                    >
+                      Zrušiť
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-[#C5A059] hover:bg-[#b08d48] text-white rounded-xl text-xs uppercase font-bold tracking-wider cursor-pointer shadow-xs"
+                    >
+                      Zaevidovať & Odpísať zo skladu
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}
