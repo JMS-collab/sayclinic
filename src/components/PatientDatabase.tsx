@@ -48,7 +48,6 @@ import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordS
 import { PatientCloudService } from '../services/patientCloudService';
 import GoogleDriveModal from './GoogleDriveModal';
 import { LiquidAvatar } from './LiquidAvatar';
-import PatientProcedureDispensingView from './inventory/PatientProcedureDispensingView';
 
 const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {};
 
@@ -108,7 +107,7 @@ interface PatientDatabaseProps {
   currentUser?: any;
 }
 
-export type MainPatientFolder = 'zaznamy' | 'plany' | 'diagnostika' | 'terminy' | 'prevadzka';
+export type MainPatientFolder = 'zaznamy' | 'plany' | 'diagnostika' | 'terminy';
 export type ZaznamySubTab = 'dekurzy' | 'vysetrenia' | 'materialy' | 'drive';
 export type PlanySubTab = 'roadmap' | 'protokoly';
 export type DiagnostikaSubTab = 'meicet' | 'foto';
@@ -138,7 +137,8 @@ export default function PatientDatabase({
       case 'prevadzka':
       case 'odpis':
       case 'spotreba':
-        return { main: 'prevadzka' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+      case 'materialy':
+        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'materialy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
       case 'roadmap':
         return { main: 'plany' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
       case 'plany':
@@ -1718,18 +1718,7 @@ export default function PatientDatabase({
                   </button>
                 )}
 
-                {/* 4. Odpis spotreby (Sestra) - Priamy prístup pre sestru s auto-predvýberom balíčka */}
-                <button
-                  type="button"
-                  onClick={() => handleOpenNurseDispense('bundle')}
-                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#FAF8F5] to-[#F5EFE6] hover:from-[#F3EAD8] hover:to-[#EBDDC3] border border-[#C5A059] text-[#2C2A29] text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer group"
-                  title="Odpis spotrebovaného materiálu, šitia a operačných balíčkov (pre staničnú / sálovú sestru)"
-                >
-                  <Package className="w-3.5 h-3.5 text-[#C5A059] group-hover:scale-110 transition-transform" />
-                  <span>Odpis spotreby (Sestra)</span>
-                </button>
-
-                {/* 5. Dropdown s ďalšími klinickými akciami */}
+                {/* 4. Dropdown s ďalšími klinickými akciami */}
                 <div className="relative" ref={actionsDropdownRef}>
                   <button
                     type="button"
@@ -1827,21 +1816,6 @@ export default function PatientDatabase({
                         <div>
                           <p className="font-bold">Dermatologické vyšetrenie</p>
                           <p className="text-[10px] text-[#8C857B]">Dermatoskopia & fototyp</p>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleOpenNurseDispense('bundle');
-                          setIsActionsDropdownOpen(false);
-                        }}
-                        className="w-full text-left p-2 rounded-xl hover:bg-[#FAF8F5] transition-colors flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-[#2C2A29]"
-                      >
-                        <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-sm">📦</span>
-                        <div>
-                          <p className="font-bold">Odpis spotreby (Sestra)</p>
-                          <p className="text-[10px] text-[#8C857B]">Balíčky podľa operácie & manuálny odpis</p>
                         </div>
                       </button>
                     </div>
@@ -1964,22 +1938,6 @@ export default function PatientDatabase({
                           </span>
                         )}
                       </button>
-
-                      {/* 5. PREVÁDZKA & ODPIS SPOTREBY */}
-                      <button 
-                        onClick={() => { setActiveFolder('prevadzka'); setActivePhotoCategory(null); }} 
-                        className={`px-4 py-2.5 text-xs font-bold tracking-wider rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${ 
-                          activeFolder === 'prevadzka' 
-                            ? 'bg-white border-t-2 border-x border-[#E8E2D9] border-t-[#C5A059] text-[#2C2A29] shadow-2xs' 
-                            : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]' 
-                        }`}
-                      >
-                        <Package className={`w-4 h-4 ${activeFolder === 'prevadzka' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
-                        <span>Prevádzka & Odpis</span>
-                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'prevadzka' ? 'bg-[#C5A059] text-white' : 'bg-amber-100 text-amber-900'}`}>
-                          Spotreba
-                        </span>
-                      </button>
                     </div>
                   );
                 })()}
@@ -2058,53 +2016,6 @@ export default function PatientDatabase({
                       {/* SUB-OBSAH 1A: DEKURZY & SPRÁVY */}
                       {zaznamySubTab === 'dekurzy' && (
                         <div className="space-y-3">
-                          <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
-                            <p className="text-[10px] uppercase text-[#8C857B] font-bold">História zdravotných záznamov, dekurzov & nálezov</p>
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {onNavigateToAesthetics && (
-                                <button 
-                                  onClick={() => onNavigateToAesthetics(selectedPatient)} 
-                                  className="text-[11px] bg-[#2C2A29] text-white px-2.5 py-1.5 rounded-lg uppercase font-bold shadow-xs hover:bg-[#C5A059] transition-colors flex items-center gap-1 cursor-pointer"
-                                >
-                                  💉 + Face Mapping
-                                </button>
-                              )}
-                              <button 
-                                onClick={() => onNavigateToGenerator && onNavigateToGenerator({ ...selectedPatient, initialDocType: 'dermatologicke_vysetrenie' })} 
-                                className="text-[11px] bg-purple-700 text-white px-2.5 py-1.5 rounded-lg uppercase font-bold shadow-xs hover:bg-purple-800 transition-colors flex items-center gap-1 cursor-pointer"
-                                title="Vytvoriť dermatologické vyšetrenie s dermatoskopiou a fototypom"
-                              >
-                                🩺 + Dermatológia
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  if (onNavigateToPrescriptions && selectedPatient) {
-                                    onNavigateToPrescriptions(selectedPatient);
-                                  } else if (onNavigateToGenerator) {
-                                    onNavigateToGenerator({ ...selectedPatient, initialDocType: 'lekarsky_recept' });
-                                  }
-                                }}
-                                className="text-[11px] bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg uppercase font-bold shadow-xs hover:bg-emerald-800 transition-colors flex items-center gap-1 cursor-pointer"
-                                title="Vystaviť lekársky recept ŠEVT 14 282 2s pre tohto pacienta"
-                              >
-                                💊 + Recept ŠEVT
-                              </button>
-                              <button 
-                                onClick={() => handleOpenScheduleModal()} 
-                                className="text-[11px] bg-sky-700 hover:bg-sky-800 text-white px-2.5 py-1.5 rounded-lg uppercase font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
-                                title="Naplánovať pooperačnú kontrolu alebo termín do kalendára"
-                              >
-                                <span>📅</span> + Naplánovať kontrolu
-                              </button>
-                              <button 
-                                onClick={() => onNavigateToGenerator && onNavigateToGenerator(selectedPatient)} 
-                                className="text-[11px] bg-[#C5A059] text-white px-3 py-1.5 rounded-lg uppercase font-bold shadow-xs hover:bg-[#b38d45] transition-colors cursor-pointer"
-                              >
-                                + Vytvoriť nový záznam
-                              </button>
-                            </div>
-                          </div>
-                          
                           {patientRecords[selectedPatient.id] && patientRecords[selectedPatient.id].length > 0 ? (
                             <div className="space-y-2">
                               {patientRecords[selectedPatient.id].map(record => (
@@ -2250,15 +2161,6 @@ export default function PatientDatabase({
                                 </span>
                               </div>
                             </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleOpenNurseDispense('bundle')}
-                              className="text-xs bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3.5 py-2 rounded-xl uppercase font-bold tracking-wider shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-                            >
-                              <Package className="w-3.5 h-3.5 text-[#C5A059]" />
-                              <span>📦 Odpis spotreby (Sestra)</span>
-                            </button>
                           </div>
 
                           {/* Filtre */}
@@ -2291,16 +2193,8 @@ export default function PatientDatabase({
                               <p className="text-3xl mb-2">📦</p>
                               <p className="text-sm font-semibold text-[#2C2A29]">Zatiaľ nebol zaznamenaný žiadny minutý materiál</p>
                               <p className="text-xs text-[#8C857B] max-w-md mx-auto mt-1">
-                                Sestra môže kedykoľvek odpísať spotrebovaný materiál buď 1-klikom cez pripravený balíček podľa operácie, alebo manuálnym výdajom.
+                                Minutý materiál, lieky a šitie sa evidujú pri odpise výkonu v sekcii Prevádzka.
                               </p>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenNurseDispense('bundle')}
-                                className="mt-4 text-xs bg-[#C5A059] text-white px-4 py-2 rounded-xl uppercase font-bold hover:bg-[#b08d48] cursor-pointer inline-flex items-center gap-1.5"
-                              >
-                                <Package className="w-3.5 h-3.5" />
-                                <span>+ Odpísať balíček spotreby (Sestra)</span>
-                              </button>
                             </div>
                           ) : (
                             <div className="space-y-2">
@@ -2865,17 +2759,6 @@ export default function PatientDatabase({
                     </div>
                   )}
 
-                  {/* ============================================================ */}
-                  {/* SEKCIA 5: PREVÁDZKA & ODPIS SPOTREBY                          */}
-                  {/* ============================================================ */}
-                  {activeFolder === 'prevadzka' && (
-                    <PatientProcedureDispensingView
-                      patient={selectedPatient}
-                      calendarEvents={storedEvents}
-                      isEmbeddedInPatientCard={true}
-                    />
-                  )}
-
                 </div>
               </div>
 
@@ -2904,8 +2787,8 @@ export default function PatientDatabase({
       </div>
     )}
 
-        {/* MODAL: ODPIS SPOTREBY MATERIÁLU PRE SESTRU (BALÍČKY & MANUÁLNY ODPIS) */}
-        {isDispensingMaterial && selectedPatient && (
+        {/* Odpis spotreby je dostupný v sekcii Prevádzka */}
+        {false && isDispensingMaterial && selectedPatient && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-[#E8E2D9] space-y-4 max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
               {/* Hlavička modalu */}
