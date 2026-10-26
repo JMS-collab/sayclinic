@@ -85,6 +85,68 @@ export interface OrderItem {
   notes?: string;
 }
 
+export interface FrequentItemRecommendation {
+  itemId: string;
+  name: string;
+  category: string;
+  defaultQty: number;
+  unit: string;
+  reason?: string;
+}
+
+export const FREQUENT_ITEMS_BY_PROCEDURE: Record<string, FrequentItemRecommendation[]> = {
+  breast: [
+    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', category: 'anestezia', defaultQty: 2, unit: 'vialka', reason: 'Lokálna anestézia' },
+    { itemId: 'inv-pds-40', name: 'PDS II 4-0 ihla SH-1 (bal 36ks)', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Hlboká podkožná sutúra' },
+    { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2 (bal 36ks)', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Subkutikulárny steh' },
+    { itemId: 'inv-glycolon-40', name: 'Glycolon 4-0 intrakutánny steh', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Intrakutánny uzáver' },
+    { itemId: 'inv-surgicel', name: 'Surgicel hemostatická gáza 5x7.5cm', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Lokálna hemostáza' },
+    { itemId: 'inv-redon-ch10', name: 'Redonov podtlakový drén CH10', category: 'sijaci_material', defaultQty: 2, unit: 'ks', reason: 'Podtlaková drenáž' },
+    { itemId: 'inv-bra-ideal-black-m', name: 'Kompresívna podprsenka Lipoelastic', category: 'kompresivne_pradlo', defaultQty: 1, unit: 'ks', reason: 'Fixácia implantátov' },
+    { itemId: 'inv-belt-sg', name: 'Prsný kompresívny pás SG', category: 'kompresivne_pradlo', defaultQty: 1, unit: 'ks', reason: 'Horná stabilizácia' },
+  ],
+  eyelids: [
+    { itemId: 'inv-citanest', name: 'Citanest 1% s Adrenalínom', category: 'anestezia', defaultQty: 1, unit: 'vialka', reason: 'Infiltrácia viečok' },
+    { itemId: 'inv-prolene-50', name: 'Prolene 5-0 ihla P-3', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Nevstrebateľný kožný steh' },
+    { itemId: 'inv-steri-strip', name: 'Steri-Strip sterilné náplasti 6x75mm', category: 'ambulantny_material', defaultQty: 1, unit: 'bal', reason: 'Fixácia po extrakcii / šití' },
+    { itemId: 'inv-mepore', name: 'Mepore sterilné krytie', category: 'ambulantny_material', defaultQty: 1, unit: 'bal', reason: 'Absorpčné krytie' },
+  ],
+  carpal: [
+    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% / Supracain', category: 'anestezia', defaultQty: 1, unit: 'vialka', reason: 'Zvodová anestézia zápästia' },
+    { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Kožná sutúra dlane' },
+    { itemId: 'inv-steri-strip', name: 'Steri-Strip sterilné náplasti', category: 'ambulantny_material', defaultQty: 1, unit: 'bal', reason: 'Primárna fixácia' },
+    { itemId: 'inv-mepore', name: 'Mepore krytie & elastická bandáž', category: 'ambulantny_material', defaultQty: 1, unit: 'ks', reason: 'Kompresný zábal ruky' },
+  ],
+  abdomen: [
+    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj.', category: 'anestezia', defaultQty: 4, unit: 'vialka', reason: 'Infiltrácia brušnej steny' },
+    { itemId: 'inv-pds-40', name: 'PDS II 2-0 / 0 slučka na diastázu', category: 'sijaci_material', defaultQty: 2, unit: 'bal', reason: 'Plikácia priamych svalov' },
+    { itemId: 'inv-monocryl-40', name: 'Monocryl 3-0 / 4-0', category: 'sijaci_material', defaultQty: 2, unit: 'bal', reason: 'Dvojvrstvové šitie podkožia' },
+    { itemId: 'inv-surgicel', name: 'Surgicel hemostatická gáza', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Hemostáza plochy' },
+    { itemId: 'inv-redon-ch10', name: 'Redonov drén CH14 so zberačom', category: 'sijaci_material', defaultQty: 2, unit: 'ks', reason: 'Odsávanie serómu' },
+    { itemId: 'inv-belt-sg', name: 'Brušný kompresívny pás 3-panelový', category: 'kompresivne_pradlo', defaultQty: 1, unit: 'ks', reason: 'Fixácia brucha' },
+  ],
+  facelift: [
+    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj.', category: 'anestezia', defaultQty: 3, unit: 'vialka', reason: 'Infiltrácia tváre a krku' },
+    { itemId: 'inv-pds-40', name: 'PDS II 3-0 / 4-0', category: 'sijaci_material', defaultQty: 2, unit: 'bal', reason: 'SMAS fixácia a plikácia' },
+    { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0', category: 'sijaci_material', defaultQty: 2, unit: 'bal', reason: 'Preaurikulárny uzáver' },
+    { itemId: 'inv-prolene-50', name: 'Prolene 5-0', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Jemný retroaurikulárny steh' },
+    { itemId: 'inv-floseal', name: 'Floseal hemostatická matrica 5ml', category: 'sijaci_material', defaultQty: 1, unit: 'ks', reason: 'Prevencia hematómu' },
+    { itemId: 'inv-redon-ch10', name: 'Redonov mini-drén CH10', category: 'sijaci_material', defaultQty: 2, unit: 'ks', reason: 'Drén tváre' },
+    { itemId: 'inv-face-mask', name: 'Tvárová kompresívna maska', category: 'kompresivne_pradlo', defaultQty: 1, unit: 'ks', reason: 'Pooperačná bandáž' },
+  ],
+  checkup: [
+    { itemId: 'inv-dermacyn', name: 'Dermacyn / Betadine antiseptický roztok', category: 'ambulantny_material', defaultQty: 1, unit: 'ks', reason: 'Toaleta rany a jaziev' },
+    { itemId: 'inv-mepore', name: 'Mepore sterilné náplasťové krytie', category: 'ambulantny_material', defaultQty: 1, unit: 'ks', reason: 'Výmena krytia' },
+    { itemId: 'inv-steri-strip', name: 'Steri-Strip sterilné pásiky', category: 'ambulantny_material', defaultQty: 1, unit: 'bal', reason: 'Náplasťová dlaha po stehoch' },
+  ],
+  default: [
+    { itemId: 'inv-dermacyn', name: 'Dermacyn antiseptický roztok', category: 'ambulantny_material', defaultQty: 1, unit: 'ks', reason: 'Antisepsa' },
+    { itemId: 'inv-mepore', name: 'Mepore sterilné krytie', category: 'ambulantny_material', defaultQty: 1, unit: 'ks', reason: 'Sterilné krytie' },
+    { itemId: 'inv-steri-strip', name: 'Steri-Strip pásiky', category: 'ambulantny_material', defaultQty: 1, unit: 'bal', reason: 'Fixácia' },
+    { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Sutúra' },
+  ]
+};
+
 // =========================================================================
 // OPIÁTOVÁ KNIHA & EVIDENCIA OPL (ZÁKON NR SR Č. 139/1998 Z. z.)
 // ==========================================
@@ -760,6 +822,31 @@ export class InventoryService {
     }
 
     return this.logMultipleUsages(entries);
+  }
+
+  // Získanie najčastejšie používaných skladových položiek pre konkrétny typ výkonu
+  public static getFrequentItemsForProcedure(procedureTitle?: string): FrequentItemRecommendation[] {
+    if (!procedureTitle) return FREQUENT_ITEMS_BY_PROCEDURE.default;
+    const lower = procedureTitle.toLowerCase();
+    if (lower.includes('augment') || lower.includes('prsník') || lower.includes('prsnik') || lower.includes('mamma') || lower.includes('implantat')) {
+      return FREQUENT_ITEMS_BY_PROCEDURE.breast;
+    }
+    if (lower.includes('blefaro') || lower.includes('vieč') || lower.includes('viec') || lower.includes('očn') || lower.includes('ocn')) {
+      return FREQUENT_ITEMS_BY_PROCEDURE.eyelids;
+    }
+    if (lower.includes('karpál') || lower.includes('karpal') || lower.includes('kanál') || lower.includes('tunel')) {
+      return FREQUENT_ITEMS_BY_PROCEDURE.carpal;
+    }
+    if (lower.includes('abdomino') || lower.includes('brucho') || lower.includes('bruch') || lower.includes('diastáz')) {
+      return FREQUENT_ITEMS_BY_PROCEDURE.abdomen;
+    }
+    if (lower.includes('facelift') || lower.includes('face-lift') || lower.includes('necklift') || lower.includes('smas') || lower.includes('lifting')) {
+      return FREQUENT_ITEMS_BY_PROCEDURE.facelift;
+    }
+    if (lower.includes('preväz') || lower.includes('prevaz') || lower.includes('kontrola') || lower.includes('extrakcia') || lower.includes('steh')) {
+      return FREQUENT_ITEMS_BY_PROCEDURE.checkup;
+    }
+    return FREQUENT_ITEMS_BY_PROCEDURE.default;
   }
 
   // ==========================================

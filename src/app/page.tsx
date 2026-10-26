@@ -2115,7 +2115,13 @@ export default function Home() {
                   </div>
                 </div>
 
-                {activeTab === 'inventory' && <InventoryCRM />}
+                {activeTab === 'inventory' && (
+                  <InventoryCRM 
+                    patients={patients}
+                    activePatient={activePatient}
+                    onSelectPatient={(p) => handleSetActivePatient(p)}
+                  />
+                )}
                 {activeTab === 'cosmetics' && (
                   <CosmeticsPOSModule 
                     patients={patients}

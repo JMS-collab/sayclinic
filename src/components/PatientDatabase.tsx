@@ -48,6 +48,7 @@ import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordS
 import { PatientCloudService } from '../services/patientCloudService';
 import GoogleDriveModal from './GoogleDriveModal';
 import { LiquidAvatar } from './LiquidAvatar';
+import PatientProcedureDispensingView from './inventory/PatientProcedureDispensingView';
 
 const INITIAL_DEMO_PLANS: Record<string, PatientPlan[]> = {};
 
@@ -107,7 +108,7 @@ interface PatientDatabaseProps {
   currentUser?: any;
 }
 
-export type MainPatientFolder = 'zaznamy' | 'plany' | 'diagnostika' | 'terminy';
+export type MainPatientFolder = 'zaznamy' | 'plany' | 'diagnostika' | 'terminy' | 'prevadzka';
 export type ZaznamySubTab = 'dekurzy' | 'vysetrenia' | 'materialy' | 'drive';
 export type PlanySubTab = 'roadmap' | 'protokoly';
 export type DiagnostikaSubTab = 'meicet' | 'foto';
@@ -134,6 +135,10 @@ export default function PatientDatabase({
   // POMOCNÝ RESOLVER PRE ZLÚČENÉ ZÁLOŽKY S RETRO-KOMPATIBILITOU
   const resolveFolderAndSub = (folder?: string) => {
     switch (folder) {
+      case 'prevadzka':
+      case 'odpis':
+      case 'spotreba':
+        return { main: 'prevadzka' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
       case 'roadmap':
         return { main: 'plany' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
       case 'plany':
@@ -1959,6 +1964,22 @@ export default function PatientDatabase({
                           </span>
                         )}
                       </button>
+
+                      {/* 5. PREVÁDZKA & ODPIS SPOTREBY */}
+                      <button 
+                        onClick={() => { setActiveFolder('prevadzka'); setActivePhotoCategory(null); }} 
+                        className={`px-4 py-2.5 text-xs font-bold tracking-wider rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${ 
+                          activeFolder === 'prevadzka' 
+                            ? 'bg-white border-t-2 border-x border-[#E8E2D9] border-t-[#C5A059] text-[#2C2A29] shadow-2xs' 
+                            : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]' 
+                        }`}
+                      >
+                        <Package className={`w-4 h-4 ${activeFolder === 'prevadzka' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
+                        <span>Prevádzka & Odpis</span>
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'prevadzka' ? 'bg-[#C5A059] text-white' : 'bg-amber-100 text-amber-900'}`}>
+                          Spotreba
+                        </span>
+                      </button>
                     </div>
                   );
                 })()}
@@ -2842,6 +2863,17 @@ export default function PatientDatabase({
                         );
                       })()}
                     </div>
+                  )}
+
+                  {/* ============================================================ */}
+                  {/* SEKCIA 5: PREVÁDZKA & ODPIS SPOTREBY                          */}
+                  {/* ============================================================ */}
+                  {activeFolder === 'prevadzka' && (
+                    <PatientProcedureDispensingView
+                      patient={selectedPatient}
+                      calendarEvents={storedEvents}
+                      isEmbeddedInPatientCard={true}
+                    />
                   )}
 
                 </div>

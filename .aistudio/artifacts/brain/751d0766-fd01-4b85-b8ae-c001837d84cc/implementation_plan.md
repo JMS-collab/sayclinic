@@ -1,72 +1,70 @@
-# Revidovaný implementačný plán: Inteligentný odpis spotreby sestrou v karte pacienta
+# Plán implementácie: Odpis spotreby materiálu v sekcii Prevádzka a v karte pacienta
 
-Na základe Vašich odpovedí tento plán definuje najlogickejší a najefektívnejší klinický workflow pre SAY CLINIC:
-1. **Lekár v operačnom protokole** sa sústredí výlučne na medicínsky výkon, postup a nález. Zdĺhavá evidencia šijacieho materiálu a skladový odpis sa z protokolu odstráni.
-2. **Sestra má priamy prístup k odpisu** priamo v hlavičke otvoreného pacienta cez tlačidlo **`📦 Odpis spotreby (Sestra)`**.
-3. **Systém automaticky predvyberie balíček spotreby** podľa operácie, ktorú pacient podstúpil (napr. *Augmentácia*, *Blefaroplastika*, *Karpálny tunel*, *Abdominoplastika*, *Facelift*, *Liposukcia*). Sestra nemusí nič hľadať – balíček je pripravený na 1 kliknutie, s možnosťou úpravy alebo manuálneho doplnenia kedykoľvek.
-
----
-
-## 1. Používateľské rozhodnutia (User Review)
-
-- **Umiestnenie akcie**: Priamo v karte otvoreného pacienta v rýchlej akčnej lište cez dedikované tlačidlo **`📦 Odpis spotreby (Sestra)`**. *(Potvrdené používateľom)*
-- **Inteligentný výber balíčka**: Systém automaticky načíta plánovanú alebo realizovanú operáciu pacienta a **automaticky predvolí správny balíček spotreby**. *(Potvrdené používateľom)*
-- **Časovanie**: Sestra môže balíček alebo manuálne položky nahodiť kedykoľvek (pred, počas aj dodatočne po výkone). *(Potvrdené používateľom)*
-- **Odľahčenie operačného protokolu lekára**: Z formulára protokolu sa odstráni manuálny textový rozpis stehov a skladový dropdown; nahradí sa elegantnou informačnou lištou s priamym preklikom na odpis pre sestru.
+Tento plán rieši presun a rozšírenie evidencie spotrebovaného materiálu presne podľa klinickej logiky SAY CLINIC:
+1. **V hlavnom menu Prevádzka (Sklad):** Pridanie špecializovanej záložky **„Odpis na pacienta“**, kde sestra vidí otvoreného pacienta (alebo si vyberie pacienta), zoznam jeho jednotlivých operácií a vyšetrení so stavom (**Čaká na odpis** / **Odpísané**), a po rozkliknutí výkonu pohodlne vykliká spotrebovaný materiál alebo predpísaný balík.
+2. **V karte pacienta (Kartotéka):** Pridanie novej 5. hlavnej zložky **„Prevádzka & Odpis“** priamo vedľa zložiek *Záznamy*, *Plány*, *Diagnostika*, *Termíny*, s rovnakým priamym rozkliknutím operácií a rýchlym odpisom.
 
 ---
 
-## 2. Navrhované zmeny (Proposed Changes)
+## 1. Architektúra a Tok Dát
 
-### Krok 1: Rozšírenie balíčkov spotreby a inteligentného priradenia v `src/services/inventoryService.ts`
-- Zadefinovanie komplexných balíčkov pre kľúčové výkony kliniky:
-  - **Augmentácia prsníkov**: Marcaine, PDS 4-0, Monocryl 4-0, Glycolon 4-0, Surgicel, Redon CH10 2x, Kompresívna podprsenka PI ideal, Stabilizačný pás
-  - **Blefaroplastika (viečka)**: Citanest, Adrenalín, Prolene 5-0, Steri-strip, Chladivé gélové krytie
-  - **Syndróm karpálneho tunela**: Lokálne anestetikum, Monocryl 4-0 / Prolene 5-0, Sterilné krytie, Elastický obväz
-  - **Abdominoplastika**: Marcaine, PDS 4-0, Monocryl 4-0, Redon drény CH10 2x, Kompresívny brušný pás VH special, Krytie
-  - **SMAS Facelift & Neck-lift**: Marcaine, PDS 4-0, Monocryl 4-0, Floseal hemostatikum, Redon drény 2x, Kompresná tvárová maska FM
-  - **Liposukcia**: Tumescenčný roztok, Kanyla, Kompresívna bielizeň (nohavice/pás), Absorpčné krytie
-  - **Ambulantný zákrok & Preväz**: Dermacyn roztok, Mepore náplasť, Steri-strip
-- Pomocná funkcia `InventoryService.suggestBundleForProcedure(procedureName: string): MaterialBundle | null`:
-  - Automaticky spáruje názov operácie pacienta s príslušným balíčkom spotreby (rozpozná kľúčové slová napr. *augment*, *implant*, *blef*, *viečk*, *karpál*, *abdo*, *brucho*, *facelift*, *lipo*).
-- Metóda `InventoryService.applyBundle(...)`:
-  - Hromadný odpis položiek balíčka s overením skladových zásob a zápisom do histórie pacienta (`MaterialUsageLog`).
-
-### Krok 2: Odstránenie materiálovej sekcie z operačného protokolu lekára v `src/components/MedicalRecordForm.tsx`
-- V sekcii `div:nth-of-type(4) > div:nth-of-type(3)` (Použitý šijací materiál, hemostatiká, drény a krytie + skladový odpis):
-  - Odstrániť ručné zadávanie stehov a manuálny skladový dropdown, ktoré zbytočne zaťažovali lekára.
-  - Vložiť čistú, profesionálnu klinickú kartu:
-    - **„📦 Spotreba materiálu & odpis zo skladu (Evidencia sestry)“**
-    - Text: *„Materiál, šitie a pooperačné prádlo eviduje a odpisuje sestra v karte pacienta cez balíčky spotreby.“*
-    - Tlačidlo: **„📦 Otvoriť odpis spotreby pre tohto pacienta“** (priamy mostík pre personál na sále).
-  - V tlačenom PDF protokole zostáva v prípade potreby súhrn materiálov buď z odpísaného balíčka sestry, alebo stručný štandard.
-
-### Krok 3: Implementácia tlačidla a inteligentného dialógu v `src/components/PatientDatabase.tsx`
-- **Rýchla akčná lišta (Quick Action Bar)** v hlavičke otvoreného pacienta:
-  - Pridanie primárneho tlačidla **`📦 Odpis spotreby (Sestra)`** s výrazným vizuálnym štýlom SAY CLINIC (amber/gold podtón).
-- **Modálne okno odpisu spotreby**:
-  - **Režim 1: 📦 Balíček spotreby podľa operácie**:
-    - Systém automaticky skontroluje operáciu pacienta (z `patient_surgeries` alebo lekárskej správy) a **okamžite predvyberie príslušný balíček**.
-    - Prehľadný zoznam všetkých položiek balíčka s ich kategóriami, jednotkami a predvolenými množstvami.
-    - Možnosť jednoducho odškrtnúť položku (ak sa nepoužila) alebo zmeniť počet kusov.
-    - Tlačidlo **„Zaevidovať & Odpísať balíček zo skladu ({počet} položiek)“**.
-  - **Režim 2: ✏️ Manuálny odpis materiálu**:
-    - Možnosť vyhľadať a odpísať akúkoľvek jednotlivú položku zo skladu (napr. dodatočný steh, liek, špeciálne prádlo).
-- Okamžitá aktualizácia zoznamu *Spotrebovaný materiál* v zložke pacienta a skladu s presným označením balíčka, dátumu a personálu.
+### Prepojenie výkonov a spotreby:
+- Každý záznam pacienta (`docType === 'operacny_protokol'`, `kontrolne_vysetrenie`, `vstupne_vysetrenie`, `esteticky_zakrok`) a každá udalosť z operačného kalendára (`type === 'operacia'`, `kontrola`) predstavujú samostatný klinický výkon pacienta.
+- Pre každý výkon systém automaticky vyhodnocuje stav odpisu:
+  - **Odpísané (Zelené):** Ak v `MaterialUsageLog` existujú položky priradené k tomuto výkonu alebo dňu.
+  - **Čaká na odpis (Jantárové):** Ak výkon prebehol alebo je naplánovaný, ale materiál ešte nebol zaevidovaný.
+- Po rozkliknutí výkonu (napr. *Augmentácia prsníkov*, *Blefaroplastika*, *Karpálny tunel*, *SMAS Facelift*):
+  1. **Najčastejšie používané položky pre tento výkon:** Okamžite klikateľné položky s indikáciou stavu skladu (napr. *PDS 4-0*, *Monocryl 4-0*, *Marcaine 0.5%*, *Redon CH10*, *Surgicel*, *Kompresívna podprsenka*).
+  2. **Predpísaný balík výkonu:** Tlačidlo na 1-klikové zaevidovanie a odpis celého štandardného balíčka.
+  3. **História už odpísaných položiek k tomuto výkonu:** S menom sestry, časom a možnosťou pridania ďalších materiálov.
 
 ---
 
-## 3. Plán overenia (Verification Plan)
+## 2. Navrhované Zmeny v Kóde
 
-### Automatizované kontroly:
-1. `compile_applet` – overenie bezchybnej kompilácie TypeScriptu a Next.js.
-2. `lint_applet` – kontrola syntaxe a čistoty kódu.
+### A. Služba skladu a najčastejších položiek (`src/services/inventoryService.ts`)
+- Doplnenie mapy najčastejších položiek pre jednotlivé typy operácií a vyšetrení:
+  - `FREQUENT_ITEMS_BY_PROCEDURE`:
+    - *Augmentácia prsníkov:* PDS 4-0, Monocryl 4-0, Glycolon, Marcaine, Redon CH10, Surgicel, Lipoelastic podprsenka, SG pás.
+    - *Blefaroplastika:* Citanest + Adrenalín, Prolene 5-0, Steri-Strip, Mepore krytie.
+    - *Karpálny tunel:* Marcaine 0.5%, Monocryl 4-0, Steri-Strip, Elastická bandáž.
+    - *Abdominoplastika:* PDS 2-0 slučka, Monocryl 3-0/4-0, Marcaine, Redon CH14, Floseal, Brušný pás.
+    - *Face-lift:* Marcaine, PDS 3-0, Monocryl 4-0, Prolene 5-0, Floseal, Redon, Tvárová bandáž.
+    - *Ambulancia & Preväz:* Dermacyn, Betadine, Mepore, Steri-Strip, set na extrakciu stehov.
+- Metóda `InventoryService.getUsageStatusForProcedures(patientId, procedures)`: vypočíta stav odpisu pre jednotlivé výkony pacienta.
 
-### Manuálne overenie:
-1. Otvorenie Operačného protokolu v `MedicalRecordForm`: potvrdiť, že lekár má formulár zbavený zadávania skladových materiálov a vidí prehľadnú väzbu na sestru.
-2. Otvorenie karty pacienta (napr. pacientka s naplánovanou alebo prebehnutou augmentáciou):
-   - Kliknúť na tlačidlo **`📦 Odpis spotreby (Sestra)`** v rýchlej akčnej lište.
-   - Overiť, že systém automaticky predvybral balíček *Augmentácia prsníkov*.
-   - Skontrolovať rozpis položiek (Monocryl, PDS, Glycolon, drény, podprsenka, pás).
-   - Kliknúť na *Zaevidovať & Odpísať balíček* a overiť okamžité zaevidovanie v karte pacienta a odpis zo skladu.
-   - Vyskúšať manuálny odpis ďalšej položky.
+### B. Nová záložka v hlavnom menu Prevádzka (`src/components/InventoryCRM.tsx`)
+- Do horného prepínača záložiek v `InventoryCRM` (`Skladové zásoby`, `Kniha spotreby`, `Objednávky`, `Balíčky výkonov`, `Kniha OPL`) pridáme:
+  - **`Odpis na pacienta`** (s ikonou `UserCheck` / `PackageCheck`).
+- V tejto záložke:
+  - Hore: Výber aktívneho pacienta (s vyhľadávaním a okamžitým predvybratím pacienta z kontextu).
+  - V tele: **Prehľadný zoznam výkonov pacienta** (operácie, kontroly, ošetrenia) so stavom:
+    - ⏳ *Čaká na odpis* (zvýraznené jantárovou farbou)
+    - ✓ *Odpísané (X položiek)* (zelená farba s časom a personálom)
+  - Rozkliknutie výkonu rozbalí integrovaný odpisový panel:
+    - **1-klikové čipy najčastejších položiek** (s rýchlym `+1`, `+2` pridaním).
+    - **Tlačidlo „Aplikovať kompletný balík výkonu“**.
+    - **Možnosť manuálneho vyhľadania a pridania ďalšej skladovej položky**.
+
+### C. Nová 5. záložka v detaile pacienta (`src/components/PatientDatabase.tsx`)
+- Rozšírenie typu `MainPatientFolder`:
+  `export type MainPatientFolder = 'zaznamy' | 'plany' | 'diagnostika' | 'terminy' | 'prevadzka';`
+- Pridanie záložky do navigácie karty pacienta:
+  - `Prevádzka & Odpis` (s ikonou `Boxes` / `Package` a počítadlom výkonov čakajúcich na odpis).
+- V tomto zobrazení má sestra presne ten istý intuitívny zoznam výkonov otvoreného pacienta s okamžitým rozkliknutím a odpisom materiálov priamo na mieste.
+
+### D. Synchronizácia a Firestore (`src/services/realtimeSyncService.ts` & `src/lib/firebase.ts`)
+- Všetky odpisy generujú štandardný `MaterialUsageLog`, ktorý sa ukladá a okamžite synchronizuje na všetky ostatné počítače personálu.
+- Okamžitá aktualizácia stavu skladu a počtov kusov.
+
+---
+
+## 3. Plán Overenia a Testovania
+
+1. **Manuálne overenie toku:**
+   - Otvorenie karty pacienta -> Prechod na záložku **Prevádzka & Odpis** -> Zobrazenie zoznamu operácií a vyšetrení pacienta.
+   - Rozkliknutie operácie (napr. *Augmentácia prsníkov*) -> Kliknutie na čip najčastejšej položky (napr. *PDS 4-0*) -> Overenie odpisu.
+   - Kliknutie na *Aplikovať kompletný balík* -> Overenie hromadného odpisu a zmeny stavu na *Odpísané*.
+   - Prechod do hlavného menu **Prevádzka & Logistika -> Sklad -> Odpis na pacienta** -> Overenie rovnakého funkčného rozhrania s možnosťou prepínania pacientov.
+2. **Kompilácia a kontrola chýb:**
+   - Spustenie `compile_applet` a `lint_applet` s overením 0 chýb.

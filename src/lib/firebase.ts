@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, Firestore, doc, getDocFromServer, setLogLevel } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -12,12 +12,24 @@ const databaseId = (firebaseConfig as any).firestoreDatabaseId;
 
 let firestoreDb: Firestore;
 
+// Set log level to 'error' to avoid WebChannel stream reconnect warnings in console
+if (typeof window !== 'undefined') {
+  try {
+    setLogLevel('error');
+  } catch {
+    // Ignore in unsupported environments
+  }
+}
+
 if (typeof window !== 'undefined') {
   try {
     firestoreDb = initializeFirestore(
       app,
       {
-        experimentalForceLongPolling: true,
+        experimentalAutoDetectLongPolling: true,
+        experimentalLongPollingOptions: {
+          timeoutSeconds: 20,
+        },
       },
       databaseId || undefined
     );

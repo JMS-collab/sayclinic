@@ -13,6 +13,7 @@ import {
   Lock
 } from 'lucide-react';
 import OpiateLogbook from './inventory/OpiateLogbook';
+import PatientProcedureDispensingView from './inventory/PatientProcedureDispensingView';
 import { 
   InventoryService, 
   InventoryItem, 
@@ -23,13 +24,25 @@ import {
   MaterialUsageSourceType 
 } from '../services/inventoryService';
 
-export default function InventoryCRM() {
+export interface InventoryCRMProps {
+  patients?: any[];
+  activePatient?: any | null;
+  onSelectPatient?: (patient: any) => void;
+  initialTab?: 'items' | 'usage' | 'reorder' | 'bundles' | 'opiates' | 'patient-dispense';
+}
+
+export default function InventoryCRM({
+  patients = [],
+  activePatient = null,
+  onSelectPatient,
+  initialTab = 'items'
+}: InventoryCRMProps = {}) {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [usageLogs, setUsageLogs] = useState<MaterialUsageLog[]>([]);
   const [bundles, setBundles] = useState<MaterialBundle[]>([]);
   const [reorderList, setReorderList] = useState<OrderItem[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'items' | 'usage' | 'reorder' | 'bundles' | 'opiates'>('items');
+  const [activeTab, setActiveTab] = useState<'items' | 'usage' | 'reorder' | 'bundles' | 'opiates' | 'patient-dispense'>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [onlyLowStock, setOnlyLowStock] = useState(false);
@@ -615,6 +628,29 @@ export default function InventoryCRM() {
             Trezor
           </span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('patient-dispense')}
+          className={`px-4 py-2.5 rounded-xl text-xs uppercase font-bold tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === 'patient-dispense' 
+              ? 'bg-[#C5A059] text-white shadow-sm ring-2 ring-[#C5A059]/30' 
+              : 'bg-[#FAF8F5] text-[#2C2A29] hover:bg-[#E8E2D9] font-black'
+          }`}
+        >
+          <span className="text-base">👤</span>
+          <span>Odpis na pacienta & Výkony</span>
+          {activePatient ? (
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+              activeTab === 'patient-dispense' ? 'bg-white/25 text-white' : 'bg-[#C5A059]/20 text-[#9C7D2B]'
+            }`}>
+              {activePatient.name}
+            </span>
+          ) : (
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold uppercase">
+              Sestra
+            </span>
+          )}
+        </button>
       </div>
 
       {/* ========================================================================= */}
@@ -1194,6 +1230,18 @@ export default function InventoryCRM() {
       {/* ========================================================================= */}
       {activeTab === 'opiates' && (
         <OpiateLogbook />
+      )}
+
+      {/* ========================================================================= */}
+      {/* 6. ZÁLOŽKA: ODPIS NA PACIENTA / OPERÁCIE & VYŠETRENIA                     */}
+      {/* ========================================================================= */}
+      {activeTab === 'patient-dispense' && (
+        <PatientProcedureDispensingView
+          allPatients={patients}
+          patient={activePatient}
+          onSelectPatient={onSelectPatient}
+          isEmbeddedInPatientCard={false}
+        />
       )}
 
       {/* ========================================================================= */}
