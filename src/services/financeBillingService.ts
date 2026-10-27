@@ -143,7 +143,7 @@ export class FinanceBillingService {
   private static STORAGE_KEY_CLIENT_PROFILES = 'say_clinic_client_financial_profiles_v1';
   private static STORAGE_KEY_CREDIT_LOGS = 'say_clinic_credit_logs_v1';
   private static STORAGE_KEY_PENDING_POS = 'say_clinic_pending_pos_checkouts_v1';
-  private static STORAGE_KEY_CLEAN_INIT = 'say_clinic_finance_clean_v2';
+  private static STORAGE_KEY_CLEAN_INIT = 'say_clinic_finance_clean_v3';
 
   // Overenie a vyčistenie starých demo dát pri prvom spustení ostrej verzie
   public static checkAndMigrateCleanState(): void {

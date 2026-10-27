@@ -57,45 +57,7 @@ export interface PatientClinicalProfile {
   notes: ClinicalNote[];
 }
 
-const DEFAULT_PATIENT_PROFILES: Record<string, PatientClinicalProfile> = {
-  P1: {
-    allergies: [
-      { id: 'al-1', name: 'Penicilín', reaction: 'kožný exantém, dýchavičnosť', severity: 'critical', addedAt: '2026-01-10' },
-      { id: 'al-2', name: 'Mesocain', reaction: 'anafylaktoidná kožná reakcia', severity: 'critical', addedAt: '2026-03-15' }
-    ],
-    risks: [
-      { id: 'rk-1', name: 'Sklon ku keloidným jazvám (anamnéza po appendektómii)', category: 'Hojenie rán', addedAt: '2026-01-10' },
-      { id: 'rk-2', name: 'Hormonálna antikoncepcia (vysadiť pred CA)', category: 'Tromboembolické riziko', addedAt: '2026-07-20' }
-    ],
-    notes: [
-      { id: 'nt-1', date: '2026-08-14', author: 'MUDr. Ján Mráz', content: 'Pooperačná kontrola 48h: Drenáž odstránená, rany bez hematómu. Kompresná podprsenka sedí optimálne. Hojenie per primam.', urgent: false },
-      { id: 'nt-2', date: '2026-07-28', author: 'MUDr. Sroková', content: 'Predoperačné výsledky: KO, koagulácie a EKG v norme. Interné predoperačné vyšetrenie: schopná výkonu v CA.', urgent: false }
-    ]
-  },
-  P2: {
-    allergies: [
-      { id: 'al-3', name: 'Jódové kontrastné látky', reaction: 'erytém, pruritus', severity: 'critical', addedAt: '2025-11-04' }
-    ],
-    risks: [
-      { id: 'rk-3', name: 'Artériová hypertenzia (kompenzovaná Prestarium 5mg)', category: 'Kardiovaskulárne', addedAt: '2026-02-12' },
-      { id: 'rk-4', name: 'Bývalý fajčiar (abstinencia 3 roky)', category: 'Anestézia', addedAt: '2026-02-12' }
-    ],
-    notes: [
-      { id: 'nt-3', date: '2026-07-10', author: 'MUDr. Ján Mráz', content: 'Konzultácia: plánovaná blefaroplastika horných viečok v lokálnej anestézii. Pacient poučený o pooperačnom chladení.', urgent: false }
-    ]
-  },
-  P3: {
-    allergies: [
-      { id: 'al-4', name: 'Bez známych liekových alergií (negatívna)', reaction: '', severity: 'warning', addedAt: '2026-01-05' }
-    ],
-    risks: [
-      { id: 'rk-5', name: 'Sezónna peľová rinitída (jar/leto)', category: 'Imunológia', addedAt: '2026-01-05' }
-    ],
-    notes: [
-      { id: 'nt-4', date: '2026-06-15', author: 'MUDr. Ján Mráz', content: 'Preventívna dermatoskopia materských znamienok – všetky sledované lézie bez atypií. Kontrola o rok.', urgent: false }
-    ]
-  }
-};
+const DEFAULT_PATIENT_PROFILES: Record<string, PatientClinicalProfile> = {};
 
 interface PatientTimelineSidebarProps {
   patient: Patient;
