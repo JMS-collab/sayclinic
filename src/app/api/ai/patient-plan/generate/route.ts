@@ -141,8 +141,8 @@ VÝSTUP MUSÍ BYŤ ČISTÝ JSON zodpovedajúci rozhraniu:
 }
 
 DÔLEŽITÉ: Pre každý krok rannej a večernej rutiny MUSÍŠ vytvoriť OBA varianty (standardOption aj premiumOption):
-- standardOption: Trieda "Lekárenská dermokozmetika" (CeraVe, La Roche-Posay, Vichy) ako overená, dostupnejšia lekárenská starostlivosť (~14€ až 40€).
-- premiumOption: Trieda "Medicínska kozmeceutika" (SkinCeuticals, Medik8) ako špičková medicínska bunková starostlivosť s patentovanými koncentráciami (~44€ až 185€).
+- standardOption: Trieda "Základná starostlivosť" (CeraVe, La Roche-Posay, Vichy) ako overená, dostupnejšia starostlivosť (~14€ až 40€).
+- premiumOption: Trieda "Prémiová starostlivosť" (SkinCeuticals, Medik8) ako špičková medicínska bunková starostlivosť s patentovanými koncentráciami (~44€ až 185€).
 Pre každý produkt VŽDY vyplň značku (napr. "La Roche-Posay", "SkinCeuticals", "Vichy", "CeraVe") do poľa "brand" a názov v "productName" musí taktiež začínať názvom značky (napr. "La Roche-Posay Anthelios UVMune 400..." alebo "SkinCeuticals C E Ferulic...").
 
 Uveď konkrétne klinické produkty výhradne z oficiálneho portfólia kliniky SAY CLINIC:

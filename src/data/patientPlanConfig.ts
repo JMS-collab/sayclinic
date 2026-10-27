@@ -1,6 +1,6 @@
 export interface RoutineProductOption {
   tier: 'standard' | 'premium';
-  tierName: 'Lekárenská dermokozmetika' | 'Medicínska kozmeceutika';
+  tierName: 'Základná starostlivosť' | 'Prémiová starostlivosť' | 'Lekárenská dermokozmetika' | 'Medicínska kozmeceutika';
   productName: string;
   brand: string;
   price: number;
@@ -125,7 +125,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           price: 14.50,
           standardOption: {
             tier: 'standard',
-            tierName: 'Lekárenská dermokozmetika',
+            tierName: 'Základná starostlivosť',
             productName: 'CeraVe Hydratačná čistiaca emulzia (Hydrating Cleanser)',
             brand: 'CeraVe',
             price: 14.50,
@@ -134,7 +134,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           },
           premiumOption: {
             tier: 'premium',
-            tierName: 'Medicínska kozmeceutika',
+            tierName: 'Prémiová starostlivosť',
             productName: 'SkinCeuticals Simply Clean hĺbkový čistiaci gél s amíno-kombináciou',
             brand: 'SkinCeuticals',
             price: 48.00,
@@ -152,7 +152,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           price: 38.00,
           standardOption: {
             tier: 'standard',
-            tierName: 'Lekárenská dermokozmetika',
+            tierName: 'Základná starostlivosť',
             productName: 'Vichy Liftactiv Supreme 15% čistý Vitamín C rozjasňujúce sérum',
             brand: 'Vichy',
             price: 38.00,
@@ -161,7 +161,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           },
           premiumOption: {
             tier: 'premium',
-            tierName: 'Medicínska kozmeceutika',
+            tierName: 'Prémiová starostlivosť',
             productName: 'SkinCeuticals C E Ferulic patentované antioxidačné sérum (Zlatý štandard)',
             brand: 'SkinCeuticals',
             price: 175.00,
@@ -179,7 +179,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           price: 39.50,
           standardOption: {
             tier: 'standard',
-            tierName: 'Lekárenská dermokozmetika',
+            tierName: 'Základná starostlivosť',
             productName: 'La Roche-Posay Hyalu B5 intenzívne hydratačné sérum s vitamínom B5',
             brand: 'La Roche-Posay',
             price: 39.50,
@@ -188,7 +188,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           },
           premiumOption: {
             tier: 'premium',
-            tierName: 'Medicínska kozmeceutika',
+            tierName: 'Prémiová starostlivosť',
             productName: 'SkinCeuticals H.A. Intensifier Multi-Glycan sérum stimulujúce tvorbu HA',
             brand: 'SkinCeuticals',
             price: 125.00,
@@ -206,7 +206,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           price: 21.50,
           standardOption: {
             tier: 'standard',
-            tierName: 'Lekárenská dermokozmetika',
+            tierName: 'Základná starostlivosť',
             productName: 'La Roche-Posay Anthelios UVMune 400 Invisible Fluid SPF 50+',
             brand: 'La Roche-Posay',
             price: 21.50,
@@ -215,7 +215,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           },
           premiumOption: {
             tier: 'premium',
-            tierName: 'Medicínska kozmeceutika',
+            tierName: 'Prémiová starostlivosť',
             productName: 'SkinCeuticals Ultra Facial Defense SPF 50+ širokospektrálny fotoprotekčný krém',
             brand: 'SkinCeuticals',
             price: 44.00,
@@ -235,7 +235,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           price: 17.50,
           standardOption: {
             tier: 'standard',
-            tierName: 'Lekárenská dermokozmetika',
+            tierName: 'Základná starostlivosť',
             productName: 'La Roche-Posay Toleriane Dermo-Cleanser upokojujúce čistiace mlieko',
             brand: 'La Roche-Posay',
             price: 17.50,
@@ -244,7 +244,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           },
           premiumOption: {
             tier: 'premium',
-            tierName: 'Medicínska kozmeceutika',
+            tierName: 'Prémiová starostlivosť',
             productName: 'SkinCeuticals Soothing Cleanser upokojujúca čistiaca pena s orchideou',
             brand: 'SkinCeuticals',
             price: 46.00,
@@ -262,7 +262,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           price: 39.00,
           standardOption: {
             tier: 'standard',
-            tierName: 'Lekárenská dermokozmetika',
+            tierName: 'Základná starostlivosť',
             productName: 'La Roche-Posay Retinol B3 sérum proti vráskam a nepravidelnému tónu',
             brand: 'La Roche-Posay',
             price: 39.00,
@@ -271,7 +271,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           },
           premiumOption: {
             tier: 'premium',
-            tierName: 'Medicínska kozmeceutika',
+            tierName: 'Prémiová starostlivosť',
             productName: 'SkinCeuticals Retinol 0.3 čistý zapuzdrený nočný krém (alebo Medik8 Crystal Retinal)',
             brand: 'SkinCeuticals',
             price: 98.00,
@@ -289,7 +289,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           price: 16.50,
           standardOption: {
             tier: 'standard',
-            tierName: 'Lekárenská dermokozmetika',
+            tierName: 'Základná starostlivosť',
             productName: 'La Roche-Posay Cicaplast Baume B5+ ultra-obnovujúci upokojujúci balzam',
             brand: 'La Roche-Posay',
             price: 16.50,
@@ -298,7 +298,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           },
           premiumOption: {
             tier: 'premium',
-            tierName: 'Medicínska kozmeceutika',
+            tierName: 'Prémiová starostlivosť',
             productName: 'SkinCeuticals Triple Lipid Restore 2:4:2 patentovaný rekonštrukčný anti-aging krém',
             brand: 'SkinCeuticals',
             price: 155.00,
@@ -316,7 +316,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           price: 29.00,
           standardOption: {
             tier: 'standard',
-            tierName: 'Lekárenská dermokozmetika',
+            tierName: 'Základná starostlivosť',
             productName: 'Vichy Liftactiv H.A. očné sérum proti vráskam a tmavým kruhom',
             brand: 'Vichy',
             price: 29.00,
@@ -325,7 +325,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           },
           premiumOption: {
             tier: 'premium',
-            tierName: 'Medicínska kozmeceutika',
+            tierName: 'Prémiová starostlivosť',
             productName: 'SkinCeuticals A.G.E. Advanced Eye pokročilý očný krém proti glykácii kolagénu',
             brand: 'SkinCeuticals',
             price: 110.00,

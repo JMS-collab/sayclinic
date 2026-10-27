@@ -402,7 +402,7 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                         <div style={{ marginLeft: '21px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F0F9FF', padding: '3px 6px', borderRadius: '4px', border: '1px solid #BAE6FD' }}>
                             <div style={{ fontSize: '9px', color: '#0369A1' }}>
-                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Lekáreň</strong>
+                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Základná starostlivosť</strong>
                               {item.standardOption.brand ? <span style={{ fontWeight: 'bold', color: '#0C4A6E' }}> [{item.standardOption.brand}]</span> : null}: {item.standardOption.productName}
                             </div>
                             <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#0C4A6E', fontFamily: 'monospace' }}>
@@ -411,7 +411,7 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFBEB', padding: '3px 6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
                             <div style={{ fontSize: '9px', color: '#B45309' }}>
-                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Medicínska</strong>
+                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Prémiová starostlivosť</strong>
                               {item.premiumOption.brand ? <span style={{ fontWeight: 'bold', color: '#78350F' }}> [{item.premiumOption.brand}]</span> : null}: {item.premiumOption.productName}
                             </div>
                             <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#78350F', fontFamily: 'monospace' }}>
@@ -514,7 +514,7 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                         <div style={{ marginLeft: '21px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F0F9FF', padding: '3px 6px', borderRadius: '4px', border: '1px solid #BAE6FD' }}>
                             <div style={{ fontSize: '9px', color: '#0369A1' }}>
-                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Lekáreň</strong>
+                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Základná starostlivosť</strong>
                               {item.standardOption.brand ? <span style={{ fontWeight: 'bold', color: '#0C4A6E' }}> [{item.standardOption.brand}]</span> : null}: {item.standardOption.productName}
                             </div>
                             <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#0C4A6E', fontFamily: 'monospace' }}>
@@ -523,7 +523,7 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFBEB', padding: '3px 6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
                             <div style={{ fontSize: '9px', color: '#B45309' }}>
-                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Medicínska</strong>
+                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Prémiová starostlivosť</strong>
                               {item.premiumOption.brand ? <span style={{ fontWeight: 'bold', color: '#78350F' }}> [{item.premiumOption.brand}]</span> : null}: {item.premiumOption.productName}
                             </div>
                             <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#78350F', fontFamily: 'monospace' }}>

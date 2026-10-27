@@ -421,7 +421,7 @@ export default function PatientPlanViewer({
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-sky-400"></span>
-                  <span>Lekárenská dermokozmetika (~{standardTotal.toFixed(2)} €)</span>
+                  <span>Základná starostlivosť (~{standardTotal.toFixed(2)} €)</span>
                 </button>
                 <button
                   type="button"
@@ -433,15 +433,15 @@ export default function PatientPlanViewer({
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-300"></span>
-                  <span>Medicínska kozmeceutika (~{premiumTotal.toFixed(2)} €)</span>
+                  <span>Prémiová starostlivosť (~{premiumTotal.toFixed(2)} €)</span>
                 </button>
               </div>
             </div>
             <div className="text-xs text-[#8C857B] font-medium">
               {selectedTierFilter === 'both' ? (
-                <span>Rozpočet rutiny: <strong className="text-sky-800 font-bold">{standardTotal.toFixed(0)} €</strong> (Lekáreň) vs. <strong className="text-[#C5A059] font-bold">{premiumTotal.toFixed(0)} €</strong> (Medicínska)</span>
+                <span>Rozpočet rutiny: <strong className="text-sky-800 font-bold">{standardTotal.toFixed(0)} €</strong> (Základná) vs. <strong className="text-[#C5A059] font-bold">{premiumTotal.toFixed(0)} €</strong> (Prémiová)</span>
               ) : selectedTierFilter === 'standard' ? (
-                <span>Celková cena dostupnejšej rutiny: <strong className="text-sky-800 font-bold">{standardTotal.toFixed(2)} €</strong></span>
+                <span>Celková cena základnej rutiny: <strong className="text-sky-800 font-bold">{standardTotal.toFixed(2)} €</strong></span>
               ) : (
                 <span>Celková cena prémiovej rutiny: <strong className="text-[#C5A059] font-bold">{premiumTotal.toFixed(2)} €</strong></span>
               )}
@@ -490,7 +490,7 @@ export default function PatientPlanViewer({
                             <div className="flex justify-between items-start gap-2">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[9px] font-bold uppercase tracking-wider text-sky-800 bg-sky-100 px-1.5 py-0.5 rounded">
-                                  Lekárenská dermokozmetika
+                                  Základná starostlivosť
                                 </span>
                                 {item.standardOption!.brand && (
                                   <span className="text-[9px] font-extrabold uppercase tracking-wide text-sky-950 bg-sky-200/90 px-1.5 py-0.5 rounded border border-sky-300">
@@ -518,7 +518,7 @@ export default function PatientPlanViewer({
                             <div className="flex justify-between items-start gap-2">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[9px] font-bold uppercase tracking-wider text-amber-900 bg-amber-200/60 px-1.5 py-0.5 rounded">
-                                  Medicínska kozmeceutika
+                                  Prémiová starostlivosť
                                 </span>
                                 {item.premiumOption!.brand && (
                                   <span className="text-[9px] font-extrabold uppercase tracking-wide text-amber-950 bg-amber-200/90 px-1.5 py-0.5 rounded border border-amber-300">
@@ -557,7 +557,7 @@ export default function PatientPlanViewer({
                                   <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
                                     isPrem ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-800'
                                   }`}>
-                                    {isPrem ? 'Medicínska kozmeceutika' : 'Lekárenská dermokozmetika'}
+                                    {isPrem ? 'Prémiová starostlivosť' : 'Základná starostlivosť'}
                                   </span>
                                   {(activeOpt.brand || item.brand) && (
                                     <span className={`text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded border ${
@@ -633,7 +633,7 @@ export default function PatientPlanViewer({
                             <div className="flex justify-between items-start gap-2">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[9px] font-bold uppercase tracking-wider text-sky-800 bg-sky-100 px-1.5 py-0.5 rounded">
-                                  Lekárenská dermokozmetika
+                                  Základná starostlivosť
                                 </span>
                                 {item.standardOption!.brand && (
                                   <span className="text-[9px] font-extrabold uppercase tracking-wide text-sky-950 bg-sky-200/90 px-1.5 py-0.5 rounded border border-sky-300">
@@ -661,7 +661,7 @@ export default function PatientPlanViewer({
                             <div className="flex justify-between items-start gap-2">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-900 bg-indigo-100 px-1.5 py-0.5 rounded">
-                                  Medicínska kozmeceutika
+                                  Prémiová starostlivosť
                                 </span>
                                 {item.premiumOption!.brand && (
                                   <span className="text-[9px] font-extrabold uppercase tracking-wide text-indigo-950 bg-indigo-200/80 px-1.5 py-0.5 rounded border border-indigo-300">
@@ -700,7 +700,7 @@ export default function PatientPlanViewer({
                                   <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
                                     isPrem ? 'bg-indigo-100 text-indigo-900' : 'bg-sky-100 text-sky-800'
                                   }`}>
-                                    {isPrem ? 'Medicínska kozmeceutika' : 'Lekárenská dermokozmetika'}
+                                    {isPrem ? 'Prémiová starostlivosť' : 'Základná starostlivosť'}
                                   </span>
                                   {(activeOpt.brand || item.brand) && (
                                     <span className={`text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded border ${
