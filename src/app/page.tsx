@@ -30,7 +30,8 @@ import {
   UserPlus,
   LogOut,
   Cloud,
-  Plus
+  Plus,
+  SlidersHorizontal
 } from 'lucide-react';
 import { DevicePinService } from '../services/devicePinService';
 import MedicalRecordForm from '../components/MedicalRecordForm';
@@ -50,6 +51,13 @@ import RolePermissionsModal from '../components/RolePermissionsModal';
 import AutoLogoutGuard from '../components/AutoLogoutGuard';
 import AuditLogModal from '../components/AuditLogModal';
 import GoogleDriveModal from '../components/GoogleDriveModal';
+import QuickActionsCustomizeModal from '../components/QuickActionsCustomizeModal';
+import { 
+  QUICK_ACTIONS_CATALOG, 
+  QuickActionItem, 
+  UserQuickActionPreference, 
+  getUserQuickActionPreferences 
+} from '../data/quickActionsCatalog';
 import { AuthService } from '../services/authService';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
@@ -270,10 +278,66 @@ export default function Home() {
   const [showGoogleDriveModal, setShowGoogleDriveModal] = useState(false);
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
   const [googleAuthNotice, setGoogleAuthNotice] = useState<string | null>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
-  const [logoutNotice, setLogoutNotice] = useState<string | null>(null);
   const [permissionsVersion, setPermissionsVersion] = useState(0);
   const [simulatedRole, setSimulatedRole] = useState<RoleType | null>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const [logoutNotice, setLogoutNotice] = useState<string | null>(null);
+
+  // Stav pre prispôsobiteľné rýchle akcie používateľa
+  const [showQuickActionsModal, setShowQuickActionsModal] = useState(false);
+  const [userQuickActions, setUserQuickActions] = useState<UserQuickActionPreference[]>([]);
+
+  // Načítanie osobných preferencií rýchlych akcií pre prihláseného používateľa
+  useEffect(() => {
+    if (currentUser) {
+      const prefs = getUserQuickActionPreferences(currentUser.id, currentUser.role);
+      setUserQuickActions(prefs);
+    }
+  }, [currentUser?.id, currentUser?.role]);
+
+  // Dynamicky aktívne akcie vyfiltrované podľa aktuálnych oprávnení
+  const activeUserQuickActions = useMemo(() => {
+    if (!currentUser) return [];
+    const map = new Map<string, QuickActionItem>();
+    QUICK_ACTIONS_CATALOG.forEach(item => {
+      if (PermissionsService.canUserAccessTab(currentUser, item.tabId)) {
+        map.set(item.id, item);
+      }
+    });
+
+    return userQuickActions
+      .filter(pref => pref.enabled && map.has(pref.id))
+      .map(pref => map.get(pref.id)!);
+  }, [currentUser, userQuickActions, permissionsVersion]);
+
+  const handleQuickActionClick = (action: QuickActionItem) => {
+    if (action.actionType === 'new_patient') {
+      setSelectedPatientForFolder(null);
+      changeTab('patients');
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('say_open_add_patient_modal'));
+      }, 60);
+      return;
+    }
+    changeTab(action.tabId);
+  };
+
+  const renderQuickActionIcon = (iconName: string) => {
+    const iconClass = "w-4 h-4 text-[#C5A059]";
+    switch (iconName) {
+      case 'FolderOpen': return <FolderOpen className={iconClass} />;
+      case 'UserPlus': return <UserPlus className={iconClass} />;
+      case 'Calendar': return <CalendarIcon className={iconClass} />;
+      case 'FileText': return <FileText className={iconClass} />;
+      case 'Pill': return <Pill className={iconClass} />;
+      case 'Sparkles': return <Sparkles className={iconClass} />;
+      case 'ShoppingBag': return <ShoppingBag className={iconClass} />;
+      case 'Boxes': return <Boxes className={iconClass} />;
+      case 'BarChart3': return <BarChart3 className={iconClass} />;
+      case 'Briefcase': return <Briefcase className={iconClass} />;
+      default: return <Sparkles className={iconClass} />;
+    }
+  };
 
   const isRealCeo = currentUser ? (currentUser.role === 'ceo' || currentUser.email === 'mraz@sayclinic.sk' || currentUser.id === 'u1') : false;
 
@@ -862,7 +926,7 @@ export default function Home() {
       return todayEvents.filter((e) => {
         const rId = getEventRoomId(e);
         return rId === 'sala_say' || rId === 'sala_rudlova' || e.type === 'operacia';
-      });
+      }).length;
     }
     return todayEvents.filter((e) => getEventRoomId(e) === tabId).length;
   }, [todayEvents, getEventRoomId]);
@@ -1797,76 +1861,63 @@ export default function Home() {
                   {/* STĹPEC 2: RÝCHLE POZNÁMKY & AKCIE (4 STĹPCE NA VEĽKOM MONITORE) */}
                   <div className="lg:col-span-5 2xl:col-span-4 space-y-6">
                     
-                    {/* RÝCHLE AKCIE (VEKTOROVÁ IKONOGRAFIA & JEMNÉ LINKY) */}
+                    {/* RÝCHLE AKCIE (PERSONALIZOVANÉ PRE KAŽDÉHO POUŽÍVATEĽA) */}
                     <div className="bg-white border border-[#E8E2D9]/80 rounded-2xl p-5 space-y-3">
-                      <h3 className="font-brand text-sm font-bold text-[#2C2A29] uppercase tracking-wider border-b border-[#E8E2D9]/70 pb-2.5">
-                        Rýchle Akcie
-                      </h3>
-                      <div className="divide-y divide-[#E8E2D9]/60 text-xs">
-                        {PermissionsService.canUserAccessTab(currentUser, 'patients') && (
-                          <button 
-                            onClick={() => { setSelectedPatientForFolder(null); changeTab('patients'); }}
-                            className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
-                          >
-                            <span className="flex items-center gap-2.5">
-                              <FolderOpen className="w-4 h-4 text-[#C5A059]" />
-                              <span>Kartotéka pacientov 360°</span>
-                            </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all" />
-                          </button>
-                        )}
-                        {PermissionsService.canUserAccessTab(currentUser, 'patients') && (
-                          <button 
-                            onClick={() => { 
-                              setSelectedPatientForFolder(null); 
-                              changeTab('patients'); 
-                            }}
-                            className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
-                          >
-                            <span className="flex items-center gap-2.5">
-                              <UserPlus className="w-4 h-4 text-[#C5A059]" />
-                              <span>Zaevidovať nového pacienta</span>
-                            </span>
-                            <Plus className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#2C2A29]" />
-                          </button>
-                        )}
-                        {PermissionsService.canUserAccessTab(currentUser, 'calendar') && (
-                          <button 
-                            onClick={() => changeTab('calendar')}
-                            className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
-                          >
-                            <span className="flex items-center gap-2.5">
-                              <CalendarIcon className="w-4 h-4 text-[#C5A059]" />
-                              <span>Kalendár operačných sál</span>
-                            </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all" />
-                          </button>
-                        )}
-                        {PermissionsService.canUserAccessTab(currentUser, 'inventory') && (
-                          <button 
-                            onClick={() => changeTab('inventory')}
-                            className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
-                          >
-                            <span className="flex items-center gap-2.5">
-                              <Boxes className="w-4 h-4 text-[#C5A059]" />
-                              <span>Sklad materiálu & Implantáty</span>
-                            </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all" />
-                          </button>
-                        )}
-                        {PermissionsService.canUserAccessTab(currentUser, 'projects') && (
-                          <button 
-                            onClick={() => changeTab('projects')}
-                            className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
-                          >
-                            <span className="flex items-center gap-2.5">
-                              <Briefcase className="w-4 h-4 text-[#C5A059]" />
-                              <span>Projekty & Smernice kliniky</span>
-                            </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all" />
-                          </button>
-                        )}
+                      <div className="flex items-center justify-between border-b border-[#E8E2D9]/70 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-brand text-sm font-bold text-[#2C2A29] uppercase tracking-wider">
+                            Rýchle Akcie
+                          </h3>
+                          <span className="text-[10px] font-bold text-[#8C857B] bg-[#FAF8F5] px-2 py-0.5 rounded-full border border-[#E8E2D9]">
+                            {activeUserQuickActions.length}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowQuickActionsModal(true)}
+                          className="flex items-center gap-1.5 text-[11px] font-bold text-[#C5A059] hover:text-[#2C2A29] transition-colors px-2 py-1 rounded-lg hover:bg-[#FAF8F5] cursor-pointer"
+                          title="Prispôsobiť rýchle akcie pre váš profil"
+                        >
+                          <SlidersHorizontal className="w-3.5 h-3.5" />
+                          <span>Upraviť</span>
+                        </button>
                       </div>
+
+                      {activeUserQuickActions.length === 0 ? (
+                        <div className="text-center py-6 px-4 bg-[#FAF8F5]/60 rounded-xl border border-dashed border-[#E8E2D9] space-y-2">
+                          <p className="text-xs text-[#8C857B]">
+                            Nemáte zapnuté žiadne rýchle akcie.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setShowQuickActionsModal(true)}
+                            className="px-3 py-1.5 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <SlidersHorizontal className="w-3 h-3" />
+                            <span>Pridať akcie</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-[#E8E2D9]/60 text-xs">
+                          {activeUserQuickActions.map(action => (
+                            <button 
+                              key={action.id}
+                              onClick={() => handleQuickActionClick(action)}
+                              className="w-full py-2.5 px-2 hover:bg-[#FAF8F5] rounded-lg text-left font-semibold text-[#2C2A29] transition-all flex items-center justify-between cursor-pointer group"
+                            >
+                              <span className="flex items-center gap-2.5">
+                                {renderQuickActionIcon(action.iconName)}
+                                <span>{action.label}</span>
+                              </span>
+                              {action.actionType === 'new_patient' ? (
+                                <Plus className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#2C2A29]" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] group-hover:translate-x-0.5 transition-all" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* RÝCHLE KLINICKÉ POZNÁMKY (OPERATÍVA) */}
@@ -2225,6 +2276,17 @@ export default function Home() {
         onClose={() => setShowGoogleDriveModal(false)}
         currentUser={currentUser}
       />
+
+      {/* MODÁLNE OKNO PRE PRISPÔSOBENIE RÝCHLYCH AKCIÍ POUŽÍVATEĽA */}
+      {currentUser && (
+        <QuickActionsCustomizeModal
+          isOpen={showQuickActionsModal}
+          onClose={() => setShowQuickActionsModal(false)}
+          currentUser={currentUser}
+          currentPreferences={userQuickActions}
+          onSave={(updated) => setUserQuickActions(updated)}
+        />
+      )}
     </div>
   );
 }

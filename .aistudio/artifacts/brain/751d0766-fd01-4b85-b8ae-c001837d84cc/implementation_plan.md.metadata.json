@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementácia nového modulu Odpis spotreby materiálu v sekcii Prevádzka a v karte pacienta:\n- V hlavnom menu Prevádzka (Sklad) vznikne nová záložka 'Odpis na pacienta' s výberom pacienta a interaktívnym zoznamom jeho výkonov.\n- V karte pacienta vznikne nová 5. hlavná záložka 'Prevádzka & Odpis' s prehľadom všetkých vyšetrení a operácií pacienta so stavom 'Čaká na odpis' alebo 'Odpísané'.\n- Po rozkliknutí výkonu sa zobrazí ponuka: najčastejšie používané skladové položky (1-klikový výber čipov), predpísaný balíček pre daný výkon a manuálne doplnenie položiek.\n- Real-time synchronizácia cez Firestore a okamžitý odpočet zo skladu.",
-  "updatedAt":  "2026-10-26T18:35:51.458319183Z",
+  "summary":  "Plán implementácie pre plné prispôsobenie rýchlych akcií na prehľadovej stránke pre každého používateľa s tlačidlom nastavenia priamo v karte, výberovým oknom, zmenou poradia a per-user ukladaním.",
+  "updatedAt":  "2026-10-27T10:02:41.580918415Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

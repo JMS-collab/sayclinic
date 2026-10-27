@@ -4,6 +4,8 @@ import "./globals.css";
 import NextAuthProvider from "../components/NextAuthProvider";
 import GlobalContextMenu from "../components/GlobalContextMenu";
 
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {

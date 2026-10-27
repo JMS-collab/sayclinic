@@ -128,22 +128,22 @@ export default function ActivePatientBar({
   const patientAge = getAge(activePatient.birthNumber);
 
   return (
-    <div className="bg-[#FBF9F6]/95 backdrop-blur-md border-b border-[#E8E2D9] z-30 sticky top-[73px] print:hidden animate-in fade-in duration-200">
+    <div className="bg-[#1C1A19]/95 backdrop-blur-md border-b border-[#383431] shadow-[0_4px_20px_rgba(0,0,0,0.25)] z-30 sticky top-[73px] print:hidden animate-in fade-in duration-200">
       <div className={`${containerClassName || 'w-full max-w-none px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12'} py-2 flex flex-wrap items-center justify-between gap-3`}>
         
         {/* VĽAVO: IDENTIFIKÁCIA ROZPRACOVANÉHO PACIENTA */}
         <div className="flex items-center gap-3 min-w-0">
           
           {/* JEMNÝ EDITORIÁLOVÝ INDIKÁTOR AKTÍVNEHO PACIENTA */}
-          <div className="hidden sm:flex items-center gap-1.5 pr-2.5 border-r border-[#E8E2D9] text-[#8C857B] text-[10px] font-bold uppercase tracking-[0.14em] shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse"></span>
+          <div className="hidden sm:flex items-center gap-1.5 pr-2.5 border-r border-[#383431] text-[#C5A059] text-[10px] font-bold uppercase tracking-[0.14em] shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse shadow-[0_0_8px_rgba(197,160,89,0.8)]"></span>
             <span>Aktívny pacient</span>
           </div>
 
           {/* AVATAR / INICIÁLY */}
           <div 
             onClick={() => onNavigateToTab('patients')}
-            className="w-8 h-8 rounded-full bg-[#2C2A29] text-[#C5A059] border border-[#C5A059]/60 flex items-center justify-center font-brand font-bold text-xs shrink-0 cursor-pointer hover:scale-105 transition-transform"
+            className="w-8 h-8 rounded-full bg-[#C5A059] text-[#1C1A19] border border-[#D4AF37] flex items-center justify-center font-brand font-bold text-xs shrink-0 cursor-pointer hover:scale-105 transition-transform shadow-xs"
             title="Kliknutím otvoríte kartu pacienta"
           >
             {activePatient.name ? activePatient.name.split(' ').map(n => n[0]).slice(0, 2).join('') : 'P'}
@@ -155,7 +155,7 @@ export default function ActivePatientBar({
               <button
                 type="button"
                 onClick={() => onNavigateToTab('patients')}
-                className="font-brand font-bold text-base text-[#2C2A29] hover:text-[#C5A059] transition-colors truncate text-left cursor-pointer flex items-center gap-1"
+                className="font-brand font-bold text-base text-white hover:text-[#C5A059] transition-colors truncate text-left cursor-pointer flex items-center gap-1"
                 title="Otvoriť zdravotnú kartu pacienta"
               >
                 <span>{activePatient.name}</span>
@@ -163,24 +163,24 @@ export default function ActivePatientBar({
               </button>
               
               {patientAge && (
-                <span className="text-[10px] bg-[#F3EFEA] text-[#2C2A29] px-1.5 py-0.5 rounded font-medium">
+                <span className="text-[10px] bg-[#2C2A29] text-[#C5A059] border border-[#C5A059]/30 px-1.5 py-0.5 rounded font-medium">
                   {patientAge}
                 </span>
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-[#8C857B]">
-              <span className="font-mono font-medium text-[#2C2A29]">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-[#A8A29E]">
+              <span className="font-mono font-medium text-white">
                 RČ: {activePatient.birthNumber}
               </span>
-              <span>•</span>
-              <span className="truncate max-w-[120px]">
+              <span className="text-[#57534E]">•</span>
+              <span className="truncate max-w-[120px] text-[#D6D3D1]">
                 {activePatient.insurance || 'Dôvera'}
               </span>
               {activePatient.phone && (
                 <>
-                  <span>•</span>
-                  <span className="flex items-center gap-0.5 font-mono text-[10px]">
+                  <span className="text-[#57534E]">•</span>
+                  <span className="flex items-center gap-0.5 font-mono text-[10px] text-[#E8E2D9]">
                     <Phone className="w-2.5 h-2.5 text-[#C5A059]" />
                     {activePatient.phone}
                   </span>
@@ -193,25 +193,25 @@ export default function ActivePatientBar({
 
         {/* SÚBEŽNÍ SPOLUPRACOVNÍCI NA KARTE PACIENTA (S 3D GENMOJI AVATARMI) */}
         {concurrentUsers.length > 0 && (
-          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-amber-500/10 border border-[#C5A059]/40 shadow-xs shrink-0 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-[#262321] border border-[#C5A059]/40 shadow-xs shrink-0 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex -space-x-2 overflow-hidden shrink-0">
               {concurrentUsers.map(u => (
                 <div 
                   key={u.userId} 
-                  className="relative inline-block w-7 h-7 rounded-full ring-2 ring-white shadow-xs overflow-hidden" 
+                  className="relative inline-block w-7 h-7 rounded-full ring-2 ring-[#1C1A19] shadow-xs overflow-hidden" 
                   title={`${u.userName} (${u.userTitle || u.userRole}) práve pracuje na tejto karte`}
                 >
                   <LiquidAvatar id={u.userId} name={u.userName} role={u.userRole as any} avatarUrl={u.avatarUrl} className="w-full h-full" />
-                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white animate-pulse" />
+                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-[#1C1A19] animate-pulse" />
                 </div>
               ))}
             </div>
             <div className="flex flex-col text-left pr-1">
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                <span className="text-[9px] uppercase tracking-wider text-[#8C857B] font-bold">Súbežne v karte:</span>
+                <span className="text-[9px] uppercase tracking-wider text-[#A8A29E] font-bold">Súbežne v karte:</span>
               </div>
-              <span className="text-[11px] font-bold text-[#2C2A29] truncate max-w-[200px]">
+              <span className="text-[11px] font-bold text-white truncate max-w-[200px]">
                 {concurrentUsers.map(u => `${u.userName} (${u.userRole === 'nurse' || u.userRole === 'receptionist' ? 'Sestra' : 'Lekár'})`).join(', ')}
               </span>
             </div>
@@ -219,7 +219,7 @@ export default function ActivePatientBar({
         )}
 
         {/* V STREDE: RÝCHLE AKCIE S TÝMTO ROZPRACOVANÝM PACIENTOM */}
-        <div className="flex flex-wrap items-center gap-1 text-[11px]">
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
           
           {/* 1. KARTA PACIENTA (KARTOTÉKA) */}
           <button
@@ -227,12 +227,12 @@ export default function ActivePatientBar({
             onClick={() => onNavigateToTab('patients')}
             className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
               currentTab === 'patients'
-                ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                : 'bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]'
+                ? 'bg-[#C5A059] text-[#1C1A19] border-[#C5A059] shadow-[0_0_12px_rgba(197,160,89,0.35)] font-bold'
+                : 'bg-[#282523]/80 hover:bg-[#34302D] text-[#E8E2D9] hover:text-white border-[#3F3A36] hover:border-[#C5A059]/60'
             }`}
             title="Prejsť na kompletnú zdravotnú kartu a dokumentáciu"
           >
-            <FolderOpen className="w-3.5 h-3.5 text-[#C5A059]" />
+            <FolderOpen className={`w-3.5 h-3.5 ${currentTab === 'patients' ? 'text-[#1C1A19]' : 'text-[#C5A059]'}`} />
             <span>Karta 360°</span>
           </button>
 
@@ -242,12 +242,12 @@ export default function ActivePatientBar({
             onClick={() => onNavigateToTab('generator')}
             className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
               currentTab === 'generator'
-                ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                : 'bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]'
+                ? 'bg-[#C5A059] text-[#1C1A19] border-[#C5A059] shadow-[0_0_12px_rgba(197,160,89,0.35)] font-bold'
+                : 'bg-[#282523]/80 hover:bg-[#34302D] text-[#E8E2D9] hover:text-white border-[#3F3A36] hover:border-[#C5A059]/60'
             }`}
             title="Otvoriť generátor lekárskeho nálezu pre tohto pacienta"
           >
-            <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
+            <FileText className={`w-3.5 h-3.5 ${currentTab === 'generator' ? 'text-[#1C1A19]' : 'text-[#C5A059]'}`} />
             <span>Nález / Dekurz</span>
           </button>
 
@@ -257,12 +257,12 @@ export default function ActivePatientBar({
             onClick={() => onNavigateToTab('aesthetics')}
             className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
               currentTab === 'aesthetics'
-                ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                : 'bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]'
+                ? 'bg-[#C5A059] text-[#1C1A19] border-[#C5A059] shadow-[0_0_12px_rgba(197,160,89,0.35)] font-bold'
+                : 'bg-[#282523]/80 hover:bg-[#34302D] text-[#E8E2D9] hover:text-white border-[#3F3A36] hover:border-[#C5A059]/60'
             }`}
             title="Aplikácia botoxu, výplní a fotodokumentácia"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+            <Sparkles className={`w-3.5 h-3.5 ${currentTab === 'aesthetics' ? 'text-[#1C1A19]' : 'text-[#C5A059]'}`} />
             <span className="hidden sm:inline">Estetika</span>
           </button>
 
@@ -272,12 +272,12 @@ export default function ActivePatientBar({
             onClick={() => onNavigateToTab('prescriptions')}
             className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
               currentTab === 'prescriptions'
-                ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                : 'bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]'
+                ? 'bg-[#C5A059] text-[#1C1A19] border-[#C5A059] shadow-[0_0_12px_rgba(197,160,89,0.35)] font-bold'
+                : 'bg-[#282523]/80 hover:bg-[#34302D] text-[#E8E2D9] hover:text-white border-[#3F3A36] hover:border-[#C5A059]/60'
             }`}
             title="Vystaviť lekársky recept ŠEVT 14 282 2s pre tohto pacienta"
           >
-            <Pill className="w-3.5 h-3.5 text-[#C5A059]" />
+            <Pill className={`w-3.5 h-3.5 ${currentTab === 'prescriptions' ? 'text-[#1C1A19]' : 'text-[#C5A059]'}`} />
             <span>Recept Rp.</span>
           </button>
 
@@ -285,7 +285,7 @@ export default function ActivePatientBar({
           <button
             type="button"
             onClick={() => onNavigateToTab('patients', { folder: 'meicet' })}
-            className="px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]"
+            className="px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border bg-[#282523]/80 hover:bg-[#34302D] text-[#E8E2D9] hover:text-white border-[#3F3A36] hover:border-[#C5A059]/60"
             title="3D spektrálna analýza pleti Meicet Pro-A a ročný plán ošetrení"
           >
             <ScanFace className="w-3.5 h-3.5 text-[#C5A059]" />
@@ -298,12 +298,12 @@ export default function ActivePatientBar({
             onClick={() => onNavigateToTab('cosmetics')}
             className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
               currentTab === 'cosmetics'
-                ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
-                : 'bg-white/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9]/80 hover:border-[#C5A059]'
+                ? 'bg-[#C5A059] text-[#1C1A19] border-[#C5A059] shadow-[0_0_12px_rgba(197,160,89,0.35)] font-bold'
+                : 'bg-[#282523]/80 hover:bg-[#34302D] text-[#E8E2D9] hover:text-white border-[#3F3A36] hover:border-[#C5A059]/60'
             }`}
             title="Pultový predaj a pokladňa POS"
           >
-            <ShoppingBag className="w-3.5 h-3.5 text-[#C5A059]" />
+            <ShoppingBag className={`w-3.5 h-3.5 ${currentTab === 'cosmetics' ? 'text-[#1C1A19]' : 'text-[#C5A059]'}`} />
             <span className="hidden md:inline">Pokladňa POS</span>
           </button>
 
@@ -316,10 +316,10 @@ export default function ActivePatientBar({
           <button
             type="button"
             onClick={() => setShowSwitchDropdown(!showSwitchDropdown)}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] hover:bg-white border border-transparent hover:border-[#E8E2D9] flex items-center gap-1 transition-all cursor-pointer"
+            className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#C5A059] hover:text-white hover:bg-[#282523] border border-[#3F3A36] hover:border-[#C5A059] flex items-center gap-1 transition-all cursor-pointer"
             title="Zmeniť rozpracovaného pacienta"
           >
-            <RefreshCw className={`w-3.5 h-3.5 transition-transform ${showSwitchDropdown ? 'rotate-180 text-[#C5A059]' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 transition-transform ${showSwitchDropdown ? 'rotate-180 text-white' : ''}`} />
             <span className="hidden sm:inline">Zmeniť pacienta</span>
             <ChevronDown className="w-3 h-3" />
           </button>
@@ -328,7 +328,7 @@ export default function ActivePatientBar({
           <button
             type="button"
             onClick={onClearActivePatient}
-            className="p-1.5 rounded-xl text-[#8C857B] hover:text-[#DC2626] hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-[#A8A29E] hover:text-rose-400 hover:bg-rose-950/30 border border-[#3F3A36] hover:border-rose-900/60 transition-colors cursor-pointer"
             title="Ukončiť rozpracovanie tohto pacienta"
           >
             <X className="w-4 h-4" />
@@ -336,15 +336,15 @@ export default function ActivePatientBar({
 
           {/* DROPDOWN PRE RÝCHLY VÝBER INÉHO PACIENTA */}
           {showSwitchDropdown && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-[#E8E2D9] p-3 z-50 space-y-2 animate-in fade-in zoom-in-95 duration-150">
-              <div className="flex items-center justify-between pb-1.5 border-b border-[#E8E2D9]">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B]">
+            <div className="absolute right-0 top-full mt-2 w-80 bg-[#1F1D1B] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] border border-[#383431] p-3 z-50 space-y-2 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-1.5 border-b border-[#383431]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
                   Vybrať iného pacienta
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowSwitchDropdown(false)}
-                  className="text-[#8C857B] hover:text-[#2C2A29] text-xs"
+                  className="text-[#A8A29E] hover:text-white text-xs cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -352,21 +352,21 @@ export default function ActivePatientBar({
 
               {/* HĽADANIE PACIENTA */}
               <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-[#8C857B]" />
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-[#A8A29E]" />
                 <input
                   type="text"
                   placeholder="Hľadať meno, RČ, telefón..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoFocus
-                  className="w-full pl-8 pr-3 py-1.5 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl text-xs outline-none focus:border-[#C5A059]"
+                  className="w-full pl-8 pr-3 py-1.5 bg-[#282523] border border-[#3F3A36] rounded-xl text-xs text-white placeholder-[#78716C] outline-none focus:border-[#C5A059]"
                 />
               </div>
 
               {/* ZOZNAM FILTROVANÝCH PACIENTOV */}
               <div className="max-h-56 overflow-y-auto space-y-1">
                 {filteredPatients.length === 0 ? (
-                  <p className="text-[11px] text-[#8C857B] text-center py-3">
+                  <p className="text-[11px] text-[#A8A29E] text-center py-3">
                     Žiadny pacient sa nenašiel
                   </p>
                 ) : (
@@ -382,20 +382,20 @@ export default function ActivePatientBar({
                         }}
                         className={`p-2 rounded-xl flex items-center justify-between text-xs cursor-pointer transition-colors ${
                           isCurrent 
-                            ? 'bg-[#FAF8F5] border border-[#C5A059]/40 font-bold text-[#2C2A29]'
-                            : 'hover:bg-[#FAF8F5] text-[#2C2A29]'
+                            ? 'bg-[#2C2926] border border-[#C5A059]/60 font-bold text-white'
+                            : 'hover:bg-[#282523] text-[#D6D3D1] hover:text-white'
                         }`}
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <span className="font-bold truncate">{p.name}</span>
                             {isCurrent && (
-                              <span className="text-[9px] px-1 py-0.2 bg-[#047857] text-white rounded font-mono">
+                              <span className="text-[9px] px-1 py-0.2 bg-emerald-600 text-white rounded font-mono">
                                 Aktívny
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-[#8C857B] font-mono">
+                          <div className="text-[10px] text-[#A8A29E] font-mono">
                             {p.birthNumber} • {p.phone || p.insurance}
                           </div>
                         </div>
@@ -407,14 +407,14 @@ export default function ActivePatientBar({
               </div>
 
               {/* ODKAZ DO CELEJ KARTOTÉKY */}
-              <div className="pt-2 border-t border-[#E8E2D9]">
+              <div className="pt-2 border-t border-[#383431]">
                 <button
                   type="button"
                   onClick={() => {
                     setShowSwitchDropdown(false);
                     onNavigateToTab('patients');
                   }}
-                  className="w-full py-1.5 bg-[#FAF8F5] hover:bg-[#E8E2D9] text-[#2C2A29] rounded-xl text-xs font-bold transition-colors text-center"
+                  className="w-full py-1.5 bg-[#282523] hover:bg-[#34302D] text-[#C5A059] hover:text-white rounded-xl text-xs font-bold transition-colors text-center cursor-pointer border border-[#3F3A36]"
                 >
                   Otvoriť celú kartotéku pacientov →
                 </button>
