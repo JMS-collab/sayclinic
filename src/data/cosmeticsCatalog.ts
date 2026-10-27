@@ -3,7 +3,6 @@ export type CosmeticBrand =
   | 'La Roche-Posay' 
   | 'CeraVe' 
   | 'Vichy' 
-  | 'SAY Clinic Lab' 
   | 'Dermaceutic';
 
 export type CosmeticCategory = 
@@ -643,73 +642,9 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     keyIngredients: ['Aminexil', 'Arginín', 'SP94', 'Octeine', 'Minerálna voda']
   },
 
-  // ==================== SAY CLINIC LAB & DERMACEUTIC ====================
+  // ==================== DERMACEUTIC ====================
   {
-    id: 'SAY-01',
-    brand: 'SAY Clinic Lab',
-    name: 'SAY Clinic Cellular Renewal Elixir',
-    category: 'serums',
-    description: 'Vysokokoncentrované omladzujúce sérum s rekombinantnými EGF faktormi, kyselinou hyalurónovou a enkapsulovaným retinolom vyvinuté pre SAY Clinic.',
-    volume: '30 ml',
-    price: 89.00,
-    stock: 0,
-    badge: 'Bestseller',
-    imageColor: 'from-amber-100 to-amber-200',
-    keyIngredients: ['EGF Rastové faktory', 'Kyselina hyalurónová', '0.5% Enkapsulovaný retinol']
-  },
-  {
-    id: 'SAY-02',
-    brand: 'SAY Clinic Lab',
-    name: 'Advanced Mineral Invisible Fluid SPF 50+',
-    category: 'sun_care',
-    description: '100% minerálny fotoprotekčný fluid s oxidom zinočnatým a titaničitým pre pleť po operáciách, blefaroplastike, liftingu a laserovom ošetrení.',
-    volume: '50 ml',
-    price: 42.00,
-    stock: 0,
-    badge: 'Po zákroku',
-    imageColor: 'from-orange-100 to-amber-100',
-    keyIngredients: ['Oxid zinočnatý', 'Oxid titaničitý', 'Vitamín E', 'Bisabolol']
-  },
-  {
-    id: 'SAY-03',
-    brand: 'SAY Clinic Lab',
-    name: 'Cicatrix Recovery Balm & Arnica Montana',
-    category: 'post_op',
-    description: 'Intenzívny medicínsky hojivý balzam na rýchlu redukciu hematómov, pooperačných opuchov a bezpečné zjemnenie jaziev po chirurgických zákrokoch.',
-    volume: '50 ml',
-    price: 38.00,
-    stock: 0,
-    badge: 'Hojenie jaziev',
-    imageColor: 'from-emerald-100 to-teal-100',
-    keyIngredients: ['Arnica Montana extrakt', 'Madecassoside', 'Zinok', 'Kyselina hyalurónová']
-  },
-  {
-    id: 'SAY-04',
-    brand: 'SAY Clinic Lab',
-    name: 'Hydra-Barrier Ceramide Cream',
-    category: 'skincare',
-    description: 'Hĺbkovo regeneračný krém s 5 typmi esenciálnych bio-ceramidov a peptidov pre obnovu lipidovej bariéry a okamžitý komfort pleti.',
-    volume: '50 ml',
-    price: 59.00,
-    stock: 0,
-    imageColor: 'from-blue-100 to-indigo-100',
-    keyIngredients: ['5 typov ceramidov', 'Bambucké maslo', 'Peptidy']
-  },
-  {
-    id: 'SAY-05',
-    brand: 'SAY Clinic Lab',
-    name: 'Marine Pure Collagen Peptides 10,000mg',
-    category: 'collagen_body',
-    description: 'Prémiový rybí bioaktívny kolagén s vitamínom C, zinkom a biotínom na 30 dní. Podpora elasticity kože a rýchleho hojenia tkanív po operáciách.',
-    volume: '30 sáčkov',
-    price: 65.00,
-    stock: 0,
-    badge: 'Výživa',
-    imageColor: 'from-pink-100 to-rose-100',
-    keyIngredients: ['10 000 mg Peptidy morského kolagénu', 'Vitamín C', 'Zinok', 'Biotín']
-  },
-  {
-    id: 'SAY-06',
+    id: 'DERM-01',
     brand: 'Dermaceutic',
     name: 'K-Ceutic Post-Treatment Recovery Cream',
     category: 'post_op',
@@ -720,30 +655,19 @@ export const INITIAL_COSMETICS_CATALOG: CosmeticProduct[] = [
     badge: 'Po laseri',
     imageColor: 'from-stone-100 to-amber-100',
     keyIngredients: ['K-Komplex (Vitamín K)', 'Glykoproteín', 'Vitamíny C & E', 'SPF 50']
-  },
-  {
-    id: 'SAY-07',
-    brand: 'SAY Clinic Lab',
-    name: 'Gentle Foaming Cleanser pH 5.5',
-    category: 'cleanser',
-    description: 'Hodvábna fyziologická čistiaca pena bez sulfátov s harmančekom, uhorkou a pantenolom pre dokonalé vyčistenie citlivej pleti.',
-    volume: '150 ml',
-    price: 28.00,
-    stock: 0,
-    imageColor: 'from-teal-50 to-blue-50',
-    keyIngredients: ['Harmanček', 'Pantenol', 'Glycerín']
   }
 ];
 
-const STORAGE_KEY = 'say_clinic_cosmetics_catalog_v2';
+const STORAGE_KEY = 'say_clinic_cosmetics_catalog_v3';
 
 export function getCosmeticsCatalog(): CosmeticProduct[] {
   if (typeof window === 'undefined') return INITIAL_COSMETICS_CATALOG;
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved);
+      let parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        parsed = parsed.filter((p: any) => p && p.brand !== 'SAY Clinic Lab');
         return parsed;
       }
     }

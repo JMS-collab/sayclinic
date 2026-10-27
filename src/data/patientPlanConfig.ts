@@ -561,12 +561,12 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
         },
         {
           step: 2,
-          category: 'Starostlivosť o modriny',
-          productName: 'Cicatrix Recovery Balm & Arnica Montana',
-          brand: 'SAY Clinic Lab',
+          category: 'Starostlivosť o modriny a opuchy',
+          productName: 'Cicaplast Baume B5+ Ultra-Regeneračný balzam',
+          brand: 'La Roche-Posay',
           usage: 'Nanášať na oblasť hematómov a pooperačných opuchov okolo prsníkov (nie do otvorenej rany).',
-          purpose: 'Arnika a madecassoside pre rýchle vstrebávanie krvných podliatin a zníženie edému.',
-          price: 38.00
+          purpose: 'Madecassoside, pantenol a zinok pre rýchle upokojenie a resorpciu pooperačných edémov.',
+          price: 17.50
         },
         {
           step: 3,
@@ -780,12 +780,12 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
         },
         {
           step: 2,
-          category: 'Starostlivosť o modriny',
-          productName: 'Cicatrix Recovery Balm & Arnica Montana',
-          brand: 'SAY Clinic Lab',
+          category: 'Starostlivosť o modriny a opuchy',
+          productName: 'Cicaplast Baume B5+ Ultra-Regeneračný balzam',
+          brand: 'La Roche-Posay',
           usage: 'Jemne naniesť na oblasť pod očami a líca (nie do spojovkového vaku), kde steká hematóm.',
-          purpose: 'Rýchla resorpcia podliatin a zníženie periorbitálneho edému.',
-          price: 38.00
+          purpose: 'Rýchla úľava, podpora hojenia a zníženie periorbitálneho edému s madecassoside a pantenolom.',
+          price: 17.50
         },
         {
           step: 3,

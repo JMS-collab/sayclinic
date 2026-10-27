@@ -113,7 +113,7 @@ export function CosmeticsPOSModule({
           // Vytvoríme syntetickú položku
           const customProd: CosmeticProduct = {
             id: `CUSTOM-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-            brand: (item.brand as CosmeticBrand) || 'SAY Clinic Lab',
+            brand: (item.brand as CosmeticBrand) || 'La Roche-Posay',
             name: item.name,
             category: 'skincare',
             description: 'Naordinované v pláne pacienta',
@@ -179,7 +179,7 @@ export function CosmeticsPOSModule({
 
     return {
       id: `plan-rec-${routineItem.productName.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'custom'}`,
-      brand: (routineItem.brand as CosmeticBrand) || 'SAY Clinic Lab',
+      brand: (routineItem.brand as CosmeticBrand) || 'La Roche-Posay',
       name: routineItem.productName,
       category: 'skincare',
       description: routineItem.purpose || routineItem.usage || 'Odporúčané lekárom v pláne pacienta',
@@ -382,7 +382,7 @@ export function CosmeticsPOSModule({
     const itemsToAdd: CartItem[] = (chk.items || []).map((item, idx) => ({
       product: {
         id: `CLINIC-${chk.id}-${idx}`,
-        brand: (item.brand as CosmeticBrand) || 'SAY Clinic Lab',
+        brand: (item.brand as CosmeticBrand) || 'Dermaceutic',
         name: item.name,
         category: 'post_op',
         description: `Výkon v ambulancii (${chk.doctorName})${item.lot ? ` • Šarža: ${item.lot}` : ''}`,
@@ -420,7 +420,7 @@ export function CosmeticsPOSModule({
     const receiptItems: CartItem[] = (chk.items || []).map((item, idx) => ({
       product: {
         id: `CLINIC-${chk.id}-${idx}`,
-        brand: (item.brand as CosmeticBrand) || 'SAY Clinic Lab',
+        brand: (item.brand as CosmeticBrand) || 'Dermaceutic',
         name: item.name,
         category: 'post_op',
         description: `Výkon v ambulancii (${chk.doctorName})`,
@@ -543,7 +543,7 @@ export function CosmeticsPOSModule({
                 </span>
               </div>
               <p className="text-xs text-[#8C857B] mt-0.5">
-                Oficiálne portfólio <strong>SkinCeuticals, La Roche-Posay, CeraVe, Vichy</strong> a <strong>SAY Clinic Lab</strong> s možnosťou úpravy cien a skladu
+                Oficiálne portfólio <strong>SkinCeuticals, La Roche-Posay, CeraVe, Vichy</strong> a <strong>Dermaceutic</strong> s možnosťou úpravy cien a skladu
               </p>
             </div>
           </div>
@@ -745,7 +745,6 @@ export function CosmeticsPOSModule({
               { id: 'La Roche-Posay', label: 'La Roche-Posay' },
               { id: 'CeraVe', label: 'CeraVe' },
               { id: 'Vichy', label: 'Vichy' },
-              { id: 'SAY Clinic Lab', label: 'SAY Clinic Lab' },
               { id: 'Dermaceutic', label: 'Dermaceutic' }
             ].map(b => (
               <button
@@ -1194,7 +1193,6 @@ export function CosmeticsPOSModule({
                     <option value="La Roche-Posay">La Roche-Posay</option>
                     <option value="CeraVe">CeraVe</option>
                     <option value="Vichy">Vichy</option>
-                    <option value="SAY Clinic Lab">SAY Clinic Lab</option>
                     <option value="Dermaceutic">Dermaceutic</option>
                   </select>
                 </div>

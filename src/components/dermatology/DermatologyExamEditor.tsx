@@ -981,7 +981,7 @@ export default function DermatologyExamEditor({ data, onChange, mkchDatabase }: 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] text-[#8C857B] uppercase font-bold mb-1">
-                Odporúčaná dermokozmetická starostlivosť (SAY Clinic Lab)
+                Odporúčaná dermokozmetická starostlivosť
               </label>
               <textarea
                 rows={3}
