@@ -135,7 +135,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           premiumOption: {
             tier: 'premium',
             tierName: 'Medicínska kozmeceutika',
-            productName: 'Simply Clean hĺbkový čistiaci gél s amíno-kombináciou',
+            productName: 'SkinCeuticals Simply Clean hĺbkový čistiaci gél s amíno-kombináciou',
             brand: 'SkinCeuticals',
             price: 48.00,
             usage: 'Malé množstvo vmasírovať na navlhčenú tvár a krk, zmyť vlažnou vodou.',
@@ -153,7 +153,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           standardOption: {
             tier: 'standard',
             tierName: 'Lekárenská dermokozmetika',
-            productName: 'Liftactiv Supreme 15% čistý Vitamín C rozjasňujúce sérum',
+            productName: 'Vichy Liftactiv Supreme 15% čistý Vitamín C rozjasňujúce sérum',
             brand: 'Vichy',
             price: 38.00,
             usage: '4-5 kvapiek každé ráno na suchú pokožku pred krémom.',
@@ -162,7 +162,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           premiumOption: {
             tier: 'premium',
             tierName: 'Medicínska kozmeceutika',
-            productName: 'C E Ferulic patentované antioxidačné sérum (Zlatý štandard)',
+            productName: 'SkinCeuticals C E Ferulic patentované antioxidačné sérum (Zlatý štandard)',
             brand: 'SkinCeuticals',
             price: 175.00,
             usage: '4-5 kvapiek ráno na tvár, krk a dekolt. Vstrebáva sa okamžite s 72h depozitným účinkom.',
@@ -180,7 +180,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           standardOption: {
             tier: 'standard',
             tierName: 'Lekárenská dermokozmetika',
-            productName: 'Hyalu B5 intenzívne hydratačné sérum s vitamínom B5',
+            productName: 'La Roche-Posay Hyalu B5 intenzívne hydratačné sérum s vitamínom B5',
             brand: 'La Roche-Posay',
             price: 39.50,
             usage: 'Aplikovať 3-4 kvapky na tvár a krk ráno aj večer.',
@@ -189,7 +189,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           premiumOption: {
             tier: 'premium',
             tierName: 'Medicínska kozmeceutika',
-            productName: 'H.A. Intensifier Multi-Glycan sérum stimulujúce tvorbu HA',
+            productName: 'SkinCeuticals H.A. Intensifier Multi-Glycan sérum stimulujúce tvorbu HA',
             brand: 'SkinCeuticals',
             price: 125.00,
             usage: '4-6 kvapiek rozotrieť na tvár, líca a čelo.',
@@ -207,7 +207,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           standardOption: {
             tier: 'standard',
             tierName: 'Lekárenská dermokozmetika',
-            productName: 'Anthelios UVMune 400 Invisible Fluid SPF 50+',
+            productName: 'La Roche-Posay Anthelios UVMune 400 Invisible Fluid SPF 50+',
             brand: 'La Roche-Posay',
             price: 21.50,
             usage: 'Pred použitím pretrepať, naniesť ráno po sére/kréme.',
@@ -216,7 +216,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           premiumOption: {
             tier: 'premium',
             tierName: 'Medicínska kozmeceutika',
-            productName: 'Ultra Facial Defense SPF 50+ širokospektrálny fotoprotekčný krém',
+            productName: 'SkinCeuticals Ultra Facial Defense SPF 50+ širokospektrálny fotoprotekčný krém',
             brand: 'SkinCeuticals',
             price: 44.00,
             usage: 'Naniesť ráno ako posledný krok pred make-upom. Ultraľahká nekomedogénna textúra.',
@@ -236,7 +236,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           standardOption: {
             tier: 'standard',
             tierName: 'Lekárenská dermokozmetika',
-            productName: 'Toleriane Dermo-Cleanser upokojujúce čistiace mlieko',
+            productName: 'La Roche-Posay Toleriane Dermo-Cleanser upokojujúce čistiace mlieko',
             brand: 'La Roche-Posay',
             price: 17.50,
             usage: 'Naniesť končekmi prstov, zľahka premasírovať a jemne zotrieť tampónom.',
@@ -245,7 +245,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           premiumOption: {
             tier: 'premium',
             tierName: 'Medicínska kozmeceutika',
-            productName: 'Soothing Cleanser upokojujúca čistiaca pena s orchideou',
+            productName: 'SkinCeuticals Soothing Cleanser upokojujúca čistiaca pena s orchideou',
             brand: 'SkinCeuticals',
             price: 46.00,
             usage: '2 pumpy peny jemne vmasírovať na navlhčenú tvár a opláchnuť.',
@@ -263,7 +263,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           standardOption: {
             tier: 'standard',
             tierName: 'Lekárenská dermokozmetika',
-            productName: 'Retinol B3 sérum proti vráskam a nepravidelnému tónu',
+            productName: 'La Roche-Posay Retinol B3 sérum proti vráskam a nepravidelnému tónu',
             brand: 'La Roche-Posay',
             price: 39.00,
             usage: 'Aplikovať večer 3-4 kvapky na tvár a krk. Následne použiť hydratačný balzam.',
@@ -272,7 +272,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           premiumOption: {
             tier: 'premium',
             tierName: 'Medicínska kozmeceutika',
-            productName: 'Retinol 0.3 čistý zapuzdrený nočný krém (alebo Medik8 Crystal Retinal)',
+            productName: 'SkinCeuticals Retinol 0.3 čistý zapuzdrený nočný krém (alebo Medik8 Crystal Retinal)',
             brand: 'SkinCeuticals',
             price: 98.00,
             usage: 'Veľkosť hrášku večer na suchú pokožku. Po adaptácii možný prechod na Retinol 0.5.',
@@ -290,7 +290,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           standardOption: {
             tier: 'standard',
             tierName: 'Lekárenská dermokozmetika',
-            productName: 'Cicaplast Baume B5+ ultra-obnovujúci upokojujúci balzam',
+            productName: 'La Roche-Posay Cicaplast Baume B5+ ultra-obnovujúci upokojujúci balzam',
             brand: 'La Roche-Posay',
             price: 16.50,
             usage: 'Aplikovať v tenkej vrstve na tvár po retinole, najmä na suchšie zóny.',
@@ -299,7 +299,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           premiumOption: {
             tier: 'premium',
             tierName: 'Medicínska kozmeceutika',
-            productName: 'Triple Lipid Restore 2:4:2 patentovaný rekonštrukčný anti-aging krém',
+            productName: 'SkinCeuticals Triple Lipid Restore 2:4:2 patentovaný rekonštrukčný anti-aging krém',
             brand: 'SkinCeuticals',
             price: 155.00,
             usage: 'Zahriať malé množstvo medzi prstami a jemne vtlačiť do pokožky tváre, krku a dekoltu.',
@@ -317,7 +317,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           standardOption: {
             tier: 'standard',
             tierName: 'Lekárenská dermokozmetika',
-            productName: 'Liftactiv H.A. očné sérum proti vráskam a tmavým kruhom',
+            productName: 'Vichy Liftactiv H.A. očné sérum proti vráskam a tmavým kruhom',
             brand: 'Vichy',
             price: 29.00,
             usage: '1 kvapku jemne vklepať pod oči a pozdĺž očnicového oblúka.',
@@ -326,7 +326,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           premiumOption: {
             tier: 'premium',
             tierName: 'Medicínska kozmeceutika',
-            productName: 'A.G.E. Advanced Eye pokročilý očný krém proti glykácii kolagénu',
+            productName: 'SkinCeuticals A.G.E. Advanced Eye pokročilý očný krém proti glykácii kolagénu',
             brand: 'SkinCeuticals',
             price: 110.00,
             usage: 'Ráno aj večer nanášať pod oči a pod obočie. Vyhnúť sa pohyblivému viečku.',
@@ -337,7 +337,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
       specialWeeklyCare: [
         'Enzymatický peeling 1x týždenne večer namiesto retinolu pre šetrné odstránenie odumretých buniek.',
         'Hydratačná maska s kyselinou hyalurónovou (Vichy Minéral 89 Booster) po intenzívnych procedúrach.',
-        'Vnútorná suplementácia: SAY Marine Pure Collagen Peptides 10,000mg každé ráno do vody.'
+        'Vnútorná suplementácia: Bioaktívne kolagénové peptidy a antioxidanty každé ráno do vody.'
       ]
     },
     annualTreatments: [

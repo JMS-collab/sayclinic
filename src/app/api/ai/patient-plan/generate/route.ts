@@ -143,6 +143,7 @@ VÝSTUP MUSÍ BYŤ ČISTÝ JSON zodpovedajúci rozhraniu:
 DÔLEŽITÉ: Pre každý krok rannej a večernej rutiny MUSÍŠ vytvoriť OBA varianty (standardOption aj premiumOption):
 - standardOption: Trieda "Lekárenská dermokozmetika" (CeraVe, La Roche-Posay, Vichy) ako overená, dostupnejšia lekárenská starostlivosť (~14€ až 40€).
 - premiumOption: Trieda "Medicínska kozmeceutika" (SkinCeuticals, Medik8) ako špičková medicínska bunková starostlivosť s patentovanými koncentráciami (~44€ až 185€).
+Pre každý produkt VŽDY vyplň značku (napr. "La Roche-Posay", "SkinCeuticals", "Vichy", "CeraVe") do poľa "brand" a názov v "productName" musí taktiež začínať názvom značky (napr. "La Roche-Posay Anthelios UVMune 400..." alebo "SkinCeuticals C E Ferulic...").
 
 Uveď konkrétne klinické produkty výhradne z oficiálneho portfólia kliniky SAY CLINIC:
 - SkinCeuticals (C E Ferulic ~175€, Phloretin CF ~175€, H.A. Intensifier ~125€, Discoloration Defense ~112€, P-TIOX Peptidové sérum ~142€, Triple Lipid Restore 2:4:2 ~155€, A.G.E. Interrupter Advanced ~185€, A.G.E. Advanced Eye ~110€, Simply Clean gél ~48€, Soothing Cleanser pena ~46€, Phyto Corrective ~85€, Retinol 0.3 ~98€, Ultra Facial Defense SPF 50+ ~44€).
