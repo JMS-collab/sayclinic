@@ -42,6 +42,16 @@ export default function PatientPlanViewer({
   onOpenInCosmeticsPOS
 }: PatientPlanViewerProps) {
   const [activeSection, setActiveSection] = useState<'all' | 'cosmetics' | 'schedule' | 'pre_op' | 'post_op'>('all');
+  const [selectedTierFilter, setSelectedTierFilter] = useState<'both' | 'standard' | 'premium'>('both');
+  
+  const standardMorningTotal = (plan.cosmeticsRoutine?.morning || []).reduce((sum, item) => sum + (item.standardOption?.price ?? item.price ?? 0), 0);
+  const standardEveningTotal = (plan.cosmeticsRoutine?.evening || []).reduce((sum, item) => sum + (item.standardOption?.price ?? item.price ?? 0), 0);
+  const standardTotal = standardMorningTotal + standardEveningTotal;
+
+  const premiumMorningTotal = (plan.cosmeticsRoutine?.morning || []).reduce((sum, item) => sum + (item.premiumOption?.price ?? item.price ?? 0), 0);
+  const premiumEveningTotal = (plan.cosmeticsRoutine?.evening || []).reduce((sum, item) => sum + (item.premiumOption?.price ?? item.price ?? 0), 0);
+  const premiumTotal = premiumMorningTotal + premiumEveningTotal;
+
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {};
     if (plan.preOpCare?.instructions) {
@@ -337,11 +347,11 @@ export default function PatientPlanViewer({
               <div className="flex items-center gap-2">
                 <span className="text-xl">🧴</span>
                 <h3 className="text-base font-bold text-[#2C2A29]">
-                  Odporúčaná domáca kozmetická starostlivosť & Aktívne látky
+                  Odporúčaná domáca dermokozmetická starostlivosť & Dve triedy produktov
                 </h3>
               </div>
               <p className="text-xs text-[#8C857B] mt-0.5">
-                Klinicky overené produkty s obsahom antioxidantov, peptidov, ceramidov a minerálnych UV filtrov pre maximálny efekt estetických zákrokov.
+                Klinicky overené protokoly rozdelené na <strong>Lekárenskú dermokozmetiku</strong> (dostupnejšia) a <strong>Medicínsku kozmeceutiku</strong> (špičková bunková veda).
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -352,19 +362,89 @@ export default function PatientPlanViewer({
                     const allItems = [
                       ...(plan.cosmeticsRoutine?.morning || []),
                       ...(plan.cosmeticsRoutine?.evening || [])
-                    ];
+                    ].map(item => {
+                      if (selectedTierFilter === 'standard' && item.standardOption) {
+                        return {
+                          ...item,
+                          productName: item.standardOption.productName,
+                          brand: item.standardOption.brand,
+                          price: item.standardOption.price
+                        };
+                      }
+                      if (selectedTierFilter === 'premium' && item.premiumOption) {
+                        return {
+                          ...item,
+                          productName: item.premiumOption.productName,
+                          brand: item.premiumOption.brand,
+                          price: item.premiumOption.price
+                        };
+                      }
+                      return item;
+                    });
                     onOpenInCosmeticsPOS(allItems, plan.patientId);
                   }}
                   className="px-3.5 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-                  title="Vložiť všetky odporúčané produkty do pokladničného košíka na recepcii"
+                  title="Vložiť zvolené produkty do pokladničného košíka na recepcii"
                 >
                   <ShoppingBag className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>Kúpiť / Otvoriť v pokladni (POS)</span>
+                  <span>Kúpiť {selectedTierFilter === 'standard' ? 'Lekárenskú' : selectedTierFilter === 'premium' ? 'Medicínsku' : ''} v POS pokladni</span>
                 </button>
               )}
-              <span className="text-xs font-bold text-[#C5A059] bg-[#C5A059]/10 px-3 py-1 rounded-full">
-                Klinický štandard SAY CLINIC
+            </div>
+          </div>
+
+          {/* PREPÍNAČ TRIED KOZMETIKY (MID-END VS HIGH-END) */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#6B6357] uppercase tracking-wider">
+                Cenová kategória:
               </span>
+              <div className="inline-flex p-1 bg-white border border-[#E8E2D9] rounded-lg shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTierFilter('both')}
+                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                    selectedTierFilter === 'both'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'text-[#6B6357] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  Porovnanie 1:1 (Obe verzie)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTierFilter('standard')}
+                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    selectedTierFilter === 'standard'
+                      ? 'bg-sky-800 text-white shadow-xs'
+                      : 'text-[#6B6357] hover:text-sky-800'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+                  <span>Lekárenská dermokozmetika (~{standardTotal.toFixed(2)} €)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTierFilter('premium')}
+                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    selectedTierFilter === 'premium'
+                      ? 'bg-[#C5A059] text-white shadow-xs'
+                      : 'text-[#6B6357] hover:text-[#C5A059]'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-300"></span>
+                  <span>Medicínska kozmeceutika (~{premiumTotal.toFixed(2)} €)</span>
+                </button>
+              </div>
+            </div>
+            <div className="text-xs text-[#8C857B] font-medium">
+              {selectedTierFilter === 'both' ? (
+                <span>Rozpočet rutiny: <strong className="text-sky-800 font-bold">{standardTotal.toFixed(0)} €</strong> (Lekáreň) vs. <strong className="text-[#C5A059] font-bold">{premiumTotal.toFixed(0)} €</strong> (Medicínska)</span>
+              ) : selectedTierFilter === 'standard' ? (
+                <span>Celková cena dostupnejšej rutiny: <strong className="text-sky-800 font-bold">{standardTotal.toFixed(2)} €</strong></span>
+              ) : (
+                <span>Celková cena prémiovej rutiny: <strong className="text-[#C5A059] font-bold">{premiumTotal.toFixed(2)} €</strong></span>
+              )}
             </div>
           </div>
 
@@ -384,40 +464,108 @@ export default function PatientPlanViewer({
               </div>
 
               <div className="space-y-3">
-                {plan.cosmeticsRoutine?.morning?.map((item, idx) => (
-                  <div 
-                    key={idx} 
-                    className="p-3.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5]/50 hover:bg-white hover:border-[#C5A059] transition-all space-y-1.5"
-                  >
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-[#C5A059] text-[10px] font-bold flex items-center justify-center shrink-0">
-                          {item.step}
-                        </span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
-                          {item.category}
-                        </span>
+                {plan.cosmeticsRoutine?.morning?.map((item, idx) => {
+                  const hasBoth = !!(item.standardOption && item.premiumOption);
+                  return (
+                    <div 
+                      key={idx} 
+                      className="p-3.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5]/50 hover:bg-white hover:border-[#C5A059] transition-all space-y-2.5"
+                    >
+                      <div className="flex justify-between items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-[#C5A059] text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {item.step}
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
+                            {item.category}
+                          </span>
+                        </div>
                       </div>
-                      {item.price && (
-                        <span className="text-xs font-mono font-bold text-[#2C2A29]">
-                          {item.price} €
-                        </span>
+
+                      {/* Zobrazenie možností podľa zvoleného filtra */}
+                      {selectedTierFilter === 'both' && hasBoth ? (
+                        <div className="space-y-2 pt-1">
+                          {/* STANDARD MOŽNOSŤ */}
+                          <div className="p-2.5 rounded-lg bg-sky-50/60 border border-sky-200/70 space-y-1">
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-sky-800 bg-sky-100 px-1.5 py-0.5 rounded">
+                                Lekárenská dermokozmetika
+                              </span>
+                              <span className="text-xs font-mono font-bold text-sky-900">
+                                {item.standardOption!.price.toFixed(2)} €
+                              </span>
+                            </div>
+                            <h5 className="text-xs font-bold text-[#2C2A29]">
+                              {item.standardOption!.productName}
+                            </h5>
+                            <p className="text-[10px] text-[#6B6357]">
+                              <strong>Aplikácia:</strong> {item.standardOption!.usage}
+                            </p>
+                            <p className="text-[10px] text-[#8C857B] italic">
+                              💡 {item.standardOption!.purpose}
+                            </p>
+                          </div>
+
+                          {/* PREMIUM MOŽNOSŤ */}
+                          <div className="p-2.5 rounded-lg bg-amber-50/60 border border-amber-200/70 space-y-1">
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-900 bg-amber-200/60 px-1.5 py-0.5 rounded">
+                                Medicínska kozmeceutika
+                              </span>
+                              <span className="text-xs font-mono font-bold text-[#2C2A29]">
+                                {item.premiumOption!.price.toFixed(2)} €
+                              </span>
+                            </div>
+                            <h5 className="text-xs font-bold text-[#2C2A29]">
+                              {item.premiumOption!.productName}
+                            </h5>
+                            <p className="text-[10px] text-[#6B6357]">
+                              <strong>Aplikácia:</strong> {item.premiumOption!.usage}
+                            </p>
+                            <p className="text-[10px] text-[#8C857B] italic">
+                              👑 {item.premiumOption!.purpose}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        // Jediná vybraná možnosť (štandard alebo prémium)
+                        (() => {
+                          const activeOpt = (selectedTierFilter === 'standard' && item.standardOption)
+                            ? item.standardOption
+                            : (selectedTierFilter === 'premium' && item.premiumOption)
+                            ? item.premiumOption
+                            : (item.standardOption || item.premiumOption || item);
+                          const isPrem = activeOpt === item.premiumOption;
+                          return (
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between items-start gap-2">
+                                <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                  isPrem ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-800'
+                                }`}>
+                                  {isPrem ? 'Medicínska kozmeceutika' : 'Lekárenská dermokozmetika'}
+                                </span>
+                                {activeOpt.price && (
+                                  <span className="text-xs font-mono font-bold text-[#2C2A29]">
+                                    {activeOpt.price.toFixed(2)} €
+                                  </span>
+                                )}
+                              </div>
+                              <h5 className="text-xs font-bold text-[#2C2A29]">
+                                {activeOpt.productName}
+                              </h5>
+                              <p className="text-[11px] text-[#8C857B] leading-relaxed">
+                                <strong>Aplikácia:</strong> {activeOpt.usage}
+                              </p>
+                              <p className="text-[10px] text-[#6B6357] italic bg-white p-2 rounded-lg border border-[#E8E2D9]/60">
+                                💡 <strong>Účel:</strong> {activeOpt.purpose}
+                              </p>
+                            </div>
+                          );
+                        })()
                       )}
                     </div>
-
-                    <h5 className="text-xs font-bold text-[#2C2A29]">
-                      {item.productName}
-                    </h5>
-
-                    <p className="text-[11px] text-[#8C857B] leading-relaxed">
-                      <strong>Aplikácia:</strong> {item.usage}
-                    </p>
-
-                    <p className="text-[10px] text-[#6B6357] italic bg-white p-2 rounded-lg border border-[#E8E2D9]/60">
-                      💡 <strong>Účel:</strong> {item.purpose}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -436,40 +584,108 @@ export default function PatientPlanViewer({
               </div>
 
               <div className="space-y-3">
-                {plan.cosmeticsRoutine?.evening?.map((item, idx) => (
-                  <div 
-                    key={idx} 
-                    className="p-3.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5]/50 hover:bg-white hover:border-indigo-300 transition-all space-y-1.5"
-                  >
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-indigo-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                          {item.step}
-                        </span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800">
-                          {item.category}
-                        </span>
+                {plan.cosmeticsRoutine?.evening?.map((item, idx) => {
+                  const hasBoth = !!(item.standardOption && item.premiumOption);
+                  return (
+                    <div 
+                      key={idx} 
+                      className="p-3.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5]/50 hover:bg-white hover:border-indigo-300 transition-all space-y-2.5"
+                    >
+                      <div className="flex justify-between items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-indigo-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {item.step}
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800">
+                            {item.category}
+                          </span>
+                        </div>
                       </div>
-                      {item.price && (
-                        <span className="text-xs font-mono font-bold text-[#2C2A29]">
-                          {item.price} €
-                        </span>
+
+                      {/* Zobrazenie možností podľa zvoleného filtra */}
+                      {selectedTierFilter === 'both' && hasBoth ? (
+                        <div className="space-y-2 pt-1">
+                          {/* STANDARD MOŽNOSŤ */}
+                          <div className="p-2.5 rounded-lg bg-sky-50/60 border border-sky-200/70 space-y-1">
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-sky-800 bg-sky-100 px-1.5 py-0.5 rounded">
+                                Lekárenská dermokozmetika
+                              </span>
+                              <span className="text-xs font-mono font-bold text-sky-900">
+                                {item.standardOption!.price.toFixed(2)} €
+                              </span>
+                            </div>
+                            <h5 className="text-xs font-bold text-[#2C2A29]">
+                              {item.standardOption!.productName}
+                            </h5>
+                            <p className="text-[10px] text-[#6B6357]">
+                              <strong>Aplikácia:</strong> {item.standardOption!.usage}
+                            </p>
+                            <p className="text-[10px] text-[#8C857B] italic">
+                              💡 {item.standardOption!.purpose}
+                            </p>
+                          </div>
+
+                          {/* PREMIUM MOŽNOSŤ */}
+                          <div className="p-2.5 rounded-lg bg-indigo-50/60 border border-indigo-200/70 space-y-1">
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-900 bg-indigo-100 px-1.5 py-0.5 rounded">
+                                Medicínska kozmeceutika
+                              </span>
+                              <span className="text-xs font-mono font-bold text-[#2C2A29]">
+                                {item.premiumOption!.price.toFixed(2)} €
+                              </span>
+                            </div>
+                            <h5 className="text-xs font-bold text-[#2C2A29]">
+                              {item.premiumOption!.productName}
+                            </h5>
+                            <p className="text-[10px] text-[#6B6357]">
+                              <strong>Aplikácia:</strong> {item.premiumOption!.usage}
+                            </p>
+                            <p className="text-[10px] text-[#8C857B] italic">
+                              👑 {item.premiumOption!.purpose}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        // Jediná vybraná možnosť
+                        (() => {
+                          const activeOpt = (selectedTierFilter === 'standard' && item.standardOption)
+                            ? item.standardOption
+                            : (selectedTierFilter === 'premium' && item.premiumOption)
+                            ? item.premiumOption
+                            : (item.standardOption || item.premiumOption || item);
+                          const isPrem = activeOpt === item.premiumOption;
+                          return (
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between items-start gap-2">
+                                <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                  isPrem ? 'bg-indigo-100 text-indigo-900' : 'bg-sky-100 text-sky-800'
+                                }`}>
+                                  {isPrem ? 'Medicínska kozmeceutika' : 'Lekárenská dermokozmetika'}
+                                </span>
+                                {activeOpt.price && (
+                                  <span className="text-xs font-mono font-bold text-[#2C2A29]">
+                                    {activeOpt.price.toFixed(2)} €
+                                  </span>
+                                )}
+                              </div>
+                              <h5 className="text-xs font-bold text-[#2C2A29]">
+                                {activeOpt.productName}
+                              </h5>
+                              <p className="text-[11px] text-[#8C857B] leading-relaxed">
+                                <strong>Aplikácia:</strong> {activeOpt.usage}
+                              </p>
+                              <p className="text-[10px] text-[#6B6357] italic bg-white p-2 rounded-lg border border-[#E8E2D9]/60">
+                                💡 <strong>Účel:</strong> {activeOpt.purpose}
+                              </p>
+                            </div>
+                          );
+                        })()
                       )}
                     </div>
-
-                    <h5 className="text-xs font-bold text-[#2C2A29]">
-                      {item.productName}
-                    </h5>
-
-                    <p className="text-[11px] text-[#8C857B] leading-relaxed">
-                      <strong>Aplikácia:</strong> {item.usage}
-                    </p>
-
-                    <p className="text-[10px] text-[#6B6357] italic bg-white p-2 rounded-lg border border-[#E8E2D9]/60">
-                      💡 <strong>Účel:</strong> {item.purpose}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

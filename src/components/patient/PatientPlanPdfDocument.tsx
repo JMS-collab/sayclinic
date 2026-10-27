@@ -398,17 +398,43 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                         )}
                       </div>
 
-                      <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: '#2C2A29', marginLeft: '21px' }}>
-                        {item.productName} {item.brand ? `(${item.brand})` : ''}
-                      </div>
+                      {item.standardOption && item.premiumOption ? (
+                        <div style={{ marginLeft: '21px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F0F9FF', padding: '3px 6px', borderRadius: '4px', border: '1px solid #BAE6FD' }}>
+                            <div style={{ fontSize: '9px', color: '#0369A1' }}>
+                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Lekáreň:</strong> {item.standardOption.productName}
+                            </div>
+                            <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#0C4A6E', fontFamily: 'monospace' }}>
+                              {item.standardOption.price.toFixed(2)} €
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFBEB', padding: '3px 6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
+                            <div style={{ fontSize: '9px', color: '#B45309' }}>
+                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Medicínska:</strong> {item.premiumOption.productName}
+                            </div>
+                            <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#78350F', fontFamily: 'monospace' }}>
+                              {item.premiumOption.price.toFixed(2)} €
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '8.5px', color: '#5C554E', margin: '1px 0 0 0', lineHeight: '1.3' }}>
+                            <strong>Aplikácia:</strong> {item.standardOption.usage || item.usage}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: '#2C2A29', marginLeft: '21px' }}>
+                            {item.productName} {item.brand ? `(${item.brand})` : ''}
+                          </div>
 
-                      <div style={{ fontSize: '9px', color: '#5C554E', margin: '2px 0 0 21px', lineHeight: '1.35' }}>
-                        <strong>Aplikácia:</strong> {item.usage}
-                      </div>
+                          <div style={{ fontSize: '9px', color: '#5C554E', margin: '2px 0 0 21px', lineHeight: '1.35' }}>
+                            <strong>Aplikácia:</strong> {item.usage}
+                          </div>
 
-                      <div style={{ fontSize: '8.5px', color: '#78716C', fontStyle: 'italic', margin: '2px 0 0 21px' }}>
-                        💡 <strong>Účel:</strong> {item.purpose}
-                      </div>
+                          <div style={{ fontSize: '8.5px', color: '#78716C', fontStyle: 'italic', margin: '2px 0 0 21px' }}>
+                            💡 <strong>Účel:</strong> {item.purpose}
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -482,17 +508,43 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                         )}
                       </div>
 
-                      <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: '#2C2A29', marginLeft: '21px' }}>
-                        {item.productName} {item.brand ? `(${item.brand})` : ''}
-                      </div>
+                      {item.standardOption && item.premiumOption ? (
+                        <div style={{ marginLeft: '21px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F0F9FF', padding: '3px 6px', borderRadius: '4px', border: '1px solid #BAE6FD' }}>
+                            <div style={{ fontSize: '9px', color: '#0369A1' }}>
+                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Lekáreň:</strong> {item.standardOption.productName}
+                            </div>
+                            <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#0C4A6E', fontFamily: 'monospace' }}>
+                              {item.standardOption.price.toFixed(2)} €
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFBEB', padding: '3px 6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
+                            <div style={{ fontSize: '9px', color: '#B45309' }}>
+                              <strong style={{ textTransform: 'uppercase', fontSize: '8px' }}>Medicínska:</strong> {item.premiumOption.productName}
+                            </div>
+                            <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#78350F', fontFamily: 'monospace' }}>
+                              {item.premiumOption.price.toFixed(2)} €
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '8.5px', color: '#5C554E', margin: '1px 0 0 0', lineHeight: '1.3' }}>
+                            <strong>Aplikácia:</strong> {item.standardOption.usage || item.usage}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: '#2C2A29', marginLeft: '21px' }}>
+                            {item.productName} {item.brand ? `(${item.brand})` : ''}
+                          </div>
 
-                      <div style={{ fontSize: '9px', color: '#5C554E', margin: '2px 0 0 21px', lineHeight: '1.35' }}>
-                        <strong>Aplikácia:</strong> {item.usage}
-                      </div>
+                          <div style={{ fontSize: '9px', color: '#5C554E', margin: '2px 0 0 21px', lineHeight: '1.35' }}>
+                            <strong>Aplikácia:</strong> {item.usage}
+                          </div>
 
-                      <div style={{ fontSize: '8.5px', color: '#78716C', fontStyle: 'italic', margin: '2px 0 0 21px' }}>
-                        💡 <strong>Účel:</strong> {item.purpose}
-                      </div>
+                          <div style={{ fontSize: '8.5px', color: '#78716C', fontStyle: 'italic', margin: '2px 0 0 21px' }}>
+                            💡 <strong>Účel:</strong> {item.purpose}
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>

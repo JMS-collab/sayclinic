@@ -1,3 +1,13 @@
+export interface RoutineProductOption {
+  tier: 'standard' | 'premium';
+  tierName: 'Lekárenská dermokozmetika' | 'Medicínska kozmeceutika';
+  productName: string;
+  brand: string;
+  price: number;
+  usage?: string;
+  purpose?: string;
+}
+
 export interface CosmeticRoutineItem {
   step: number;
   category: string; // 'Čistenie' | 'Sérum / Antioxidant' | 'Hydratácia' | 'SPF Ochrana' | 'Retinoidy' | 'Nočná regenerácia'
@@ -6,6 +16,10 @@ export interface CosmeticRoutineItem {
   usage: string;
   purpose: string;
   price?: number;
+  // Dve voliteľné triedy: Lekárenská dermokozmetika vs. Medicínska kozmeceutika
+  standardOption?: RoutineProductOption;
+  premiumOption?: RoutineProductOption;
+  selectedTier?: 'standard' | 'premium';
 }
 
 export interface ScheduledTreatment {
@@ -61,6 +75,7 @@ export interface PatientPlan {
     facialAgeEstimated?: number;
   };
   cosmeticsRoutine: {
+    activeTier?: 'standard' | 'premium' | 'both';
     morning: CosmeticRoutineItem[];
     evening: CosmeticRoutineItem[];
     specialWeeklyCare: string[];
@@ -98,80 +113,225 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
       vectorZones: ['Čelo & Glabela', 'Lícne kosti & Malárna oblasť', 'Nazolabiálne ryhy']
     },
     cosmeticsRoutine: {
+      activeTier: 'both',
       morning: [
         {
           step: 1,
           category: 'Čistenie',
-          productName: 'CeraVe Hydratačný čistiaci gél (Hydrating Cleanser)',
-          brand: 'CeraVe',
+          productName: 'CeraVe Hydratačná čistiaca emulzia / SkinCeuticals Simply Clean',
+          brand: 'CeraVe / SkinCeuticals',
           usage: 'Ráno na vlhkú pokožku, jemne vmasírovať 60 sekúnd, opláchnuť vlažnou vodou.',
-          purpose: 'Šetrné odstránenie mazu bez narušenia kožnej bariéry vďaka 3 esenciálnym ceramidom.',
-          price: 14.50
+          purpose: 'Šetrné odstránenie mazu bez narušenia kožnej mikrobiómy a ochrannej bariéry.',
+          price: 14.50,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Lekárenská dermokozmetika',
+            productName: 'CeraVe Hydratačná čistiaca emulzia (Hydrating Cleanser)',
+            brand: 'CeraVe',
+            price: 14.50,
+            usage: 'Ráno na vlhkú pokožku, jemne vmasírovať 60 sekúnd a opláchnuť.',
+            purpose: 'Šetrné čistenie s 3 esenciálnymi ceramidmi a kyselinou hyalurónovou bez pnutia.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Medicínska kozmeceutika',
+            productName: 'Simply Clean hĺbkový čistiaci gél s amíno-kombináciou',
+            brand: 'SkinCeuticals',
+            price: 48.00,
+            usage: 'Malé množstvo vmasírovať na navlhčenú tvár a krk, zmyť vlažnou vodou.',
+            purpose: 'Jemná enzymatická mikro-exfoliácia a hĺbkové prečistenie pórov pred nanesením antioxidantov.'
+          }
         },
         {
           step: 2,
           category: 'Sérum / Antioxidant',
-          productName: 'C E Ferulic Triple Antioxidant Treatment',
-          brand: 'SkinCeuticals',
-          usage: '4-5 kvapiek na vyčistenú suchú tvár, krk a dekolt.',
-          purpose: 'Zlatý štandard antioxidantov (15% vit C + 1% vit E + 0.5% ferulová kyselina), neutralizácia voľných radikálov a stimulácia kolagénu.',
-          price: 175.00
+          productName: 'Vichy Liftactiv 15% Vit C / SkinCeuticals C E Ferulic',
+          brand: 'Vichy / SkinCeuticals',
+          usage: '4-5 kvapiek ráno na suchú vyčistenú tvár, krk a dekolt.',
+          purpose: 'Neutralizácia voľných radikálov z UV žiarenia a smogu, stimulácia neokolagenézy a rozjasnenie.',
+          price: 38.00,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Lekárenská dermokozmetika',
+            productName: 'Liftactiv Supreme 15% čistý Vitamín C rozjasňujúce sérum',
+            brand: 'Vichy',
+            price: 38.00,
+            usage: '4-5 kvapiek každé ráno na suchú pokožku pred krémom.',
+            purpose: 'Vysoká 15% koncentrácia kyseliny L-askorbovej s pyknogenolom a vitamínom E.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Medicínska kozmeceutika',
+            productName: 'C E Ferulic patentované antioxidačné sérum (Zlatý štandard)',
+            brand: 'SkinCeuticals',
+            price: 175.00,
+            usage: '4-5 kvapiek ráno na tvár, krk a dekolt. Vstrebáva sa okamžite s 72h depozitným účinkom.',
+            purpose: 'Duke University patent: 15% čistý vit C + 1% vit E + 0.5% kys. ferulová. Znižuje oxidačné poškodenie buniek o 41 %.'
+          }
         },
         {
           step: 3,
-          category: 'Hydratácia & Bariéra',
-          productName: 'Triple Lipid Restore 2:4:2 Patentovaný bariérový krém',
-          brand: 'SkinCeuticals',
-          usage: 'Veľkosť hrášku rovnomerne rozotrieť na tvár a krk.',
-          purpose: 'Patentovaný pomer 2% ceramidov, 4% cholesterolu a 2% mastných kyselín pre maximálnu hustotu a elasticitu pleti.',
-          price: 155.00
+          category: 'Hydratácia & Plnosť',
+          productName: 'La Roche-Posay Hyalu B5 / SkinCeuticals H.A. Intensifier',
+          brand: 'La Roche-Posay / SkinCeuticals',
+          usage: 'Naniesť na tvár a krk ako hydratačnú a spevňujúcu bázu.',
+          purpose: 'Obnova turgoru, pružnosti pleti a okamžité vyplnenie dehydratačných liniek.',
+          price: 39.50,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Lekárenská dermokozmetika',
+            productName: 'Hyalu B5 intenzívne hydratačné sérum s vitamínom B5',
+            brand: 'La Roche-Posay',
+            price: 39.50,
+            usage: 'Aplikovať 3-4 kvapky na tvár a krk ráno aj večer.',
+            purpose: 'Dva druhy čistej kyseliny hyalurónovej + vitamín B5 pre rehydratáciu a obnovu objemu.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Medicínska kozmeceutika',
+            productName: 'H.A. Intensifier Multi-Glycan sérum stimulujúce tvorbu HA',
+            brand: 'SkinCeuticals',
+            price: 125.00,
+            usage: '4-6 kvapiek rozotrieť na tvár, líca a čelo.',
+            purpose: 'Klinicky preukázané zvýšenie vlastnej hladiny kyseliny hyalurónovej v koži o 30 % vďaka Proxylane™ a extraktu z fialovej ryže.'
+          }
         },
         {
           step: 4,
-          category: 'SPF Ochrana',
-          productName: 'Anthelios UVMune 400 Invisible Fluid SPF 50+',
-          brand: 'La Roche-Posay',
-          usage: 'Každé ráno ako finálny krok starostlivosti, 2 prsty prípravku rovnomerne na tvár a krk.',
-          purpose: 'Revolučná ochrana pred ultra-dlhým UVA žiarením (Mexoryl 400), prevencia fotostarnutia a pigmentových škvŕn.',
-          price: 21.50
+          category: 'SPF Fotoprotekcia',
+          productName: 'Anthelios UVMune 400 SPF 50+ / SkinCeuticals Ultra Facial Defense SPF 50',
+          brand: 'La Roche-Posay / SkinCeuticals',
+          usage: 'Každé ráno ako finálny krok starostlivosti, rovnomerne 2 prsty prípravku na tvár, uši a krk.',
+          purpose: 'Absolútna ochrana pred UVA, ultra-dlhým UVA žiarením a UVB lúčmi – kľúčová prevencia fotostarnutia.',
+          price: 21.50,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Lekárenská dermokozmetika',
+            productName: 'Anthelios UVMune 400 Invisible Fluid SPF 50+',
+            brand: 'La Roche-Posay',
+            price: 21.50,
+            usage: 'Pred použitím pretrepať, naniesť ráno po sére/kréme.',
+            purpose: 'Revolučný filter Mexoryl 400 chráni pred najzákernejšími ultra-dlhými UVA lúčmi (380–400 nm).'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Medicínska kozmeceutika',
+            productName: 'Ultra Facial Defense SPF 50+ širokospektrálny fotoprotekčný krém',
+            brand: 'SkinCeuticals',
+            price: 44.00,
+            usage: 'Naniesť ráno ako posledný krok pred make-upom. Ultraľahká nekomedogénna textúra.',
+            purpose: 'Vysoko stabilný UV komplex novej generácie zabraňuje degradácii kolagénu a vzniku UV pigmentových škvŕn.'
+          }
         }
       ],
       evening: [
         {
           step: 1,
-          category: 'Čistenie',
-          productName: 'CeraVe Hydratačný čistiaci gél (Hydrating Cleanser)',
-          brand: 'CeraVe',
-          usage: 'Dvojité večerné čistenie pre odstránenie SPF a mestských nečistôt.',
-          purpose: 'Hĺbkové a jemné prečistenie pórov bez vysušovania.',
-          price: 14.50
+          category: 'Čistenie / Odlíčenie',
+          productName: 'LRP Toleriane Dermo-Cleanser / SkinCeuticals Soothing Cleanser',
+          brand: 'La Roche-Posay / SkinCeuticals',
+          usage: 'Večerné dôkladné čistenie pre odstránenie SPF, mazu a mikro-nečistôt.',
+          purpose: 'Príprava epidermy na nočnú regeneráciu a bezpečné vstrebávanie retinolu.',
+          price: 17.50,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Lekárenská dermokozmetika',
+            productName: 'Toleriane Dermo-Cleanser upokojujúce čistiace mlieko',
+            brand: 'La Roche-Posay',
+            price: 17.50,
+            usage: 'Naniesť končekmi prstov, zľahka premasírovať a jemne zotrieť tampónom.',
+            purpose: 'Minimalistické zloženie obohatené o termálnu vodu bez parfumácie pre nulové riziko podráždenia.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Medicínska kozmeceutika',
+            productName: 'Soothing Cleanser upokojujúca čistiaca pena s orchideou',
+            brand: 'SkinCeuticals',
+            price: 46.00,
+            usage: '2 pumpy peny jemne vmasírovať na navlhčenú tvár a opláchnuť.',
+            purpose: 'Bohatá pena s výťažkami z orchidey a uhorky, špeciálne vyvinutá pre pleť po estetických zákrokoch.'
+          }
         },
         {
           step: 2,
-          category: 'Peptidy & Spevnenie',
-          productName: 'P-TIOX Pokročilé peptidové sérum proti mimickým vráskam',
-          brand: 'SkinCeuticals',
-          usage: '5 kvapiek na miesta s mimickými vráskami (čelo, glabela, okolie očí a úst).',
-          purpose: 'Inovácia 2025/2026 s Argireline Amplified pre relaxáciu mimických kontrakcií a vyhladenie reliéfu.',
-          price: 142.00
+          category: 'Retinoidy & Bunková obnova',
+          productName: 'LRP Retinol B3 sérum / SkinCeuticals Retinol 0.3',
+          brand: 'La Roche-Posay / SkinCeuticals',
+          usage: 'Večer na úplne suchú pleť 2-3x týždenne (postupne podľa tolerancie zvyšovať).',
+          purpose: 'Zrýchlenie bunkového obratu, prestavba kolagénu a vyhladenie jemných aj hlbších vrások.',
+          price: 39.00,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Lekárenská dermokozmetika',
+            productName: 'Retinol B3 sérum proti vráskam a nepravidelnému tónu',
+            brand: 'La Roche-Posay',
+            price: 39.00,
+            usage: 'Aplikovať večer 3-4 kvapky na tvár a krk. Následne použiť hydratačný balzam.',
+            purpose: 'Kombinácia čistého a postupne uvoľňovaného retinolu s vitamínom B3 (niacínamid) pre šetrnú toleranciu.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Medicínska kozmeceutika',
+            productName: 'Retinol 0.3 čistý zapuzdrený nočný krém (alebo Medik8 Crystal Retinal)',
+            brand: 'SkinCeuticals',
+            price: 98.00,
+            usage: 'Veľkosť hrášku večer na suchú pokožku. Po adaptácii možný prechod na Retinol 0.5.',
+            purpose: 'Patentovaný systém enkapsulácie doručuje čistý retinol priamo do dermis bez povrchovej zápalovej reakcie.'
+          }
         },
         {
           step: 3,
-          category: 'Retinoidy & Bunková obnova',
-          productName: 'Retinol 0.3 Nočný obnovujúci krém',
-          brand: 'SkinCeuticals',
-          usage: 'Aplikovať večer na suchú pleť 3x týždenne (postupne zvyšovať frekvenciu).',
-          purpose: 'Čistý enkapsulovaný retinol stimuluje obnovu buniek, zjemňuje textúru a spevňuje dermis.',
-          price: 98.00
+          category: 'Bariérový & Lipidový krém',
+          productName: 'Cicaplast Baume B5+ / SkinCeuticals Triple Lipid Restore 2:4:2',
+          brand: 'La Roche-Posay / SkinCeuticals',
+          usage: 'Večer po retinole (odstup 15-20 minút) na uzavretie hydratácie a obnovu bariéry.',
+          purpose: 'Hĺbková rekonštrukcia intercelulárnych lipidov a prevencia transepidermálnej straty vody.',
+          price: 16.50,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Lekárenská dermokozmetika',
+            productName: 'Cicaplast Baume B5+ ultra-obnovujúci upokojujúci balzam',
+            brand: 'La Roche-Posay',
+            price: 16.50,
+            usage: 'Aplikovať v tenkej vrstve na tvár po retinole, najmä na suchšie zóny.',
+            purpose: 'Madecassoside, 5% panthenol a prebiotický komplex Tribioma pre okamžité upokojenie a regeneráciu.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Medicínska kozmeceutika',
+            productName: 'Triple Lipid Restore 2:4:2 patentovaný rekonštrukčný anti-aging krém',
+            brand: 'SkinCeuticals',
+            price: 155.00,
+            usage: 'Zahriať malé množstvo medzi prstami a jemne vtlačiť do pokožky tváre, krku a dekoltu.',
+            purpose: 'Zlatý rez lipidov: 2% čisté ceramidy, 4% prírodný cholesterol a 2% mastné kyseliny. Zlepšuje elasticitu o 66%.'
+          }
         },
         {
           step: 4,
-          category: 'Nočná regenerácia',
-          productName: 'Minéral 89 72h Intenzívny hydratačný krém',
-          brand: 'Vichy',
-          usage: 'Nanesenie 15 minút po retinole ako ochranný a upokojujúci závoj.',
-          purpose: '72-hodinová hĺbková hydratácia so skvalánom a vulkanickou vodou Vichy pre regeneráciu počas noci.',
-          price: 23.00
+          category: 'Cielená starostlivosť o očné okolie',
+          productName: 'Vichy Liftactiv Eyes / SkinCeuticals A.G.E. Advanced Eye',
+          brand: 'Vichy / SkinCeuticals',
+          usage: 'Večer jemne vklepať prstenníkom do okolia očných kostí a vejárikov.',
+          purpose: 'Prevencia mimických vejárikov, podpora mikrocirkulácie a spevnenie tenkej periorbitálnej kože.',
+          price: 29.00,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Lekárenská dermokozmetika',
+            productName: 'Liftactiv H.A. očné sérum proti vráskam a tmavým kruhom',
+            brand: 'Vichy',
+            price: 29.00,
+            usage: '1 kvapku jemne vklepať pod oči a pozdĺž očnicového oblúka.',
+            purpose: 'Kyselina hyalurónová, kofeín a peptidy redukujú opuchy a jemné mimické vrásky.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Medicínska kozmeceutika',
+            productName: 'A.G.E. Advanced Eye pokročilý očný krém proti glykácii kolagénu',
+            brand: 'SkinCeuticals',
+            price: 110.00,
+            usage: 'Ráno aj večer nanášať pod oči a pod obočie. Vyhnúť sa pohyblivému viečku.',
+            purpose: 'Proxylane a flavonoidy zabraňujú glykácii elastínu (lámaniu vlákien), spevňujú očné okolie a rozjasňujú pohľad.'
+          }
         }
       ],
       specialWeeklyCare: [
