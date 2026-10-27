@@ -41,8 +41,6 @@ import SchedulePatientEventModal from './patient/SchedulePatientEventModal';
 import { PatientPlan, PRESET_PATIENT_PLANS, ScheduledTreatment } from '../data/patientPlanConfig';
 import PatientPlanViewer from './patient/PatientPlanViewer';
 import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
-import AIHealthRoadmapView from './patient/AIHealthRoadmapView';
-import { MeicetModule } from './meicet/MeicetModule';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
@@ -141,15 +139,12 @@ export default function PatientDatabase({
       case 'materialy':
         return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'materialy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
       case 'roadmap':
-        return { main: 'plany' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
       case 'plany':
-        return { main: 'plany' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'protokoly' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
       case 'meicet':
-        return { main: 'diagnostika' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+        return { main: 'plany' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'protokoly' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
       case 'fotodokumentacia':
-        return { main: 'diagnostika' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
       case 'diagnostika':
-        return { main: 'diagnostika' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+        return { main: 'diagnostika' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'protokoly' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
       case 'predoperacne':
         return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'vysetrenia' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
       case 'materialy':
@@ -298,12 +293,16 @@ export default function PatientDatabase({
   const handleUpdatePlan = (updatedPlan: PatientPlan) => {
     if (!selectedPatient) return;
     const patientPlans = allPatientPlans[selectedPatient.id] || [];
-    const updated = patientPlans.map(p => p.id === updatedPlan.id ? updatedPlan : p);
+    const exists = patientPlans.some(p => p.id === updatedPlan.id);
+    const updated = exists
+      ? patientPlans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
+      : [updatedPlan, ...patientPlans];
     const newAll = {
       ...allPatientPlans,
       [selectedPatient.id]: updated
     };
     setAllPatientPlans(newAll);
+    setSelectedPlanId(updatedPlan.id);
     localStorage.setItem('say_clinic_patient_plans', JSON.stringify(newAll));
     RealtimeSyncService.publish('patient_plans', newAll);
   };
@@ -1764,21 +1763,20 @@ export default function PatientDatabase({
                       </button>
                     )}
 
-                    {/* Meicet Pro-A (Skin AI) */}
+                    {/* SAY Skincare & Meicet Pro-A (3-v-1 Plán) */}
                     <button
                       type="button"
                       onClick={() => {
-                        setActiveFolder('diagnostika');
-                        setDiagnostikaSubTab('meicet');
+                        setActiveFolder('plany');
                       }}
                       className="w-full px-3 py-1.5 rounded-lg bg-[#FAF8F5] hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] text-xs font-medium transition-all shadow-2xs flex items-center justify-between cursor-pointer"
-                      title="3D spektrálna analýza pleti Meicet Pro-A"
+                      title="1. SAY Skincare (Meicet 3D + rutina) • 2. Ročný Plán • 3. SAY Care"
                     >
                       <span className="flex items-center gap-2">
                         <Sparkles className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
-                        <span>Meicet Pro-A (Skin AI)</span>
+                        <span>SAY Skincare & Meicet 3D</span>
                       </span>
-                      <span className="text-[9px] text-[#8C857B] font-mono">Spektro</span>
+                      <span className="text-[9px] text-[#8C857B] font-mono">3-v-1</span>
                     </button>
                   </div>
                 </div>
@@ -1907,7 +1905,7 @@ export default function PatientDatabase({
                         )}
                       </button>
 
-                      {/* 2. PLÁNY & STAROSTLIVOSŤ */}
+                      {/* 2. PLÁNY & STAROSTLIVOSŤ (3-V-1: SAY SKINCARE • ROČNÝ PLÁN • SAY CARE) */}
                       <button 
                         onClick={() => { setActiveFolder('plany'); setActivePhotoCategory(null); }} 
                         className={`px-4 py-2.5 text-xs font-bold tracking-wider rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${ 
@@ -1917,26 +1915,23 @@ export default function PatientDatabase({
                         }`}
                       >
                         <Sparkles className={`w-4 h-4 ${activeFolder === 'plany' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
-                        <span>Plány & Starostlivosť</span>
+                        <span>Plán & Starostlivosť (3-v-1)</span>
                         <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'plany' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/15 text-[#9C7D2B]'}`}>
-                          12M + Protokoly
+                          Skincare • Ročný • Care
                         </span>
                       </button>
 
-                      {/* 3. DIAGNOSTIKA & FOTODOKUMENTÁCIA */}
+                      {/* 3. FOTODOKUMENTÁCIA */}
                       <button 
-                        onClick={() => { setActiveFolder('diagnostika'); setActivePhotoCategory(null); }} 
+                        onClick={() => { setActiveFolder('diagnostika'); setDiagnostikaSubTab('foto'); setActivePhotoCategory(null); }} 
                         className={`px-4 py-2.5 text-xs font-bold tracking-wider rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${ 
                           activeFolder === 'diagnostika' 
                             ? 'bg-white border-t-2 border-x border-[#E8E2D9] border-t-[#C5A059] text-[#2C2A29] shadow-2xs' 
                             : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]' 
                         }`}
                       >
-                        <Activity className={`w-4 h-4 ${activeFolder === 'diagnostika' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
-                        <span>Diagnostika & Foto</span>
-                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'diagnostika' ? 'bg-[#2C2A29] text-white' : 'bg-gray-100 text-gray-700'}`}>
-                          Meicet 3D
-                        </span>
+                        <Camera className={`w-4 h-4 ${activeFolder === 'diagnostika' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
+                        <span>Fotodokumentácia</span>
                       </button>
 
                       {/* 4. TERMÍNY & KONTROLY */}
@@ -2291,306 +2286,106 @@ export default function PatientDatabase({
                   {/* ============================================================ */}
                   {/* SEKCIA 2: PLÁNY & STAROSTLIVOSŤ                              */}
                   {/* ============================================================ */}
+                  {/* SEKCIA 2: PLÁN & STAROSTLIVOSŤ (3-V-1: SAY SKINCARE • ROČNÝ PLÁN • SAY CARE) */}
+                  {/* ============================================================ */}
                   {activeFolder === 'plany' && (
-                    <div className="space-y-5">
-                      {/* Sub-navigácia pre Plány & Starostlivosť */}
-                      <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-[#F0EBE1]">
-                        <button
-                          type="button"
-                          onClick={() => setPlanySubTab('roadmap')}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                            planySubTab === 'roadmap'
-                              ? 'bg-[#2C2A29] text-white shadow-2xs'
-                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
-                          }`}
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
-                          <span>12-Mesačný AI Liečebný Plán</span>
-                          <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${planySubTab === 'roadmap' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
-                            AI Skincare
-                          </span>
-                        </button>
+                    <div className="space-y-6">
+                      {(() => {
+                        const patientPlans = allPatientPlans[selectedPatient.id] || [];
+                        const defaultPreset = PRESET_PATIENT_PLANS.face_sequential_transformation;
+                        const synthesizedDefaultPlan: PatientPlan = {
+                          id: `plan-default-${selectedPatient.id}`,
+                          patientId: selectedPatient.id,
+                          patientName: selectedPatient.name,
+                          patientBirthNumber: selectedPatient.birthNumber,
+                          createdAt: new Date().toISOString(),
+                          updatedAt: new Date().toISOString(),
+                          doctorName: 'MUDr. Ján Mráz',
+                          planType: 'combined',
+                          title: defaultPreset.title || 'Komplexný sekvenčný plán: Facelift ➔ Viečka ➔ Frakčný Laser (3-v-1)',
+                          diagnosisOrGoal: defaultPreset.diagnosisOrGoal || '1. SAY Skincare • 2. Ročný Plán • 3. SAY Care',
+                          analysisSummary: defaultPreset.analysisSummary,
+                          cosmeticsRoutine: defaultPreset.cosmeticsRoutine!,
+                          annualTreatments: (defaultPreset.annualTreatments || []).map((t, idx) => ({
+                            ...t,
+                            id: t.id || `trt-def-${idx}`,
+                            status: t.status || 'planned'
+                          })),
+                          preOpCare: defaultPreset.preOpCare,
+                          postOpCare: defaultPreset.postOpCare,
+                          doctorNote: defaultPreset.doctorNote
+                        };
 
-                        <button
-                          type="button"
-                          onClick={() => setPlanySubTab('protokoly')}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                            planySubTab === 'protokoly'
-                              ? 'bg-[#2C2A29] text-white shadow-2xs'
-                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
-                          }`}
-                        >
-                          <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
-                          <span>Protokoly starostlivosti & Plány pacienta</span>
-                          {(allPatientPlans[selectedPatient.id] || []).length > 0 && (
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${planySubTab === 'protokoly' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
-                              {(allPatientPlans[selectedPatient.id] || []).length}
-                            </span>
-                          )}
-                        </button>
-                      </div>
+                        const currentActivePlan =
+                          patientPlans.find(p => p.id === selectedPlanId) ||
+                          patientPlans[0] ||
+                          synthesizedDefaultPlan;
 
-                      {/* SUB-OBSAH 2A: 12-MESAČNÝ AI LIEČEBNÝ PLÁN */}
-                      {planySubTab === 'roadmap' && (
-                        <AIHealthRoadmapView
-                          patient={selectedPatient}
-                          proceduresHistory={patientRecords[selectedPatient.id] || []}
-                          aestheticsHistory={(() => {
-                            try {
-                              const saved = localStorage.getItem('say_clinic_aesthetic_sessions');
-                              if (saved) {
-                                const parsed = JSON.parse(saved);
-                                if (parsed[selectedPatient.id] && parsed[selectedPatient.id].length > 0) {
-                                  return parsed[selectedPatient.id];
-                                }
-                              }
-                            } catch (e) {
-                              console.error(e);
-                            }
-                            if (selectedPatient.id === 'P1') {
-                              return [
-                                {
-                                  id: 'aes-p1-1',
-                                  patientId: 'P1',
-                                  date: '2026-06-15',
-                                  formattedDate: '15.06.2026',
-                                  title: 'Tvár – Aplikácia Dysport & Restylane Kysse',
-                                  doctor: 'MUDr. Ján Mráz',
-                                  protocolNumber: 'AES-2026-441',
-                                  notes: 'Aplikácia botulotoxínu do glabely a frontalis s cieľom eliminácie dynamických vrások. Decentná hydratácia pier prípravkom Restylane Kysse. Aplikácia bez komplikácií.',
-                                  vectors: [
-                                    {
-                                      id: 'vec-1',
-                                      type: 'point',
-                                      view: 'front',
-                                      color: '#3B82F6',
-                                      startPoint: { x: 250, y: 210 },
-                                      zoneName: 'Čelo (m. frontalis)',
-                                      productName: 'Dysport 300IU (Botulotoxín A)',
-                                      lotNumber: 'DYSP-4412B',
-                                      details: '20 Speywood U (intramuskulárne)',
-                                      createdAt: '11:15'
-                                    },
-                                    {
-                                      id: 'vec-2',
-                                      type: 'point',
-                                      view: 'front',
-                                      color: '#3B82F6',
-                                      startPoint: { x: 250, y: 245 },
-                                      zoneName: 'Glabela (m. procerus + corrugator)',
-                                      productName: 'Dysport 300IU (Botulotoxín A)',
-                                      lotNumber: 'DYSP-4412B',
-                                      details: '30 Speywood U (intramuskulárne)',
-                                      createdAt: '11:20'
-                                    },
-                                    {
-                                      id: 'vec-3',
-                                      type: 'fanning',
-                                      view: 'front',
-                                      color: '#EC4899',
-                                      startPoint: { x: 250, y: 395 },
-                                      zoneName: 'Pery (vermilion border + stred)',
-                                      productName: 'Restylane Kysse 1ml s Lidokaínom',
-                                      lotNumber: 'RST-KYS-993A',
-                                      details: '0.8 ml (retrográdne kanylou 25G)',
-                                      createdAt: '11:35'
-                                    }
-                                  ],
-                                  bodyTreatments: []
-                                }
-                              ];
-                            }
-                            if (selectedPatient.id === 'P2') {
-                              return [
-                                {
-                                  id: 'aes-p2-1',
-                                  patientId: 'P2',
-                                  date: '2026-05-20',
-                                  formattedDate: '20.05.2026',
-                                  title: 'Tvár – Brotox & Mezoterapia vitamínmi',
-                                  doctor: 'MUDr. Ján Mráz',
-                                  protocolNumber: 'AES-2026-382',
-                                  notes: 'Aplikácia botulotoxínu pre muža do glabely a periokulárnej oblasti. Zohľadnená väčšia svalová hmota. Doplnená mezoterapia s kyselinou hyalurónovou na revitalizáciu kože.',
-                                  vectors: [
-                                    {
-                                      id: 'vec-p2-1',
-                                      type: 'point',
-                                      view: 'front',
-                                      color: '#3B82F6',
-                                      startPoint: { x: 250, y: 240 },
-                                      zoneName: 'Glabela (m. corrugator supercilii)',
-                                      productName: 'Dysport 300IU',
-                                      lotNumber: 'DYSP-4412B',
-                                      details: '40 Speywood U',
-                                      createdAt: '14:20'
-                                    }
-                                  ],
-                                  bodyTreatments: []
-                                }
-                              ];
-                            }
-                            return [];
-                          })()}
-                          onScheduleEvent={(evtData) => {
-                            setSchedulingInitialDetails({
-                              title: evtData.title,
-                              eventType: (evtData.type as string) === 'surgical_followup' ? 'kontrola' : 'osetrenie',
-                              notes: evtData.notes
-                            });
-                            setIsSchedulingEvent(true);
-                          }}
-                          onNavigateToCalendar={onNavigateToCalendar}
-                        />
-                      )}
-
-                      {/* SUB-OBSAH 2B: PROTOKOLY STAROSTLIVOSTI & DETAIL VYBRANÉHO PLÁNU */}
-                      {planySubTab === 'protokoly' && (
-                        <div className="space-y-6">
-                          {(() => {
-                            const patientPlans = allPatientPlans[selectedPatient.id] || [];
-                            const currentActivePlan = patientPlans.find(p => p.id === selectedPlanId) || patientPlans[0];
-
-                            return (
-                              <div className="space-y-5">
-                                {/* HORNÁ LIŠTA: PREPÍNAČ MEDZI PLÁNMI + VYTVORENIE NOVÉHO */}
-                                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#FAF8F5] rounded-2xl border border-[#E8E2D9]">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-xs font-bold uppercase tracking-wider text-[#8C857B] mr-1">
-                                      Plány ({patientPlans.length}):
-                                    </span>
-                                    {patientPlans.map((pl) => {
-                                      const isSel = currentActivePlan && currentActivePlan.id === pl.id;
-                                      return (
-                                        <button
-                                          key={pl.id}
-                                          onClick={() => setSelectedPlanId(pl.id)}
-                                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                                            isSel
-                                              ? 'bg-[#2C2A29] text-white shadow-xs'
-                                              : 'bg-white border border-[#E8E2D9] text-[#6B6357] hover:border-[#C5A059]'
-                                          }`}
-                                        >
-                                          <span>{pl.planType === 'pre_post_op' ? '🏥' : '✨'}</span>
-                                          <span className="truncate max-w-[200px]">{pl.title}</span>
-                                          <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${
-                                            isSel ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
-                                          }`}>
-                                            {new Date(pl.createdAt).toLocaleDateString('sk-SK')}
-                                          </span>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-
-                                  <button
-                                    onClick={() => setIsCreatingPlan(true)}
-                                    className="px-3.5 py-1.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ml-auto"
-                                  >
-                                    <span>✨</span>
-                                    <span>+ Nový plán pacienta</span>
-                                  </button>
-                                </div>
-
-                                {/* OBSAH: DETAIL VYBRANÉHO PLÁNU ALEBO PRÁZDNA OBRAZOVKA */}
-                                {currentActivePlan ? (
-                                  <PatientPlanViewer
-                                    plan={currentActivePlan}
-                                    patient={selectedPatient}
-                                    onUpdatePlan={handleUpdatePlan}
-                                    onScheduleTreatment={handleScheduleTreatmentFromPlan}
-                                    onOpenInCosmeticsPOS={(items) => onNavigateToCosmetics?.(selectedPatient, items)}
-                                  />
-                                ) : (
-                                  <div className="text-center py-16 px-4 bg-[#FAF8F5]/50 rounded-2xl border border-dashed border-[#E8E2D9] space-y-4">
-                                    <div className="w-16 h-16 rounded-full bg-[#C5A059]/15 text-[#C5A059] flex items-center justify-center mx-auto text-2xl">
-                                      ✨
-                                    </div>
-                                    <div className="max-w-md mx-auto">
-                                      <h3 className="text-base font-bold text-[#2C2A29]">Žiaden plán pacienta</h3>
-                                      <p className="text-xs text-[#8C857B] mt-1">
-                                        Vytvorte personalizovaný ročný estetický plán (odporúčaná ranná a večerná kozmetika, procedúry na 12 mesiacov) alebo kompletný plán pred a po operácii.
-                                      </p>
-                                    </div>
-                                    <div className="flex flex-wrap justify-center gap-3 pt-2">
-                                      <button
-                                        onClick={() => setIsCreatingPlan(true)}
-                                        className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
-                                      >
-                                        <span>✨</span>
-                                        <span>Vytvoriť plán s AI asistentom</span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
+                        return (
+                          <div className="space-y-5">
+                            {/* HORNÁ LIŠTA: PREPÍNAČ MEDZI ULOŽENÝMI PLÁNMI + VYTVORENIE NOVÉHO / MEICET PDF */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#E8E2D9]">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold uppercase tracking-wider text-[#2C2A29] mr-1 flex items-center gap-1.5">
+                                  <span>💎</span>
+                                  <span>Zjednotený 3-v-1 Plán ({patientPlans.length > 0 ? `${patientPlans.length} uložené` : 'Aktívna šablóna'}):</span>
+                                </span>
+                                {patientPlans.map((pl) => {
+                                  const isSel = currentActivePlan && currentActivePlan.id === pl.id;
+                                  return (
+                                    <button
+                                      key={pl.id}
+                                      onClick={() => setSelectedPlanId(pl.id)}
+                                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                        isSel
+                                          ? 'bg-[#2C2A29] text-white shadow-xs'
+                                          : 'bg-white border border-[#E8E2D9] text-[#6B6357] hover:border-[#C5A059]'
+                                      }`}
+                                    >
+                                      <span>{pl.planType === 'pre_post_op' ? '🏥' : '✨'}</span>
+                                      <span className="truncate max-w-[220px]">{pl.title}</span>
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${
+                                        isSel ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        {new Date(pl.createdAt).toLocaleDateString('sk-SK')}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
                               </div>
-                            );
-                          })()}
-                        </div>
-                      )}
+
+                              <div className="flex items-center gap-2 ml-auto">
+                                <button
+                                  onClick={() => setIsCreatingPlan(true)}
+                                  className="px-3.5 py-1.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                                >
+                                  <span>✨</span>
+                                  <span>+ Nový plán / Šablóna / Meicet PDF</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* UNIFIKOVANÝ PREHLIADAČ PLÁNU: 1. SAY SKINCARE • 2. ROČNÝ PLÁN • 3. SAY CARE */}
+                            <PatientPlanViewer
+                              plan={currentActivePlan}
+                              patient={selectedPatient}
+                              onUpdatePlan={handleUpdatePlan}
+                              onScheduleTreatment={handleScheduleTreatmentFromPlan}
+                              onOpenInCosmeticsPOS={(items) => onNavigateToCosmetics?.(selectedPatient, items)}
+                            />
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
                   {/* ============================================================ */}
-                  {/* SEKCIA 3: DIAGNOSTIKA & FOTODOKUMENTÁCIA                     */}
+                  {/* SEKCIA 3: FOTODOKUMENTÁCIA ETÁP                              */}
                   {/* ============================================================ */}
                   {activeFolder === 'diagnostika' && (
                     <div className="space-y-4">
-                      {/* Sub-navigácia pre Diagnostiku & Foto */}
-                      <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-[#F0EBE1]">
-                        <button
-                          type="button"
-                          onClick={() => setDiagnostikaSubTab('meicet')}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                            diagnostikaSubTab === 'meicet'
-                              ? 'bg-[#2C2A29] text-white shadow-2xs'
-                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
-                          }`}
-                        >
-                          <Activity className="w-3.5 h-3.5 text-[#C5A059]" />
-                          <span>Meicet Pro-A (3D Spektrálna analýza pleti)</span>
-                          <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${diagnostikaSubTab === 'meicet' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/20 text-[#C5A059]'}`}>
-                            AI 3D
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => { setDiagnostikaSubTab('foto'); setActivePhotoCategory(null); }}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                            diagnostikaSubTab === 'foto'
-                              ? 'bg-[#2C2A29] text-white shadow-2xs'
-                              : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-[#E8E2D9] hover:text-[#2C2A29]'
-                          }`}
-                        >
-                          <Camera className="w-3.5 h-3.5 text-[#C5A059]" />
-                          <span>Fotodokumentácia etáp</span>
-                        </button>
-                      </div>
-
-                      {/* SUB-OBSAH 3A: MEICET PRO-A 3D ANALÝZA */}
-                      {diagnostikaSubTab === 'meicet' && (
-                        <MeicetModule
-                          patient={selectedPatient}
-                          patientRecords={patientRecords[selectedPatient.id] || []}
-                          onSaveToPatientPlans={handleSaveNewPlan}
-                          onScheduleTreatment={(evt) => {
-                            setSchedulingInitialDetails({
-                              title: evt.title,
-                              eventType: evt.type || 'osetrenie',
-                              notes: evt.notes,
-                              targetDate: evt.date,
-                              doctor: (evt as any).doctor || evt.doctorName
-                            });
-                            setIsSchedulingEvent(true);
-                          }}
-                          onTransferToCosmeticsPOS={(items) => onNavigateToCosmetics?.(selectedPatient, items)}
-                        />
-                      )}
-
-                      {/* SUB-OBSAH 3B: FOTODOKUMENTÁCIA ETÁP */}
-                      {diagnostikaSubTab === 'foto' && (
-                        <div>
-                          {!activePhotoCategory ? (
+                      <div>
+                        {!activePhotoCategory ? (
                             <>
                               <p className="text-[10px] uppercase text-[#8C857B] font-bold mb-4">Fotografické zložky pacienta podľa klinických etáp</p>
                               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-4">
@@ -2629,8 +2424,7 @@ export default function PatientDatabase({
                             </div>
                           )}
                         </div>
-                      )}
-                    </div>
+                      </div>
                   )}
 
                   {/* ============================================================ */}

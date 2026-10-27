@@ -1,3 +1,5 @@
+import { MeicetSkinMetrics, MeicetMilestone } from '@/types/meicet';
+
 export interface RoutineProductOption {
   tier: 'standard' | 'premium';
   tierName: 'Základná starostlivosť' | 'Prémiová starostlivosť' | 'Lekárenská dermokozmetika' | 'Medicínska kozmeceutika';
@@ -16,7 +18,7 @@ export interface CosmeticRoutineItem {
   usage: string;
   purpose: string;
   price?: number;
-  // Dve voliteľné triedy: Lekárenská dermokozmetika vs. Medicínska kozmeceutika
+  // Dve voliteľné triedy: Základná starostlivosť vs. Prémiová starostlivosť
   standardOption?: RoutineProductOption;
   premiumOption?: RoutineProductOption;
   selectedTier?: 'standard' | 'premium';
@@ -34,6 +36,8 @@ export interface ScheduledTreatment {
   status: 'planned' | 'booked' | 'completed';
   notes?: string;
   calendarEventId?: string;
+  stepOrder?: number;
+  isSkinTreatment?: boolean; // Rozlíšenie medzi ošetrením pleti (SAY Skincare) a sekvenčným plánom (Ročný plán)
 }
 
 export interface PreOpInstruction {
@@ -43,6 +47,13 @@ export interface PreOpInstruction {
   description: string;
   mandatory: boolean;
   completed?: boolean;
+}
+
+export interface PreOpPrehabilitation {
+  medicalPrehab: string[];     // Prehabilitácia & medicínska príprava
+  psychologicalPrep: string[]; // Psychologická príprava
+  nutritionalPrep: string[];   // Nutričná príprava
+  physicalPrep: string[];      // Fyzická príprava
 }
 
 export interface PostOpRecoveryPhase {
@@ -67,6 +78,11 @@ export interface PatientPlan {
   planType: 'annual_aesthetic' | 'pre_post_op' | 'combined';
   title: string;
   diagnosisOrGoal: string;
+  // 1. SAY Skincare - Meicet 3D Spektrálne dáta & Analýza pleti
+  meicetMetrics?: MeicetSkinMetrics;
+  meicetScanDate?: string;
+  meicetPdfFilename?: string;
+  meicetMilestones?: MeicetMilestone[];
   analysisSummary?: {
     skinType?: string;
     skinTonePhototype?: string;
@@ -80,10 +96,13 @@ export interface PatientPlan {
     evening: CosmeticRoutineItem[];
     specialWeeklyCare: string[];
   };
+  // 2. Ročný Plán & Ošetrenia pleti
   annualTreatments: ScheduledTreatment[];
+  // 3. SAY Care - Predoperačný & Pooperačný protokol
   preOpCare?: {
     procedureName: string;
     targetSurgeryDate?: string;
+    prehabilitation?: PreOpPrehabilitation;
     instructions: PreOpInstruction[];
   };
   postOpCare?: {
@@ -94,6 +113,8 @@ export interface PatientPlan {
       siliconeApplication: string;
       pressureMassage: string;
       sunProtection: string;
+      lymphaticDrainage?: string;
+      laserTherapy?: string;
       advancedScarTherapies: string[];
     };
   };
@@ -414,7 +435,405 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
         notes: 'Zahladenie teleangiektázií a zjednotenie farebného tónu pleti.'
       }
     ],
-    doctorNote: 'Plán je koncipovaný na mieru pre prirodzený, nestarnúci vzhľad bez preplnenia tváre (French touch). Zameriava sa na kvalitu samotného kožného krytu a štrukturálnu pevnosť.'
+    preOpCare: {
+      procedureName: 'Estetické & Chirurgické zákroky tváre (SAY Care Prehabilitácia)',
+      prehabilitation: {
+        medicalPrehab: [
+          'Interné predoperačné vyšetrenie, KO, koagulácia (INR, APTT) a biochémia pred chirurgickými krokmi.',
+          'Vysadenie kyseliny acetylsalicylovej (Aspirín, Acylpyrín), NSAID (Ibuprofen) a Ginkgo biloba 10–14 dní pred zákrokom.',
+          'Striktné vynechanie fajčenia a nikotínových vrecúšok min. 4 týždne pred a po chirurgickom výkone (prevencia nekrózy a porúch hojenia).',
+          'Profylaxia herpes simplex (Valaciklovir / Aciklovir) 2 dni pred laserovým resurfacingom alebo výkonom v periorálnej zóne.'
+        ],
+        psychologicalPrep: [
+          'Dôkladná konzultácia s operatérom – nastavenie realistických očakávaní a oboznámenie sa s fázami pooperačného opuchu.',
+          'Optimalizácia spánkového režimu (7–8 hodín denne) a redukcia kortizolu pred plánovaným zákrokom.',
+          'Príprava domáceho prostredia na prvých 7 dní (vyvýšené vankúše pod hlavu, chladivé gélové masky v chladničke, zabezpečenie odvozu).'
+        ],
+        nutritionalPrep: [
+          'Zvýšený príjem plnohodnotných bielkovín (1,2–1,5 g/kg hmotnosti) ako substrátu pre novotvorbu kolagénu a elastínu.',
+          'Cielená suplementácia: Vitamín C (1000 mg/deň), Zinok (25 mg/deň), Bromelaín a Arnika Montana na redukciu hematómov.',
+          'Intenzívna hydratácia (2,5 l čistej vody denne) a striktná abstinencia od alkoholu min. 7 dní pred zákrokom.'
+        ],
+        physicalPrep: [
+          'Udržiavanie kardiovaskulárnej kondície a dychová gymnastika pred výkonom v celkovej anestézii (prevencia TEN).',
+          'Uvoľnenie krčnej chrbtice, trapézov a aktivácia krčnej lymfatickej drenáže pred operáciou tváre/viečok.',
+          'Príprava pokožky tváre bariérovými ceramidmi a antioxidantmi pre rýchlu epitelizáciu.'
+        ]
+      },
+      instructions: [
+        {
+          id: 'face-pre-1',
+          timeframe: '2-4 týždne pred',
+          title: 'Prehabilitácia tkanív & Vysadenie antikoagulancií',
+          description: 'Stop nikotínu, vysadenie liekov ovplyvňujúcich zrážanlivosť krvi (ASA, Ibuprofen, Vitamín E). Nasadenie Vitamínu C a zinku.',
+          mandatory: true
+        },
+        {
+          id: 'face-pre-2',
+          timeframe: '5-7 dní pred',
+          title: 'Vysadenie lokálneho retinolu a AHA/BHA kyselín',
+          description: 'Pred laserovým alebo chirurgickým zákrokom vysadiť lokálne retinoidy a exfoliačné kyseliny, prejsť na bariérový krém (Cicaplast Baume B5+ / Triple Lipid Restore).',
+          mandatory: true
+        },
+        {
+          id: 'face-pre-3',
+          timeframe: 'Deň zákroku',
+          title: 'Príchod s vyčistenou pleťou bez make-upu',
+          description: 'Prísť bez líčidiel, šperkov a kontaktných šošoviek. Pri výkone v celkovej anestézii prísť nalačno (od polnoci nejesť a nepiť).',
+          mandatory: true
+        }
+      ]
+    },
+    postOpCare: {
+      procedureName: 'Rejuvenačné, Laserové & Chirurgické výkony tváre (SAY Care)',
+      phases: [
+        {
+          phaseId: 'face-p1',
+          period: '1. – 7. deň po zákroku',
+          title: 'Akútna regenerácia, Chladenie & Ochrana bariéry',
+          focus: 'Minimalizácia edému a hematómov, ochrana reepitelizujúcej sa pokožky a stehov.',
+          instructions: [
+            'Spánok na chrbte s hlavou vyvýšenou pod uhlom 30–45°.',
+            'Pravidelné suché chladenie cez sterilnú gázu, vyhýbanie sa predklonom a fyzickej námahe.',
+            'Aplikácia sterilných hojivých balzamov (La Roche-Posay Cicaplast Baume B5+) podľa ordinácie lekára.'
+          ],
+          warningSigns: ['Náhly jednostranný bolestivý opuch', 'Teplota nad 38 °C', 'Výsev herpetických pľuzgierikov']
+        },
+        {
+          phaseId: 'face-p2',
+          period: '2. – 6. týždeň po zákroku',
+          title: 'Lymfodrenáž, Starostlivosť o jazvy & Fotoprotekcia',
+          focus: 'Odplavenie pooperačného opuchu, tlakové masáže jaziev a prevencia PIH (pigmentácií).',
+          instructions: [
+            'Odborná manuálna lymfodrenáž tváre a krku na urýchlenie vstrebania opuchov a stvrdlín.',
+            'Po vybratí stehov a odpadnutí chrastičiek začať so silikónovým gélom a jemnými tlakovými masážami jaziev.',
+            'Každodenná striktná fotoprotekcia SPF 50+ (Anthelios UVMune 400 / SkinCeuticals Ultra Facial Defense).'
+          ],
+          scarCareGuidelines: [
+            'Silikónový gél (Cicaplast Gel B5 / Strataderm) 2x denne v tenkej vrstve.',
+            'Jemná bodová tlaková masáž jazvy končekom prsta 3x denne po 5 minút.'
+          ],
+          recommendedProcedures: [
+            'LED biostimulačná fototerapia červeným svetlom (633 nm / 830 nm) na urýchlenie hojenia.',
+            'Manuálna tvárová a krčná lymfodrenáž (séria 4–6 ošetrení).'
+          ]
+        }
+      ],
+      scarProtocol: {
+        siliconeApplication: 'La Roche-Posay Cicaplast Gel B5 / Strataderm silikónový gél 2x denne ráno a večer po dobu 3–6 mesiacov.',
+        pressureMassage: 'Bodové pritláčanie vyzretej jazvy (bez trenia kože) na 15 sekúnd do zblednutia lôžka, 3x denne.',
+        sunProtection: 'Absolútny zákaz slnenia a solária, každodenná aplikácia SPF 50+ (Mexoryl 400 / minerálne filtre) po dobu 12 mesiacov.',
+        lymphaticDrainage: 'Manuálna lymfodrenáž tváre, podbradku a krčných uzlín od 10.–14. dňa po zákroku (2x týždenne) + nosenie kompresívnej tvárovej ohlávky pri facelifte/liposukcii podbradku.',
+        laserTherapy: 'Biostimulačné LED svetlo od 2. dňa po zákroku; cievny laser (V-Beam / IPL) od 6. týždňa pri erytéme jazvy; frakčný CO2 laser od 3. mesiaca na finálne vyhladenie textúry.',
+        advancedScarTherapies: [
+          'Biostimulačná LED terapia (okamžitá podpora hojenia a redukcia opuchu)',
+          'Vaskulárny laser na cievne začervenanie jazvy (od 6. týždňa)',
+          'Frakčný CO2 resurfacing a aplikácia polynukleotidov / exozómov do jazvy (od 3. mesiaca)'
+        ]
+      }
+    },
+    doctorNote: 'Plán spája 3 piliere: 1. SAY Skincare (Meicet 3D + duálna starostlivosť), 2. Ročný sekvenčný plán ošetrení a 3. SAY Care (komplexnú predoperačnú prehabilitáciu a pooperačný protokol).'
+  },
+
+  face_sequential_transformation: {
+    title: 'Komplexný sekvenčný plán: Facelift ➔ Viečka ➔ Frakčný Laser (3-v-1)',
+    planType: 'combined',
+    diagnosisOrGoal: 'Kompletná etapovitá chirurgická a laserová rejuvenácia tváre: 1. Deep Plane Facelift & Necklift, 2. Horná a dolná blefaroplastika, 3. Frakčný CO2 laserový resurfacing + celoročná SAY Skincare a SAY Care prehabilitácia.',
+    analysisSummary: {
+      skinType: 'Zrelá pleť, znížená elasticita a fotopoškodenie',
+      skinTonePhototype: 'Fitzpatrick II',
+      mainConcerns: ['Pokles kontúr dolnej tretiny tváre a krku (jowls)', 'Previs horných viečok a tukové prolapsy dolných viečok', 'Periorálne a elastotické vrásky pleti'],
+      vectorZones: ['SMAS & Hlboké štruktúry tváre a krku', 'Horné a dolné viečka', 'Celá tvár – epidermálny resurfacing']
+    },
+    cosmeticsRoutine: {
+      activeTier: 'both',
+      morning: [
+        {
+          step: 1,
+          category: 'Čistenie',
+          productName: 'CeraVe Hydratačná čistiaca emulzia / SkinCeuticals Simply Clean',
+          brand: 'CeraVe / SkinCeuticals',
+          usage: 'Ráno jemne vmasírovať na vlhkú tvár a krk, opláchnuť vlažnou vodou.',
+          purpose: 'Šetrné čistenie bez narušenia hydrolipidového plášťa.',
+          price: 14.50,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Základná starostlivosť',
+            productName: 'CeraVe Hydratačná čistiaca emulzia (Hydrating Cleanser)',
+            brand: 'CeraVe',
+            price: 14.50,
+            usage: 'Ráno na vlhkú pokožku, jemne opláchnuť.',
+            purpose: 'Ceramidy a kyselina hyalurónová chránia bariéru pred aj po zákrokoch.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Prémiová starostlivosť',
+            productName: 'SkinCeuticals Soothing Cleanser upokojujúca čistiaca pena',
+            brand: 'SkinCeuticals',
+            price: 46.00,
+            usage: '2 pumpy peny jemne naniesť na tvár a krk.',
+            purpose: 'Špeciálne vyvinutá pena s orchideou a uhorkou pre pleť v chirurgickej a laserovej rekonvalescencii.'
+          }
+        },
+        {
+          step: 2,
+          category: 'Antioxidant & Kolagén',
+          productName: 'Vichy Liftactiv 15% Vit C / SkinCeuticals C E Ferulic',
+          brand: 'Vichy / SkinCeuticals',
+          usage: '4–5 kvapiek ráno na suchú vyčistenú pleť.',
+          purpose: 'Maximálna podpora syntézy kolagénu a ochrana pred oxidačným stresom.',
+          price: 38.00,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Základná starostlivosť',
+            productName: 'Vichy Liftactiv Supreme 15% čistý Vitamín C rozjasňujúce sérum',
+            brand: 'Vichy',
+            price: 38.00,
+            usage: '4–5 kvapiek ráno na tvár a krk.',
+            purpose: '15% kyselina L-askorbová na podporu hojenia a rozjasnenie.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Prémiová starostlivosť',
+            productName: 'SkinCeuticals C E Ferulic patentované antioxidačné sérum',
+            brand: 'SkinCeuticals',
+            price: 175.00,
+            usage: '4–5 kvapiek ráno. Ideálne pred aj po laserovom resurfacingu.',
+            purpose: 'Zlatý štandard (15% Vit C + 1% Vit E + 0.5% kys. ferulová) – skracuje erytém po laseri a chráni novotvorený kolagén.'
+          }
+        },
+        {
+          step: 3,
+          category: 'SPF 50+ Fotoprotekcia',
+          productName: 'La Roche-Posay Anthelios UVMune 400 / SkinCeuticals Ultra Facial Defense SPF 50+',
+          brand: 'La Roche-Posay / SkinCeuticals',
+          usage: 'Každé ráno na celú tvár, okolie očí, uši a krk (vrátane jaziev).',
+          purpose: 'Prevencia pooperačnej a polaserovej hyperpigmentácie.',
+          price: 21.50,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Základná starostlivosť',
+            productName: 'La Roche-Posay Anthelios UVMune 400 Invisible Fluid SPF 50+',
+            brand: 'La Roche-Posay',
+            price: 21.50,
+            usage: 'Ráno ako finálny krok pred odchodom z domu.',
+            purpose: 'Mexoryl 400 filter proti ultra-dlhým UVA lúčom.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Prémiová starostlivosť',
+            productName: 'SkinCeuticals Ultra Facial Defense SPF 50+ fotoprotekčný krém',
+            brand: 'SkinCeuticals',
+            price: 44.00,
+            usage: 'Ráno rovnomerne na tvár, krk a dekolt.',
+            purpose: 'Širokospektrálna UV ochrana s hydratačným komfortom pre zrelú pleť.'
+          }
+        }
+      ],
+      evening: [
+        {
+          step: 1,
+          category: 'Rekonštrukcia lipidov & Bariéra',
+          productName: 'La Roche-Posay Cicaplast Baume B5+ / SkinCeuticals Triple Lipid Restore 2:4:2',
+          brand: 'La Roche-Posay / SkinCeuticals',
+          usage: 'Každý večer na vyčistenú pleť tváre a krku.',
+          purpose: 'Intenzívna obnova kožnej bariéry medzi jednotlivými etapami zákrokov.',
+          price: 17.50,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Základná starostlivosť',
+            productName: 'La Roche-Posay Cicaplast Baume B5+ Ultra-Regeneračný balzam',
+            brand: 'La Roche-Posay',
+            price: 17.50,
+            usage: 'Večer na tvár, krk a hojace sa línie.',
+            purpose: '5% pantenol, madecassoside a prebiotický komplex Tribioma.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Prémiová starostlivosť',
+            productName: 'SkinCeuticals Triple Lipid Restore 2:4:2 rekonštrukčný krém',
+            brand: 'SkinCeuticals',
+            price: 155.00,
+            usage: 'Večer vmasírovať do pleti tváre a krku.',
+            purpose: 'Patentovaný pomer 2% ceramidov, 4% cholesterolu a 2% mastných kyselín pre špičkovú pružnosť pleti.'
+          }
+        },
+        {
+          step: 2,
+          category: 'Starostlivosť o jazvy & Očné okolie',
+          productName: 'La Roche-Posay Cicaplast Gel B5 / SkinCeuticals A.G.E. Advanced Eye',
+          brand: 'La Roche-Posay / SkinCeuticals',
+          usage: 'Cielená aplikácia na preaurikulárne jazvy, viečka a očné okolie.',
+          purpose: 'Neviditeľné zhojenie jaziev po facelifte a blefaroplastike.',
+          price: 13.50,
+          standardOption: {
+            tier: 'standard',
+            tierName: 'Základná starostlivosť',
+            productName: 'La Roche-Posay Cicaplast Gel B5 Pro-Recovery Masážny gél na jazvy',
+            brand: 'La Roche-Posay',
+            price: 13.50,
+            usage: 'Večer jemná tlaková masáž jaziev po vybratí stehov.',
+            purpose: 'Silikónová ochranná textúra s pantenolom pre hladké zjazvenie.'
+          },
+          premiumOption: {
+            tier: 'premium',
+            tierName: 'Prémiová starostlivosť',
+            productName: 'SkinCeuticals A.G.E. Advanced Eye pokročilý očný krém',
+            brand: 'SkinCeuticals',
+            price: 110.00,
+            usage: 'Jemne vklepať do periorbitálnej oblasti.',
+            purpose: 'Spevnenie očného okolia a prevencia glykácie kolagénových vlákien.'
+          }
+        }
+      ],
+      specialWeeklyCare: [
+        'Séria 6 manuálnych lymfodrenáží tváre a krku po 1. a 2. etape chirurgického plánu.',
+        'Vysokoproteínová výživa + kolagénové peptidy + Vitamín C počas celého 12-mesačného programu.'
+      ]
+    },
+    annualTreatments: [
+      {
+        id: 'seq-1',
+        stepOrder: 1,
+        name: 'ETAPA 1: Deep Plane Facelift & Necklift (Chirurgický lifting tváre a krku)',
+        category: 'surgery',
+        seasonOrMonth: '1. Krok – Október (Jeseň)',
+        targetArea: 'Stredná a dolná tretina tváre, SMAS, krk',
+        frequencyOrSessions: 'Hlavný operačný výkon (celková anestézia)',
+        estimatedPrice: 4800,
+        priority: 'high',
+        status: 'planned',
+        notes: 'Základná štrukturálna repozícia hlbokých tkanív tváre a krku. Odporúčaný odstup pred ďalšou etapou: 8–12 týždňov.'
+      },
+      {
+        id: 'seq-2',
+        stepOrder: 2,
+        name: 'ETAPA 2: Horná & Dolná Blefaroplastika (Korekcia očných viečok)',
+        category: 'surgery',
+        seasonOrMonth: '2. Krok – Január (+3 mesiace)',
+        targetArea: 'Horné a dolné očné viečka',
+        frequencyOrSessions: '1 zákrok (lokálna anestézia / analgosedácia)',
+        estimatedPrice: 1650,
+        priority: 'high',
+        status: 'planned',
+        notes: 'Omladenie pohľadu po usadení strednej tretiny tváre po facelifte. Odstránenie kožného nadbytku a tukových prolapsov.'
+      },
+      {
+        id: 'seq-3',
+        stepOrder: 3,
+        name: 'ETAPA 3: Frakčný CO2 Laserový Resurfacing & Cievny laser jaziev',
+        category: 'laser',
+        seasonOrMonth: '3. Krok – Marec (+5 mesiacov)',
+        targetArea: 'Celá tvár, periorálna oblasť a jazvy',
+        frequencyOrSessions: '1 intenzívne laserové sedenie',
+        estimatedPrice: 550,
+        priority: 'high',
+        status: 'planned',
+        notes: 'Finálne zjednotenie textúry kože, vyhladenie jemných vrások nad hornou perou a remodelácia pooperačných jaziev.'
+      },
+      {
+        id: 'seq-4',
+        stepOrder: 4,
+        name: 'ETAPA 4: Botulotoxín (Glabela & Čelo) + Polynukleotidy / Skinbooster',
+        category: 'injectable',
+        seasonOrMonth: '4. Krok – Jún (+8 mesiacov)',
+        targetArea: 'Horná tretina tváre & Dermis',
+        frequencyOrSessions: '1 kombinované ambulantné ošetrenie',
+        estimatedPrice: 490,
+        priority: 'medium',
+        status: 'planned',
+        notes: 'Udržanie hladkého čela a hĺbková biorevitalizácia pleti pred letnou sezónou.'
+      }
+    ],
+    preOpCare: {
+      procedureName: 'Etapovitá chirurgická a laserová transformácia tváre (Facelift ➔ Viečka ➔ Laser)',
+      prehabilitation: {
+        medicalPrehab: [
+          'Kompletné interné a anestéziologické predoperačné vyšetrenie (KO, hemokoagulácia, biochémia, EKG).',
+          'Prísny zákaz fajčenia a všetkých foriem nikotínu minimálne 4–6 týždňov pred faceliftom (kľúčové pre prekrvenie kožných lalokov!).',
+          'Vysadenie ASA, Ibuprofénu, Warfarínu/NOAK (po konzultácii s internistom), vitamínu E a Ginkgo biloba 14 dní pred zákrokom.'
+        ],
+        psychologicalPrep: [
+          'Oboznámenie sa s fázovým charakterom transformácie – pochopenie, že opuchy po facelifte a viečkach ustupujú postupne.',
+          'Zabezpečenie pokojného domáceho prostredia, spánku v polosede a sprievodnej osoby na prvé 3 dni po operácii.',
+          'Mentálna relaxácia, dychové cvičenia a kvalitný spánok týždeň pred výkonom.'
+        ],
+        nutritionalPrep: [
+          'Vysokobielkovinová strava + hydrolyzované kolagénové peptidy (10 g denne) na podporu pevného hojenia SMAS a kože.',
+          'Suplementácia: Vitamín C 1000 mg, Zinok 25 mg, Bromelaín + Arnika Montana (prevencia hematómov a edému).',
+          'Obmedzenie soli (sodíka) v strave týždeň pred operáciou na minimalizáciu zadržiavania tekutín a opuchu tváre.'
+        ],
+        physicalPrep: [
+          'Jemná mobilizácia krčnej chrbtice a uvoľnenie trapézových svalov (počas rekonvalescencie sa spí na chrbte).',
+          'Rozprúdenie lymfatického obehu a ľahká kardio aktivita (chôdza) do dňa pred operáciou.',
+          'Dychové cvičenia a cievna gymnastika dolných končatín.'
+        ]
+      },
+      instructions: [
+        {
+          id: 'seq-pre-1',
+          timeframe: '4-6 týždňov pred',
+          title: 'Absolútny zákaz nikotínu a fajčenia',
+          description: 'Kritická podmienka pre bezpečné zhojenie faceliftu bez rizika nekrózy kožného laloka za uchom.',
+          mandatory: true
+        },
+        {
+          id: 'seq-pre-2',
+          timeframe: '14 dní pred',
+          title: 'Predoperačné interné vyšetrenie & Vysadenie ASA/NSAID',
+          description: 'Kompletné laboratórne odbery + EKG. Vysadiť lieky riediace krv a znížiť príjem soli v strave.',
+          mandatory: true
+        },
+        {
+          id: 'seq-pre-3',
+          timeframe: 'Deň operácie',
+          title: 'Príchod nalačno, bez šperkov a s umytými vlasmi',
+          description: 'Ráno umyť vlasy dezinfekčným/šetrným šampónom, nepoužívať tužidlá ani krémy. Od polnoci nejesť a nepiť.',
+          mandatory: true
+        }
+      ]
+    },
+    postOpCare: {
+      procedureName: 'Facelift, Blefaroplastika & Frakčný Laser',
+      phases: [
+        {
+          phaseId: 'seq-post-1',
+          period: '1. – 14. deň po operácii',
+          title: 'Kompresívna ohlávka, Chladenie & Vybratie stehov',
+          focus: 'Stabilizácia tkanív, prevencia hematómu a primárne zhojenie rezov.',
+          instructions: [
+            'Nosenie kompresívnej tvárovej ohlávky 24/7 počas prvých 7–10 dní, následne na noc.',
+            'Spánok výhradne na chrbte so zvýšenou hlavou, zákaz predkláňania a otáčania celej hlavy (otáčať sa celým trupom).',
+            'Vybratie stehov na 7. deň (viečka a pred uchom) a 12.–14. deň (za uchom a vo vlasatej časti).'
+          ],
+          warningSigns: ['Jednostranný prudký opuch a bolesť na jednej strane tváre', 'Krvácanie z rany', 'Zhoršenie vízu po operácii viečok']
+        },
+        {
+          phaseId: 'seq-post-2',
+          period: '2. – 8. týždeň po operácii',
+          title: 'Lymfodrenáže, Tlakové masáže jaziev & Silikónový protokol',
+          focus: 'Rýchle vstrebanie opuchu, uvoľnenie stvrdnutých podkožných miest a neviditeľné jazvy.',
+          instructions: [
+            'Odborná manuálna lymfodrenáž tváre a krku 2x týždenne (od 14. dňa).',
+            'Aplikácia silikónového gélu (Cicaplast Gel B5 / Strataderm) a tlakové masáže preaurikulárnych a retroaurikulárnych jaziev.',
+            'Striktná ochrana SPF 50+ a slnečné okuliare UV400.'
+          ]
+        }
+      ],
+      scarProtocol: {
+        siliconeApplication: 'Silikónový gél (La Roche-Posay Cicaplast Gel B5 / Strataderm) 2x denne na jazvy pred a za uchom a na viečkach po dobu 3–6 mesiacov.',
+        pressureMassage: 'Od 18. dňa jemná bodová tlaková masáž jaziev pred a za uchom 3x denne po dobu 5–10 minút.',
+        sunProtection: 'Striktný SPF 50+ (Anthelios UVMune 400 / SkinCeuticals) + klobúk a UV400 okuliare po dobu 12 mesiacov.',
+        lymphaticDrainage: 'Kompresívna ohlávka Lipoelastic 24/7 prvých 10 dní (potom 2 týždne na noc) + séria 6–8 odborných manuálnych lymfodrenáží tváre a krku od 2. týždňa.',
+        laserTherapy: 'Biostimulačné LED svetlo po každej etape; v 3. etape (po 3–5 mesiacoch) cievny laser + frakčný CO2 laser na kompletné vyhladenie pleti a jaziev.',
+        advancedScarTherapies: [
+          'Manuálna a prístrojová lymfodrenáž tváre a krku (od 14. dňa)',
+          'LED fotobiomodulácia červeným a NIR svetlom',
+          'Vaskulárny laser a Frakčný CO2 resurfacing jaziev a pleti'
+        ]
+      }
+    },
+    doctorNote: 'Etapovitý plán umožňuje dosiahnuť maximálny chirurgický aj dermatologický efekt s bezpečným časom na regeneráciu medzi jednotlivými krokmi.'
   },
 
   breast_surgery_care: {
@@ -423,6 +842,28 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
     diagnosisOrGoal: 'Plánovaná augmentácia prsníkov silikónovými implantátmi, príprava tkanív na operáciu, bezproblémové hojenie a minimalizácia pooperačných jaziev.',
     preOpCare: {
       procedureName: 'Augmentácia prsníkov silikónovými implantátmi',
+      prehabilitation: {
+        medicalPrehab: [
+          'Kompletné interné predoperačné vyšetrenie, EKG, KO, hemokoagulácia (INR, APTT), biochémia a USG/MMG prsníkov.',
+          'Vysadenie kyseliny acetylsalicylovej (Aspirín, Acylpyrín), Ibuprofénu, Ginkgo biloba a vysokých dávok Vitamínu E 14 dní pred zákrokom.',
+          'Striktné vynechanie fajčenia a nikotínu min. 4 týždne pred a 4 týždne po operácii (prevencia kapsulárnej kontraktúry a nekrózy).'
+        ],
+        psychologicalPrep: [
+          'Dôkladný výber veľkosti a profilu implantátu s chirurgom, mentálne nastavenie na prvé týždne adaptácie prsného svalu.',
+          'Príprava domáceho prostredia: presunutie často používaných predmetov vo domácnosti do výšky pása (zákaz dvíhania rúk nad hlavu).',
+          'Kvalitný spánok a nácvik spánku v polosede na chrbte už týždeň pred operáciou.'
+        ],
+        nutritionalPrep: [
+          'Zvýšený príjem bielkovín (1,3–1,5 g/kg/deň) a kolagénových peptidov pre optimálne hojenie fibromuskulárneho puzdra.',
+          'Suplementácia: Vitamín C (1000 mg/deň), Zinok (25 mg/deň), Bromelaín a Arnika na zmiernenie pooperačného opuchu.',
+          'Pitný režim min. 2,5 l čistej vody denne, vynechanie alkoholu a nadmerného solenia.'
+        ],
+        physicalPrep: [
+          'Posilnenie svalov stredu tela (core) a dolných končatín – uľahčuje vstávanie z postele bez zapájania prsných svalov a rúk.',
+          'Mobilizácia hrudnej a krčnej chrbtice, nácvik bránicového dýchania.',
+          'Hydratácia pokožky prsníkov a dekoltu relipidačným balzamom (La Roche-Posay Lipikar Baume AP+M) 2 týždne pred operáciou.'
+        ]
+      },
       instructions: [
         {
           id: 'pre-1',
@@ -541,6 +982,8 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
         siliconeApplication: 'Strataderm / Kelo-cote silikónový gél 2x denne v tenkej vrstve ráno a večer, alebo silikónové krytie Lipoelastic nalepené 12-24h denne po dobu min. 6 mesiacov.',
         pressureMassage: 'Tlak palcom kolmo na jazvu (15-20 s podržať do zblednutia) 3-4x denne po dobu 10 minút. Nesmie sa masírovať trením.',
         sunProtection: 'Striktná ochrana pred UV žiarením (SPF 50+ minerálny krém) počas 1 celého roka od operácie.',
+        lymphaticDrainage: 'Kompresívna podprsenka Lipoelastic + stabilizačný pás 24/7 po dobu 6 týždňov + manuálna lymfodrenáž horných končatín a hrudníka od 3. týždňa.',
+        laserTherapy: 'Biostimulačná LED fototerapia červeným svetlom na podporu hojenia; cievny laser od 8. týždňa pri začervenaní jazvy; frakčný CO2 laser od 3. mesiaca.',
         advancedScarTherapies: [
           'Vaskulárny laser na redukciu začervenania (od 2. mesiaca)',
           'Frakčný CO2 laser na vyhladenie vystúpenej jazvy (od 3. mesiaca)',
@@ -599,7 +1042,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
         }
       ],
       specialWeeklyCare: [
-        'Užívanie SAY Marine Collagen 10,000mg + Vitamín C počas 3 mesiacov pre pevnosť a elastické hojenie.',
+        'Užívanie hydrolyzovaných kolagénových peptidov 10 000 mg + Vitamín C počas 3 mesiacov pre pevnosť a elastické hojenie.',
         'Lipoelastic kompresívny pás a podprsenka nosené poctivo podľa protokolu kliniky.'
       ]
     },
@@ -686,6 +1129,28 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
     diagnosisOrGoal: 'Dermatochaláza horných viečok, previs kože znižujúci zorné pole, únava očí. Plán na predoperačnú prípravu, ochranu zraku, rýchle vstrebanie modrín a neviditeľnú jazvu v záhybe viečka.',
     preOpCare: {
       procedureName: 'Blefaroplastika horných (alebo dolných) očných viečok',
+      prehabilitation: {
+        medicalPrehab: [
+          'Vysadenie kyseliny acetylsalicylovej (Aspirín, Acylpyrín), Ibuprofénu a Ginkgo biloba 14 dní pred zákrokom (prevencia retrobulbárneho hematómu).',
+          'Stabilizácia krvného tlaku (arteriálnej hypertenzie) v spolupráci s internistom – kolísavý tlak zvyšuje pooperačné opuchy a krvácavosť viečok.',
+          'Vynechanie fajčenia a nikotínu min. 2–4 týždne pred zákrokom.'
+        ],
+        psychologicalPrep: [
+          'Mentálna príprava na dočasný opuch a podliatiny okolo očí počas prvých 7–10 dní.',
+          'Príprava audio-obsahu (podcasty, audioknihy) na prvé 3 dni, kedy sa neodporúča sledovať obrazovky a čítať.',
+          'Zabezpečenie sprievodnej osoby na odvoz z kliniky a príprava tmavých UV400 slnečných okuliarov.'
+        ],
+        nutritionalPrep: [
+          'Obmedzenie príjmu soli a slaných jedál 5–7 dní pred operáciou (prevencia zadržiavania vody v periorbitálnej oblasti).',
+          'Suplementácia: Arnika Montana, Bromelaín, Vitamín C (1000 mg) a Rutín (Ascorutin) na spevnenie cievnej steny.',
+          'Dostatočná hydratácia čistou vodou a vynechanie alkoholu min. 7 dní pred zákrokom.'
+        ],
+        physicalPrep: [
+          'Nácvik spánku na chrbte so zvýšenou hlavou (2 vankúše).',
+          'Jemná aktivácia krčnej lymfy a uvoľnenie šijového svalstva.',
+          'Vyhýbanie sa cvikom v predklone a stojkám.'
+        ]
+      },
       instructions: [
         {
           id: 'blef-pre-1',
@@ -758,9 +1223,11 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
         }
       ],
       scarProtocol: {
-        siliconeApplication: 'Oftalmologicky bezpečný silikónový gél (Stratamed / Kelo-cote) 2x denne po dobu 3 mesiacov.',
+        siliconeApplication: 'Oftalmologicky bezpečný silikónový gél (Stratamed / Kelo-cote / Cicaplast Gel B5) 2x denne po dobu 3 mesiacov.',
         pressureMassage: 'Veľmi jemné bodové pritláčanie jazvičky na viečku končekom prsta 2-3x denne.',
         sunProtection: 'Kvalitné UV400 slnečné okuliare a očný minerálny fluid SPF 50+ minimálne 6-12 mesiacov.',
+        lymphaticDrainage: 'Jemná manuálna periorbitálna a krčná lymfodrenáž od 10. dňa po operácii + spánok s vyvýšenou hlavou a chladivé gélové obklady.',
+        laserTherapy: 'Biostimulačné LED svetlo po vybratí stehov; cievny laser od 4.–6. týždňa pri pretrvávajúcom začervenaní; frakčný CO2 laser dolných viečok od 3. mesiaca.',
         advancedScarTherapies: [
           'Vaskulárny laser na elimináciu reziduálneho začervenania jazvy',
           'Frakčný CO2 laser na vyhladenie okolitej ochabnutej kože'
@@ -828,7 +1295,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
       ],
       specialWeeklyCare: [
         'Kvapky umelé slzy bez konzervantov pri únave očí.',
-        'SAY Collagen Peptides nápoj každé ráno.'
+        'Bioaktívne kolagénové peptidy + Vitamín C každé ráno.'
       ]
     },
     annualTreatments: [

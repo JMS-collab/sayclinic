@@ -77,8 +77,8 @@ VÝSTUP MUSÍ BYŤ ČISTÝ JSON zodpovedajúci rozhraniu:
         "usage": string, 
         "purpose": string, 
         "price": number,
-        "standardOption": { "tier": "standard", "tierName": "Lekárenská dermokozmetika", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string },
-        "premiumOption": { "tier": "premium", "tierName": "Medicínska kozmeceutika", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string }
+        "standardOption": { "tier": "standard", "tierName": "Základná starostlivosť", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string },
+        "premiumOption": { "tier": "premium", "tierName": "Prémiová starostlivosť", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string }
       }
     ],
     "evening": [
@@ -90,8 +90,8 @@ VÝSTUP MUSÍ BYŤ ČISTÝ JSON zodpovedajúci rozhraniu:
         "usage": string, 
         "purpose": string, 
         "price": number,
-        "standardOption": { "tier": "standard", "tierName": "Lekárenská dermokozmetika", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string },
-        "premiumOption": { "tier": "premium", "tierName": "Medicínska kozmeceutika", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string }
+        "standardOption": { "tier": "standard", "tierName": "Základná starostlivosť", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string },
+        "premiumOption": { "tier": "premium", "tierName": "Prémiová starostlivosť", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string }
       }
     ],
     "specialWeeklyCare": string[]
@@ -112,6 +112,12 @@ VÝSTUP MUSÍ BYŤ ČISTÝ JSON zodpovedajúci rozhraniu:
   ],
   "preOpCare": {
     "procedureName": string,
+    "prehabilitation": {
+      "medicalPrehab": string[],
+      "psychologicalPrep": string[],
+      "nutritionalPrep": string[],
+      "physicalPrep": string[]
+    },
     "instructions": [
       { "id": string, "timeframe": string, "title": string, "description": string, "mandatory": boolean }
     ]
@@ -133,6 +139,8 @@ VÝSTUP MUSÍ BYŤ ČISTÝ JSON zodpovedajúci rozhraniu:
     "scarProtocol": {
       "siliconeApplication": string,
       "pressureMassage": string,
+      "lymphaticDrainage": string,
+      "laserTherapy": string,
       "sunProtection": string,
       "advancedScarTherapies": string[]
     }
@@ -235,15 +243,19 @@ Ošetrujúci lekár: ${doctorName}`;
 
     // EXPERTNÝ KLINICKÝ FALLBACK (okamžitá blesková odpoveď s lekárskou presnosťou)
     console.warn(`Patient Plan: Aktivovaný expertný klinický engine SAY CLINIC pre pacienta ${patientName}`);
-    let basePreset = PRESET_PATIENT_PLANS.face_annual_rejuvenation;
+    let basePreset = PRESET_PATIENT_PLANS.face_sequential_transformation;
     const lowerProc = (procedureName + ' ' + diagnosisOrGoal).toLowerCase();
 
     if (lowerProc.includes('prs') || lowerProc.includes('augment') || lowerProc.includes('mamm') || planType === 'pre_post_op' && lowerProc.includes('implant')) {
       basePreset = PRESET_PATIENT_PLANS.breast_surgery_care;
     } else if (lowerProc.includes('viek') || lowerProc.includes('blefar') || lowerProc.includes('oko') || lowerProc.includes('očí')) {
       basePreset = PRESET_PATIENT_PLANS.blepharoplasty_care;
+    } else if (lowerProc.includes('facelift') || lowerProc.includes('sekven') || planType === 'combined') {
+      basePreset = PRESET_PATIENT_PLANS.face_sequential_transformation;
     } else if (planType === 'pre_post_op') {
       basePreset = PRESET_PATIENT_PLANS.breast_surgery_care;
+    } else {
+      basePreset = PRESET_PATIENT_PLANS.face_annual_rejuvenation;
     }
 
     const synthesizedPlan: PatientPlan = {

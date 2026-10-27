@@ -318,16 +318,46 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                     letterSpacing: '1px'
                   }}
                 >
-                  1. Odporúčaná domáca dermokozmetická rutina & Aktívne látky
+                  1. SAY Skincare (Meicet 3D Diagnostika, Domáca Rutina & Ošetrenia Pleti)
                 </h3>
                 <p style={{ margin: '2px 0 0 0', fontSize: '9px', color: '#8C857B' }}>
-                  Klinicky overené protokoly (antioxidanty, peptidy, bariérové lipidy a minerálne UV filtre)
+                  Duálna domáca starostlivosť (Základná vs. Prémiová starostlivosť) prepojená s ročným plánom pleti
                 </p>
               </div>
               <span style={{ fontSize: '9px', color: '#C5A059', fontWeight: 'bold' }}>
-                Klinický štandard SAY CLINIC
+                1. PILIER • SAY SKINCARE
               </span>
             </div>
+
+            {plan.meicetMetrics && (
+              <div
+                style={{
+                  backgroundColor: '#FAF8F5',
+                  border: '1px solid #C5A059',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  marginBottom: '12px',
+                  fontSize: '9px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <strong style={{ color: '#2C2A29', textTransform: 'uppercase' }}>
+                    🔬 Meicet Pro-A 3D Spektrálna Diagnostika Pleti (Skóre: {plan.meicetMetrics.skinScoreOverall}/100 • Vek pleti: {plan.meicetMetrics.skinAge} r.)
+                  </strong>
+                  <span style={{ color: '#8C857B' }}>Fototyp: Fitzpatrick {plan.meicetMetrics.fitzpatrickPhototype}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', color: '#5C554E' }}>
+                  <div>Hydratácia: <strong>{plan.meicetMetrics.hydration?.score ?? 65}%</strong></div>
+                  <div>Póry: <strong>{plan.meicetMetrics.pores?.score ?? 68}%</strong></div>
+                  <div>Vrásky: <strong>{plan.meicetMetrics.wrinkles?.score ?? 70}%</strong></div>
+                  <div>Textúra: <strong>{plan.meicetMetrics.texture?.score ?? 75}%</strong></div>
+                  <div>UV poškodenie: <strong>{plan.meicetMetrics.uvDamage?.score ?? 64}%</strong></div>
+                  <div>Pigmentácie: <strong>{plan.meicetMetrics.brownSpots?.score ?? 69}%</strong></div>
+                  <div>Cievky/Erytém: <strong>{plan.meicetMetrics.redAreas?.score ?? 66}%</strong></div>
+                  <div>Maz/Porfyríny: <strong>{plan.meicetMetrics.sebumAndPorphyrins?.score ?? 72}%</strong></div>
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               {/* RANNÁ RUTINA */}
@@ -611,10 +641,10 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                     letterSpacing: '1px'
                   }}
                 >
-                  2. Ročný harmonogram procedúr, laserov & ambulantných zákrokov
+                  2. Ročný Plán (Sekvencia operačných výkonov, laserov & ošetrení)
                 </h3>
                 <p style={{ margin: '2px 0 0 0', fontSize: '9px', color: '#8C857B' }}>
-                  Časový plán rozdelený podľa kvartálov s rešpektovaním sezónnosti a bunkovej regenerácie
+                  Individuálne zostavená postupnosť zákrokov s rešpektovaním hojenia a sezónnosti
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -746,16 +776,37 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                     letterSpacing: '1px'
                   }}
                 >
-                  3. Bezpečnostný predoperačný protokol: {plan.preOpCare.procedureName}
+                  3. SAY Care – Predoperačný protokol & Prehabilitácia ({plan.preOpCare.procedureName})
                 </h3>
                 <p style={{ margin: '2px 0 0 0', fontSize: '9px', color: '#8C857B' }}>
-                  Dôsledné dodržanie predoperačných pokynov minimalizuje operačné riziká a zabezpečuje dokonalé hojenie tkanív
+                  4 piliere predoperačnej prípravy (Medicínska prehabilitácia, Psychologická, Nutričná a Fyzická príprava)
                 </p>
               </div>
               <span style={{ fontSize: '9px', color: '#B45309', fontWeight: 'bold', backgroundColor: '#FEF3C7', padding: '2px 8px', borderRadius: '4px' }}>
-                Medicínsky štandard bezpečnosti
+                3. PILIER • SAY CARE PRE-OP
               </span>
             </div>
+
+            {plan.preOpCare.prehabilitation && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px', fontSize: '8.5px' }}>
+                <div style={{ backgroundColor: '#FAF8F5', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '6px 8px' }}>
+                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '2px' }}>🩺 1. Medicínska prehabilitácia:</strong>
+                  <div style={{ color: '#5C554E' }}>{plan.preOpCare.prehabilitation.medicalPrehab.join(' • ')}</div>
+                </div>
+                <div style={{ backgroundColor: '#FAF8F5', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '6px 8px' }}>
+                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '2px' }}>🧠 2. Psychologická príprava:</strong>
+                  <div style={{ color: '#5C554E' }}>{plan.preOpCare.prehabilitation.psychologicalPrep.join(' • ')}</div>
+                </div>
+                <div style={{ backgroundColor: '#FAF8F5', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '6px 8px' }}>
+                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '2px' }}>🥗 3. Nutričná príprava:</strong>
+                  <div style={{ color: '#5C554E' }}>{plan.preOpCare.prehabilitation.nutritionalPrep.join(' • ')}</div>
+                </div>
+                <div style={{ backgroundColor: '#FAF8F5', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '6px 8px' }}>
+                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '2px' }}>🏃‍♀️ 4. Fyzická príprava:</strong>
+                  <div style={{ color: '#5C554E' }}>{plan.preOpCare.prehabilitation.physicalPrep.join(' • ')}</div>
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {plan.preOpCare.instructions.map((ins) => (
@@ -833,14 +884,14 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                     letterSpacing: '1px'
                   }}
                 >
-                  4. Pooperačná rekonvalescencia & Zlatý štandard starostlivosti o jazvy
+                  4. SAY Care – Pooperačný protokol (Jazvy, Lymfodrenáž, Laser & Rekonvalescencia)
                 </h3>
                 <p style={{ margin: '2px 0 0 0', fontSize: '9px', color: '#8C857B' }}>
-                  Fázový harmonogram zotavenia tkanív, tlakové masáže, silikónová liečba a následné laserové korekcie
+                  Fázový harmonogram zotavenia tkanív, lymfodrenáž, tlakové masáže, silikónová liečba a laserová korekcia
                 </p>
               </div>
               <span style={{ fontSize: '9px', color: '#C5A059', fontWeight: 'bold' }}>
-                SAY SCAR PROTOCOL
+                3. PILIER • SAY CARE POST-OP
               </span>
             </div>
 
@@ -856,13 +907,13 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                 }}
               >
                 <strong style={{ fontSize: '10px', textTransform: 'uppercase', color: '#2C2A29', display: 'block', marginBottom: '8px', letterSpacing: '0.5px' }}>
-                  🩹 3 Kľúčové piliere starostlivosti o chirurgickú jazvu:
+                  🩹 4 Piliere pooperačného SAY Care protokolu (Jazvy, Lymfodrenáž & Laser):
                 </strong>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div style={{ backgroundColor: '#ffffff', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '8px' }}>
                     <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#C5A059', display: 'block', marginBottom: '2px' }}>
-                      1. Silikónový gél / náplasti
+                      1. Silikónový gél / náplasti (Jazvy)
                     </span>
                     <p style={{ margin: 0, fontSize: '8.5px', color: '#5C554E', lineHeight: '1.35' }}>
                       {plan.postOpCare.scarProtocol.siliconeApplication}
@@ -879,11 +930,20 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                   </div>
 
                   <div style={{ backgroundColor: '#ffffff', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '8px' }}>
-                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#B45309', display: 'block', marginBottom: '2px' }}>
-                      3. SPF 50+ minerálna fotoprotekcia
+                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#047857', display: 'block', marginBottom: '2px' }}>
+                      3. Lymfodrenáž & Kompresívny režim
                     </span>
                     <p style={{ margin: 0, fontSize: '8.5px', color: '#5C554E', lineHeight: '1.35' }}>
-                      {plan.postOpCare.scarProtocol.sunProtection}
+                      {plan.postOpCare.scarProtocol.lymphaticDrainage || 'Manuálna a prístrojová lymfodrenáž od 10.–14. pooperačného dňa v kombinácii s kompresívnym prádlom.'}
+                    </p>
+                  </div>
+
+                  <div style={{ backgroundColor: '#ffffff', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '8px' }}>
+                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#6D28D9', display: 'block', marginBottom: '2px' }}>
+                      4. Laserová korekcia & SPF 50+ fotoprotekcia
+                    </span>
+                    <p style={{ margin: 0, fontSize: '8.5px', color: '#5C554E', lineHeight: '1.35' }}>
+                      {plan.postOpCare.scarProtocol.laserTherapy || plan.postOpCare.scarProtocol.sunProtection}
                     </p>
                   </div>
                 </div>

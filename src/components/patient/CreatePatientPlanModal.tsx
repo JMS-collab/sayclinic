@@ -38,25 +38,25 @@ export default function CreatePatientPlanModal({
   initialContext
 }: CreatePatientPlanModalProps) {
   const [planType, setPlanType] = useState<'annual_aesthetic' | 'pre_post_op' | 'combined'>(
-    initialContext?.planType || 'annual_aesthetic'
+    initialContext?.planType || 'combined'
   );
   const [title, setTitle] = useState(
     initialContext?.procedureName 
-      ? `Plán starostlivosti: ${initialContext.procedureName}` 
-      : 'Ročný estetický plán rejuvenácie pleti a tváre'
+      ? `Plán starostlivosti (3-v-1): ${initialContext.procedureName}` 
+      : 'Komplexný sekvenčný plán: Facelift ➔ Viečka ➔ Frakčný Laser (3-v-1)'
   );
   const [diagnosisOrGoal, setDiagnosisOrGoal] = useState(
-    initialContext?.diagnosisOrGoal || 'Komplexná starostlivosť, redukcia vrások, obnova elasticity a prevencia fotostarnutia.'
+    initialContext?.diagnosisOrGoal || '1. SAY Skincare (Meicet 3D + duálna rutina + ošetrenia pleti) • 2. Ročný plán (Facelift ➔ Blefaroplastika ➔ CO2 Laser) • 3. SAY Care (Prehabilitácia & pooperačný protokol).'
   );
-  const [procedureName, setProcedureName] = useState(initialContext?.procedureName || '');
+  const [procedureName, setProcedureName] = useState(initialContext?.procedureName || 'Deep Plane Facelift ➔ Blefaroplastika ➔ Frakčný CO2 Laser');
   const [skinType, setSkinType] = useState(initialContext?.skinType || 'Zmiešaná / normálna');
   const [mainConcerns, setMainConcerns] = useState(
-    initialContext?.mainConcerns?.join(', ') || 'Mimické vrásky čela, strata elasticity líc, fotostarnutie'
+    initialContext?.mainConcerns?.join(', ') || 'Pokles kontúr tváre, nadbytok kože viečok, fotostarnutie a textúra pleti'
   );
   const [doctorName, setDoctorName] = useState('MUDr. Ján Mráz');
   
   // Rýchle šablóny
-  const [selectedPresetKey, setSelectedPresetKey] = useState<string>('face_annual_rejuvenation');
+  const [selectedPresetKey, setSelectedPresetKey] = useState<string>('face_sequential_transformation');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [showMeicetModal, setShowMeicetModal] = useState(false);
@@ -205,9 +205,26 @@ export default function CreatePatientPlanModal({
           {/* RÝCHLE ŠABLÓNY */}
           <div className="space-y-2">
             <label className="font-bold text-[11px] uppercase tracking-wider text-[#8C857B] block">
-              1. Zvoľte klinickú šablónu alebo zameranie:
+              1. Zvoľte klinickú šablónu (zahŕňa 1. SAY Skincare • 2. Ročný Plán • 3. SAY Care):
             </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => handleApplyPreset('face_sequential_transformation')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  selectedPresetKey === 'face_sequential_transformation'
+                    ? 'border-[#C5A059] bg-[#FAF8F5] shadow-xs'
+                    : 'border-[#E8E2D9] hover:bg-stone-50'
+                }`}
+              >
+                <div className="font-bold text-xs text-[#2C2A29] flex items-center gap-1.5">
+                  <span>💎</span> Sekvenčný plán: Facelift ➔ Viečka ➔ Laser (3-v-1)
+                </div>
+                <p className="text-[10px] text-[#8C857B] mt-1 leading-tight">
+                  1. SAY Skincare (Meicet + rutina) • 2. Voľná sekvencia zákrokov • 3. SAY Care (Prehabilitácia, jazvy, lymfodrenáž).
+                </p>
+              </button>
+
               <button
                 type="button"
                 onClick={() => handleApplyPreset('face_annual_rejuvenation')}
@@ -218,10 +235,10 @@ export default function CreatePatientPlanModal({
                 }`}
               >
                 <div className="font-bold text-xs text-[#2C2A29] flex items-center gap-1.5">
-                  <span>✨</span> Ročný anti-aging
+                  <span>✨</span> SAY Skincare & Ročný anti-aging pleti
                 </div>
                 <p className="text-[10px] text-[#8C857B] mt-1 leading-tight">
-                  SkinCeuticals, LRP, CeraVe, Vichy, botox, výplne, mezoterapia a laser.
+                  Základná vs. Prémiová starostlivosť (LRP, CeraVe, Vichy, SkinCeuticals), botox, skinboostery a laser.
                 </p>
               </button>
 
@@ -235,10 +252,10 @@ export default function CreatePatientPlanModal({
                 }`}
               >
                 <div className="font-bold text-xs text-[#2C2A29] flex items-center gap-1.5">
-                  <span>🏥</span> Augmentácia prsníkov
+                  <span>🏥</span> Augmentácia prsníkov (SAY Care protokol)
                 </div>
                 <p className="text-[10px] text-[#8C857B] mt-1 leading-tight">
-                  Predoperačná príprava, podprsenka, silikón, tlakové masáže jaziev.
+                  4 piliere prehabilitácie, kompresívny režim, lymfodrenáž, silikón a tlakové masáže jaziev.
                 </p>
               </button>
 
@@ -252,10 +269,10 @@ export default function CreatePatientPlanModal({
                 }`}
               >
                 <div className="font-bold text-xs text-[#2C2A29] flex items-center gap-1.5">
-                  <span>👁️</span> Blefaroplastika viečok
+                  <span>👁️</span> Blefaroplastika viečok (SAY Care protokol)
                 </div>
                 <p className="text-[10px] text-[#8C857B] mt-1 leading-tight">
-                  Chladenie, vybratie stehov, oftalmo silikón, prevencia pigmentácie.
+                  Predoperačná príprava, chladenie, mikromasáž očného okolia, silikón a prevencia pigmentácie.
                 </p>
               </button>
             </div>
