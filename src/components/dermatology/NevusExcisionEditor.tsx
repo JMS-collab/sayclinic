@@ -7,6 +7,7 @@ import {
   EXCISION_PRESETS, 
   COMMON_LOCATIONS, 
   COMMON_DIAGNOSES,
+  COMMON_INDICATIONS,
   ExcisionMethod
 } from './nevusExcisionTypes';
 import { 
@@ -14,12 +15,8 @@ import {
   Sparkles, 
   Plus, 
   Trash2, 
-  CreditCard, 
-  Banknote, 
   Receipt, 
-  CheckCircle2, 
   Clock, 
-  ShieldAlert, 
   FileCheck,
   Tag,
   Stethoscope
@@ -31,7 +28,7 @@ interface NevusExcisionEditorProps {
 }
 
 export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEditorProps) {
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<'all' | 'chirurgia' | 'laser' | 'histologia'>('all');
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<'all' | 'chirurgia' | 'laser' | 'histologia' | 'podkozne'>('all');
 
   const updateField = <K extends keyof NevusExcisionData>(field: K, value: NevusExcisionData[K]) => {
     onChange({
@@ -86,7 +83,7 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
       histology: !isLaser,
       histologyCode: !isLaser ? `Nádobka č. ${count}` : undefined,
       sutureType: isLaser ? 'Bez sutúry' : 'Intradermálna sutúra (Prolene 5-0)',
-      sutureRemovalDays: isLaser ? 'Bez stehov' : '10 – 12 dní',
+      sutureRemovalDays: isLaser ? 'Bez stehov' : '10 – 12 dní (trup) / 5 – 7 dní (tvár)',
       price: isLaser ? 50 : 90
     };
 
@@ -142,7 +139,7 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
           </span>
         </div>
 
-        {/* PREPÍNAČ HLAVNEJ METÓDY */}
+        {/* PREPÍNAČ HLAVNEJ METÓDY (3 TLAČIDLÁ S PLNOU ŠÍRKOU A ČITATEĽNOSŤOU) */}
         <div>
           <label className="block text-[10px] font-bold text-[#8C857B] uppercase mb-2">
             Prevládajúca metóda odstránenia:
@@ -151,19 +148,19 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
             <button
               type="button"
               onClick={() => handleMethodChange('chirurgicky')}
-              className={`p-3 rounded-xl border font-bold text-left transition-all flex items-center gap-3 cursor-pointer ${
+              className={`p-3 rounded-xl border font-bold text-left transition-all flex items-start gap-2.5 cursor-pointer ${
                 data.primaryMethod === 'chirurgicky'
                   ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-sm'
                   : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
               }`}
             >
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${data.primaryMethod === 'chirurgicky' ? 'bg-[#C5A059] text-white' : 'bg-[#FAF8F5] text-[#C5A059]'}`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${data.primaryMethod === 'chirurgicky' ? 'bg-[#C5A059] text-white' : 'bg-[#FAF8F5] text-[#C5A059]'}`}>
                 <Scissors className="w-4 h-4" />
               </div>
-              <div>
-                <p className="text-xs">Chirurgická excízia</p>
-                <p className={`text-[10px] font-normal ${data.primaryMethod === 'chirurgicky' ? 'text-white/80' : 'text-[#8C857B]'}`}>
-                  Skalpel, sutúra & histológia
+              <div className="min-w-0">
+                <p className="text-xs leading-snug">Chirurgická excízia</p>
+                <p className={`text-[10px] font-normal leading-tight mt-0.5 ${data.primaryMethod === 'chirurgicky' ? 'text-white/80' : 'text-[#8C857B]'}`}>
+                  Skalpel, sutúra & biopsia
                 </p>
               </div>
             </button>
@@ -171,19 +168,19 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
             <button
               type="button"
               onClick={() => handleMethodChange('laser')}
-              className={`p-3 rounded-xl border font-bold text-left transition-all flex items-center gap-3 cursor-pointer ${
+              className={`p-3 rounded-xl border font-bold text-left transition-all flex items-start gap-2.5 cursor-pointer ${
                 data.primaryMethod === 'laser'
                   ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-sm'
                   : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
               }`}
             >
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${data.primaryMethod === 'laser' ? 'bg-[#C5A059] text-white' : 'bg-[#FAF8F5] text-[#C5A059]'}`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${data.primaryMethod === 'laser' ? 'bg-[#C5A059] text-white' : 'bg-[#FAF8F5] text-[#C5A059]'}`}>
                 <Sparkles className="w-4 h-4" />
               </div>
-              <div>
-                <p className="text-xs">CO2 Laserová ablácia</p>
-                <p className={`text-[10px] font-normal ${data.primaryMethod === 'laser' ? 'text-white/80' : 'text-[#8C857B]'}`}>
-                  Bez rezu, bez šitia, pod chrastou
+              <div className="min-w-0">
+                <p className="text-xs leading-snug">CO2 Laserová ablácia</p>
+                <p className={`text-[10px] font-normal leading-tight mt-0.5 ${data.primaryMethod === 'laser' ? 'text-white/80' : 'text-[#8C857B]'}`}>
+                  Bez rezu a šitia, pod chrastou
                 </p>
               </div>
             </button>
@@ -191,138 +188,176 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
             <button
               type="button"
               onClick={() => handleMethodChange('kombinovane')}
-              className={`p-3 rounded-xl border font-bold text-left transition-all flex items-center gap-3 cursor-pointer ${
+              className={`p-3 rounded-xl border font-bold text-left transition-all flex items-start gap-2.5 cursor-pointer ${
                 data.primaryMethod === 'kombinovane'
                   ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-sm'
                   : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
               }`}
             >
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${data.primaryMethod === 'kombinovane' ? 'bg-[#C5A059] text-white' : 'bg-[#FAF8F5] text-[#C5A059]'}`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${data.primaryMethod === 'kombinovane' ? 'bg-[#C5A059] text-white' : 'bg-[#FAF8F5] text-[#C5A059]'}`}>
                 <Stethoscope className="w-4 h-4" />
               </div>
-              <div>
-                <p className="text-xs">Kombinovaný zákrok</p>
-                <p className={`text-[10px] font-normal ${data.primaryMethod === 'kombinovane' ? 'text-white/80' : 'text-[#8C857B]'}`}>
-                  Chirurgia + Laser v sedení
+              <div className="min-w-0">
+                <p className="text-xs leading-snug">Kombinovaný zákrok</p>
+                <p className={`text-[10px] font-normal leading-tight mt-0.5 ${data.primaryMethod === 'kombinovane' ? 'text-white/80' : 'text-[#8C857B]'}`}>
+                  Chirurgia + Laser v 1 sedení
                 </p>
               </div>
             </button>
           </div>
         </div>
 
-        {/* KLINICKÉ PARAMETRE VÝKONU */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+        {/* KLINICKÉ PARAMETRE VÝKONU – ROZŠÍRENÉ POLIA PRE ÚPLNÚ ČITATEĽNOSŤ */}
+        <div className="space-y-3 pt-1">
+          {/* Riadok 1: Indikácia na celú šírku s nápoveďou */}
           <div>
-            <label className="block text-[10px] font-bold text-[#8C857B] mb-1">
-              Indikácia zákroku:
-            </label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-[10px] font-bold text-[#8C857B] uppercase">
+                Indikácia zákroku (Klinický dôvod / diagnóza):
+              </label>
+              <span className="text-[9px] text-[#C5A059] font-medium hidden sm:inline">
+                Výber z nápovedy alebo vlastný text
+              </span>
+            </div>
             <input
               type="text"
+              list="common-indications-list"
               value={data.indication}
               onChange={(e) => updateField('indication', e.target.value)}
-              className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
-              placeholder="napr. Onkodermatologická / Estetická..."
+              className="w-full border border-[#E8E2D9] p-2.5 rounded-xl bg-white text-xs text-[#2C2A29] focus:border-[#C5A059] focus:outline-none shadow-2xs font-medium"
+              placeholder="napr. Preventívna onkodermatologická indikácia (suspektný melanocytový névus)..."
             />
+            <datalist id="common-indications-list">
+              {COMMON_INDICATIONS.map((ind, iIdx) => (
+                <option key={iIdx} value={ind} />
+              ))}
+            </datalist>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-bold text-[#8C857B] mb-1">
-              Lokálna anestézia:
-            </label>
-            <input
-              type="text"
-              value={data.anesthesiaType}
-              onChange={(e) => updateField('anesthesiaType', e.target.value)}
-              className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
-              placeholder="Mesocain 1% s Adrenalínom..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-[#8C857B] mb-1">
-              Objem anestézie & Dezinfekcia:
-            </label>
-            <div className="flex gap-2">
+          {/* Riadok 2: Anestézia, objem a dezinfekcia s dostatkom priestoru */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-[#8C857B] uppercase mb-1">
+                Lokálna anestézia:
+              </label>
               <input
                 type="text"
-                value={data.anesthesiaVolume}
-                onChange={(e) => updateField('anesthesiaVolume', e.target.value)}
-                className="w-1/3 border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-mono"
-                placeholder="3.0 ml"
+                list="anesthesia-list"
+                value={data.anesthesiaType}
+                onChange={(e) => updateField('anesthesiaType', e.target.value)}
+                className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white text-xs text-[#2C2A29] focus:border-[#C5A059] focus:outline-none"
+                placeholder="Mesocain 1% + Adrenalín..."
               />
+              <datalist id="anesthesia-list">
+                <option value="Mesocain 1% s Adrenalínom 1:200 000" />
+                <option value="Supracain 4% s Adrenalínom" />
+                <option value="Xylocaine 2% + Adrenalín" />
+                <option value="Lokálna infiltračná anestézia (Mesocain 1%)" />
+                <option value="Lokálna anestézia bez vazokonstrikcie (kardio)" />
+              </datalist>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-[#8C857B] uppercase mb-1">
+                Dávka / Objem anestézie:
+              </label>
+              <div className="flex items-center border border-[#E8E2D9] bg-white rounded-xl px-2.5 py-1.5 focus-within:border-[#C5A059]">
+                <input
+                  type="text"
+                  value={data.anesthesiaVolume}
+                  onChange={(e) => updateField('anesthesiaVolume', e.target.value)}
+                  className="w-full text-xs font-mono font-bold text-[#2C2A29] focus:outline-none bg-transparent"
+                  placeholder="3.0 ml"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-[#8C857B] uppercase mb-1">
+                Dezinfekcia & Príprava poľa:
+              </label>
               <input
                 type="text"
+                list="disinfection-list"
                 value={data.disinfection}
                 onChange={(e) => updateField('disinfection', e.target.value)}
-                className="w-2/3 border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
-                placeholder="Skinman Soft..."
+                className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white text-xs text-[#2C2A29] focus:border-[#C5A059] focus:outline-none"
+                placeholder="Skinman Soft / Cutasept F..."
               />
+              <datalist id="disinfection-list">
+                <option value="Skinman Soft / Cutasept F" />
+                <option value="Cutasept F (bezfarebný alkoholový)" />
+                <option value="Braunol / Betadine (jódový)" />
+                <option value="Octenisept (sliznice a citlivá koža)" />
+              </datalist>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. RÝCHLY VÝBER POLOŽIEK Z CENNÍKA (KATALÓG AKO PRI VÝPLNIACH) */}
+      {/* 2. RÝCHLY VÝBER POLOŽIEK Z CENNÍKA (KATALÓG S PREHĽADNÝMI NÁZVAMI) */}
       <div className="bg-white border border-[#E8E2D9] rounded-2xl p-4 sm:p-5 shadow-2xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8E2D9] pb-3">
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4 text-[#C5A059]" />
-            <h4 className="font-bold text-xs uppercase tracking-wider text-[#2C2A29]">
-              Katalóg výkonov & Cenník (Rýchle pridanie položky)
-            </h4>
+            <div>
+              <h4 className="font-bold text-xs uppercase tracking-wider text-[#2C2A29]">
+                Katalóg výkonov & Cenník (Rýchle pridanie položky)
+              </h4>
+              <p className="text-[10px] text-[#8C857B]">
+                Kliknite na položku alebo vyberte z dropdownu pre pridanie do kalkulácie
+              </p>
+            </div>
           </div>
 
           {/* Filtre kategórií */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setActiveCategoryFilter('all')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                activeCategoryFilter === 'all'
-                  ? 'bg-[#2C2A29] text-white'
-                  : 'bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29]'
-              }`}
-            >
-              Všetko
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveCategoryFilter('chirurgia')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                activeCategoryFilter === 'chirurgia'
-                  ? 'bg-[#2C2A29] text-white'
-                  : 'bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29]'
-              }`}
-            >
-              Chirurgia
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveCategoryFilter('laser')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                activeCategoryFilter === 'laser'
-                  ? 'bg-[#2C2A29] text-white'
-                  : 'bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29]'
-              }`}
-            >
-              Laser
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveCategoryFilter('histologia')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                activeCategoryFilter === 'histologia'
-                  ? 'bg-[#2C2A29] text-white'
-                  : 'bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29]'
-              }`}
-            >
-              Histológia
-            </button>
+          <div className="flex flex-wrap items-center gap-1">
+            {[
+              { id: 'all', label: 'Všetko' },
+              { id: 'chirurgia', label: 'Chirurgia' },
+              { id: 'laser', label: 'Laser' },
+              { id: 'histologia', label: 'Histológia' },
+              { id: 'podkozne', label: 'Podkožné' }
+            ].map(cat => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveCategoryFilter(cat.id as any)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                  activeCategoryFilter === cat.id
+                    ? 'bg-[#2C2A29] text-white shadow-2xs'
+                    : 'bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* MRIEŽKA PREDNASTAVENÝCH POLOŽIEK NA 1-KLIK */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+        {/* Rýchly dropdown selektor pre pohodlný výber zo všetkých položiek */}
+        <div>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) {
+                handleAddPresetItem(e.target.value);
+                e.target.value = '';
+              }
+            }}
+            className="w-full border border-[#C5A059]/60 p-2.5 rounded-xl text-xs bg-[#FAF8F5] font-semibold text-[#2C2A29] cursor-pointer hover:border-[#C5A059] transition-all shadow-2xs"
+          >
+            <option value="" disabled>+ Vybrať a pridať položku zo zoznamu cenníka...</option>
+            {EXCISION_PRESETS.map(preset => (
+              <option key={preset.id} value={preset.id}>
+                {preset.name} — {preset.defaultPrice} € ({preset.description})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* PREHĽADNÁ MRIEŽKA KARIET – 2 STĹPCE BEZ OREZÁVANIA TEXTU */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {EXCISION_PRESETS
             .filter(p => activeCategoryFilter === 'all' || p.category === activeCategoryFilter)
             .map((preset) => (
@@ -330,21 +365,34 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                 key={preset.id}
                 type="button"
                 onClick={() => handleAddPresetItem(preset.id)}
-                className="p-2.5 rounded-xl border border-[#E8E2D9] hover:border-[#C5A059] bg-[#FAF8F5]/80 hover:bg-white text-left transition-all shadow-2xs group flex items-start justify-between gap-2 cursor-pointer"
+                className="p-3 rounded-xl border border-[#E8E2D9] hover:border-[#C5A059] bg-[#FAF8F5]/80 hover:bg-white text-left transition-all shadow-2xs group flex items-start justify-between gap-3 cursor-pointer"
               >
-                <div className="space-y-0.5 min-w-0">
-                  <p className="font-bold text-xs text-[#2C2A29] group-hover:text-[#C5A059] transition-colors truncate">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                      preset.category === 'laser' 
+                        ? 'bg-amber-100 text-amber-900 border border-amber-200' 
+                        : preset.category === 'histologia'
+                        ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                        : 'bg-stone-200 text-stone-800'
+                    }`}>
+                      {preset.category === 'chirurgia' ? 'Chirurgia' : preset.category === 'laser' ? 'CO2 Laser' : preset.category === 'histologia' ? 'Biopsia' : 'Exstirpácia'}
+                    </span>
+                  </div>
+                  <p className="font-bold text-xs text-[#2C2A29] group-hover:text-[#C5A059] transition-colors leading-snug">
                     {preset.name}
                   </p>
-                  <p className="text-[10px] text-[#8C857B] line-clamp-1">
+                  <p className="text-[10px] text-[#8C857B] leading-tight">
                     {preset.description}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-                  <span className="font-bold font-mono text-xs text-[#2C2A29] bg-white group-hover:bg-[#C5A059] group-hover:text-white px-2 py-0.5 rounded-md border border-[#E8E2D9] transition-colors">
+                  <span className="font-bold font-mono text-xs text-[#2C2A29] bg-white group-hover:bg-[#C5A059] group-hover:text-white px-2.5 py-1 rounded-lg border border-[#E8E2D9] shadow-2xs transition-colors whitespace-nowrap">
                     {preset.defaultPrice} €
                   </span>
-                  <Plus className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <div className="w-5 h-5 rounded-full bg-[#FAF8F5] group-hover:bg-[#C5A059] group-hover:text-white flex items-center justify-center transition-colors">
+                    <Plus className="w-3 h-3 text-[#C5A059] group-hover:text-white" />
+                  </div>
                 </div>
               </button>
             ))}
@@ -365,7 +413,7 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
           <button
             type="button"
             onClick={handleAddCustomItem}
-            className="px-3 py-1.5 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            className="px-3.5 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Pridať vlastný riadok</span>
@@ -383,9 +431,9 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
             {data.items.map((item, idx) => (
               <div 
                 key={item.id}
-                className="p-3.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5]/50 hover:bg-white hover:border-[#C5A059]/60 transition-all space-y-2.5"
+                className="p-4 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5]/60 hover:bg-white hover:border-[#C5A059]/60 transition-all space-y-3"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8E2D9]/60 pb-2">
                   <div className="flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-[#C5A059] font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
                       {idx + 1}
@@ -423,19 +471,19 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                   </div>
                 </div>
 
-                {/* FORMULÁR PRE POLOŽKU */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+                {/* FORMULÁR PRE POLOŽKU: 2 STĹPCE PRE DOSTATOK PRIESTORU */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label className="block text-[9px] font-bold text-[#8C857B] uppercase mb-0.5">
-                      Lokalizácia
+                    <label className="block text-[9px] font-bold text-[#8C857B] uppercase mb-1">
+                      Lokalizácia lézie:
                     </label>
                     <input
                       type="text"
                       list={`loc-list-${idx}`}
                       value={item.location}
                       onChange={(e) => handleUpdateItem(idx, { location: e.target.value })}
-                      placeholder="napr. Tvár – líce, Chrbát..."
-                      className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
+                      placeholder="napr. Tvár – pravé líce, Chrbát..."
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-medium"
                     />
                     <datalist id={`loc-list-${idx}`}>
                       {COMMON_LOCATIONS.map((loc, lIdx) => (
@@ -445,8 +493,8 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-bold text-[#8C857B] uppercase mb-0.5">
-                      Typ lézie / Predbežná dg
+                    <label className="block text-[9px] font-bold text-[#8C857B] uppercase mb-1">
+                      Typ lézie / Predbežná diagnóza:
                     </label>
                     <input
                       type="text"
@@ -454,7 +502,7 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                       value={item.typeOrDiagnosis}
                       onChange={(e) => handleUpdateItem(idx, { typeOrDiagnosis: e.target.value })}
                       placeholder="Melanocytový névus..."
-                      className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-medium"
                     />
                     <datalist id={`diag-list-${idx}`}>
                       {COMMON_DIAGNOSES.map((d, dIdx) => (
@@ -464,8 +512,8 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-bold text-[#8C857B] uppercase mb-0.5">
-                      Metóda odstránenia
+                    <label className="block text-[9px] font-bold text-[#8C857B] uppercase mb-1">
+                      Metóda odstránenia:
                     </label>
                     <select
                       value={item.method}
@@ -483,7 +531,7 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                           sutureType: m === 'laser_vaporizacia' ? 'Bez sutúry' : item.sutureType
                         });
                       }}
-                      className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-medium"
                     >
                       <option value="chirurgicka_excizia">Chirurgická excízia so sutúrou</option>
                       <option value="laser_vaporizacia">CO2 Laserová vaporizácia (bez stehov)</option>
@@ -492,21 +540,21 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-bold text-[#8C857B] uppercase mb-0.5">
-                      Sutúra & Stehy
+                    <label className="block text-[9px] font-bold text-[#8C857B] uppercase mb-1">
+                      Sutúra & Šijací materiál:
                     </label>
                     <input
                       type="text"
                       value={item.sutureType}
                       onChange={(e) => handleUpdateItem(idx, { sutureType: e.target.value })}
                       placeholder="Intradermálny Prolene 5-0 / Bez stehov..."
-                      className="w-full border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
+                      className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs font-medium"
                     />
                   </div>
                 </div>
 
-                {/* HISTOLÓGIA & TERMÍN STEHOV */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-[#E8E2D9]/70 text-[11px]">
+                {/* HISTOLÓGIA & TERMÍN STEHOV S PLNOU ŠÍRKOU */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#E8E2D9]/70 text-[11px]">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -515,18 +563,18 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                         histology: e.target.checked,
                         histologyCode: e.target.checked ? (item.histologyCode || `Nádobka č. ${idx + 1}`) : undefined
                       })}
-                      className="w-3.5 h-3.5 text-[#C5A059] rounded cursor-pointer"
+                      className="w-4 h-4 text-[#C5A059] rounded cursor-pointer"
                     />
                     <span className="font-semibold text-[#2C2A29]">
-                      Odoslané na histopatologické vyšetrenie
+                      Odoslané na histopatologické vyšetrenie (biopsia)
                     </span>
                     {item.histology && (
                       <input
                         type="text"
                         value={item.histologyCode || ''}
                         onChange={(e) => handleUpdateItem(idx, { histologyCode: e.target.value })}
-                        placeholder="Označenie nádobky..."
-                        className="border border-[#E8E2D9] px-2 py-0.5 rounded text-[10px] bg-white font-mono ml-1"
+                        placeholder="Nádobka č. 1..."
+                        className="border border-[#E8E2D9] px-2 py-1 rounded-lg text-xs bg-white font-mono ml-1 w-28"
                       />
                     )}
                   </label>
@@ -538,8 +586,8 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                       type="text"
                       value={item.sutureRemovalDays}
                       onChange={(e) => handleUpdateItem(idx, { sutureRemovalDays: e.target.value })}
-                      className="border border-[#E8E2D9] px-2 py-0.5 rounded text-[10px] bg-white"
-                      placeholder="10 – 12 dní..."
+                      className="border border-[#E8E2D9] px-2 py-1 rounded-lg text-xs bg-white w-40"
+                      placeholder="10 – 12 dní / 7 dní..."
                     />
                   </div>
                 </div>
@@ -595,7 +643,7 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
               <div>
                 <label className="block text-[10px] font-bold text-[#8C857B] uppercase mb-1">
                   Spôsob platby:
@@ -687,7 +735,7 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
               rows={3}
               value={data.procedureCourse}
               onChange={(e) => updateField('procedureCourse', e.target.value)}
-              className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs leading-relaxed"
+              className="w-full border border-[#E8E2D9] p-2.5 rounded-xl bg-white text-xs leading-relaxed"
             />
           </div>
 
@@ -700,7 +748,7 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                 type="text"
                 value={data.sutureRemovalNotes}
                 onChange={(e) => updateField('sutureRemovalNotes', e.target.value)}
-                className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
+                className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white text-xs"
               />
             </div>
 
@@ -712,7 +760,7 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                 type="text"
                 value={data.histologyNotice}
                 onChange={(e) => updateField('histologyNotice', e.target.value)}
-                className="w-full border border-[#E8E2D9] p-2 rounded-lg bg-white text-xs"
+                className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white text-xs"
               />
             </div>
           </div>
@@ -733,7 +781,7 @@ export default function NevusExcisionEditor({ data, onChange }: NevusExcisionEdi
                       updated[i] = e.target.value;
                       updateField('aftercareInstructions', updated);
                     }}
-                    className="flex-1 border border-[#E8E2D9] p-1.5 rounded-lg bg-white text-xs"
+                    className="flex-1 border border-[#E8E2D9] p-2 rounded-xl bg-white text-xs"
                   />
                   <button
                     type="button"

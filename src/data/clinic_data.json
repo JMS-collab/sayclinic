@@ -1,15 +1,5 @@
 {
   "patient_presence": {
-    "drive-patient-1q8yz7fZcVp2MZvCH0WGDLQH44qlKMiP7": {
-      "u1": {
-        "userId": "u1",
-        "userName": "MUDr. Ján Mráz",
-        "userTitle": "Plastický chirurg & CEO",
-        "userRole": "ceo",
-        "avatarUrl": "/avatars/mraz.jpg?v=4",
-        "lastSeen": 1793217318593
-      }
-    },
     "drive-patient-16wA8CQcoPHAFsF5jaIXsgsLZd94brNNy": {
       "u1": {
         "userId": "u1",
@@ -17,7 +7,17 @@
         "userTitle": "Plastický chirurg & CEO",
         "userRole": "ceo",
         "avatarUrl": "/avatars/mraz.jpg?v=4",
-        "lastSeen": 1793217321307
+        "lastSeen": 1793219928225
+      }
+    },
+    "drive-patient-1q8yz7fZcVp2MZvCH0WGDLQH44qlKMiP7": {
+      "u1": {
+        "userId": "u1",
+        "userName": "MUDr. Ján Mráz",
+        "userTitle": "Plastický chirurg & CEO",
+        "userRole": "ceo",
+        "avatarUrl": "/avatars/mraz.jpg?v=4",
+        "lastSeen": 1793219927256
       }
     }
   },

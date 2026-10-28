@@ -40,7 +40,7 @@ export default function NevusExcisionPrintView({ data }: NevusExcisionPrintViewP
     <div className="space-y-6 text-[#2C2A29]">
       {/* 1. ZÁKROKOVÝ A METODICKÝ SÚHRN */}
       <div className="border border-[#E8E2D9] rounded-xl p-3.5 bg-[#FBF9F6]">
-        <div className="flex justify-between items-center mb-2.5 pb-2 border-b border-[#E8E2D9]">
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-2.5 pb-2 border-b border-[#E8E2D9]">
           <div className="flex items-center gap-2">
             <span className="text-[9px] uppercase font-bold text-[#C5A059] tracking-wider">
               Zákrokový protokol
@@ -55,18 +55,31 @@ export default function NevusExcisionPrintView({ data }: NevusExcisionPrintViewP
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[10px]">
-          <div>
-            <span className="block text-[8px] text-[#8C857B] uppercase font-bold">Klinická indikácia</span>
-            <span className="font-semibold text-[#2C2A29]">{data.indication || 'Exstirpácia kožných a podkožných lézií'}</span>
+        <div className="space-y-2 text-[10px]">
+          {/* Indikácia na plnú šírku */}
+          <div className="bg-white p-2.5 rounded-lg border border-[#E8E2D9]/80 flex flex-wrap items-baseline gap-1.5">
+            <span className="text-[8px] text-[#8C857B] uppercase font-bold tracking-wider shrink-0">
+              Klinická indikácia:
+            </span>
+            <span className="font-bold text-[#2C2A29] text-[11px] leading-snug">
+              {data.indication || 'Preventívna onkodermatologická indikácia na základe dermatoskopie'}
+            </span>
           </div>
-          <div>
-            <span className="block text-[8px] text-[#8C857B] uppercase font-bold">Lokálna anestézia</span>
-            <span className="font-semibold text-[#2C2A29]">{data.anesthesiaType} {data.anesthesiaVolume && `(${data.anesthesiaVolume})`}</span>
-          </div>
-          <div>
-            <span className="block text-[8px] text-[#8C857B] uppercase font-bold">Antisepsa & príprava</span>
-            <span className="font-semibold text-[#2C2A29]">{data.disinfection || 'Skinman soft / Cutasept F'}</span>
+
+          {/* Anestézia a dezinfekcia */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="bg-white p-2 rounded-lg border border-[#E8E2D9]/80">
+              <span className="block text-[8px] text-[#8C857B] uppercase font-bold">Lokálna anestézia & Dávka</span>
+              <span className="font-semibold text-[#2C2A29] text-[10px]">
+                {data.anesthesiaType || 'Mesocain 1% + Adrenalín'} {data.anesthesiaVolume && `(${data.anesthesiaVolume})`}
+              </span>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-[#E8E2D9]/80">
+              <span className="block text-[8px] text-[#8C857B] uppercase font-bold">Antisepsa & príprava poľa</span>
+              <span className="font-semibold text-[#2C2A29] text-[10px]">
+                {data.disinfection || 'Skinman Soft / Cutasept F'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -78,51 +91,52 @@ export default function NevusExcisionPrintView({ data }: NevusExcisionPrintViewP
             Špecifikácia odstránených lézií & použitý postup
           </p>
           <span className="text-[8px] text-[#8C857B]">
-            Jednotlivé položky zákroku
+            Jednotlivé položky zákroku ({data.items.length})
           </span>
         </div>
 
         {data.items.length === 0 ? (
           <p className="text-xs text-[#8C857B] italic py-2">Nie sú zadané žiadne položky výkonu.</p>
         ) : (
-          <div className="border border-[#E8E2D9] rounded-xl overflow-hidden text-[10px]">
-            <table className="w-full text-left border-collapse">
+          <div className="border border-[#E8E2D9] rounded-xl overflow-x-auto text-[10px]">
+            <table className="w-full text-left border-collapse min-w-[540px]">
               <thead>
                 <tr className="bg-[#2C2A29] text-white text-[9px] uppercase tracking-wider">
-                  <th className="p-2 font-bold w-6 text-center">#</th>
-                  <th className="p-2 font-bold">Lokalizácia</th>
-                  <th className="p-2 font-bold">Klinický / Dermatoskopický nález</th>
-                  <th className="p-2 font-bold">Metóda odstránenia</th>
-                  <th className="p-2 font-bold">Histológia (HP)</th>
-                  <th className="p-2 font-bold">Sutúra / Ošetrenie</th>
-                  <th className="p-2 font-bold text-right">Cena</th>
+                  <th className="p-2 font-bold w-7 text-center">#</th>
+                  <th className="p-2 font-bold w-[22%]">Lokalizácia</th>
+                  <th className="p-2 font-bold w-[28%]">Nález / Predbežná dg</th>
+                  <th className="p-2 font-bold w-[22%]">Metóda & Ošetrenie</th>
+                  <th className="p-2 font-bold w-[16%]">Histológia (HP)</th>
+                  <th className="p-2 font-bold text-right w-[12%]">Cena</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8E2D9]">
                 {data.items.map((item, idx) => (
                   <tr key={item.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FBF9F6]'}>
                     <td className="p-2 text-center font-bold text-[#C5A059]">{idx + 1}</td>
-                    <td className="p-2 font-bold text-[#2C2A29]">{item.location}</td>
-                    <td className="p-2 text-[#2C2A29]">{item.typeOrDiagnosis}</td>
-                    <td className="p-2 font-medium">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] ${
-                        item.method === 'laser_vaporizacia'
-                          ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                          : 'bg-[#2C2A29]/10 text-[#2C2A29] border border-[#2C2A29]/20'
-                      }`}>
-                        {item.methodLabel}
-                      </span>
+                    <td className="p-2 font-bold text-[#2C2A29] leading-snug">{item.location}</td>
+                    <td className="p-2 text-[#2C2A29] leading-snug">{item.typeOrDiagnosis}</td>
+                    <td className="p-2">
+                      <div className="font-semibold text-[#2C2A29] text-[9px]">
+                        {item.method === 'laser_vaporizacia' 
+                          ? 'CO2 Laser' 
+                          : item.method === 'shave_excizia' 
+                          ? 'Shave excízia' 
+                          : 'Chirurgická excízia'}
+                      </div>
+                      <div className="text-[8px] text-[#8C857B] mt-0.5 leading-tight">
+                        {item.sutureType}
+                      </div>
                     </td>
                     <td className="p-2">
                       {item.histology ? (
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-[9px]">
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold text-[8px] whitespace-nowrap">
                           Áno {item.histologyCode && `(${item.histologyCode})`}
                         </span>
                       ) : (
-                        <span className="text-[#8C857B] text-[9px]">Bez HP (laser/benígne)</span>
+                        <span className="text-[#8C857B] text-[8px]">Bez HP (benígne)</span>
                       )}
                     </td>
-                    <td className="p-2 text-[9px] text-[#2C2A29]">{item.sutureType}</td>
                     <td className="p-2 font-bold text-right text-[#2C2A29] font-mono whitespace-nowrap">
                       {Number(item.price).toFixed(2)} €
                     </td>

@@ -50,104 +50,113 @@ export interface NevusExcisionData {
 export const EXCISION_PRESETS: ExcisionCatalogPreset[] = [
   {
     id: 'chir_1',
-    name: 'Chirurgická excízia – 1. lézia (vrátane anestézie a sutúry)',
+    name: 'Chirurgická excízia – 1. lézia',
     category: 'chirurgia',
     defaultMethod: 'chirurgicka_excizia',
     defaultHistology: true,
     defaultSuture: 'Intradermálna pokračujúca sutúra (Prolene 5-0)',
     defaultPrice: 90,
-    description: 'Skalpelová elipsa v Langerových líniách, hemostáza, plastická sutúra'
+    description: 'Skalpelová excízia, anestézia, plastická sutúra & histológia'
   },
   {
     id: 'chir_next',
-    name: 'Chirurgická excízia – každá ďalšia lézia (v tom istom sedení)',
+    name: 'Chirurgická excízia – každá ďalšia',
     category: 'chirurgia',
     defaultMethod: 'chirurgicka_excizia',
     defaultHistology: true,
     defaultSuture: 'Intradermálna / uzličková sutúra',
     defaultPrice: 50,
-    description: 'Zvýhodnená cena pre každé ďalšie znamienko operované v jednom sedení'
+    description: 'Zvýhodnená sadzba pre 2. a ďalšie znamienko v jednom sedení'
   },
   {
     id: 'chir_face',
-    name: 'Chirurgická excízia tvár / estetická zóna (mikro-intradermálny steh)',
+    name: 'Chirurgická excízia – Tvár / Estetika',
     category: 'chirurgia',
     defaultMethod: 'chirurgicka_excizia',
     defaultHistology: true,
     defaultSuture: 'Mikro-intradermálny atraumatický steh (Ethilon/Monocryl 6-0)',
     defaultPrice: 120,
-    description: 'Precízna plasticko-chirurgická technika s dôrazom na neviditeľnú jazvu na tvári'
+    description: 'Plasticko-chirurgická technika pre minimálnu jazvu na tvári'
   },
   {
     id: 'laser_1',
-    name: 'CO2 Laserové odstránenie – 1. lézia (ablácia / vaporizácia)',
+    name: 'CO2 Laser – 1. lézia',
     category: 'laser',
     defaultMethod: 'laser_vaporizacia',
     defaultHistology: false,
     defaultSuture: 'Bez sutúry – hojenie pod chrastou (Cicaplast Baume B5+)',
     defaultPrice: 50,
-    description: 'Ablácia CO2 laserom bez rezu a bez stehov, okamžitá kauterizácia'
+    description: 'Laserová vaporizácia bez rezu a šitia, okamžitá koagulácia'
   },
   {
     id: 'laser_next',
-    name: 'CO2 Laserové odstránenie – každá ďalšia lézia (2. až 5. lézia)',
+    name: 'CO2 Laser – každá ďalšia (2.–5.)',
     category: 'laser',
     defaultMethod: 'laser_vaporizacia',
     defaultHistology: false,
     defaultSuture: 'Bez sutúry – hojenie pod chrastou',
     defaultPrice: 25,
-    description: 'Zvýhodnená sadzba za kus pri ošetrení viacerých prejavov'
+    description: 'Zvýhodnená cena za kus pri ošetrení viacerých prejavov'
   },
   {
     id: 'laser_multi',
-    name: 'CO2 Laser – balík mnohopočetných lézií (nad 5 prejavov)',
+    name: 'CO2 Laser – Balík (nad 5 prejavov)',
     category: 'laser',
     defaultMethod: 'laser_vaporizacia',
     defaultHistology: false,
     defaultSuture: 'Bez sutúry – laserová vaporizácia',
     defaultPrice: 150,
-    description: 'Paušálny balík pre hromadné odstránenie fibrómov, verúk či keratóz'
+    description: 'Paušál pre mnohopočetné fibrómy, keratózy a bradavice'
   },
   {
     id: 'shave_excision',
-    name: 'Shave excízia lézie (tangenciálny rez + elektrokoagulácia)',
+    name: 'Shave excízia lézie',
     category: 'chirurgia',
     defaultMethod: 'shave_excizia',
     defaultHistology: true,
     defaultSuture: 'Bez sutúry – hemostáza a krytie',
     defaultPrice: 60,
-    description: 'Zrezanie vystupujúcej lézie v úrovni kože so zachovaním vzorky na histológiu'
+    description: 'Tangenciálne zrezanie v úrovni kože so zachovaním vzorky'
   },
   {
     id: 'subcut_lesion',
-    name: 'Odstránenie podkožného útvaru (lipóm, ateróm, epidermoidná cysta)',
+    name: 'Podkožný útvar (Lipóm / Ateróm)',
     category: 'podkozne',
     defaultMethod: 'chirurgicka_excizia',
     defaultHistology: true,
     defaultSuture: 'Vrstvová sutúra podkožia + intradermálny steh',
     defaultPrice: 130,
-    description: 'Kompletná exstirpácia tumoru aj s puzdrom, prevencia recidívy'
+    description: 'Kompletná exstirpácia tumoru s puzdrom, prevencia recidívy'
   },
   {
     id: 'histo_1',
-    name: 'Histopatologické vyšetrenie (1 bioptická vzorka / nádobka)',
+    name: 'Histopatológia – 1. vzorka',
     category: 'histologia',
     defaultMethod: 'chirurgicka_excizia',
     defaultHistology: true,
     defaultSuture: '—',
     defaultPrice: 30,
-    description: 'Odborná histopatologická diagnostika v akreditovanom bioptickom laboratóriu'
+    description: 'Bioptické vyšetrenie vzorky v akreditovanom laboratóriu'
   },
   {
     id: 'histo_next',
-    name: 'Histopatologické vyšetrenie – každá ďalšia bioptická vzorka',
+    name: 'Histopatológia – každá ďalšia',
     category: 'histologia',
     defaultMethod: 'chirurgicka_excizia',
     defaultHistology: true,
     defaultSuture: '—',
     defaultPrice: 25,
-    description: 'Doplnková histopatológia pre ďalšiu odoslanú léziu'
+    description: 'Doplnkové histopatologické vyšetrenie ďalšej vzorky'
   }
+];
+
+export const COMMON_INDICATIONS = [
+  'Preventívna onkodermatologická indikácia (suspektný melanocytový névus)',
+  'Chronické mechanické dráždenie a traumatizácia odevom',
+  'Estetická indikácia na žiadosť pacienta (benígny kožný prejav)',
+  'Atypický névus s dermatoskopickou dynamikou / dysplázia',
+  'Iritovaná seboroická veruka / keratóza',
+  'Podkožný útvar (ateróm / lipóm) s progresiou veľkosti'
 ];
 
 export const COMMON_LOCATIONS = [
