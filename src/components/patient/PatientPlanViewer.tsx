@@ -216,7 +216,6 @@ export default function PatientPlanViewer({
   });
   const [isRecalculatingAI, setIsRecalculatingAI] = useState(false);
   const [aiUpdateMessage, setAiUpdateMessage] = useState<string | null>(null);
-  const [showGuidelinesPanel, setShowGuidelinesPanel] = useState(false);
 
   // Dynamický EBM referenčný plán pre doplnenie zrozumiteľných vysvetlení a guidelinov aj pre staršie plány
   const ebmReference = synthesizeEbmPatientPlan({
@@ -229,9 +228,6 @@ export default function PatientPlanViewer({
     existingTreatments: plan.annualTreatments,
     diagnosisOrGoal: plan.diagnosisOrGoal
   });
-
-  const effectivePatientSummary = plan.patientFriendlySummary || ebmReference.patientFriendlySummary!;
-  const effectiveGuidelines = plan.verifiedGuidelinesUsed || ebmReference.verifiedGuidelinesUsed!;
 
   const standardMorningTotal = (plan.cosmeticsRoutine?.morning || []).reduce((sum, item) => sum + (item.standardOption?.price ?? item.price ?? 0), 0);
   const standardEveningTotal = (plan.cosmeticsRoutine?.evening || []).reduce((sum, item) => sum + (item.standardOption?.price ?? item.price ?? 0), 0);
@@ -1304,62 +1300,6 @@ export default function PatientPlanViewer({
             )}
           </div>
         </div>
-      </div>
-
-      {/* ===================================================================== */}
-      {/* ZROZUMITEĽNÝ SPRIEVODCA PRE PACIENTA & OVERENÉ MEDICÍNSKE GUIDELINY    */}
-      {/* ===================================================================== */}
-      <div className="bg-white border border-[#E8E2D9] rounded-2xl p-5 shadow-xs space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-3 max-w-4xl">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 text-emerald-700 mt-0.5">
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h4 className="text-xs md:text-sm font-bold text-[#2C2A29] uppercase tracking-wider">
-                  Zrozumiteľný sprievodca plánom pre pacienta (Ako na seba kroky nadväzujú)
-                </h4>
-                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-full border border-emerald-300">
-                  ✓ Overené podľa EBM štúdií & guidelinov
-                </span>
-              </div>
-              <p className="text-xs text-[#4A453E] leading-relaxed">
-                {effectivePatientSummary}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowGuidelinesPanel(prev => !prev)}
-            className="px-3 py-1.5 rounded-xl bg-[#FAF8F5] hover:bg-stone-100 border border-[#E8E2D9] text-[#2C2A29] text-[11px] font-bold flex items-center gap-1.5 cursor-pointer print:hidden shrink-0"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>{showGuidelinesPanel ? 'Skryť medicínske štúdie' : '📚 Zobraziť použité guideliny a štúdie (4)'}</span>
-          </button>
-        </div>
-
-        {showGuidelinesPanel && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-[#E8E2D9] animate-in fade-in">
-            {effectiveGuidelines.map((g, idx) => (
-              <div key={idx} className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-3.5 space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold text-[#2C2A29] flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
-                    <span>{g.title}</span>
-                  </span>
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059] block">
-                  {g.organization}
-                </span>
-                <p className="text-[11px] text-[#6B6357] leading-relaxed">
-                  <strong>Čo to znamená pre vás:</strong> {g.summaryForPatient}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ===================================================================== */}
