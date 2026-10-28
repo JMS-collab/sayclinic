@@ -457,19 +457,21 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           'Profylaxia herpes simplex (Valaciklovir / Aciklovir) 2 dni pred laserovým resurfacingom alebo výkonom v periorálnej zóne.'
         ],
         psychologicalPrep: [
-          'Dôkladná konzultácia s operatérom – nastavenie realistických očakávaní a oboznámenie sa s fázami pooperačného opuchu.',
-          'Optimalizácia spánkového režimu (7–8 hodín denne) a redukcia kortizolu pred plánovaným zákrokom.',
-          'Príprava domáceho prostredia na prvých 7 dní (vyvýšené vankúše pod hlavu, chladivé gélové masky v chladničke, zabezpečenie odvozu).'
+          'Eliminácia chronického stresu a ochrana imunitného hojenia: Chronický distres a psychické vypätie vyplavujú kortizol a katecholamíny, ktoré preukázateľne znižujú tvorbu kolagénu v rane o 20–40 % a potláčajú bunkovú imunitu (Kiecolt-Glaser / Lancet). 1 – 2 týždne pred operáciou uzavrite pracovné stresory a zabezpečte si pokojný mentálny režim.',
+          'Mentálna pripravenosť na priebeh a možné komplikácie (Psychological readiness): Hojenie nie je priamka. Oboznámenie sa s fázami hojenia a pripravenosť na bežné prechodné javy (asymetrický opuch, modrinky, tuhosť) aj na zvládnutie prípadných komplikácií (hematóm, predĺžené hojenie) zabraňuje panike, úzkosti a pocitu straty kontroly.',
+          'Prevencia pooperačnej emocionálnej lability („Post-Op Blues“): Na 3. až 5. deň po operácii nastáva vplyvom doznievania analgézie, únavy a opuchov prirodzený neuroendokrinný pokles nálady. Vedomá mentálna príprava pomáha pacientovi zvládnuť tento stav s pokojom a bez psychickej traumy.',
+          'Nácvik copingových stratégií a relaxácie: Nácvik bránicového dýchania (technika 4-7-8), progresívnej svalovej relaxácie a riadenej vizualizácie hojenia tkanív. Tieto techniky preukázateľne znižujú vnímanie pooperačnej bolesti a znižujú spotrebu analgetík až o 30 % (ERAS® Society Guidelines).'
         ],
         nutritionalPrep: [
-          'Zvýšený príjem plnohodnotných bielkovín (1,2–1,5 g/kg hmotnosti) ako substrátu pre novotvorbu kolagénu a elastínu.',
-          'Cielená suplementácia: Vitamín C (1000 mg/deň), Zinok (25 mg/deň), Bromelaín a Arnika Montana na redukciu hematómov.',
+          'Zvýšený príjem plnohodnotných bielkovín (1,5 – 2,0 g/kg hmotnosti denne – ryby, hydina, vajcia, strukoviny, srvátkový proteín) ako základného substrátu pre syntézu nového kolagénu.',
+          'Cielená suplementácia: Vitamín C (1000 mg/deň), Zinok (20 – 25 mg/deň), hydrolyzované kolagénové peptidy a Bromelaín na rýchlejšie vstrebávanie hematómov.',
           'Intenzívna hydratácia (2,5 l čistej vody denne) a striktná abstinencia od alkoholu min. 7 dní pred zákrokom.'
         ],
         physicalPrep: [
-          'Udržiavanie kardiovaskulárnej kondície a dychová gymnastika pred výkonom v celkovej anestézii (prevencia TEN).',
-          'Uvoľnenie krčnej chrbtice, trapézov a aktivácia krčnej lymfatickej drenáže pred operáciou tváre/viečok.',
-          'Príprava pokožky tváre bariérovými ceramidmi a antioxidantmi pre rýchlu epitelizáciu.'
+          'Silový odporový tréning veľkých svalových skupín (Resistance Training): Pravidelné posilňovanie nôh a sedacích svalov (drepy, výstupy), chrbta a stredu tela / core 3 – 4x týždenne (Minnella / Carli et al., Annals of Surgery).',
+          'Vybudovanie a ochrana svalovej hmoty (Metabolic Anabolic Reserve): Pooperačný kľud a imobilita vyvolávajú akútny katabolizmus (strata až 1 kg svalov za týždeň). Svalová hmota slúži ako kľúčová aminokyselinová rezerva pre imunitný systém a syntézu kolagénu v hojacich sa ranách.',
+          'Funkčná sebestačnosť a samostatná mobilizácia: Pevné dolné končatiny a silný core umožňujú po operácii vstávať z lôžka a z kresla výhradne silou nôh, bez nebezpečného zapájania a napínania operovaných oblastí (tváre, krku alebo trupu).',
+          'Zvýšenie kardiorespiračnej rezervy a VO2 max: Kombinácia silového tréningu so stredne intenzívnym aeróbnym cvičením (rýchla chôdza) zlepšuje tkanivovú oxygenáciu a chráni pred pooperačnou tromboembóliou (TEN).'
         ]
       },
       instructions: [
@@ -478,6 +480,20 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           timeframe: '2-4 týždne pred',
           title: 'Prehabilitácia tkanív & Vysadenie antikoagulancií',
           description: 'Stop nikotínu, vysadenie liekov ovplyvňujúcich zrážanlivosť krvi (ASA, Ibuprofen, Vitamín E). Nasadenie Vitamínu C a zinku.',
+          mandatory: true
+        },
+        {
+          id: 'face-pre-home',
+          timeframe: '7 dní pred',
+          title: 'Príprava domáceho prostredia & odvoz',
+          description: 'Zabezpečte si sprievodnú osobu a odvoz z kliniky, pripravte si vyvýšené vankúše na spanie v polosede a chladivé gélové obklady do chladničky.',
+          mandatory: false
+        },
+        {
+          id: 'face-pre-2',
+          timeframe: '5-7 dní pred',
+          title: 'Vysadenie lokálneho retinolu a AHA/BHA kyselín',
+          description: 'Pred laserovým alebo chirurgickým zákrokom vysadiť lokálne retinoidy a exfoliačné kyseliny, prejsť na bariérový krém (Cicaplast Baume B5+ / Triple Lipid Restore).',
           mandatory: true
         },
         {
@@ -766,19 +782,21 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           'Vysadenie ASA, Ibuprofénu, Warfarínu/NOAK (po konzultácii s internistom), vitamínu E a Ginkgo biloba 14 dní pred zákrokom.'
         ],
         psychologicalPrep: [
-          'Oboznámenie sa s fázovým charakterom transformácie – pochopenie, že opuchy po facelifte a viečkach ustupujú postupne.',
-          'Zabezpečenie pokojného domáceho prostredia, spánku v polosede a sprievodnej osoby na prvé 3 dni po operácii.',
-          'Mentálna relaxácia, dychové cvičenia a kvalitný spánok týždeň pred výkonom.'
+          'Eliminácia chronického distresu a psychickej záťaže: Chronický stres vyplavuje kortizol, ktorý potláča syntézu kolagénu v rane o 20–40 % a oslabuje bunkovú imunitu (Kiecolt-Glaser / Lancet). 1 – 2 týždne pred operáciou uzavrite náročné pracovné projekty a vyhnite sa emocionálnemu vypätiu.',
+          'Mentálna pripravenosť na priebeh a možné komplikácie (Psychological readiness): Hojenie tváre vyžaduje trpezlivosť. Pripravenosť na prechodné javy (asymetrický edém, napätie SMAS, podliatiny viečok) aj na zvládnutie prípadných komplikácií chráni pred úzkosťou a panikou.',
+          'Prevencia pooperačnej emocionálnej lability („Post-Op Blues“): Na 3. až 5. deň po facelifte nastáva prirodzený neuroendokrinný pokles nálady. Vedomá mentálna príprava pomáha tento stav prekonať s pokojom a istotou.',
+          'Nácvik copingových techník a relaxácie: Tréning bránicového dýchania (4-7-8) a Jacobsonovej progresívnej svalovej relaxácie na zníženie perioperačného tlaku a vnímania pooperačnej bolesti.'
         ],
         nutritionalPrep: [
-          'Vysokobielkovinová strava + hydrolyzované kolagénové peptidy (10 g denne) na podporu pevného hojenia SMAS a kože.',
-          'Suplementácia: Vitamín C 1000 mg, Zinok 25 mg, Bromelaín + Arnika Montana (prevencia hematómov a edému).',
-          'Obmedzenie soli (sodíka) v strave týždeň pred operáciou na minimalizáciu zadržiavania tekutín a opuchu tváre.'
+          'Vysokobielkovinová strava (1,5 – 2,0 g/kg/deň) + hydrolyzované kolagénové peptidy (10 g denne) ako substrát pre pevné hojenie SMAS vrstvy a kože.',
+          'Suplementácia podľa EBM: Vitamín C 1000 mg, Zinok 25 mg, Bromelaín + Arnika Montana (prevencia hematómov a urýchlenie resorpcie edému).',
+          'Obmedzenie soli (sodíka) v strave 7 dní pred operáciou na minimalizáciu pooperačného zadržiavania tekutín a opuchu tváre.'
         ],
         physicalPrep: [
-          'Jemná mobilizácia krčnej chrbtice a uvoľnenie trapézových svalov (počas rekonvalescencie sa spí na chrbte).',
-          'Rozprúdenie lymfatického obehu a ľahká kardio aktivita (chôdza) do dňa pred operáciou.',
-          'Dychové cvičenia a cievna gymnastika dolných končatín.'
+          'Silový odporový tréning veľkých svalových skupín (Resistance Training): Systematické posilňovanie nôh (drepy, výstupy) a chrbtového svalstva 3 – 4x týždenne (Minnella / Carli et al., Annals of Surgery).',
+          'Vybudovanie a ochrana svalovej hmoty (Metabolic Anabolic Reserve): Svaly tvoria zásadnú metabolickú aminokyselinovú rezervu proti akútnemu pooperačnému katabolizmu počas kľudu na lôžku.',
+          'Funkčná sebestačnosť a samostatná mobilizácia: Pevné nohy a stabilný stred tela (core) umožňujú po facelifte a viečkach vstávať z lôžka výlučne silou nôh, bez predkláňania hlavy a bez napínania šijových a tvárových svalov.',
+          'Zvýšenie kardiorespiračnej rezervy (VO2 max): Aeróbna chôdza na stimuláciu mikrocirkulácie, tkanivovej oxygenácie a prevenciu tromboembólie.'
         ]
       },
       instructions: [
@@ -795,6 +813,13 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           title: 'Predoperačné interné vyšetrenie & Vysadenie ASA/NSAID',
           description: 'Kompletné laboratórne odbery + EKG. Vysadiť lieky riediace krv a znížiť príjem soli v strave.',
           mandatory: true
+        },
+        {
+          id: 'seq-pre-home',
+          timeframe: '7 dní pred',
+          title: 'Príprava domácnosti a odvozu',
+          description: 'Zabezpečiť odvoz z kliniky a sprievodnú osobu, pripraviť vyvýšené vankúše na spanie v polosede a voľné oblečenie na zapínanie vpredu.',
+          mandatory: false
         },
         {
           id: 'seq-pre-3',
@@ -861,19 +886,21 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           'Striktné vynechanie fajčenia a nikotínu min. 4 týždne pred a 4 týždne po operácii (prevencia kapsulárnej kontraktúry a nekrózy).'
         ],
         psychologicalPrep: [
-          'Dôkladný výber veľkosti a profilu implantátu s chirurgom, mentálne nastavenie na prvé týždne adaptácie prsného svalu.',
-          'Príprava domáceho prostredia: presunutie často používaných predmetov vo domácnosti do výšky pása (zákaz dvíhania rúk nad hlavu).',
-          'Kvalitný spánok a nácvik spánku v polosede na chrbte už týždeň pred operáciou.'
+          'Mentálna pripravenosť na pooperačné pocity tlaku a svalovej adaptácie: Pripravenosť na dočasný pocit tlaku na hrudníku (podobný svalovici) pri submuskulárnom uložení implantátu. Pokojné chápanie procesu klesania a zmäkčovania implantátov („drop and fluff“) počas prvých 3 mesiacov.',
+          'Eliminácia perioperačného distresu: Zníženie hladiny kortizolu a úzkosti pre ochranu imunity a nekomplikované vhojenie implantátov bez nadmernej zápalovej reakcie.',
+          'Pripravenosť na priebeh a možné komplikácie: Oboznámenie sa s bežným priebehom aj s postupom pri komplikáciách (hematóm, seróm, prechodná asymetria opuchu) eliminuje paniku a psychickú traumu.',
+          'Nácvik bránicového dýchania a relaxácie: Pomáha uvoľniť spazmy prsného a medzirebrového svalstva po vložení implantátu a výrazne znižuje vnímanie pooperačnej bolesti.'
         ],
         nutritionalPrep: [
-          'Zvýšený príjem bielkovín (1,3–1,5 g/kg/deň) a kolagénových peptidov pre optimálne hojenie fibromuskulárneho puzdra.',
-          'Suplementácia: Vitamín C (1000 mg/deň), Zinok (25 mg/deň), Bromelaín a Arnika na zmiernenie pooperačného opuchu.',
-          'Pitný režim min. 2,5 l čistej vody denne, vynechanie alkoholu a nadmerného solenia.'
+          'Zvýšený príjem plnohodnotných bielkovín (1,5 – 2,0 g/kg/deň) a kolagénových peptidov pre optimálne vhojenie fibromuskulárnej kapsuly okolo implantátu.',
+          'Cielená suplementácia: Vitamín C (1000 mg/deň), Zinok (25 mg/deň), Bromelaín a Arnika na zmiernenie pooperačného opuchu a hematómov.',
+          'Hydratácia (min. 2,5 l vody denne) a vynechanie alkoholu 14 dní pred operáciou.'
         ],
         physicalPrep: [
-          'Posilnenie svalov stredu tela (core) a dolných končatín – uľahčuje vstávanie z postele bez zapájania prsných svalov a rúk.',
-          'Mobilizácia hrudnej a krčnej chrbtice, nácvik bránicového dýchania.',
-          'Hydratácia pokožky prsníkov a dekoltu relipidačným balzamom (La Roche-Posay Lipikar Baume AP+M) 2 týždne pred operáciou.'
+          'Silový odporový tréning dolných končatín a stredu tela (drepy, mostíky, výstupy): Pacientka sa musí vedieť po operácii samostatne postaviť a ľahnúť si výlučne silou nôh a brucha, bez akéhokoľvek opierania sa o ruky či napínania prsných svalov počas prvých 4 týždňov.',
+          'Vybudovanie a ochrana svalovej hmoty veľkých svalových partií: Svalstvo nôh a chrbta vytvára anabolickú metabolickú rezervu aminokyselín proti pooperačnému katabolizmu.',
+          'Aeróbna kardio kondícia (rýchla chôdza): Zvyšuje kardiorespiračnú rezervu a slúži ako kľúčová prevencia tromboembólie (TEN).',
+          'Vynechanie intenzívneho cvičenia prsných svalov a ramien 1 týždeň pred operáciou pre pokojné svalové lôžko.'
         ]
       },
       instructions: [
@@ -883,6 +910,13 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           title: 'Zákaz fajčenia a nikotínových produktov',
           description: 'Nikotín spôsobuje vazokonstrikciu mikrocirkulácie, čo drasticky zhoršuje hojenie rán a zvyšuje riziko infekcie a nekrózy tkaniva. Striktný zákaz aspoň 4 týždne pred a 4 týždne po.',
           mandatory: true
+        },
+        {
+          id: 'pre-home',
+          timeframe: '7 dní pred',
+          title: 'Príprava domácnosti a voľného oblečenia',
+          description: 'Presuňte predmety dennej potreby do výšky pása (zákaz dvíhania rúk nad hlavu po operácii), zabezpečte si odvoz z kliniky a voľné oblečenie so zapínaním vpredu.',
+          mandatory: false
         },
         {
           id: 'pre-2',
@@ -1148,19 +1182,19 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           'Vynechanie fajčenia a nikotínu min. 2–4 týždne pred zákrokom.'
         ],
         psychologicalPrep: [
-          'Mentálna príprava na dočasný opuch a podliatiny okolo očí počas prvých 7–10 dní.',
-          'Príprava audio-obsahu (podcasty, audioknihy) na prvé 3 dni, kedy sa neodporúča sledovať obrazovky a čítať.',
-          'Zabezpečenie sprievodnej osoby na odvoz z kliniky a príprava tmavých UV400 slnečných okuliarov.'
+          'Eliminácia perioperačného stresu a stabilizácia autonómneho systému: Chronický stres vyplavuje katecholamíny a kortizol, ktoré zvyšujú krvný tlak a zhoršujú krvácavosť jemných periorbitálnych kapilár. 1 – 2 týždne pred zákrokom minimalizujte pracovný stres.',
+          'Mentálna pripravenosť na priebeh a možné komplikácie (Psychological readiness): Realistické oboznámenie sa s fázami hojenia a pripravenosť na prechodné periorbitálne modrinky a asymetrický opuch (7 – 10 dní) bez úzkosti, paniky či sociálneho stresu. Pokojná myseľ urýchľuje regeneráciu.',
+          'Nácvik relaxačného a bránicového dýchania (technika 4-7-8): Zmierňuje perioperačné napätie a pomáha udržať optimálny krvný tlak pred a počas lokálneho zákroku.'
         ],
         nutritionalPrep: [
-          'Obmedzenie príjmu soli a slaných jedál 5–7 dní pred operáciou (prevencia zadržiavania vody v periorbitálnej oblasti).',
-          'Suplementácia: Arnika Montana, Bromelaín, Vitamín C (1000 mg) a Rutín (Ascorutin) na spevnenie cievnej steny.',
+          'Obmedzenie príjmu soli a sodíka 5 – 7 dní pred operáciou (kľúčová prevencia nadmerného zadržiavania tekutín v periorbitálnej oblasti).',
+          'Suplementácia podľa EBM: Arnika Montana, Bromelaín, Vitamín C (1000 mg) a Rutín (Ascorutin) na spevnenie cievnej steny a urýchlenie vstrebania hematómov.',
           'Dostatočná hydratácia čistou vodou a vynechanie alkoholu min. 7 dní pred zákrokom.'
         ],
         physicalPrep: [
-          'Nácvik spánku na chrbte so zvýšenou hlavou (2 vankúše).',
-          'Jemná aktivácia krčnej lymfy a uvoľnenie šijového svalstva.',
-          'Vyhýbanie sa cvikom v predklone a stojkám.'
+          'Silový tréning veľkých svalových skupín (nohy, chrbát, core) a aeróbna kardio chôdza: Stimulujú systémovú mikrocirkuláciu a lymfatický obeh, čím významne zrýchľujú resorpciu pooperačného edému a podliatin.',
+          'Vybudovanie a ochrana svalovej hmoty: Svalová hmota slúži ako anabolická rezerva aminokyselín potrebných pre dokonalú syntézu kolagénu a reepitelizáciu jazvy vo viečkovom záhybe.',
+          'Vynechanie cvikov s hlbokými predklonmi hlavy a ťažkými váhami 48 hodín pred zákrokom (ochrana pred cievnou hypertenziou očného okolia).'
         ]
       },
       instructions: [
@@ -1170,6 +1204,13 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
           title: 'Vysadenie antikoagulancií a ASA liekov',
           description: 'Oblasť viečok je extrémne cievne zásobená. Prísny zákaz Acylpyrínu, Ibuprofénu a ginkga na prevenciu retrobulbárneho hematómu.',
           mandatory: true
+        },
+        {
+          id: 'blef-pre-home',
+          timeframe: '3 dni pred',
+          title: 'Príprava domáceho prostredia & odvoz',
+          description: 'Pripraviť si chladivé gélové obklady, tmavé slnečné okuliare s UV filtrom, audio-obsah (podcasty/audioknihy) a zabezpečiť si odvoz z kliniky po zákroku.',
+          mandatory: false
         },
         {
           id: 'blef-pre-2',

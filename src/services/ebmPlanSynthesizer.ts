@@ -73,9 +73,15 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
         'Dôsledná stabilizácia krvného tlaku pred operáciou (prevencia pooperačného hematómu).',
         'Prísny zákaz fajčenia a nikotínu minimálne 4 týždne pred a 4 týždne po operácii (ochrana prekrvenia lalokov).'
       ],
-      psychological: ['Príprava na prechodný pocit stiahnutia a opuch počas prvých dvoch týždňov.'],
+      psychological: [
+        'Eliminácia pracovného a osobného stresu 2 týždne pred operáciou (ochrana imunitného hojenia a zníženie kortizolu).',
+        'Mentálna pripravenosť na fázy hojenia (opuch vrcholí na 3. deň, pocit pnutia) a nácvik techník hlbokého dýchania na zvládanie úzkosti.'
+      ],
       nutritional: ['Vysadenie doplnkov riediacich krv (Ginkgo, vit. E, Omega-3) 14 dní pred zákrokom.'],
-      physical: ['Nácvik spánku na chrbte so zvýšenou hornou polovicou tela o 30–45°.'],
+      physical: [
+        'Silový tréning dolných končatín a stredu tela (drepy, mostíky, plank) pre schopnosť vstávať z lôžka bez predkláňania hlavy a bez napínania šijových svalov.',
+        'Kombinácia s aeróbnou chôdzou na zvýšenie kardiovaskulárnej rezervy a tkanivovej oxygenácie.'
+      ],
       timelineInstruction: {
         timeframe: '10 dní pred operáciou',
         title: 'Úprava vlasov a stabilizácia tlaku',
@@ -108,7 +114,15 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Zákrok odstráni previsy a zvislé pruhy na krku a vyrysuje ostrý prechod medzi bradou a krkom.',
     clinicalGuideline: 'ISAPS Cervicofacial Rejuvenation Guidelines (Martini et al.)',
     preOpSpecifics: {
-      medical: ['Stabilizácia tlaku, zákaz fajčenia a liekov ovplyvňujúcich zrážanlivosť.']
+      medical: ['Dôsledná stabilizácia krvného tlaku, zákaz fajčenia a liekov ovplyvňujúcich zrážanlivosť krvi (14 dní pred).'],
+      psychological: [
+        'Mentálne nastavenie na pocit pnutia a elastickej ohlávky na krku počas prvých 14 dní – pokojné zvládanie bez pocitu obmedzenia.',
+        'Pripravenosť na prechodný asymetrický opuch v oblasti podbradku a sánky ako prirodzenú fázu remodelácie.'
+      ],
+      physical: [
+        'Posilňovanie sedacích svalov a nôh (drepy, mostíky) – schopnosť vstávať z polosedu bez prudkého predkláňania hlavy a bez napínania platysmy.',
+        'Budovanie anabolickej svalovej rezervy pre rýchle vhojenie podkožného laloka krku.'
+      ]
     },
     postOpSpecifics: {
       earlyCare: 'Kompresívna ohlávka krku 24/7 prvé 2 týždne, vyvarovať sa prudkému predklonu.',
@@ -132,10 +146,22 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Odstráni pocit ťažkých, unavených viečok a otvorí pohľad. Jemný rez je schovaný presne v záhybe viečka.',
     clinicalGuideline: 'ASPS Clinical Practice Guideline for Blepharoplasty (Rohrich et al.)',
     preOpSpecifics: {
+      medical: [
+        'Striktné vysadenie liekov zvyšujúcich krvácavosť (Aspirin, Ibuprofen, Ginkgo biloba) 14 dní pred výkonom.',
+        'Kompenzácia krvného tlaku (hypertenzia je hlavnou príčinou pooperačného hematómu viečok).'
+      ],
+      psychological: [
+        'Pripravenosť na prechodné periorbitálne modrinky a opuch očného okolia (7 – 10 dní) bez úzkosti či sociálneho stresu.',
+        'Nácvik relaxačného dýchania na udržanie nízkeho tlaku krvi a prevenciu perioperačného stresu.'
+      ],
+      physical: [
+        'Silový a aeróbny tréning na podporu systémovej mikrocirkulácie a lymfatického toku, ktorý urýchli resorpciu pooperačného edému.',
+        'Zákaz silových cvikov s predklonmi hlavy a zadržiavaním dychu (Valsalvov manéver) 48 hodín pred zákrokom.'
+      ],
       timelineInstruction: {
         timeframe: '3 dni pred zákrokom',
         title: 'Príprava očí a kvapiek',
-        description: 'Vynechajte kontaktné šošovky a vodeodolnú maskaru. Pripravte si zvlhčujúce očné kvapky.'
+        description: 'Vynechajte kontaktné šošovky a vodeodolnú maskaru. Pripravte si zvlhčujúce očné kvapky bez konzervantov.'
       }
     },
     postOpSpecifics: {
@@ -160,10 +186,22 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Odstráni unavené vačky a kruhy pod očami pomocou presunutia alebo redukcie tuku a jemného spevnenia viečka.',
     clinicalGuideline: 'ASOPRS Lower Eyelid Blepharoplasty & Canthopexy Standards',
     preOpSpecifics: {
-      medical: ['Vyšetrenie laxity dolného viečka (snap-back test) a kvality slzného filmu.']
+      medical: [
+        'Vyšetrenie laxity dolného viečka (snap-back test) a kvality slzného filmu.',
+        'Vysadenie antikoagulancií a nesteroidných antiflogistík 14 dní pred operáciou.'
+      ],
+      psychological: [
+        'Mentálne nastavenie na postupný ústup edému (dolné viečko je lymfaticky citlivejšie než horné, plný výsledok prichádza do 6 – 8 týždňov).',
+        'Zníženie úzkosti a emočného stresu – podpora pokojného a trpezlivého prístupu k hojeniu.'
+      ],
+      physical: [
+        'Zvýšenie svalovej hmoty a kondície pre metabolickú stabilitu pri regenerácii jemných periorbitálnych štruktúr.',
+        'Nácvik vstávania z lôžka so stabilnou polohou hlavy bez predklonu.'
+      ]
     },
     postOpSpecifics: {
-      earlyCare: 'Polosed, chladenie, zákaz predkláňania a trenia očí 2 týždne.'
+      earlyCare: 'Polosed, chladenie, zákaz predkláňania a trenia očí 2 týždne.',
+      scarCare: 'Jemná silikónová starostlivosť a SPF 50+ od 14. dňa.'
     }
   },
   {
@@ -183,6 +221,18 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Komplexné omladenie očného okolia v jednom zákroku – odstránenie previsov aj vačkov pod očami s jednotným hojením.',
     clinicalGuideline: 'ASOPRS & ASPS Evidence-Based Blepharoplasty Guidelines',
     preOpSpecifics: {
+      medical: [
+        'Striktné vysadenie antikoagulancií, NSAID a salicylátov 14 dní pred výkonom.',
+        'Kompenzácia krvného tlaku u internistu (prevencia periorbitálneho hematómu).'
+      ],
+      psychological: [
+        'Pripravenosť na prechodné periorbitálne podliatiny a opuch očí (7 – 10 dní) bez obáv, paniky či sociálnej izolácie.',
+        'Mentálna rovnováha a zvládnutie prechodného pocitu ťažších viečok počas prvých pooperačných dní.'
+      ],
+      physical: [
+        'Kondičný silový tréning a chôdza na stimuláciu lymfatického toku a urýchlenie pooperačného vstrebávania opuchu.',
+        'Zákaz dvíhania ťažkých bremien a predklonov v perioperačnom období.'
+      ],
       timelineInstruction: {
         timeframe: '3 dni pred zákrokom',
         title: 'Príprava očného okolia',
@@ -211,7 +261,15 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Zákrok harmonizuje nos so zvyškom tváre a zlepšuje dýchanie. Dlaha sa nosí 10 – 14 dní, špička nosa dozrieva 6 – 12 mesiacov.',
     clinicalGuideline: 'AAO-HNS & ASPS Clinical Practice Guideline: Rhinoplasty (Ishii et al.)',
     preOpSpecifics: {
-      medical: ['Vysadenie nosových sprejov (dekongestív) 2 týždne pred operáciou.']
+      medical: ['Vysadenie nosových sprejov (dekongestív) 2 týždne pred operáciou.'],
+      psychological: [
+        'Mentálna pripravenosť na dýchanie výlučne ústami počas prvých dní po zákroku a pocit upchatého nosa bez paniky či úzkosti.',
+        'Realistické očakávania a trpezlivosť – špička nosa a jemné kontúry dozrievajú 6 až 12 mesiacov, čo si vyžaduje emocionálnu stabilitu.'
+      ],
+      physical: [
+        'Kondičný tréning a svižná aeróbna chôdza pre optimálnu oxygenáciu tkanív a urýchlenie vstrebávania periorbitálnych modrín po operácii.',
+        'Vyvarovanie sa cvikov s ťažkými váhami a predklonmi hlavy v poslednom týždni pred operáciou (ochrana pred cievnou hypertenziou).'
+      ]
     },
     postOpSpecifics: {
       earlyCare: 'Zákaz smrkania nosa 3 týždne (preplach morskou vodou), kýchať len s otvorenými ústami.',
@@ -349,11 +407,18 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
         'Aktuálne USG alebo mamografické vyšetrenie prsníkov (nie staršie ako 6 mesiacov).',
         'Kompletné predoperačné interné a laboratórne vyšetrenie.'
       ],
-      physical: ['Pripraviť si oblečenie so zapínaním vpredu, aby ste nemuseli dvíhať ruky nad hlavu.'],
+      psychological: [
+        'Mentálna pripravenosť na pooperačný pocit tlaku na hrudníku (podobný svalovici po cvičení) a pokojné zvládanie fáz adaptácie svalov.',
+        'Zníženie hladiny perioperačného stresu nácvikom dychových relaxačných techník.'
+      ],
+      physical: [
+        'Intenzívny silový tréning dolných končatín a stredu tela (drepy, výstupy, mostíky, plank) – nevyhnutný pre samostatné vstávanie a líhanie bez zapájania prsných svalov a bez opierania sa o ruky počas prvých 3 – 4 týždňov.',
+        'Svalová hmota nôh a chrbta vytvára anabolickú rezervu aminokyselín na rýchle hojenie kapsuly okolo implantátu.'
+      ],
       timelineInstruction: {
         timeframe: '2 týždne pred operáciou',
         title: 'USG prsníkov a skúška kompresívnej podprsenky',
-        description: 'Overte si platnosť sono prsníkov a vyskúšajte presnú veľkosť pooperačnej podprsenky.'
+        description: 'Overte si platnosť sono prsníkov a vyskúšajte presnú veľkosť pooperačnej podprsenky. Pripravte si oblečenie so zapínaním vpredu.'
       }
     },
     postOpSpecifics: {
@@ -379,7 +444,15 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Spevní a pozdvihne poklesnuté prsníky (napr. po deťoch alebo schudnutí) pomocou vášho vlastného tkaniva.',
     clinicalGuideline: 'ASPS Mastopexy & Breast Reshaping Guidelines',
     preOpSpecifics: {
-      medical: ['USG prsníkov nie staršie ako 6 mesiacov a interné vyšetrenie.']
+      medical: ['USG prsníkov nie staršie ako 6 mesiacov a kompletné interné predoperačné vyšetrenie.'],
+      psychological: [
+        'Mentálna pripravenosť na fázy dozrievania jaziev (kotva / vertikálna jazva) a trpezlivosť pri procese zmäkčovania prsníka.',
+        'Zníženie hladiny perioperačného stresu relaxačnými technikami a pokojný domáci režim.'
+      ],
+      physical: [
+        'Silový tréning dolných končatín a hlbokého stabilizačného systému (core) pre samostatné vstávanie bez zapojenia horných končatín.',
+        'Udržanie anabolickej svalovej hmoty ako proteínovej rezervy pre bezproblémové hojenie rozsiahlych kožných rezov.'
+      ]
     },
     postOpSpecifics: {
       earlyCare: 'Kompresívna podprsenka 6 týždňov, zákaz namáhania ramien.',
@@ -403,7 +476,15 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Kombinovaný zákrok, ktorý prsníky nielen pozdvihne na správne miesto, ale im dodá aj stratený plný dekolt.',
     clinicalGuideline: 'ISAPS & ASPS Simultaneous Augmentation-Mastopexy Safety Protocol',
     preOpSpecifics: {
-      medical: ['USG prsníkov, mamografia a dôkladné meranie tkanivového krytia.']
+      medical: ['USG prsníkov, mamografia a dôkladné meranie tkanivového krytia.'],
+      psychological: [
+        'Pripravenosť na pooperačný tlak na hrudi a pokojné zvládanie fáz hojenia implantátu a kožných rezov.',
+        'Eliminácia perioperačného stresu nácvikom dychových cvičení a dostatok oddychu.'
+      ],
+      physical: [
+        'Silový tréning nôh a brušných svalov – schopnosť líhať si a vstávať bez opory o ramená a prsné svaly.',
+        'Budovanie anabolickej svalovej rezervy pre optimálne hojenie kapsuly a jaziev.'
+      ]
     },
     postOpSpecifics: {
       earlyCare: 'Kompresívna podprsenka a pás 6 týždňov, kľud na lôžku s vyvýšenou polohou.',
@@ -427,7 +508,15 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Zákrok prináša obrovskú úľavu pre chrbticu a krk, zmenší a spevní prsia na komfortnú veľkosť.',
     clinicalGuideline: 'ASPS Reduction Mammaplasty Clinical Practice Guideline',
     preOpSpecifics: {
-      medical: ['Onkologický skríning prsníkov (USG/mamografia) a laboratórne testy.']
+      medical: ['Onkologický skríning prsníkov (USG/mamografia) a laboratórne testy.'],
+      psychological: [
+        'Mentálna príprava na výraznú zmenu telesného obrazu a úľavu od chronickej bolesti chrbtice.',
+        'Trpezlivosť počas dozrievania jaziev v podprsnej ryhe a okolo dvorca.'
+      ],
+      physical: [
+        'Posilňovanie chrbtového svalstva a dolných končatín na uľahčenie pooperačnej vertikalizácie.',
+        'Udržanie vysokej proteosyntézy svalov pre rýchlu regeneráciu redukovaných lalokov.'
+      ]
     },
     postOpSpecifics: {
       earlyCare: 'Nosenie pevnej pooperačnej podprsenky 6 týždňov, zákaz zdvíhania rúk a bremien.'
@@ -450,7 +539,15 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Vyrieši zväčšené prsia u mužov odstránením tuhej žľazy a odsávaním tuku, čím vznikne plochý atletický hrudník.',
     clinicalGuideline: 'ASPS Gynecomastia Practice Advisory',
     preOpSpecifics: {
-      medical: ['Endokrinologické a USG vyšetrenie prsníkov pred operáciou.']
+      medical: ['Endokrinologické a USG vyšetrenie prsníkov pred operáciou.'],
+      psychological: [
+        'Odstránenie sociálnej úzkosti a mentálna príprava na nosenie kompresívnej vesty pod oblečením.',
+        'Realistické očakávania – vyrysovanie hrudníka nastáva postupne po ústupe pooperačného opuchu.'
+      ],
+      physical: [
+        'Silový tréning nôh a stredu tela (core) s vynechaním ťažkých benchpress cvikov 1 týždeň pred operáciou.',
+        'Dostatočná svalová hmota urýchľuje adaptáciu kože na nový plochý profil hrudníka.'
+      ]
     },
     postOpSpecifics: {
       earlyCare: 'Nosenie elastickej kompresívnej vesty 4 – 6 týždňov.'
@@ -473,8 +570,24 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Chirurg zošije rozostúpené brušné svaly do pevného korzetu a odstráni previs kože. Prvý týždeň sa chodí mierne v predklone.',
     clinicalGuideline: 'ERAS® Plastic Surgery Abdominoplasty Guidelines (Caprini VTE Prophylaxis)',
     preOpSpecifics: {
-      medical: ['Prevencia trombózy (bandáže nôh, nízkomolekulárny heparín) a zhodnotenie diastázy sonograficky.'],
-      nutritional: ['Vlákninová strava pred operáciou pre bezproblémové vyprázdňovanie bez tlaku na brucho.']
+      medical: [
+        'Prevencia trombózy (bandáže nôh, nízkomolekulárny heparín podľa Caprini skóre) a zhodnotenie diastázy sonograficky.',
+        'Interné vyšetrenie so zameraním na pľúcne a kardiovaskulárne funkcie.'
+      ],
+      psychological: [
+        'Mentálna príprava na dočasné obmedzenie mobility a chôdzu v miernom predklone (7 – 10 dní) – vnútorný pokoj a trpezlivosť.',
+        'Psychologická pripravenosť na nepretržité nosenie kompresívneho pásu 24/7 po dobu 6 týždňov a zvládanie fáz hojenia bez úzkosti.',
+        'Pripravenosť na bežné pooperačné javy (seróm, opuch podbruška, pnutie) a dôvera v odbornú pooperačnú starostlivosť.'
+      ],
+      nutritional: [
+        'Vlákninová strava a probiotiká pred operáciou pre bezproblémové trávenie a ľahké vyprázdňovanie bez tlaku na brušnú stenu.',
+        'Zvýšený príjem plnohodnotných bielkovín (1,5 – 2,0 g/kg/deň) pre pevné zrastenie rekonštruovanej diastázy.'
+      ],
+      physical: [
+        'Cielený silový odporový tréning dolných končatín (drepy, výstupy na lavičku, výpady) – pacient sa musí vedieť samostatne postaviť a líhať si výhradne silou nôh bez zapojenia priamych brušných svalov.',
+        'Zvýšenie svalovej hmoty nôh a chrbta ako kľúčovej metabolickej rezervy aminokyselín proti pooperačnému katabolizmu.',
+        'Dychová gymnastika a tréning bránicového dýchania na prevenciu atelektázy pľúc pri dočasne obmedzenom brušnom dýchaní.'
+      ]
     },
     postOpSpecifics: {
       earlyCare: 'Včasná mobilizácia, chôdza v predklone 7 – 10 dní, nosenie brušného pásu 6 týždňov.',
@@ -497,7 +610,12 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     clinicalNotes: 'Resekcia nadbytku kože a tuku v podbrušku s prípadnou plikáciou infraumbilikálnej fascie bez nutnosti nového pupka.',
     patientExplanation: 'Menej invazívny variant pre pacientov s uvoľnenou kožou len v spodnej časti bruška.',
     clinicalGuideline: 'ISAPS Limited-Incision Abdominoplasty Consensus',
-    preOpSpecifics: {},
+    preOpSpecifics: {
+      physical: [
+        'Posilnenie nôh a sedacích svalov pre vstávanie bez nadmerného napínania podbruška.',
+        'Kondičný tréning na podporu mikrocirkulácie a prevenciu opuchov.'
+      ]
+    },
     postOpSpecifics: {
       earlyCare: 'Nosenie elastického pásu 4 týždne.'
     }
@@ -519,7 +637,15 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     patientExplanation: 'Trvalé odsatie tuku z problematických partií, ktoré nereagujú na cvičenie a stravu. Pokožka sa vďaka prádlu stiahne.',
     clinicalGuideline: 'ASPS Practice Advisory on Liposuction Safety (Fluid Management & Maximum Volume)',
     preOpSpecifics: {
-      medical: ['Hydratácia, laboratórne vyšetrenie a výber kompresívneho odevu.']
+      medical: ['Dôkladná hydratácia, laboratórne predoperačné vyšetrenie a výber certifikovaného kompresívneho odevu.'],
+      psychological: [
+        'Pripravenosť na prechodné nerovnosti, edém a modriny počas prvých 4 – 6 týždňov pred plným rozvinutím výsledku.',
+        'Eliminácia stresu a dodržiavanie kľudového režimu s vedomím, že kompresia tvaruje finálnu siluetu.'
+      ],
+      physical: [
+        'Udržanie aktívnej svalovej hmoty na stimuláciu metabolizmu a rýchlejšie vstrebávanie tumescentného roztoku.',
+        'Kardiovaskulárny kondičný tréning na podporu mikrocirkulácie a prevenciu tromboembólie.'
+      ]
     },
     postOpSpecifics: {
       earlyCare: 'Nosenie kompresívneho odevu 24/7 po dobu 4 – 6 týždňov, manuálna lymfodrenáž od 10. dňa.'
@@ -1518,19 +1644,22 @@ export function synthesizeEbmPatientPlan(params: {
       'Prísny zákaz fajčenia, elektronických cigariet a nikotínových vrecúšok minimálne 4 týždne pred a 4 týždne po operácii (nikotín sťahuje cievy a až 3-násobne zvyšuje riziko zlého hojenia jaziev).'
     ],
     psychologicalPrep: [
-      'Zrozumiteľná príprava na priebeh hojenia: opuch a prípadné modrinky vrcholia na 2. – 3. deň po zákroku a následne postupne ustupujú. Finálny estetický výsledok vyzrieva niekoľko mesiacov.',
-      'Príprava pokojného domáceho prostredia: zabezpečte si odvoz z kliniky, pomoc blízkej osoby na prvých 48 hodín a oddychový režim bez pracovného stresu.',
-      'Kvalitný 8-hodinový spánok pred zákrokom znižuje hladinu stresového hormónu kortizolu a preukázateľne zlepšuje imunitnú odpoveď pri hojení.'
+      'Eliminácia chronického stresu a ochrana imunitného hojenia: Chronický distres a psychické vypätie vyplavujú kortizol a katecholamíny, ktoré preukázateľne znižujú tvorbu kolagénu v rane o 20–40 % a potláčajú bunkovú imunitu (Kiecolt-Glaser / Lancet). 1 – 2 týždne pred operáciou uzavrite pracovné stresory a zabezpečte si pokojný mentálny režim.',
+      'Mentálna pripravenosť na priebeh a možné komplikácie (Psychological readiness): Hojenie nie je priamka. Oboznámenie sa s fázami hojenia a pripravenosť na bežné prechodné javy (asymetrický opuch, modrinky, tuhosť, prechodná znížená citlivosť) aj na zvládnutie prípadných komplikácií (hematóm, predĺžené hojenie) zabraňuje panike, úzkosti a pocitu straty kontroly.',
+      'Prevencia pooperačnej emocionálnej lability („Post-Op Blues“): Na 3. až 5. deň po operácii nastáva vplyvom doznievania analgézie, únavy a opuchov prirodzený neuroendokrinný pokles nálady a pochybnosti. Vedomá mentálna príprava pred zákrokom pomáha pacientovi zvládnuť tento stav s pokojom a bez psychickej traumy.',
+      'Nácvik copingových stratégií a relaxácie: Nácvik bránicového dýchania (technika 4-7-8), progresívnej svalovej relaxácie a riadenej vizualizácie hojenia tkanív. Tieto techniky preukázateľne znižujú vnímanie pooperačnej bolesti a znižujú spotrebu analgetík až o 30 % (ERAS® Society Guidelines).'
     ],
     nutritionalPrep: [
-      'Zvýšený príjem bielkovín (1,2 – 1,5 g na kg hmotnosti denne – ryby, hydina, vajcia, strukoviny) 2 týždne pred a 4 týždne po zákroku pre optimálnu tvorbu kolagénu a hojenie rán.',
-      'Suplementácia podľa EBM štúdií: Vitamín C (1000 mg/deň), Zinok (15 – 25 mg/deň) a Bromelaín / Wobenzym (od 2. pooperačného dňa na rýchlejšie vstrebávanie opuchov).',
+      'Zvýšený príjem plnohodnotných bielkovín (1,5 – 2,0 g na kg hmotnosti denne – ryby, hydina, vajcia, strukoviny, srvátkový proteín) 2 – 4 týždne pred a po zákroku ako základný substrát pre syntézu nového kolagénu.',
+      'Suplementácia podľa EBM štúdií: Vitamín C (1000 mg/deň), Zinok (20 – 25 mg/deň), hydrolyzované kolagénové peptidy a Bromelaín / Wobenzym (od 2. pooperačného dňa na rýchlejšie vstrebávanie opuchov).',
       '14 dní pred operáciou vysadiť bylinné prípravky zvyšujúce krvácavosť (Ginkgo biloba, ženšen, vysoké dávky vitamínu E, cesnakové extrakty a rybí olej) a 7 dní pred operáciou nepiť alkohol.'
     ],
     physicalPrep: [
-      'Príprava miesta na spanie s vyvýšenou hornou polovicou tela (2 – 3 vankúše pod uhlom 30 – 45°), čo výrazne znižuje ranné pooperačné opuchy.',
-      'Pripraviť si voľné oblečenie so zapínaním vpredu (košele, kardigány na zips), aby ste po operácii nemuseli prevliekať oblečenie cez hlavu a tvár.',
-      'Aktivácia lymfatického systému: ľahké prechádzky na čerstvom vzduchu a dychové cvičenia pred operáciou.'
+      'Silový odporový tréning veľkých svalových skupín (Resistance Training): Pravidelné posilňovanie najväčších svalových partií tela – dolné končatiny a sedacie svaly (drepy, výstupy na schod, leg press), chrbát (príťahy, veslovanie) a stred tela / core (plank, mostíky) 3 – 4x týždenne (Minnella / Carli et al., Annals of Surgery).',
+      'Vybudovanie a ochrana svalovej hmoty (Metabolic Anabolic Reserve): Pooperačný kľud a imobilita vyvolávajú akútny katabolizmus a stratu svalov (až 1 kg svalov za týždeň). Vybudovaná svalová hmota slúži ako kľúčová metabolická aminokyselinová rezerva pre imunitný systém a syntézu kolagénu v hojacich sa ranách.',
+      'Uľahčenie pooperačného vstávania a sebestačnosti: Pevné nohy a silný stred tela (core) umožňujú po operácii vstávať z postele a z kresla výhradne silou nôh a brucha, bez nebezpečného zapájania a napínania operovaných oblastí (tváre, krku, prsných svalov alebo brušnej steny).',
+      'Zvýšenie kardiorespiračnej rezervy a VO2 max: Kombinácia silového tréningu so stredne intenzívnym aeróbnym kardio cvičením (rýchla chôdza do kopca, bicykel, plávanie) zlepšuje tkanivovú oxygenáciu a chráni pred pooperačnou tromboembóliou (TEN) a pľúcnymi komplikáciami.',
+      'Synergia tréningu so svalovou proteosyntézou: Silový tréning stimuluje anabolickú mTOR dráhu, ktorá v spojení s predoperačným príjmom bielkovín (1,5 – 2,0 g/kg/deň) privádza organizmus do optimálnej anabolickej kondície pred chirurgickým výkonom.'
     ]
   };
 

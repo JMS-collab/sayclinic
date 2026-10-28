@@ -906,20 +906,36 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
             {plan.preOpCare.prehabilitation && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px', fontSize: '8.5px' }}>
                 <div style={{ backgroundColor: '#FAF8F5', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '6px 8px' }}>
-                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '2px' }}>🩺 1. Medicínska prehabilitácia:</strong>
-                  <div style={{ color: '#5C554E' }}>{plan.preOpCare.prehabilitation.medicalPrehab.join(' • ')}</div>
+                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '3px' }}>🩺 1. Medicínska prehabilitácia (Bezpečnosť):</strong>
+                  <ul style={{ margin: 0, paddingLeft: '12px', color: '#5C554E', lineHeight: '1.4' }}>
+                    {plan.preOpCare.prehabilitation.medicalPrehab.map((item, i) => (
+                      <li key={i} style={{ marginBottom: '2px' }}>{item}</li>
+                    ))}
+                  </ul>
                 </div>
                 <div style={{ backgroundColor: '#FAF8F5', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '6px 8px' }}>
-                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '2px' }}>🧠 2. Psychologická príprava:</strong>
-                  <div style={{ color: '#5C554E' }}>{plan.preOpCare.prehabilitation.psychologicalPrep.join(' • ')}</div>
+                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '3px' }}>🧠 2. Psychologická príprava (Stres & Odolnosť):</strong>
+                  <ul style={{ margin: 0, paddingLeft: '12px', color: '#5C554E', lineHeight: '1.4' }}>
+                    {plan.preOpCare.prehabilitation.psychologicalPrep.map((item, i) => (
+                      <li key={i} style={{ marginBottom: '2px' }}>{item}</li>
+                    ))}
+                  </ul>
                 </div>
                 <div style={{ backgroundColor: '#FAF8F5', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '6px 8px' }}>
-                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '2px' }}>🥗 3. Nutričná príprava:</strong>
-                  <div style={{ color: '#5C554E' }}>{plan.preOpCare.prehabilitation.nutritionalPrep.join(' • ')}</div>
+                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '3px' }}>🥗 3. Nutričná príprava (Bielkoviny & Hojenie):</strong>
+                  <ul style={{ margin: 0, paddingLeft: '12px', color: '#5C554E', lineHeight: '1.4' }}>
+                    {plan.preOpCare.prehabilitation.nutritionalPrep.map((item, i) => (
+                      <li key={i} style={{ marginBottom: '2px' }}>{item}</li>
+                    ))}
+                  </ul>
                 </div>
                 <div style={{ backgroundColor: '#FAF8F5', border: '1px solid #E8E2D9', borderRadius: '6px', padding: '6px 8px' }}>
-                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '2px' }}>🏃‍♀️ 4. Fyzická príprava:</strong>
-                  <div style={{ color: '#5C554E' }}>{plan.preOpCare.prehabilitation.physicalPrep.join(' • ')}</div>
+                  <strong style={{ color: '#2C2A29', display: 'block', marginBottom: '3px' }}>🏃‍♀️ 4. Fyzická príprava (Silový tréning veľkých svalov):</strong>
+                  <ul style={{ margin: 0, paddingLeft: '12px', color: '#5C554E', lineHeight: '1.4' }}>
+                    {plan.preOpCare.prehabilitation.physicalPrep.map((item, i) => (
+                      <li key={i} style={{ marginBottom: '2px' }}>{item}</li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             )}

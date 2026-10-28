@@ -242,10 +242,17 @@ export default function PatientPlanViewer({
   const premiumTotal = premiumMorningTotal + premiumEveningTotal;
 
   // Zabezpečíme, že SAY Care má vždy k dispozícii predoperačný aj pooperačný protokol (fallback na predvolený protokol, ak v staršom pláne chýbal)
-  const defaultPreOp = PRESET_PATIENT_PLANS.face_sequential_transformation.preOpCare!;
-  const defaultPostOp = PRESET_PATIENT_PLANS.face_sequential_transformation.postOpCare!;
+  const defaultPreOp = ebmReference.preOpCare || PRESET_PATIENT_PLANS.face_sequential_transformation.preOpCare!;
+  const defaultPostOp = ebmReference.postOpCare || PRESET_PATIENT_PLANS.face_sequential_transformation.postOpCare!;
   const effectivePreOp = plan.preOpCare || defaultPreOp;
-  const effectivePrehab = effectivePreOp.prehabilitation || defaultPreOp.prehabilitation!;
+  
+  // Ak existujúci uložený plán obsahoval len staršie/logistické znenie prehabilitácie, uprednostníme vedeckú EBM prehabilitáciu
+  const hasModernPrehab = effectivePreOp.prehabilitation?.psychologicalPrep?.some(
+    p => p.includes('kortizol') || p.includes('Kiecolt-Glaser') || p.includes('stres') || p.includes('odolnosť')
+  );
+  const effectivePrehab = (hasModernPrehab && effectivePreOp.prehabilitation)
+    ? effectivePreOp.prehabilitation
+    : (ebmReference.preOpCare?.prehabilitation || defaultPreOp.prehabilitation!);
   const effectivePostOp = plan.postOpCare || defaultPostOp;
 
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>(() => {
@@ -2550,63 +2557,83 @@ export default function PatientPlanViewer({
               </span>
             </div>
 
-            {/* 4 PILIERE PREDOPERAČNEJ PRÍPRAVY */}
+            {/* 4 PILIERE PREDOPERAČNEJ PREHABILITÁCIE (ERAS® MULTIMODAL PROTOCOL) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
-                  <span className="text-base">🩺</span>
-                  <span>1. Medicínska prehabilitácia</span>
+              <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-4 space-y-2.5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
+                    <span className="text-base">🩺</span>
+                    <span>1. Medicínska prehabilitácia</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                    Interné testy & Bezpečnosť
+                  </span>
                 </div>
                 <ul className="space-y-1.5 text-xs text-[#6B6357]">
                   {effectivePrehab.medicalPrehab.map((item, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <span className="text-[#C5A059] font-bold">•</span>
-                      <span>{item}</span>
+                      <span className="text-[#C5A059] font-bold mt-0.5">•</span>
+                      <span className="leading-relaxed">{item}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
-                  <span className="text-base">🧠</span>
-                  <span>2. Psychologická príprava</span>
+              <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-4 space-y-2.5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
+                    <span className="text-base">🧠</span>
+                    <span>2. Psychologická príprava</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-sky-800 bg-sky-100/70 px-2 py-0.5 rounded-full">
+                    Stres, odolnosť & komplikácie
+                  </span>
                 </div>
                 <ul className="space-y-1.5 text-xs text-[#6B6357]">
                   {effectivePrehab.psychologicalPrep.map((item, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <span className="text-[#C5A059] font-bold">•</span>
-                      <span>{item}</span>
+                      <span className="text-[#C5A059] font-bold mt-0.5">•</span>
+                      <span className="leading-relaxed">{item}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
-                  <span className="text-base">🥗</span>
-                  <span>3. Nutričná príprava</span>
+              <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-4 space-y-2.5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
+                    <span className="text-base">🥗</span>
+                    <span>3. Nutričná príprava</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full">
+                    Bielkoviny & anabolizmus
+                  </span>
                 </div>
                 <ul className="space-y-1.5 text-xs text-[#6B6357]">
                   {effectivePrehab.nutritionalPrep.map((item, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <span className="text-[#C5A059] font-bold">•</span>
-                      <span>{item}</span>
+                      <span className="text-[#C5A059] font-bold mt-0.5">•</span>
+                      <span className="leading-relaxed">{item}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
-                  <span className="text-base">🏃‍♀️</span>
-                  <span>4. Fyzická príprava</span>
+              <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-4 space-y-2.5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
+                    <span className="text-base">🏃‍♀️</span>
+                    <span>4. Fyzická príprava</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-indigo-800 bg-indigo-100/70 px-2 py-0.5 rounded-full">
+                    Silový tréning veľkých svalov
+                  </span>
                 </div>
                 <ul className="space-y-1.5 text-xs text-[#6B6357]">
                   {effectivePrehab.physicalPrep.map((item, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <span className="text-[#C5A059] font-bold">•</span>
-                      <span>{item}</span>
+                      <span className="text-[#C5A059] font-bold mt-0.5">•</span>
+                      <span className="leading-relaxed">{item}</span>
                     </li>
                   ))}
                 </ul>
