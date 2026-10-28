@@ -23,8 +23,11 @@ import {
   AlertCircle,
   CheckCircle2,
   Settings,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { DriveClientService } from '@/services/driveClientService';
+import { PatientCloudService, Patient } from '@/services/patientCloudService';
 import GoogleDriveModal from './GoogleDriveModal';
 
 interface DriveFile {
@@ -38,9 +41,11 @@ interface DriveFile {
 
 interface PatientDriveFilesProps {
   patientName: string;
+  patient?: Patient;
+  onPatientUpdated?: (patient: Patient) => void;
 }
 
-export default function PatientDriveFiles({ patientName }: PatientDriveFilesProps) {
+export default function PatientDriveFiles({ patientName, patient, onPatientUpdated }: PatientDriveFilesProps) {
   const { data: session } = useSession();
   const [googleUser, setGoogleUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -48,6 +53,7 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isExtracting, setIsExtracting] = useState<boolean>(false);
   const [showDriveModal, setShowDriveModal] = useState(false);
   const [statusNotice, setStatusNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [driveData, setDriveData] = useState<{
@@ -224,6 +230,63 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
       });
     } finally {
       setIsCreatingFolder(false);
+    }
+  };
+
+  const handleExtractFromSheet = async () => {
+    if (!sheetFile || !effectiveToken) return;
+    setIsExtracting(true);
+    setStatusNotice(null);
+    try {
+      const res = await DriveClientService.readAndExtractPatientSheet(
+        effectiveToken,
+        patientName,
+        patient?.driveFolderId,
+        sheetFile.id
+      );
+
+      if (res.success && res.data) {
+        const d = res.data;
+        if (patient) {
+          const updatedPatient: Patient = {
+            ...patient,
+            phone: (d.phone && d.phone !== '---') ? d.phone : patient.phone,
+            email: (d.email && d.email !== '---') ? d.email : patient.email,
+            address: (d.address && d.address !== '---') ? d.address : patient.address,
+            birthNumber: (d.birthNumber && d.birthNumber !== 'Importované z Drive') ? d.birthNumber : patient.birthNumber,
+            dob: (d.dob && d.dob !== '---') ? d.dob : patient.dob,
+            insurance: (d.insurance && d.insurance !== 'Drive Klient') ? d.insurance : patient.insurance,
+          };
+          await PatientCloudService.savePatient(updatedPatient, effectiveToken);
+          if (onPatientUpdated) {
+            onPatientUpdated(updatedPatient);
+          }
+        }
+
+        const summaryParts: string[] = [];
+        if (d.phone) summaryParts.push(`Tel: ${d.phone}`);
+        if (d.email) summaryParts.push(`Email: ${d.email}`);
+        if (d.address) summaryParts.push(`Bydlisko: ${d.address}`);
+        if (d.birthNumber) summaryParts.push(`RČ: ${d.birthNumber}`);
+        if (d.dob) summaryParts.push(`Nar.: ${d.dob}`);
+
+        setStatusNotice({
+          type: 'success',
+          text: `Údaje úspešne načítané zo Sheetu (${summaryParts.join(', ') || 'Nájdené údaje boli synchronizované do karty pacienta'}).`,
+        });
+      } else {
+        setStatusNotice({
+          type: 'error',
+          text: res.error || 'V súbore sa nepodarilo rozpoznať kontaktné údaje pacienta.',
+        });
+      }
+    } catch (err: any) {
+      setStatusNotice({
+        type: 'error',
+        text: 'Chyba pri čítaní zo Sheetu: ' + (err?.message || 'Neznáma chyba'),
+      });
+    } finally {
+      setIsExtracting(false);
     }
   };
 
@@ -491,25 +554,46 @@ export default function PatientDriveFiles({ patientName }: PatientDriveFilesProp
         </div>
       </div>
 
-      {/* Hlavné tlačidlo pre otváranie Google Sheet Kartotéky */}
+      {/* Hlavné tlačidlo pre otváranie Google Sheet Kartotéky a extrakciu údajov */}
       {sheetFile ? (
-        <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl flex items-center justify-between">
+        <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Table2 className="w-5 h-5 text-emerald-700" />
+            <Table2 className="w-5 h-5 text-emerald-700 shrink-0" />
             <div>
               <h4 className="font-bold text-xs text-emerald-950">{sheetFile.name}</h4>
               <p className="text-[10px] text-emerald-700">Oficiálna Google Sheet kartotéka klienta</p>
             </div>
           </div>
-          <a
-            href={sheetFile.webViewLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px] uppercase px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"
-          >
-            <span>Otvoriť Kartotéku</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
+          <div className="flex items-center gap-2 self-stretch sm:self-auto">
+            <button
+              type="button"
+              onClick={handleExtractFromSheet}
+              disabled={isExtracting}
+              className="flex-1 sm:flex-none bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold text-[10px] uppercase px-3.5 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
+              title="Prečítať telefón, e-mail, adresu a RČ zo Sheetu a uložiť do karty pacienta"
+            >
+              {isExtracting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Čítam Sheet...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>⚡ Doplniť do karty</span>
+                </>
+              )}
+            </button>
+            <a
+              href={sheetFile.webViewLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 sm:flex-none bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px] uppercase px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+            >
+              <span>Otvoriť Kartotéku</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
         </div>
       ) : null}
 

@@ -22,6 +22,7 @@ export interface Patient {
   dob: string;
   insurance: string;
   driveFolderLink?: string;
+  driveFolderId?: string;
   allergies?: string[];
   notes?: string;
   updatedAt?: string;

@@ -29,7 +29,8 @@ import {
   Edit3,
   Loader2,
   RefreshCw,
-  ClipboardList
+  ClipboardList,
+  Table2
 } from 'lucide-react';
 import { filterAndRankPatients, RankedPatient } from '../utils/fuzzySearch';
 import { googleSignIn, subscribeWorkspaceAuth, setExternalAccessToken } from '@/lib/workspaceAuth';
@@ -45,6 +46,7 @@ import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
 import { PatientCloudService } from '../services/patientCloudService';
+import { DriveClientService } from '../services/driveClientService';
 import GoogleDriveModal from './GoogleDriveModal';
 import { LiquidAvatar } from './LiquidAvatar';
 
@@ -60,6 +62,7 @@ export interface Patient {
   dob: string;
   insurance: string;
   driveFolderLink?: string;
+  driveFolderId?: string;
   allergies?: string[];
   notes?: string;
   updatedAt?: string;
@@ -405,6 +408,9 @@ export default function PatientDatabase({
 
   // STAV PRE ÚPRAVU PACIENTA
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [isExtractingSheet, setIsExtractingSheet] = useState(false);
+  const [sheetExtractNotice, setSheetExtractNotice] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [batchExtractProgress, setBatchExtractProgress] = useState<{ current: number; total: number; patientName: string } | null>(null);
 
   const [patientRecords, setPatientRecords] = useState<Record<string, MedicalRecord[]>>({});
 
@@ -707,7 +713,8 @@ export default function PatientDatabase({
               address: '---',
               dob: '---',
               insurance: 'Drive Klient',
-              driveFolderLink: item.driveFolderLink
+              driveFolderLink: item.driveFolderLink,
+              driveFolderId: item.driveFolderId || (item.driveFolderLink ? item.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined)
             }));
 
             setPatients(prev => {
@@ -737,6 +744,10 @@ export default function PatientDatabase({
   const filteredPatients = useMemo(() => {
     return filterAndRankPatients(patients, searchTerm);
   }, [patients, searchTerm]);
+
+  const drivePatientsNeedingSync = useMemo(() => {
+    return patients.filter(p => p.birthNumber === 'Importované z Drive' || p.phone === '---' || !p.phone);
+  }, [patients]);
 
   const handlePatientSelect = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -871,6 +882,259 @@ export default function PatientDatabase({
     setEditingPatient(null);
   };
 
+  // Callback pri aktualizácii pacienta z komponentu PatientDriveFiles
+  const handlePatientUpdatedFromDrive = (updated: Patient) => {
+    setPatients(prev => prev.map(p => p.id === updated.id ? updated : p));
+    setSelectedPatient(updated);
+    if (onSetActivePatient) {
+      onSetActivePatient(updated);
+    }
+  };
+
+  // Načítanie údajov zo Sheetu na Drive priamo vo formulári úpravy pacienta
+  const handleExtractFromSheetForEditing = async () => {
+    if (!editingPatient) return;
+    setSheetExtractNotice(null);
+    let token = workspaceToken || (session as any)?.accessToken;
+    if (!token) {
+      try {
+        const signRes = await googleSignIn();
+        if (signRes?.accessToken) {
+          token = signRes.accessToken;
+          setExternalAccessToken(signRes.accessToken, signRes.user);
+        }
+      } catch {
+        setSheetExtractNotice({
+          type: 'error',
+          text: 'Pre prístup k Google Drive sa prosím prihláste cez Google účet.'
+        });
+        return;
+      }
+    }
+
+    if (!token) {
+      setSheetExtractNotice({
+        type: 'error',
+        text: 'Pre prístup k Google Drive sa prosím prihláste cez Google účet.'
+      });
+      return;
+    }
+
+    setIsExtractingSheet(true);
+    try {
+      const folderId = editingPatient.driveFolderId || (editingPatient.driveFolderLink ? editingPatient.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined);
+      const res = await DriveClientService.readAndExtractPatientSheet(
+        token,
+        editingPatient.name,
+        folderId
+      );
+
+      if (res.success && res.data) {
+        const d = res.data;
+        const newBirthNumber = (d.birthNumber && d.birthNumber !== 'Importované z Drive') 
+          ? d.birthNumber 
+          : editingPatient.birthNumber;
+        const newPhone = (d.phone && d.phone !== '---') ? d.phone : editingPatient.phone;
+        const newEmail = (d.email && d.email !== '---') ? d.email : editingPatient.email;
+        const newAddress = (d.address && d.address !== '---') ? d.address : editingPatient.address;
+        const newDob = (d.dob && d.dob !== '---') ? d.dob : editingPatient.dob;
+        const newInsurance = (d.insurance && d.insurance !== 'Drive Klient') ? d.insurance : editingPatient.insurance;
+
+        setEditingPatient(prev => prev ? {
+          ...prev,
+          birthNumber: newBirthNumber,
+          phone: newPhone,
+          email: newEmail,
+          address: newAddress,
+          dob: newDob,
+          insurance: newInsurance,
+        } : null);
+
+        const summary: string[] = [];
+        if (d.phone) summary.push(`Tel: ${d.phone}`);
+        if (d.email) summary.push(`Email: ${d.email}`);
+        if (d.address) summary.push(`Bydlisko: ${d.address}`);
+        if (d.birthNumber) summary.push(`RČ: ${d.birthNumber}`);
+        if (d.dob) summary.push(`Dátum nar.: ${d.dob}`);
+
+        setSheetExtractNotice({
+          type: 'success',
+          text: `Načítané zo súboru "${res.fileName}": ${summary.join(', ') || 'Všetky údaje boli prenesené do formulára'}. Nezabudnite kliknúť na "Uložiť reálne údaje".`
+        });
+      } else {
+        setSheetExtractNotice({
+          type: 'error',
+          text: res.error || `V zložke pacienta "${editingPatient.name}" sa nenašiel Google Sheet s údajmi.`
+        });
+      }
+    } catch (err: any) {
+      setSheetExtractNotice({
+        type: 'error',
+        text: 'Chyba pri čítaní údajov zo Sheetu: ' + (err?.message || 'Neznáma chyba')
+      });
+    } finally {
+      setIsExtractingSheet(false);
+    }
+  };
+
+  // Rýchle načítanie a automatické uloženie pre jedného konkrétneho pacienta (z karty alebo zoznamu)
+  const handleQuickExtractPatient = async (targetPatient: Patient) => {
+    let token = workspaceToken || (session as any)?.accessToken;
+    if (!token) {
+      try {
+        const signRes = await googleSignIn();
+        if (signRes?.accessToken) {
+          token = signRes.accessToken;
+          setExternalAccessToken(signRes.accessToken, signRes.user);
+        }
+      } catch {
+        return;
+      }
+    }
+    if (!token) return;
+
+    setIsExtractingSheet(true);
+    try {
+      const folderId = targetPatient.driveFolderId || (targetPatient.driveFolderLink ? targetPatient.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined);
+      const res = await DriveClientService.readAndExtractPatientSheet(
+        token,
+        targetPatient.name,
+        folderId
+      );
+
+      if (res.success && res.data) {
+        const d = res.data;
+        const updated: Patient = {
+          ...targetPatient,
+          birthNumber: (d.birthNumber && d.birthNumber !== 'Importované z Drive') ? d.birthNumber : targetPatient.birthNumber,
+          phone: (d.phone && d.phone !== '---') ? d.phone : targetPatient.phone,
+          email: (d.email && d.email !== '---') ? d.email : targetPatient.email,
+          address: (d.address && d.address !== '---') ? d.address : targetPatient.address,
+          dob: (d.dob && d.dob !== '---') ? d.dob : targetPatient.dob,
+          insurance: (d.insurance && d.insurance !== 'Drive Klient') ? d.insurance : targetPatient.insurance,
+        };
+
+        await PatientCloudService.savePatient(updated, token);
+
+        setPatients(prev => prev.map(p => p.id === updated.id ? updated : p));
+        if (selectedPatient && selectedPatient.id === updated.id) {
+          setSelectedPatient(updated);
+        }
+        if (onSetActivePatient && selectedPatient && selectedPatient.id === updated.id) {
+          onSetActivePatient(updated);
+        }
+
+        AuditLogService.log({
+          category: 'PATIENT_RECORD',
+          action: 'AUTOMATICKÝ IMPORT ZO SHEETU',
+          details: `Doplnené reálne údaje pacienta zo Sheetu na Drive: ${updated.name}`,
+          patientId: updated.id,
+          patientName: updated.name,
+          severity: 'info'
+        });
+
+        setDriveStatusMessage({
+          type: 'success',
+          text: `Údaje pacienta ${updated.name} boli úspešne načítané zo Sheetu a uložené do Cloudu.`
+        });
+        setTimeout(() => setDriveStatusMessage(null), 5000);
+      } else {
+        setDriveStatusMessage({
+          type: 'error',
+          text: res.error || `Pre pacienta ${targetPatient.name} sa nenašiel Google Sheet s údajmi.`
+        });
+        setTimeout(() => setDriveStatusMessage(null), 5000);
+      }
+    } catch (err: any) {
+      console.error('Chyba pri rýchlej extrakcii pacienta:', err);
+    } finally {
+      setIsExtractingSheet(false);
+    }
+  };
+
+  // Hromadná synchronizácia kontaktov zo Sheetov pre všetkých pacientov s 'Importované z Drive' alebo chýbajúcim telefónom
+  const handleBatchExtractAllSheets = async () => {
+    const targetList = patients.filter(p => p.birthNumber === 'Importované z Drive' || p.phone === '---' || !p.phone);
+    if (targetList.length === 0) {
+      setDriveStatusMessage({
+        type: 'info' as any,
+        text: 'Všetci pacienti v kartotéke už majú reálne údaje.'
+      });
+      setTimeout(() => setDriveStatusMessage(null), 4000);
+      return;
+    }
+
+    let token = workspaceToken || (session as any)?.accessToken;
+    if (!token) {
+      try {
+        const signRes = await googleSignIn();
+        if (signRes?.accessToken) {
+          token = signRes.accessToken;
+          setExternalAccessToken(signRes.accessToken, signRes.user);
+        }
+      } catch {
+        return;
+      }
+    }
+    if (!token) return;
+
+    setIsExtractingSheet(true);
+    let successCount = 0;
+
+    try {
+      for (let i = 0; i < targetList.length; i++) {
+        const pt = targetList[i];
+        setBatchExtractProgress({ current: i + 1, total: targetList.length, patientName: pt.name });
+
+        try {
+          const folderId = pt.driveFolderId || (pt.driveFolderLink ? pt.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined);
+          const res = await DriveClientService.readAndExtractPatientSheet(token, pt.name, folderId);
+
+          if (res.success && res.data) {
+            const d = res.data;
+            const updated: Patient = {
+              ...pt,
+              birthNumber: (d.birthNumber && d.birthNumber !== 'Importované z Drive') ? d.birthNumber : pt.birthNumber,
+              phone: (d.phone && d.phone !== '---') ? d.phone : pt.phone,
+              email: (d.email && d.email !== '---') ? d.email : pt.email,
+              address: (d.address && d.address !== '---') ? d.address : pt.address,
+              dob: (d.dob && d.dob !== '---') ? d.dob : pt.dob,
+              insurance: (d.insurance && d.insurance !== 'Drive Klient') ? d.insurance : pt.insurance,
+            };
+
+            await PatientCloudService.savePatient(updated, token);
+
+            setPatients(prev => prev.map(p => p.id === updated.id ? updated : p));
+            if (selectedPatient && selectedPatient.id === updated.id) {
+              setSelectedPatient(updated);
+            }
+            if (onSetActivePatient && selectedPatient && selectedPatient.id === updated.id) {
+              onSetActivePatient(updated);
+            }
+
+            successCount++;
+          }
+        } catch (itemErr) {
+          console.warn(`Nepodarilo sa spracovať Sheet pre pacienta ${pt.name}:`, itemErr);
+        }
+      }
+
+      setDriveStatusMessage({
+        type: 'success',
+        text: `Úspešne doplnené údaje zo Sheetov pre ${successCount} z ${targetList.length} pacientov a synchronizované do Cloudu.`
+      });
+      setTimeout(() => setDriveStatusMessage(null), 6000);
+    } catch (err: any) {
+      setDriveStatusMessage({
+        type: 'error',
+        text: 'Hromadné čítanie Sheetov zlyhalo: ' + (err?.message || 'Neznáma chyba')
+      });
+    } finally {
+      setIsExtractingSheet(false);
+      setBatchExtractProgress(null);
+    }
+  };
+
   // VYNÚTENÁ SYNCHRONIZÁCIA KARTOTÉKY DO CLOUDU AJ GOOGLE DRIVE
   const handleForceSyncDriveAndCloud = async () => {
     let token = workspaceToken || (session as any)?.accessToken;
@@ -980,7 +1244,8 @@ export default function PatientDatabase({
           address: '---',
           dob: '---',
           insurance: 'Drive Klient',
-          driveFolderLink: item.driveFolderLink
+          driveFolderLink: item.driveFolderLink,
+          driveFolderId: item.driveFolderId || (item.driveFolderLink ? item.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined)
         }));
 
         setPatients(prev => {
@@ -1195,8 +1460,64 @@ export default function PatientDatabase({
                   <h3 className="font-brand text-xl font-bold text-[#2C2A29] uppercase">Upraviť kartu pacienta</h3>
                   <p className="text-[10px] text-[#8C857B] uppercase tracking-wider">Úprava osobných údajov</p>
                 </div>
-                <button onClick={() => setEditingPatient(null)} className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-bold">✕</button>
+                <button onClick={() => { setEditingPatient(null); setSheetExtractNotice(null); }} className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-bold">✕</button>
               </div>
+
+              {/* RÝCHLE NAČÍTANIE ZO SHEETU NA GOOGLE DRIVE */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/80 p-3 rounded-xl mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-600/10 text-emerald-700 flex items-center justify-center font-bold shrink-0">
+                    <Table2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#2C2A29]">
+                      Google Sheet v zložke na Drive
+                    </p>
+                    <p className="text-[10px] text-[#8C857B]">
+                      Automaticky načítať telefón, e-mail, adresu a RČ zo Sheetu
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExtractFromSheetForEditing}
+                  disabled={isExtractingSheet}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] uppercase tracking-wider font-bold px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0 disabled:opacity-60"
+                  title="Vyhľadať a prečítať Google Sheet v zložke pacienta a predvyplniť polia"
+                >
+                  {isExtractingSheet ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Čítam Sheet...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>⚡ Načítať zo Sheetu</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {sheetExtractNotice && (
+                <div className={`p-2.5 rounded-lg text-xs mb-3 flex items-start gap-2 ${
+                  sheetExtractNotice.type === 'success' 
+                    ? 'bg-emerald-100/70 border border-emerald-300 text-emerald-900' 
+                    : 'bg-rose-50 border border-rose-200 text-rose-800'
+                }`}>
+                  <span className="text-sm shrink-0">{sheetExtractNotice.type === 'success' ? '✓' : '⚠️'}</span>
+                  <div className="flex-1 text-[11px] leading-tight font-medium">
+                    {sheetExtractNotice.text}
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setSheetExtractNotice(null)} 
+                    className="text-[10px] font-bold text-gray-400 hover:text-gray-700 ml-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
 
               <form onSubmit={handleSavePatientEdit} className="space-y-3 text-xs">
                 <div className="grid grid-cols-2 gap-3">
@@ -1419,6 +1740,22 @@ export default function PatientDatabase({
               </div>
               
               <div className="flex flex-wrap items-center gap-2">
+                {drivePatientsNeedingSync.length > 0 && (
+                  <button 
+                    onClick={handleBatchExtractAllSheets}
+                    disabled={isExtractingSheet || isDriveSyncing || isImporting}
+                    className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-[#C5A059]/40 px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-2xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-60"
+                    title="Prejsť priečinky pacientov na Google Disku a automaticky načítať ich telefóny a RČ z Google Sheetov"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 text-[#C5A059] ${isExtractingSheet ? 'animate-spin' : ''}`} />
+                    <span>
+                      {batchExtractProgress 
+                        ? `Spracúvam (${batchExtractProgress.current}/${batchExtractProgress.total})...` 
+                        : `⚡ Doplniť kontakty zo Sheetov (${drivePatientsNeedingSync.length})`}
+                    </span>
+                  </button>
+                )}
+
                 <button 
                   onClick={handleForceSyncDriveAndCloud}
                   disabled={isDriveSyncing || isImporting}
@@ -1437,6 +1774,24 @@ export default function PatientDatabase({
                 </button>
               </div>
             </div>
+
+            {/* INDIKÁTOR HROMADNÉHO SPRACOVANIA SHEETOV */}
+            {batchExtractProgress && (
+              <div className="bg-amber-50 border border-[#C5A059]/40 p-3 rounded-xl flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5 text-amber-900 font-medium">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#C5A059] shrink-0" />
+                  <span>
+                    Spracúvam Google Sheet pacienta: <strong>{batchExtractProgress.patientName}</strong> ({batchExtractProgress.current} z {batchExtractProgress.total})...
+                  </span>
+                </div>
+                <div className="w-28 bg-amber-200/60 rounded-full h-2 overflow-hidden shrink-0">
+                  <div 
+                    className="bg-[#C5A059] h-full transition-all duration-300"
+                    style={{ width: `${Math.round((batchExtractProgress.current / batchExtractProgress.total) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <div className="relative flex items-center">
@@ -1518,7 +1873,15 @@ export default function PatientDatabase({
                           </div>
                           <span className="text-[9px] bg-[#FBF9F6] px-2 py-1 rounded text-[#8C857B] font-bold border border-[#E8E2D9]">{patient.insurance}</span>
                         </div>
-                        <p className="text-xs text-[#8C857B]">RČ: {patient.birthNumber}</p>
+                        <p className="text-xs text-[#8C857B]">
+                          RČ: {patient.birthNumber === 'Importované z Drive' ? (
+                            <span className="text-amber-800 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/80">
+                              Importované z Drive
+                            </span>
+                          ) : (
+                            patient.birthNumber
+                          )}
+                        </p>
                         <p className="text-xs text-[#8C857B]">Tel: {patient.phone}</p>
                       </div>
 
@@ -1534,6 +1897,21 @@ export default function PatientDatabase({
                           <Edit3 className="w-3 h-3 text-[#C5A059]" />
                           <span>Upraviť</span>
                         </button>
+
+                        {(patient.birthNumber === 'Importované z Drive' || patient.phone === '---') && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickExtractPatient(patient);
+                            }}
+                            className="text-amber-700 hover:text-amber-900 font-bold uppercase tracking-wider transition-colors flex items-center gap-1 border-l border-[#E8E2D9] pl-2 cursor-pointer"
+                            title="Automaticky prečítať telefón, e-mail a RČ zo Sheetu na Drive"
+                          >
+                            <Sparkles className="w-3 h-3 text-[#C5A059]" />
+                            <span>⚡ Sheet</span>
+                          </button>
+                        )}
 
                         {onNavigateToPrescriptions && (
                           <button
@@ -1657,6 +2035,44 @@ export default function PatientDatabase({
                 <div><span className="text-[#8C857B] block text-[9px] uppercase font-bold">Bydlisko:</span><span className="font-semibold text-[#2C2A29] truncate max-w-[140px] block">{selectedPatient.address}</span></div>
               </div>
             </div>
+
+            {/* UPOZORNENIE: DÁTA SÚ LEN IMPORTOVANÉ Z DRIVE - MOŽNOSŤ DOKONČIŤ ZO SHEETU */}
+            {(selectedPatient.birthNumber === 'Importované z Drive' || selectedPatient.phone === '---' || !selectedPatient.phone) && (
+              <div className="bg-gradient-to-r from-amber-500/10 via-[#C5A059]/15 to-amber-500/10 border border-[#C5A059]/40 p-3.5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#C5A059]/20 text-[#2C2A29] flex items-center justify-center shrink-0">
+                    <Table2 className="w-5 h-5 text-[#9C7D2B]" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-[#2C2A29]">
+                      Chýbajúce kontaktné údaje (Importované z Drive)
+                    </h4>
+                    <p className="text-[11px] text-[#6B6357]">
+                      V zložke klienta na Google Disku sa nachádza Sheet s údajmi. Jedným kliknutím načítate skutočný telefón, e-mail, adresu a rodné číslo.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleQuickExtractPatient(selectedPatient)}
+                  disabled={isExtractingSheet}
+                  className="bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold text-xs uppercase px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2 shrink-0 cursor-pointer disabled:opacity-60"
+                  title="Načítať telefón, e-mail, adresu a RČ zo Sheetu na Drive"
+                >
+                  {isExtractingSheet ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Čítam Sheet...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>⚡ Načítať údaje zo Sheetu</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* ŠTÍHLA KLINICKÁ AKČNÁ LIŠTA (RÝCHLE AKCIE PACIENTA V 3 TEMATICKÝCH SKUPINÁCH - VŠETKO PRIAMO VIDITEĽNÉ) */}
             <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-2xl p-3.5 shadow-2xs space-y-2.5">
@@ -2277,7 +2693,11 @@ export default function PatientDatabase({
                       {/* SUB-OBSAH 1D: GOOGLE DRIVE DOKUMENTY (PREPOJENIE SO ZLOŽKOU KLIENTI SAY) */}
                       {zaznamySubTab === 'drive' && (
                         <div className="space-y-3 pt-1">
-                          <PatientDriveFiles patientName={selectedPatient.name} />
+                          <PatientDriveFiles 
+                            patientName={selectedPatient.name} 
+                            patient={selectedPatient}
+                            onPatientUpdated={handlePatientUpdatedFromDrive}
+                          />
                         </div>
                       )}
                     </div>

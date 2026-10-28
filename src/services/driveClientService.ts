@@ -4,6 +4,8 @@
  * Tým obchádza sieťové timeouty (ConnectTimeoutError) a serverless obmedzenia na hostingu.
  */
 
+import { parsePatientSheetData, ExtractedPatientData } from './patientSheetParser';
+
 export interface DriveItem {
   id: string;
   name: string;
@@ -332,5 +334,152 @@ export class DriveClientService {
     }
 
     return { success: false };
+  }
+
+  /**
+   * Vyhľadá a načíta reálne údaje pacienta (telefón, e-mail, adresa, RČ, dátum) zo súboru Google Sheet / Excel v jeho zložke na Drive
+   */
+  public static async readAndExtractPatientSheet(
+    accessToken: string,
+    patientName: string,
+    folderId?: string,
+    fileId?: string
+  ): Promise<{ success: boolean; data?: ExtractedPatientData; fileName?: string; error?: string }> {
+    if (!accessToken || !patientName) {
+      return { success: false, error: 'Chýba autorizácia alebo meno pacienta.' };
+    }
+
+    const headers = { Authorization: `Bearer ${accessToken}` };
+
+    try {
+      let matchedFile: any = null;
+
+      // Ak máme priame fileId (napr. z PatientDriveFiles)
+      if (fileId) {
+        const fileMetaRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType&supportsAllDrives=true`,
+          { headers }
+        );
+        if (fileMetaRes.ok) {
+          matchedFile = await fileMetaRes.json();
+        }
+      }
+
+      // Inak 1. Získame ID zložky pacienta
+      if (!matchedFile) {
+        let targetFolderId = folderId;
+        if (!targetFolderId) {
+          const folderInfo = await this.ensurePatientFolder(accessToken, patientName);
+          targetFolderId = folderInfo.folderId;
+        }
+
+        if (targetFolderId) {
+          // 2. Načítame zoznam súborov v zložke
+          const q = `'${targetFolderId}' in parents and trashed = false`;
+          const listRes = await fetch(
+            `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,webViewLink)&orderBy=modifiedTime desc&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+            { headers }
+          );
+
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            const files: any[] = listData.files || [];
+
+            // Hľadáme prioritne Google Sheet
+            matchedFile = files.find(f => f.mimeType === 'application/vnd.google-apps.spreadsheet');
+
+            // Alternatíva: názov obsahuje "sheet", "kartoteka", "karta" alebo meno pacienta
+            if (!matchedFile) {
+              matchedFile = files.find(f => {
+                const lower = f.name.toLowerCase();
+                return lower.includes('sheet') || lower.includes('kartotek') || lower.includes('karta') || lower.includes(patientName.toLowerCase());
+              });
+            }
+
+            // Alternatíva: Excel (.xlsx, .csv)
+            if (!matchedFile) {
+              matchedFile = files.find(f => {
+                const lower = f.name.toLowerCase();
+                return lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv') || f.mimeType.includes('spreadsheet') || f.mimeType.includes('excel');
+              });
+            }
+
+            // Alternatíva: profil_klienta.json
+            if (!matchedFile) {
+              matchedFile = files.find(f => f.name.toLowerCase() === 'profil_klienta.json');
+            }
+          }
+        }
+      }
+
+      if (matchedFile) {
+        let extracted: ExtractedPatientData;
+
+        if (matchedFile.mimeType === 'application/vnd.google-apps.spreadsheet') {
+          // Exportujeme priamo ako CSV
+          const exportRes = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${matchedFile.id}/export?mimeType=text/csv`,
+            { headers }
+          );
+          if (exportRes.ok) {
+            const csvText = await exportRes.text();
+            extracted = parsePatientSheetData(csvText, matchedFile.name, patientName);
+            if (extracted.extractedFieldsCount > 0) {
+              return { success: true, data: extracted, fileName: matchedFile.name };
+            }
+          }
+        } else {
+          // Priame stiahnutie súboru
+          const dlRes = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${matchedFile.id}?alt=media`,
+            { headers }
+          );
+          if (dlRes.ok) {
+            if (matchedFile.name.endsWith('.xlsx') || matchedFile.mimeType.includes('excel')) {
+              const buf = await dlRes.arrayBuffer();
+              extracted = parsePatientSheetData(buf, matchedFile.name, patientName);
+            } else {
+              const text = await dlRes.text();
+              extracted = parsePatientSheetData(text, matchedFile.name, patientName);
+            }
+            if (extracted.extractedFieldsCount > 0) {
+              return { success: true, data: extracted, fileName: matchedFile.name };
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Priame klientske čítanie zo Sheetu zlyhalo, skúšam proxy:', err?.message);
+    }
+
+    // 3. Fallback na serverless proxy route
+    try {
+      const proxyRes = await fetch('/api/drive/patient-sheet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ patientName, folderId, fileId }),
+      });
+
+      if (proxyRes.ok) {
+        const pData = await proxyRes.json();
+        if (pData.success && pData.extractedData) {
+          return {
+            success: true,
+            data: pData.extractedData,
+            fileName: pData.fileName,
+          };
+        }
+      }
+    } catch (proxyErr) {
+      console.error('Proxy zlyhalo:', proxyErr);
+    }
+
+    return {
+      success: false,
+      error: `V zložke pacienta "${patientName}" sa nenašiel Google Sheet s údajmi.`,
+    };
   }
 }
