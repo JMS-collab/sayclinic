@@ -2302,8 +2302,8 @@ export default function PatientDatabase({
                           updatedAt: new Date().toISOString(),
                           doctorName: 'MUDr. Ján Mráz',
                           planType: 'combined',
-                          title: defaultPreset.title || 'Komplexný sekvenčný plán: Facelift ➔ Viečka ➔ Frakčný Laser (3-v-1)',
-                          diagnosisOrGoal: defaultPreset.diagnosisOrGoal || '1. SAY Skincare • 2. Ročný Plán • 3. SAY Care',
+                          title: 'Ročný plán pacienta (3-v-1)',
+                          diagnosisOrGoal: '',
                           analysisSummary: defaultPreset.analysisSummary,
                           cosmeticsRoutine: defaultPreset.cosmeticsRoutine!,
                           annualTreatments: (defaultPreset.annualTreatments || []).map((t, idx) => ({

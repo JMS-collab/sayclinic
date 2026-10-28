@@ -493,13 +493,29 @@ export default function PatientPlanViewer({
               </span>
             </div>
 
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-stone-100">
-              {plan.title}
-            </h2>
+            {(() => {
+              const cleanTitle = (plan.title || '')
+                .replace(/Komplexný sekvenčný plán:\s*Facelift\s*➔\s*Viečka\s*➔\s*Frakčný Laser\s*\(3-v-1\)/gi, 'Ročný plán pacienta (3-v-1)')
+                .replace(/Facelift\s*➔\s*Viečka\s*➔\s*Frakčný Laser\s*\(3-v-1\)/gi, 'Ročný plán (3-v-1)')
+                .trim() || 'Plán starostlivosti & liečby';
 
-            <p className="text-xs text-stone-300 leading-relaxed">
-              <strong>Cieľ / Indikácia:</strong> {plan.diagnosisOrGoal}
-            </p>
+              const isAutoFaceliftDiagnosis = plan.diagnosisOrGoal?.toLowerCase().includes('kompletná etapovitá chirurgická a laserová rejuvenácia tváre');
+              const cleanDiagnosis = isAutoFaceliftDiagnosis ? '' : (plan.diagnosisOrGoal || '').trim();
+
+              return (
+                <>
+                  <h2 className="text-xl md:text-2xl font-bold tracking-tight text-stone-100">
+                    {cleanTitle}
+                  </h2>
+
+                  {cleanDiagnosis && (
+                    <p className="text-xs text-stone-300 leading-relaxed">
+                      <strong>Cieľ / Indikácia:</strong> {cleanDiagnosis}
+                    </p>
+                  )}
+                </>
+              );
+            })()}
 
             {plan.analysisSummary && (
               <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-stone-300">
@@ -1200,7 +1216,7 @@ export default function PatientPlanViewer({
                   2. PILIER
                 </span>
                 <h3 className="text-base md:text-lg font-bold text-[#2C2A29]">
-                  Ročný Plán (Voľná sekvencia zákrokov: napr. Facelift ➔ Viečka ➔ Laser...)
+                  Ročný Plán (Voľná sekvencia zákrokov na mieru)
                 </h3>
               </div>
               <p className="text-xs text-[#8C857B] mt-1">

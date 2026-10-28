@@ -182,7 +182,10 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                 Identifikácia pacienta & Klinický protokol
               </span>
               <h2 style={{ margin: '2px 0 0 0', fontSize: '13px', fontWeight: 'bold', color: '#2C2A29' }}>
-                {plan.title}
+                {(plan.title || '')
+                  .replace(/Komplexný sekvenčný plán:\s*Facelift\s*➔\s*Viečka\s*➔\s*Frakčný Laser\s*\(3-v-1\)/gi, 'Ročný plán pacienta (3-v-1)')
+                  .replace(/Facelift\s*➔\s*Viečka\s*➔\s*Frakčný Laser\s*\(3-v-1\)/gi, 'Ročný plán (3-v-1)')
+                  .trim() || 'Plán starostlivosti & liečby'}
               </h2>
             </div>
             <span
@@ -234,14 +237,21 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
           </table>
 
           {/* Indikácia & Cieľ liečby */}
-          <div style={{ marginTop: '8px', borderTop: '1px dashed #E8E2D9', paddingTop: '8px' }}>
-            <span style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', color: '#8C857B', letterSpacing: '0.5px', display: 'block', marginBottom: '3px' }}>
-              Klinická indikácia a stanovený cieľ liečby:
-            </span>
-            <p style={{ margin: 0, fontSize: '10.5px', color: '#2C2A29', lineHeight: '1.45' }}>
-              {plan.diagnosisOrGoal}
-            </p>
-          </div>
+          {(() => {
+            const isAutoFacelift = plan.diagnosisOrGoal?.toLowerCase().includes('kompletná etapovitá chirurgická a laserová rejuvenácia tváre');
+            const cleanDiag = isAutoFacelift ? '' : (plan.diagnosisOrGoal || '').trim();
+            if (!cleanDiag) return null;
+            return (
+              <div style={{ marginTop: '8px', borderTop: '1px dashed #E8E2D9', paddingTop: '8px' }}>
+                <span style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', color: '#8C857B', letterSpacing: '0.5px', display: 'block', marginBottom: '3px' }}>
+                  Klinická indikácia a stanovený cieľ liečby:
+                </span>
+                <p style={{ margin: 0, fontSize: '10.5px', color: '#2C2A29', lineHeight: '1.45' }}>
+                  {cleanDiag}
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Analyzované zóny a ciele */}
           {plan.analysisSummary?.mainConcerns && plan.analysisSummary.mainConcerns.length > 0 && (

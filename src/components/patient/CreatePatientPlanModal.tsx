@@ -43,15 +43,15 @@ export default function CreatePatientPlanModal({
   const [title, setTitle] = useState(
     initialContext?.procedureName 
       ? `Plán starostlivosti (3-v-1): ${initialContext.procedureName}` 
-      : 'Komplexný sekvenčný plán: Facelift ➔ Viečka ➔ Frakčný Laser (3-v-1)'
+      : 'Ročný plán pacienta (3-v-1)'
   );
   const [diagnosisOrGoal, setDiagnosisOrGoal] = useState(
-    initialContext?.diagnosisOrGoal || '1. SAY Skincare (Meicet 3D + duálna rutina + ošetrenia pleti) • 2. Ročný plán (Facelift ➔ Blefaroplastika ➔ CO2 Laser) • 3. SAY Care (Prehabilitácia & pooperačný protokol).'
+    initialContext?.diagnosisOrGoal || ''
   );
-  const [procedureName, setProcedureName] = useState(initialContext?.procedureName || 'Deep Plane Facelift ➔ Blefaroplastika ➔ Frakčný CO2 Laser');
+  const [procedureName, setProcedureName] = useState(initialContext?.procedureName || '');
   const [skinType, setSkinType] = useState(initialContext?.skinType || 'Zmiešaná / normálna');
   const [mainConcerns, setMainConcerns] = useState(
-    initialContext?.mainConcerns?.join(', ') || 'Pokles kontúr tváre, nadbytok kože viečok, fotostarnutie a textúra pleti'
+    initialContext?.mainConcerns?.join(', ') || 'Optimalizácia stavu pleti, regenerácia a prevencia starnutia'
   );
   const [doctorName, setDoctorName] = useState('MUDr. Ján Mráz');
   
@@ -218,7 +218,7 @@ export default function CreatePatientPlanModal({
                 }`}
               >
                 <div className="font-bold text-xs text-[#2C2A29] flex items-center gap-1.5">
-                  <span>💎</span> Sekvenčný plán: Facelift ➔ Viečka ➔ Laser (3-v-1)
+                  <span>💎</span> Ročný sekvenčný plán (3-v-1)
                 </div>
                 <p className="text-[10px] text-[#8C857B] mt-1 leading-tight">
                   1. SAY Skincare (Meicet + rutina) • 2. Voľná sekvencia zákrokov • 3. SAY Care (Prehabilitácia, jazvy, lymfodrenáž).

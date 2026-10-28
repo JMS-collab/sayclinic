@@ -536,9 +536,9 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
   },
 
   face_sequential_transformation: {
-    title: 'Komplexný sekvenčný plán: Facelift ➔ Viečka ➔ Frakčný Laser (3-v-1)',
+    title: 'Ročný plán pacienta (3-v-1)',
     planType: 'combined',
-    diagnosisOrGoal: 'Kompletná etapovitá chirurgická a laserová rejuvenácia tváre: 1. Deep Plane Facelift & Necklift, 2. Horná a dolná blefaroplastika, 3. Frakčný CO2 laserový resurfacing + celoročná SAY Skincare a SAY Care prehabilitácia.',
+    diagnosisOrGoal: '',
     analysisSummary: {
       skinType: 'Zrelá pleť, znížená elasticita a fotopoškodenie',
       skinTonePhototype: 'Fitzpatrick II',
@@ -746,7 +746,7 @@ export const PRESET_PATIENT_PLANS: Record<string, Partial<PatientPlan>> = {
       }
     ],
     preOpCare: {
-      procedureName: 'Etapovitá chirurgická a laserová transformácia tváre (Facelift ➔ Viečka ➔ Laser)',
+      procedureName: 'Komplexná starostlivosť a plánované výkony',
       prehabilitation: {
         medicalPrehab: [
           'Kompletné interné a anestéziologické predoperačné vyšetrenie (KO, hemokoagulácia, biochémia, EKG).',
