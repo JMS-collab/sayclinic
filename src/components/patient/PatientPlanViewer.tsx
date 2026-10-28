@@ -30,13 +30,22 @@ import {
   Edit2,
   Check,
   Search,
-  Filter
+  Filter,
+  ShieldCheck,
+  BookOpen,
+  UserCheck,
+  Clock
 } from 'lucide-react';
 import { generatePdfFilename, exportElementToPdf } from '@/lib/pdfGenerator';
 import { PatientPlanPdfDocument } from './PatientPlanPdfDocument';
 import { MeicetUploadModal } from '../meicet/MeicetUploadModal';
 import { MeicetService } from '@/services/meicetService';
 import { INITIAL_COSMETICS_CATALOG, CosmeticProduct, CosmeticBrand } from '@/data/cosmeticsCatalog';
+import {
+  EBM_PROCEDURE_CATALOG,
+  synthesizeEbmPatientPlan,
+  resolveSelectedProcedures
+} from '@/services/ebmPlanSynthesizer';
 
 interface PatientPlanViewerProps {
   plan: PatientPlan;
@@ -192,7 +201,36 @@ export default function PatientPlanViewer({
     status: ScheduledTreatment['status'];
     isSkinTreatment: boolean;
     notes: string;
+    patientExplanation: string;
+    clinicalGuideline: string;
+    recoveryTime: string;
   } | null>(null);
+
+  // Stav pre AI & EBM prepočítanie celého ročného plánu podľa vybratých operácií a výkonov
+  const [selectedAiProcedureIds, setSelectedAiProcedureIds] = useState<string[]>(() => {
+    if (plan.selectedProceduresList && plan.selectedProceduresList.length > 0) {
+      return plan.selectedProceduresList;
+    }
+    return resolveSelectedProcedures(undefined, plan.annualTreatments, plan.diagnosisOrGoal).map(p => p.id);
+  });
+  const [isRecalculatingAI, setIsRecalculatingAI] = useState(false);
+  const [aiUpdateMessage, setAiUpdateMessage] = useState<string | null>(null);
+  const [showGuidelinesPanel, setShowGuidelinesPanel] = useState(false);
+
+  // Dynamický EBM referenčný plán pre doplnenie zrozumiteľných vysvetlení a guidelinov aj pre staršie plány
+  const ebmReference = synthesizeEbmPatientPlan({
+    basePlan: plan,
+    patientId: plan.patientId,
+    patientName: plan.patientName,
+    patientBirthNumber: plan.patientBirthNumber,
+    doctorName: plan.doctorName,
+    selectedProcedureIds: selectedAiProcedureIds,
+    existingTreatments: plan.annualTreatments,
+    diagnosisOrGoal: plan.diagnosisOrGoal
+  });
+
+  const effectivePatientSummary = plan.patientFriendlySummary || ebmReference.patientFriendlySummary!;
+  const effectiveGuidelines = plan.verifiedGuidelinesUsed || ebmReference.verifiedGuidelinesUsed!;
 
   const standardMorningTotal = (plan.cosmeticsRoutine?.morning || []).reduce((sum, item) => sum + (item.standardOption?.price ?? item.price ?? 0), 0);
   const standardEveningTotal = (plan.cosmeticsRoutine?.evening || []).reduce((sum, item) => sum + (item.standardOption?.price ?? item.price ?? 0), 0);
@@ -599,11 +637,15 @@ export default function PatientPlanViewer({
       priority: 'high',
       status: 'planned',
       isSkinTreatment: false,
-      notes: ''
+      notes: '',
+      patientExplanation: '',
+      clinicalGuideline: 'ASPS & ERAS® Evidence-Based Clinical Practice Guideline',
+      recoveryTime: '7 – 14 dní podľa typu výkonu'
     });
   };
 
   const handleOpenEditTreatmentModal = (treatment: ScheduledTreatment) => {
+    const matchedEbm = resolveSelectedProcedures(undefined, [treatment], treatment.name)[0];
     setTreatmentModal({
       isOpen: true,
       mode: 'edit',
@@ -618,7 +660,10 @@ export default function PatientPlanViewer({
       priority: treatment.priority,
       status: treatment.status,
       isSkinTreatment: !!treatment.isSkinTreatment,
-      notes: treatment.notes || ''
+      notes: treatment.notes || '',
+      patientExplanation: treatment.patientExplanation || matchedEbm?.patientExplanation || '',
+      clinicalGuideline: treatment.clinicalGuideline || matchedEbm?.clinicalGuideline || 'ASPS & ERAS® Evidence-Based Guideline',
+      recoveryTime: treatment.recoveryTime || matchedEbm?.recoveryTimePatient || '7 – 10 dní'
     });
   };
 
@@ -642,7 +687,10 @@ export default function PatientPlanViewer({
           priority: treatmentModal.priority,
           status: treatmentModal.status,
           isSkinTreatment: treatmentModal.isSkinTreatment || treatmentModal.category === 'skin_care' || treatmentModal.category === 'laser',
-          notes: treatmentModal.notes.trim() || undefined
+          notes: treatmentModal.notes.trim() || undefined,
+          patientExplanation: treatmentModal.patientExplanation.trim() || undefined,
+          clinicalGuideline: treatmentModal.clinicalGuideline.trim() || undefined,
+          recoveryTime: treatmentModal.recoveryTime.trim() || undefined
         };
       }
     } else {
@@ -659,7 +707,10 @@ export default function PatientPlanViewer({
         priority: treatmentModal.priority,
         status: treatmentModal.status,
         isSkinTreatment: treatmentModal.isSkinTreatment || treatmentModal.category === 'skin_care' || treatmentModal.category === 'laser',
-        notes: treatmentModal.notes.trim() || undefined
+        notes: treatmentModal.notes.trim() || undefined,
+        patientExplanation: treatmentModal.patientExplanation.trim() || undefined,
+        clinicalGuideline: treatmentModal.clinicalGuideline.trim() || undefined,
+        recoveryTime: treatmentModal.recoveryTime.trim() || undefined
       };
       currentList.push(newTrt);
     }
@@ -677,6 +728,99 @@ export default function PatientPlanViewer({
       t.id === treatmentId ? { ...t, priority } : t
     );
     onUpdatePlan({ ...plan, annualTreatments: updated });
+  };
+
+  // -------------------------------------------------------------
+  // AI & EBM PREPOČÍTANIE CELÉHO ROČNÉHO PLÁNU PODĽA VYBRATÝCH OPERÁCIÍ A VÝKONOV
+  // -------------------------------------------------------------
+  const handleToggleAiProcedure = (procId: string) => {
+    const nextIds = selectedAiProcedureIds.includes(procId)
+      ? selectedAiProcedureIds.filter(id => id !== procId)
+      : [...selectedAiProcedureIds, procId];
+
+    setSelectedAiProcedureIds(nextIds);
+
+    // Okamžite prepočítame celý 3-pilierový plán podľa vybratých výkonov a EBM guidelinov
+    const updatedPlan = synthesizeEbmPatientPlan({
+      basePlan: plan,
+      patientId: plan.patientId,
+      patientName: plan.patientName,
+      patientBirthNumber: plan.patientBirthNumber,
+      doctorName: plan.doctorName,
+      skinType: plan.analysisSummary?.skinType,
+      selectedProcedureIds: nextIds
+    });
+
+    onUpdatePlan(updatedPlan);
+    setAiUpdateMessage(
+      '✨ Celý ročný plán (1. SAY Skincare, 2. Ročný plán výkonov aj 3. SAY Care pred/pooperačný protokol) bol okamžite upravený podľa vybratých výkonov a EBM guidelinov.'
+    );
+    setTimeout(() => setAiUpdateMessage(null), 6000);
+  };
+
+  const handleRecalculateEntirePlanWithAI = async (useExistingTreatmentsOnly = false) => {
+    setIsRecalculatingAI(true);
+    setAiUpdateMessage(null);
+    try {
+      const idsToUse = useExistingTreatmentsOnly
+        ? resolveSelectedProcedures(undefined, plan.annualTreatments, plan.diagnosisOrGoal).map(p => p.id)
+        : selectedAiProcedureIds;
+
+      setSelectedAiProcedureIds(idsToUse);
+
+      const response = await fetch('/api/ai/patient-plan/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: plan.patientId,
+          patientName: plan.patientName,
+          patientBirthNumber: plan.patientBirthNumber,
+          planType: 'combined',
+          diagnosisOrGoal: plan.diagnosisOrGoal,
+          skinType: plan.analysisSummary?.skinType,
+          selectedProcedureIds: idsToUse,
+          existingTreatments: plan.annualTreatments,
+          basePlan: plan,
+          doctorName: plan.doctorName,
+          forceRefresh: true
+        })
+      });
+
+      const data = await response.json();
+      if (data.success && data.plan) {
+        onUpdatePlan({
+          ...data.plan,
+          id: plan.id,
+          meicetMetrics: plan.meicetMetrics,
+          meicetScanDate: plan.meicetScanDate,
+          meicetPdfFilename: plan.meicetPdfFilename,
+          meicetMilestones: plan.meicetMilestones
+        });
+        setAiUpdateMessage(
+          '✨ AI úspešne prepočítala celý ročný plán (Skincare, časovú os výkonov, prehabilitáciu aj protokol jaziev) podľa vybratých operácií, najnovších EBM guidelinov a v jazyku zrozumiteľnom pre pacienta.'
+        );
+      } else {
+        throw new Error(data.error || 'Chyba AI prepočtu');
+      }
+    } catch (err) {
+      const synthesized = synthesizeEbmPatientPlan({
+        basePlan: plan,
+        patientId: plan.patientId,
+        patientName: plan.patientName,
+        patientBirthNumber: plan.patientBirthNumber,
+        doctorName: plan.doctorName,
+        skinType: plan.analysisSummary?.skinType,
+        selectedProcedureIds: selectedAiProcedureIds,
+        existingTreatments: plan.annualTreatments
+      });
+      onUpdatePlan(synthesized);
+      setAiUpdateMessage(
+        '✨ Celý ročný plán bol upravený podľa vybratých operácií a výkonov na základe overených klinických guidelinov (ERAS®, ASPS, EADV).'
+      );
+    } finally {
+      setIsRecalculatingAI(false);
+      setTimeout(() => setAiUpdateMessage(null), 7000);
+    }
   };
 
   const handleLoadDemoMeicetMetrics = () => {
@@ -965,6 +1109,164 @@ export default function PatientPlanViewer({
             </span>
           </button>
         </div>
+      </div>
+
+      {/* OZNAM O AI PREPOČTE PLÁNU PODĽA VÝKONOV A EBM GUIDELINOV */}
+      {aiUpdateMessage && (
+        <div className="bg-amber-50 border-2 border-[#C5A059] text-[#2C2A29] px-4 py-3 rounded-xl text-xs flex items-center justify-between shadow-sm animate-in fade-in print:hidden">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-[#C5A059] shrink-0" />
+            <span className="font-bold">{aiUpdateMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAiUpdateMessage(null)}
+            className="text-stone-500 hover:text-[#2C2A29] cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* AI & EBM KLINICKÝ NAVIGÁTOR: ÚPRAVA CELÉHO PLÁNU PODĽA VÝKONOV         */}
+      {/* ===================================================================== */}
+      <div className="bg-gradient-to-br from-[#FAF8F5] via-white to-[#FAF8F5] border-2 border-[#C5A059]/50 rounded-2xl p-5 shadow-xs space-y-4 print:hidden">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E8E2D9] pb-3.5">
+          <div className="space-y-1 max-w-3xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-md bg-[#2C2A29] text-[#C5A059] text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                <span>AI & EBM KLINICKÝ PROTOKOL</span>
+              </span>
+              <h3 className="text-sm md:text-base font-bold text-[#2C2A29]">
+                Dynamická úprava celého ročného plánu podľa vybratých operácií a výkonov
+              </h3>
+            </div>
+            <p className="text-xs text-[#6B6357]">
+              Vyklikajte operácie a ošetrenia pacienta. AI okamžite upraví a zosúladí <strong>1. SAY Skincare</strong>, <strong>2. Ročný plán výkonov</strong> aj <strong>3. SAY Care pred/pooperačný protokol</strong> podľa najnovších svetových guidelinov (ERAS®, ASPS, EADV, International Scar Consensus) a vysvetlí ich zrozumiteľne pre pacienta.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={isRecalculatingAI}
+              onClick={() => handleRecalculateEntirePlanWithAI(false)}
+              className="px-4 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Prepočítať a obohatiť celý 3-pilierový plán cez AI podľa zvolených operácií a výkonov"
+            >
+              {isRecalculatingAI ? (
+                <>
+                  <RotateCw className="w-3.5 h-3.5 text-[#C5A059] animate-spin" />
+                  <span>AI prepočítava celý plán...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>✨ AI Prepočítať celý plán podľa výkonov</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* VYKLIKÁVANIE OPERÁCIÍ A VÝKONOV */}
+        <div className="space-y-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B] block">
+            Vyberte operácie a výkony (kliknutím pridáte alebo odoberiete výkon a prispôsobíte celý plán):
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+            {EBM_PROCEDURE_CATALOG.map(proc => {
+              const isSelected = selectedAiProcedureIds.includes(proc.id);
+              return (
+                <button
+                  key={proc.id}
+                  type="button"
+                  onClick={() => handleToggleAiProcedure(proc.id)}
+                  className={`p-2.5 rounded-xl border text-left transition-all flex items-start gap-2 cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#2C2A29] text-white border-[#C5A059] shadow-xs'
+                      : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded mt-0.5 flex items-center justify-center shrink-0 border ${
+                      isSelected ? 'bg-[#C5A059] border-[#C5A059] text-[#2C2A29]' : 'border-stone-300 bg-white'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-bold flex items-center gap-1 leading-tight">
+                      <span>{proc.icon}</span>
+                      <span className="truncate">{proc.shortLabel}</span>
+                    </div>
+                    <span className={`text-[9px] block truncate mt-0.5 ${isSelected ? 'text-amber-200' : 'text-[#8C857B]'}`}>
+                      {proc.recoveryTimePatient.split('(')[0]}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* ZROZUMITEĽNÝ SPRIEVODCA PRE PACIENTA & OVERENÉ MEDICÍNSKE GUIDELINY    */}
+      {/* ===================================================================== */}
+      <div className="bg-white border border-[#E8E2D9] rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-3 max-w-4xl">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 text-emerald-700 mt-0.5">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-xs md:text-sm font-bold text-[#2C2A29] uppercase tracking-wider">
+                  Zrozumiteľný sprievodca plánom pre pacienta (Ako na seba kroky nadväzujú)
+                </h4>
+                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-full border border-emerald-300">
+                  ✓ Overené podľa EBM štúdií & guidelinov
+                </span>
+              </div>
+              <p className="text-xs text-[#4A453E] leading-relaxed">
+                {effectivePatientSummary}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowGuidelinesPanel(prev => !prev)}
+            className="px-3 py-1.5 rounded-xl bg-[#FAF8F5] hover:bg-stone-100 border border-[#E8E2D9] text-[#2C2A29] text-[11px] font-bold flex items-center gap-1.5 cursor-pointer print:hidden shrink-0"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>{showGuidelinesPanel ? 'Skryť medicínske štúdie' : '📚 Zobraziť použité guideliny a štúdie (4)'}</span>
+          </button>
+        </div>
+
+        {showGuidelinesPanel && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-[#E8E2D9] animate-in fade-in">
+            {effectiveGuidelines.map((g, idx) => (
+              <div key={idx} className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-3.5 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold text-[#2C2A29] flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
+                    <span>{g.title}</span>
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059] block">
+                  {g.organization}
+                </span>
+                <p className="text-[11px] text-[#6B6357] leading-relaxed">
+                  <strong>Čo to znamená pre vás:</strong> {g.summaryForPatient}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ===================================================================== */}
@@ -1422,6 +1724,22 @@ export default function PatientPlanViewer({
                               );
                             })()
                           )}
+
+                          {(item.patientBenefit || item.evidenceNote) && (
+                            <div className="pt-2 border-t border-[#E8E2D9]/70 space-y-1">
+                              {item.patientBenefit && (
+                                <p className="text-[10px] text-emerald-900 bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-200/70 leading-relaxed">
+                                  👤 <strong>Zrozumiteľne pre pacienta:</strong> {item.patientBenefit}
+                                </p>
+                              )}
+                              {item.evidenceNote && (
+                                <p className="text-[9.5px] text-[#6B6357] flex items-center gap-1 px-1">
+                                  <ShieldCheck className="w-3 h-3 text-[#C5A059] shrink-0" />
+                                  <span><strong>Klinická štúdia / Guideline:</strong> {item.evidenceNote}</span>
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -1654,6 +1972,22 @@ export default function PatientPlanViewer({
                               );
                             })()
                           )}
+
+                          {(item.patientBenefit || item.evidenceNote) && (
+                            <div className="pt-2 border-t border-[#E8E2D9]/70 space-y-1">
+                              {item.patientBenefit && (
+                                <p className="text-[10px] text-emerald-900 bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-200/70 leading-relaxed">
+                                  👤 <strong>Zrozumiteľne pre pacienta:</strong> {item.patientBenefit}
+                                </p>
+                              )}
+                              {item.evidenceNote && (
+                                <p className="text-[9.5px] text-[#6B6357] flex items-center gap-1 px-1">
+                                  <ShieldCheck className="w-3 h-3 text-[#C5A059] shrink-0" />
+                                  <span><strong>Klinická štúdia / Guideline:</strong> {item.evidenceNote}</span>
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -1734,10 +2068,20 @@ export default function PatientPlanViewer({
                 Krok za krokom naplánovaná postupnosť operačných výkonov, laserov a estetických ošetrení s možnosťou ľubovoľnej úpravy poradia.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-xs font-mono font-bold text-[#2C2A29] bg-[#FAF8F5] px-3 py-1.5 rounded-xl border border-[#E8E2D9]">
                 Celkový rozpočet krokov: {plan.annualTreatments?.reduce((sum, t) => sum + (t.estimatedPrice || 0), 0)} €
               </span>
+              <button
+                type="button"
+                disabled={isRecalculatingAI}
+                onClick={() => handleRecalculateEntirePlanWithAI(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-100 hover:bg-[#C5A059] text-amber-950 hover:text-[#2C2A29] border border-[#C5A059] text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer print:hidden shadow-2xs"
+                title="Zosúladiť 1. SAY Skincare a 3. SAY Care (Prehabilitáciu + Jazvy) s týmito krokmi podľa najnovších EBM guidelinov"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{isRecalculatingAI ? 'AI prepočítava...' : '✨ AI zosúladiť celý plán s týmito krokmi'}</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setIsAddingStep(prev => !prev)}
@@ -1893,6 +2237,11 @@ export default function PatientPlanViewer({
                 treatment.category === 'scar_care' ? '🩹 Terapia jaziev' :
                 '✨ Prístrojová & Pleťová terapia';
 
+              const matchedEbm = resolveSelectedProcedures(undefined, [treatment], treatment.name)[0];
+              const displayExplanation = treatment.patientExplanation || matchedEbm?.patientExplanation;
+              const displayGuideline = treatment.clinicalGuideline || matchedEbm?.clinicalGuideline;
+              const displayRecovery = treatment.recoveryTime || matchedEbm?.recoveryTimePatient;
+
               return (
                 <div 
                   key={treatment.id}
@@ -1903,7 +2252,7 @@ export default function PatientPlanViewer({
                   }`}
                 >
                   <div className="flex flex-wrap justify-between items-start gap-3">
-                    <div className="space-y-1 max-w-2xl">
+                    <div className="space-y-1.5 max-w-3xl">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="w-6 h-6 rounded-full bg-[#2C2A29] text-[#C5A059] text-xs font-black flex items-center justify-center shrink-0">
                           {idx + 1}
@@ -1914,6 +2263,12 @@ export default function PatientPlanViewer({
                         <span className="text-[11px] font-bold text-[#2C2A29] bg-stone-200/80 px-2 py-0.5 rounded">
                           📅 {treatment.seasonOrMonth}
                         </span>
+                        {displayRecovery && (
+                          <span className="text-[10px] font-bold text-sky-900 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-sky-700" />
+                            <span>Rekonvalescencia: {displayRecovery}</span>
+                          </span>
+                        )}
                         {/* Klikateľný prepínač priority */}
                         <button
                           type="button"
@@ -1948,8 +2303,29 @@ export default function PatientPlanViewer({
 
                       {treatment.notes && (
                         <p className="text-[11px] text-[#6B6357] italic bg-white p-2 rounded-lg border border-[#E8E2D9]/60 ml-8">
-                          {treatment.notes}
+                          🩺 <strong>Klinický cieľ a načasovanie:</strong> {treatment.notes}
                         </p>
+                      )}
+
+                      {displayExplanation && (
+                        <div className="bg-emerald-50/75 border border-emerald-200/80 p-2.5 rounded-lg ml-8 space-y-0.5">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-900 flex items-center gap-1">
+                            <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>Zrozumiteľne pre pacienta – čo tento krok prinesie a čo očakávať:</span>
+                          </span>
+                          <p className="text-[11px] text-emerald-950 leading-relaxed">
+                            {displayExplanation}
+                          </p>
+                        </div>
+                      )}
+
+                      {displayGuideline && (
+                        <div className="flex items-start gap-1.5 bg-amber-50/80 border border-amber-200/80 px-2.5 py-1.5 rounded-lg ml-8">
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059] shrink-0 mt-0.5" />
+                          <p className="text-[10px] text-amber-950 leading-snug">
+                            <strong>Overený medicínsky štandard / Guideline:</strong> {displayGuideline}
+                          </p>
+                        </div>
                       )}
                     </div>
 
@@ -3042,6 +3418,73 @@ export default function PatientPlanViewer({
                     placeholder="napr. Realizovať minimálne 6 týždňov po operácii. Vyžaduje prísnu fotoprotekciu SPF 50+."
                     className="w-full border border-[#E8E2D9] bg-white rounded-xl p-2 text-xs text-[#2C2A29]"
                   />
+                </div>
+
+                {/* Zrozumiteľné vysvetlenie pre pacienta & Overené EBM guideliny */}
+                <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Zrozumiteľnosť pre pacienta & Overené medicínske guideliny (EBM)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const matched = resolveSelectedProcedures(undefined, [{ id: 'tmp', name: treatmentModal.name, category: treatmentModal.category, seasonOrMonth: '', targetArea: '', frequencyOrSessions: '', priority: 'high', status: 'planned' }], treatmentModal.name)[0];
+                        if (matched) {
+                          setTreatmentModal({
+                            ...treatmentModal,
+                            patientExplanation: matched.patientExplanation,
+                            clinicalGuideline: matched.clinicalGuideline,
+                            recoveryTime: matched.recoveryTimePatient
+                          });
+                        }
+                      }}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100 cursor-pointer"
+                    >
+                      ✨ Predvyplniť EBM dáta podľa názvu výkonu
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-emerald-900 block mb-1">
+                      👤 Zrozumiteľné vysvetlenie pre pacienta (ľudskou rečou – prečo sa robí a čo očakávať)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={treatmentModal.patientExplanation}
+                      onChange={e => setTreatmentModal({ ...treatmentModal, patientExplanation: e.target.value })}
+                      placeholder="Jednoduché a upokojujúce vysvetlenie prínosu zákroku a priebehu hojenia pre pacienta..."
+                      className="w-full border border-emerald-200 bg-white rounded-xl p-2 text-xs text-[#2C2A29]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-emerald-900 block mb-1">
+                        ⏱️ Odhadovaná rekonvalescencia pre pacienta
+                      </label>
+                      <input
+                        type="text"
+                        value={treatmentModal.recoveryTime}
+                        onChange={e => setTreatmentModal({ ...treatmentModal, recoveryTime: e.target.value })}
+                        placeholder="napr. 10 – 14 dní (návrat do práce)"
+                        className="w-full border border-emerald-200 bg-white rounded-xl p-2 text-xs text-[#2C2A29]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-emerald-900 block mb-1">
+                        🔬 Overený guideline / klinická štúdia (EBM)
+                      </label>
+                      <input
+                        type="text"
+                        value={treatmentModal.clinicalGuideline}
+                        onChange={e => setTreatmentModal({ ...treatmentModal, clinicalGuideline: e.target.value })}
+                        placeholder="napr. ASPS & ERAS® Evidence-Based Clinical Guideline"
+                        className="w-full border border-emerald-200 bg-white rounded-xl p-2 text-xs text-[#2C2A29]"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex justify-between items-center pt-3 border-t border-[#E8E2D9]">

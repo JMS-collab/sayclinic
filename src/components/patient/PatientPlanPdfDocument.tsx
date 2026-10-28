@@ -2,6 +2,7 @@
 
 import React, { forwardRef } from 'react';
 import { PatientPlan } from '@/data/patientPlanConfig';
+import { synthesizeEbmPatientPlan, resolveSelectedProcedures } from '@/services/ebmPlanSynthesizer';
 
 interface PatientPlanPdfDocumentProps {
   plan: PatientPlan;
@@ -43,6 +44,22 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
       (plan.cosmeticsRoutine?.morning?.reduce((sum, c) => sum + (c.price || 0), 0) || 0) +
       (plan.cosmeticsRoutine?.evening?.reduce((sum, c) => sum + (c.price || 0), 0) || 0)
     );
+
+    const ebmRef = synthesizeEbmPatientPlan({
+      basePlan: plan,
+      patientId: plan.patientId,
+      patientName: plan.patientName,
+      patientBirthNumber: plan.patientBirthNumber,
+      doctorName: plan.doctorName,
+      skinType: plan.analysisSummary?.skinType,
+      selectedProcedureIds: plan.selectedProceduresList,
+      existingTreatments: plan.annualTreatments
+    });
+    const patientFriendlySummary = plan.patientFriendlySummary || ebmRef.patientFriendlySummary;
+    const verifiedGuidelines =
+      plan.verifiedGuidelinesUsed && plan.verifiedGuidelinesUsed.length > 0
+        ? plan.verifiedGuidelinesUsed
+        : ebmRef.verifiedGuidelinesUsed || [];
 
     return (
       <div
@@ -293,6 +310,72 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Zrozumiteľný sprievodca pre pacienta & Overené medicínske guideliny (EBM) */}
+          {patientFriendlySummary && (
+            <div
+              style={{
+                marginTop: '10px',
+                backgroundColor: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                borderRadius: '8px',
+                padding: '10px 12px'
+              }}
+            >
+              <strong
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                  color: '#065F46',
+                  letterSpacing: '0.5px',
+                  display: 'block',
+                  marginBottom: '3px'
+                }}
+              >
+                👤 Zrozumiteľný sprievodca plánom pre pacienta (Prečo sú kroky takto zoradené):
+              </strong>
+              <p style={{ margin: 0, fontSize: '9.5px', color: '#064E3B', lineHeight: '1.45' }}>
+                {patientFriendlySummary}
+              </p>
+
+              {verifiedGuidelines.length > 0 && (
+                <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #A7F3D0' }}>
+                  <span
+                    style={{
+                      fontSize: '8.5px',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      color: '#047857',
+                      display: 'block',
+                      marginBottom: '3px'
+                    }}
+                  >
+                    🔬 Overené medzinárodné medicínske guideliny a štúdie (Evidence-Based Medicine):
+                  </span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {verifiedGuidelines.map((g, gIdx) => (
+                      <div
+                        key={gIdx}
+                        style={{
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #D1FAE5',
+                          borderRadius: '5px',
+                          padding: '4px 7px',
+                          fontSize: '8px'
+                        }}
+                      >
+                        <strong style={{ color: '#2C2A29', display: 'block' }}>
+                          {g.title} ({g.organization})
+                        </strong>
+                        <span style={{ color: '#4B5563' }}>{g.summaryForPatient}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -727,14 +810,37 @@ export const PatientPlanPdfDocument = forwardRef<HTMLDivElement, PatientPlanPdfD
 
                       {/* Procedúra a poznámky */}
                       <td style={{ padding: '6px 8px', border: '1px solid #E8E2D9', verticalAlign: 'top' }}>
-                        <strong style={{ fontSize: '10.5px', color: '#2C2A29', display: 'block' }}>
-                          {t.name}
-                        </strong>
-                        {t.notes && (
-                          <span style={{ fontSize: '9px', color: '#6B6357', fontStyle: 'italic', display: 'block', marginTop: '2px' }}>
-                            {t.notes}
-                          </span>
-                        )}
+                        {(() => {
+                          const matchedEbm = resolveSelectedProcedures(undefined, [t], t.name)[0];
+                          const explanation = t.patientExplanation || matchedEbm?.patientExplanation;
+                          const guideline = t.clinicalGuideline || matchedEbm?.clinicalGuideline;
+                          const recovery = t.recoveryTime || matchedEbm?.recoveryTimePatient;
+                          return (
+                            <>
+                              <strong style={{ fontSize: '10.5px', color: '#2C2A29', display: 'block' }}>
+                                {t.name}
+                              </strong>
+                              {t.notes && (
+                                <span style={{ fontSize: '9px', color: '#6B6357', fontStyle: 'italic', display: 'block', marginTop: '2px' }}>
+                                  🩺 {t.notes}
+                                </span>
+                              )}
+                              {explanation && (
+                                <div style={{ fontSize: '8.5px', color: '#065F46', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '4px', padding: '3px 6px', marginTop: '4px', lineHeight: '1.35' }}>
+                                  <strong>👤 Pre pacienta:</strong> {explanation}
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '3px', fontSize: '8px', color: '#78716C' }}>
+                                {recovery && (
+                                  <span>⏱️ <strong>Rekonvalescencia:</strong> {recovery}</span>
+                                )}
+                                {guideline && (
+                                  <span>🔬 <strong>EBM:</strong> {guideline}</span>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </td>
 
                       {/* Rozsah / Zóna */}

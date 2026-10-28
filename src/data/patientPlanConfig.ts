@@ -18,6 +18,8 @@ export interface CosmeticRoutineItem {
   usage: string;
   purpose: string;
   price?: number;
+  patientBenefit?: string; // Zrozumiteľné vysvetlenie prínosu pre pacienta
+  evidenceNote?: string;   // Overený dermatologický guideline / štúdia
   // Dve voliteľné triedy: Základná starostlivosť vs. Prémiová starostlivosť
   standardOption?: RoutineProductOption;
   premiumOption?: RoutineProductOption;
@@ -35,6 +37,9 @@ export interface ScheduledTreatment {
   priority: 'high' | 'medium' | 'recommended';
   status: 'planned' | 'booked' | 'completed';
   notes?: string;
+  patientExplanation?: string; // Zrozumiteľné vysvetlenie zákroku pre pacienta ľudskou rečou
+  clinicalGuideline?: string;  // Overený medicínsky guideline / štúdia (ASPS, ERAS, EADV, Scar Consensus)
+  recoveryTime?: string;       // Čas zotavenia pre pacienta
   calendarEventId?: string;
   stepOrder?: number;
   isSkinTreatment?: boolean; // Rozlíšenie medzi ošetrením pleti (SAY Skincare) a sekvenčným plánom (Ročný plán)
@@ -78,6 +83,13 @@ export interface PatientPlan {
   planType: 'annual_aesthetic' | 'pre_post_op' | 'combined';
   title: string;
   diagnosisOrGoal: string;
+  patientFriendlySummary?: string; // Zrozumiteľné zhrnutie celého plánu pre pacienta
+  verifiedGuidelinesUsed?: Array<{
+    title: string;
+    organization: string;
+    summaryForPatient: string;
+  }>;
+  selectedProceduresList?: string[]; // Zoznam ID vybratých operácií a výkonov
   // 1. SAY Skincare - Meicet 3D Spektrálne dáta & Analýza pleti
   meicetMetrics?: MeicetSkinMetrics;
   meicetScanDate?: string;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { PRESET_PATIENT_PLANS, PatientPlan } from '@/data/patientPlanConfig';
+import { PatientPlan } from '@/data/patientPlanConfig';
+import { synthesizeEbmPatientPlan, resolveSelectedProcedures } from '@/services/ebmPlanSynthesizer';
 
 interface PlanCacheEntry {
   plan: PatientPlan;
@@ -8,35 +9,58 @@ interface PlanCacheEntry {
 }
 
 const planCache = new Map<string, PlanCacheEntry>();
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minút cache
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minút cache
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { 
-      patientName, 
-      patientId, 
-      planType = 'annual_aesthetic', // 'annual_aesthetic' | 'pre_post_op' | 'combined'
+    const {
+      patientName,
+      patientId,
+      patientBirthNumber,
+      planType = 'combined',
       diagnosisOrGoal = '',
       procedureName = '',
       skinType = '',
       mainConcerns = [],
       vectorZones = [],
+      selectedProcedureIds = [],
+      existingTreatments = [],
+      basePlan,
       doctorName = 'MUDr. Ján Mráz',
       forceRefresh = false
     } = body;
 
-    const cacheKey = `${patientId || 'unknown'}-${planType}`;
+    // 1. Zostavíme klinicky overený EBM základ podľa vybratých operácií a výkonov
+    const ebmFoundationPlan = synthesizeEbmPatientPlan({
+      basePlan,
+      patientId: patientId || 'P1',
+      patientName: patientName || 'Pacient SAY CLINIC',
+      patientBirthNumber,
+      doctorName,
+      skinType: skinType || 'Zmiešaná / normálna',
+      selectedProcedureIds,
+      existingTreatments,
+      diagnosisOrGoal: `${procedureName} ${diagnosisOrGoal}`.trim()
+    });
 
-    // 1. Kontrola serverovej cache
-    const cached = planCache.get(cacheKey);
-    if (!forceRefresh && cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
-      return NextResponse.json({ success: true, plan: cached.plan, source: 'server-cache' });
+    const resolvedProcs = resolveSelectedProcedures(
+      selectedProcedureIds,
+      existingTreatments,
+      `${procedureName} ${diagnosisOrGoal}`
+    );
+    const cacheKey = `${patientId || 'unknown'}-${resolvedProcs.map(p => p.id).join('_')}-${diagnosisOrGoal}`;
+
+    if (!forceRefresh) {
+      const cached = planCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        return NextResponse.json({ success: true, plan: cached.plan, source: 'server-cache' });
+      }
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
 
-    // Ak máme kľúč, môžeme použiť Gemini s kaskádou modelov (gemini-3.8-flash -> gemini-3.1-flash-lite)
+    // 2. Ak je dostupný GEMINI_API_KEY, obohatíme plán cez Gemini AI so striktným EBM a pacientsky zrozumiteľným protokolom
     if (apiKey) {
       try {
         const ai = new GoogleGenAI({
@@ -47,127 +71,55 @@ export async function POST(req: NextRequest) {
             }
           }
         });
-        
-        const systemPrompt = `Si špičkový plastický chirurg a certifikovaný dermatológ na prestížnej klinike SAY CLINIC v Bratislave (vedúci lekár MUDr. Ján Mráz).
-Tvojou úlohou je vygenerovať kompletný, vysoko profesionálny medicínsky a estetický PLÁN PACIENTA (Patient Treatment & Care Plan) v slovenskom jazyku.
 
-Tento plán môže byť:
-1. "annual_aesthetic" (Ročný estetický plán na 12 mesiacov: domáca kozmetika ráno/večer, sezónny rozpis procedúr laser, botox, výplne, mezoterapia, skinbooster, príp. operácie).
-2. "pre_post_op" (Predoperačná príprava a pooperačný plán: čo robiť 4 týždne, 2 týždne, 1 týždeň pred operáciou, laboratórne testy, zákaz fajčenia, vysadenie liekov na krvácanie; a následne pooperačná starostlivosť: 1.-7. deň, vybratie stehov, starostlivosť o jazvy - silikón, tlakové masáže, SPF50 ochrana, a následné procedúry do budúcna: vaskulárny laser, frakčný CO2 laser, microneedling, lymfodrenáž).
-3. "combined" (Kombinácia oboch).
+        const selectedProceduresSummary = resolvedProcs
+          .map((p, idx) => `${idx + 1}. ${p.label} (${p.targetArea}) - Guideline: ${p.clinicalGuideline}`)
+          .join('\n');
 
-VÝSTUP MUSÍ BYŤ ČISTÝ JSON zodpovedajúci rozhraniu:
+        const systemPrompt = `Si vedúci plastický chirurg a certifikovaný dermatológ na klinike SAY CLINIC (MUDr. Ján Mráz).
+Tvojou úlohou je upraviť a personalizovať kompletný ROČNÝ PLÁN STAROSTLIVOSTI (3-v-1: 1. SAY Skincare, 2. Ročný Plán výkonov, 3. SAY Care Predoperačný & Pooperačný protokol) presne podľa VYBRATÝCH OPERÁCIÍ A VÝKONOV pacienta.
+
+HLAVNÉ PRAVIDLÁ:
+1. OVERENÉ ŠTÚDIE A GUIDELINY (Evidence-Based Medicine):
+   - Všetky odporúčania, odstupy medzi operáciami, lasermi a injekciami, predoperačná prehabilitácia a starostlivosť o jazvy MUSIA vychádzať z najnovších medzinárodných medicínskych guidelinov:
+     • ERAS® Society Plastic Surgery Guidelines (predoperačná výživa, nefajčenie 4 týždne pred/po, vysadenie ASA/NSAID 10-14 dní pred, včasná mobilizácia).
+     • International Advisory Panel on Scar Management (Mustoe et al. / Gold et al. – 100% silikónový gél od 14. dňa, tlakové masáže od 21. dňa, včasný cievny a frakčný CO2 laser, SPF 50+ počas 12 mesiacov).
+     • ASPS & ISAPS Clinical Practice Guidelines (bezpečné odstupy medzi operáciou, laserovým resurfacingom a aplikáciou botulotoxínu/HA).
+     • EADV & Duke University Antioxidant Parameters (15% L-askorbová kyselina + ferulová kyselina ráno, vysadenie retinoidov 7 dní pred zákrokom, ceramidová bariérová obnova 2:4:2).
+2. ZROZUMITEĽNOSŤ PRE PACIENTA:
+   - Každý krok, každá inštrukcia a každý zákrok musí byť vysvetlený ĽUDSKY, EMPATICKY, PREHĽADNE A ZROZUMITEĽNE pre bežného pacienta (bez nezrozumiteľného žargónu, resp. odborný pojem vždy hneď jednoducho vysvetliť: Čo to pre pacienta znamená, prečo sa to robí a čo môže očakávať).
+3. DUÁLNA SKINCARE RUTINA:
+   - Pre každý krok rannej a večernej rutiny vyplň standardOption ("Základná starostlivosť": La Roche-Posay, CeraVe, Vichy) a premiumOption ("Prémiová starostlivosť": SkinCeuticals, Dermaceutic).
+
+Vráť ČISTÝ JSON s týmito kľúčmi:
 {
   "title": string,
   "diagnosisOrGoal": string,
-  "analysisSummary": {
-    "skinType": string,
-    "skinTonePhototype": string,
-    "mainConcerns": string[],
-    "vectorZones": string[]
-  },
-  "cosmeticsRoutine": {
-    "activeTier": "both",
-    "morning": [
-      { 
-        "step": 1, 
-        "category": string, 
-        "productName": string, 
-        "brand": string, 
-        "usage": string, 
-        "purpose": string, 
-        "price": number,
-        "standardOption": { "tier": "standard", "tierName": "Základná starostlivosť", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string },
-        "premiumOption": { "tier": "premium", "tierName": "Prémiová starostlivosť", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string }
-      }
-    ],
-    "evening": [
-      { 
-        "step": 1, 
-        "category": string, 
-        "productName": string, 
-        "brand": string, 
-        "usage": string, 
-        "purpose": string, 
-        "price": number,
-        "standardOption": { "tier": "standard", "tierName": "Základná starostlivosť", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string },
-        "premiumOption": { "tier": "premium", "tierName": "Prémiová starostlivosť", "productName": string, "brand": string, "price": number, "usage": string, "purpose": string }
-      }
-    ],
-    "specialWeeklyCare": string[]
-  },
+  "patientFriendlySummary": string,
   "annualTreatments": [
     {
-      "id": string,
       "name": string,
-      "category": "laser" | "injectable" | "skin_care" | "surgery" | "rehab" | "scar_care",
+      "category": "surgery" | "laser" | "injectable" | "skin_care" | "scar_care",
       "seasonOrMonth": string,
       "targetArea": string,
       "frequencyOrSessions": string,
       "estimatedPrice": number,
       "priority": "high" | "medium" | "recommended",
-      "status": "planned",
-      "notes": string
+      "notes": string,
+      "patientExplanation": string,
+      "clinicalGuideline": string,
+      "recoveryTime": string
     }
   ],
-  "preOpCare": {
-    "procedureName": string,
-    "prehabilitation": {
-      "medicalPrehab": string[],
-      "psychologicalPrep": string[],
-      "nutritionalPrep": string[],
-      "physicalPrep": string[]
-    },
-    "instructions": [
-      { "id": string, "timeframe": string, "title": string, "description": string, "mandatory": boolean }
-    ]
-  },
-  "postOpCare": {
-    "procedureName": string,
-    "phases": [
-      {
-        "phaseId": string,
-        "period": string,
-        "title": string,
-        "focus": string,
-        "instructions": string[],
-        "scarCareGuidelines": string[],
-        "recommendedProcedures": string[],
-        "warningSigns": string[]
-      }
-    ],
-    "scarProtocol": {
-      "siliconeApplication": string,
-      "pressureMassage": string,
-      "lymphaticDrainage": string,
-      "laserTherapy": string,
-      "sunProtection": string,
-      "advancedScarTherapies": string[]
-    }
-  },
   "doctorNote": string
-}
+}`;
 
-DÔLEŽITÉ: Pre každý krok rannej a večernej rutiny MUSÍŠ vytvoriť OBA varianty (standardOption aj premiumOption):
-- standardOption: Trieda "Základná starostlivosť" (CeraVe, La Roche-Posay, Vichy) ako overená, dostupnejšia starostlivosť (~14€ až 40€).
-- premiumOption: Trieda "Prémiová starostlivosť" (SkinCeuticals, Medik8) ako špičková medicínska bunková starostlivosť s patentovanými koncentráciami (~44€ až 185€).
-Pre každý produkt VŽDY vyplň značku (napr. "La Roche-Posay", "SkinCeuticals", "Vichy", "CeraVe") do poľa "brand" a názov v "productName" musí taktiež začínať názvom značky (napr. "La Roche-Posay Anthelios UVMune 400..." alebo "SkinCeuticals C E Ferulic...").
-
-Uveď konkrétne klinické produkty výhradne z oficiálneho portfólia kliniky SAY CLINIC:
-- SkinCeuticals (C E Ferulic ~175€, Phloretin CF ~175€, H.A. Intensifier ~125€, Discoloration Defense ~112€, P-TIOX Peptidové sérum ~142€, Triple Lipid Restore 2:4:2 ~155€, A.G.E. Interrupter Advanced ~185€, A.G.E. Advanced Eye ~110€, Simply Clean gél ~48€, Soothing Cleanser pena ~46€, Phyto Corrective ~85€, Retinol 0.3 ~98€, Ultra Facial Defense SPF 50+ ~44€).
-- La Roche-Posay (Anthelios UVMune 400 Invisible Fluid SPF 50+ ~21.50€, Anthelios Oil Control SPF 50+ ~21.50€, Cicaplast Baume B5+ ~16.50€, Cicaplast Gel B5 ~13.50€, Hyalu B5 Sérum ~39.50€, Retinol B3 Sérum ~39€, Toleriane Dermo-Cleanser ~17.50€, Mela B3 Sérum s Melasylom ~44.50€, Effaclar Duo+M ~19.50€, Toleriane Dermallergo ~23€, Lipikar Baume AP+M ~24.50€).
-- CeraVe (Hydratačná čistiaca emulzia ~14.50€, SA Zjemňujúci čistiaci gél ~16€, Čistiaci penivý gél ~14.50€, Hydratačný krém ~18€, Denný krém SPF 50 ~15.50€, Nočný krém PM ~14€, Resurfacing Retinol Sérum ~18.50€, Pokročilá regeneračná masť ~13€, Obnovujúci očný krém ~13€).
-- Vichy (Liftactiv Supreme 15% Vitamín C ~38€, Liftactiv H.A. očné sérum ~29€, Minéral 89 Hyaluron Booster ~24.50€, Minéral 89 72h krém ~23€, Liftactiv Retinol Specialist ~42€, Liftactiv Collagen Specialist ~38.50€, Capital Soleil UV-Clear SPF 50+ ~22.50€).
-Buď medicínsky presný, dôrazný na bezpečnosť, zákaz fajčenia, vysadenie ASA, tlakové masáže jaziev a striktný zákaz UV žiarenia na jazvy 12 mesiacov.`;
-
-        const userPrompt = `Vygeneruj plán pacienta pre:
-Meno pacienta: ${patientName || 'Neuvedené'}
-Typ plánu: ${planType}
-Zvolený zákrok alebo diagnóza: ${procedureName || diagnosisOrGoal || 'Celková rejuvenácia tváre a pleti'}
-Typ pleti: ${skinType || 'Zmiešaná / normálna'}
-Hlavné sťažnosti: ${Array.isArray(mainConcerns) ? mainConcerns.join(', ') : mainConcerns}
-Vektorové zóny z analýzy: ${Array.isArray(vectorZones) ? vectorZones.join(', ') : vectorZones}
-Ošetrujúci lekár: ${doctorName}`;
+        const userPrompt = `Pacient: ${patientName || 'Pacient SAY CLINIC'}
+Typ pleti: ${skinType || 'Zmiešaná / citlivá'}
+Cieľ / Indikácia: ${diagnosisOrGoal || procedureName || 'Komplexná chirurgická a estetická starostlivosť'}
+Hlavné požiadavky: ${Array.isArray(mainConcerns) ? mainConcerns.join(', ') : mainConcerns}
+Vybraté operácie a výkony, ktorým sa musí prispôsobiť celý ročný plán:
+${selectedProceduresSummary}`;
 
         const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
         let parsed: any = null;
@@ -193,107 +145,68 @@ Ošetrujúci lekár: ${doctorName}`;
               break;
             }
           } catch (modelErr: any) {
-            const isQuota = modelErr?.status === 'RESOURCE_EXHAUSTED' || 
-                            modelErr?.message?.includes('429') || 
-                            modelErr?.message?.includes('quota');
-            if (isQuota) {
-              console.warn(`Patient Plan: model ${modelName} dosiahol rate limit (429/quota), testujem ďalší...`);
-            } else {
-              console.warn(`Patient Plan: model ${modelName} vrátil chybu:`, modelErr?.message || modelErr);
-            }
+            console.warn(`AI Patient Plan (${modelName}) fallback:`, modelErr?.message || modelErr);
           }
         }
 
         if (parsed) {
-          const fullPlan: PatientPlan = {
-            id: `plan-${Date.now()}`,
-            patientId: patientId || 'P1',
-            patientName: patientName || 'Pacient SAY CLINIC',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            doctorName: doctorName,
-            planType: planType as any,
-            title: parsed.title || 'Individuálny plán starostlivosti SAY CLINIC',
-            diagnosisOrGoal: parsed.diagnosisOrGoal || diagnosisOrGoal,
-            analysisSummary: parsed.analysisSummary || {
-              skinType: skinType || 'Zmiešaná',
-              skinTonePhototype: 'Fitzpatrick II-III',
-              mainConcerns: mainConcerns.length > 0 ? mainConcerns : ['Rejuvenácia'],
-              vectorZones: vectorZones.length > 0 ? vectorZones : ['Tvár']
-            },
-            cosmeticsRoutine: parsed.cosmeticsRoutine || PRESET_PATIENT_PLANS.face_annual_rejuvenation.cosmeticsRoutine!,
-            annualTreatments: (parsed.annualTreatments || []).map((t: any, idx: number) => ({
-              ...t,
-              id: t.id || `trt-${Date.now()}-${idx}`,
-              status: 'planned'
-            })),
-            preOpCare: parsed.preOpCare,
-            postOpCare: parsed.postOpCare,
-            doctorNote: parsed.doctorNote || 'Vygenerované na základe dermatologickej analýzy SAY CLINIC.'
+          const mergedPlan: PatientPlan = {
+            ...ebmFoundationPlan,
+            title: parsed.title || ebmFoundationPlan.title,
+            diagnosisOrGoal: parsed.diagnosisOrGoal || ebmFoundationPlan.diagnosisOrGoal,
+            patientFriendlySummary: parsed.patientFriendlySummary || ebmFoundationPlan.patientFriendlySummary,
+            annualTreatments:
+              Array.isArray(parsed.annualTreatments) && parsed.annualTreatments.length > 0
+                ? parsed.annualTreatments.map((t: any, idx: number) => ({
+                    id: `trt-ai-${Date.now()}-${idx}`,
+                    stepOrder: idx + 1,
+                    name: t.name || ebmFoundationPlan.annualTreatments[idx]?.name || 'Klinický výkon',
+                    category: t.category || ebmFoundationPlan.annualTreatments[idx]?.category || 'surgery',
+                    isSkinTreatment: t.category === 'laser' || t.category === 'skin_care' || t.category === 'scar_care',
+                    seasonOrMonth: t.seasonOrMonth || `${idx + 1}. Krok`,
+                    targetArea: t.targetArea || 'Tvár / Telo',
+                    frequencyOrSessions: t.frequencyOrSessions || 'Podľa protokolu',
+                    estimatedPrice: Number(t.estimatedPrice) || ebmFoundationPlan.annualTreatments[idx]?.estimatedPrice || 450,
+                    priority: t.priority || 'high',
+                    status: 'planned',
+                    notes: t.notes || ebmFoundationPlan.annualTreatments[idx]?.notes,
+                    patientExplanation:
+                      t.patientExplanation ||
+                      ebmFoundationPlan.annualTreatments[idx]?.patientExplanation ||
+                      'Výkon zaradený v bezpečnom časovom odstupe pre optimálne hojenie a prirodzený výsledok.',
+                    clinicalGuideline:
+                      t.clinicalGuideline ||
+                      ebmFoundationPlan.annualTreatments[idx]?.clinicalGuideline ||
+                      'ASPS & ERAS® Evidence-Based Clinical Practice Guideline',
+                    recoveryTime:
+                      t.recoveryTime ||
+                      ebmFoundationPlan.annualTreatments[idx]?.recoveryTime ||
+                      '7 – 14 dní podľa individuálneho hojenia'
+                  }))
+                : ebmFoundationPlan.annualTreatments,
+            doctorNote: parsed.doctorNote || ebmFoundationPlan.doctorNote
           };
 
-          planCache.set(cacheKey, { plan: fullPlan, timestamp: Date.now() });
-
-          return NextResponse.json({ success: true, plan: fullPlan, source: successfulModel });
+          planCache.set(cacheKey, { plan: mergedPlan, timestamp: Date.now() });
+          return NextResponse.json({ success: true, plan: mergedPlan, source: successfulModel });
         }
       } catch (geminiError) {
-        console.warn('Gemini generation failed, falling back to clinical expert presets:', geminiError);
+        console.warn('Gemini AI enrichment fallback to EBM clinical synthesizer:', geminiError);
       }
     }
 
-    // EXPERTNÝ KLINICKÝ FALLBACK (okamžitá blesková odpoveď s lekárskou presnosťou)
-    console.warn(`Patient Plan: Aktivovaný expertný klinický engine SAY CLINIC pre pacienta ${patientName}`);
-    let basePreset = PRESET_PATIENT_PLANS.face_sequential_transformation;
-    const lowerProc = (procedureName + ' ' + diagnosisOrGoal).toLowerCase();
-
-    if (lowerProc.includes('prs') || lowerProc.includes('augment') || lowerProc.includes('mamm') || planType === 'pre_post_op' && lowerProc.includes('implant')) {
-      basePreset = PRESET_PATIENT_PLANS.breast_surgery_care;
-    } else if (lowerProc.includes('viek') || lowerProc.includes('blefar') || lowerProc.includes('oko') || lowerProc.includes('očí')) {
-      basePreset = PRESET_PATIENT_PLANS.blepharoplasty_care;
-    } else if (lowerProc.includes('facelift') || lowerProc.includes('sekven') || planType === 'combined') {
-      basePreset = PRESET_PATIENT_PLANS.face_sequential_transformation;
-    } else if (planType === 'pre_post_op') {
-      basePreset = PRESET_PATIENT_PLANS.breast_surgery_care;
-    } else {
-      basePreset = PRESET_PATIENT_PLANS.face_annual_rejuvenation;
-    }
-
-    const synthesizedPlan: PatientPlan = {
-      id: `plan-${Date.now()}`,
-      patientId: patientId || 'P1',
-      patientName: patientName || 'Pacient SAY CLINIC',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      doctorName: doctorName,
-      planType: planType as any,
-      title: basePreset.title || 'Komplexný liečebný a estetický plán pacienta',
-      diagnosisOrGoal: diagnosisOrGoal || basePreset.diagnosisOrGoal || 'Komplexná starostlivosť a rejuvenácia',
-      analysisSummary: {
-        skinType: skinType || basePreset.analysisSummary?.skinType || 'Zmiešaná / Normálna',
-        skinTonePhototype: basePreset.analysisSummary?.skinTonePhototype || 'Fitzpatrick II-III',
-        mainConcerns: mainConcerns.length > 0 ? mainConcerns : (basePreset.analysisSummary?.mainConcerns || ['Optimalizácia stavu pleti']),
-        vectorZones: vectorZones.length > 0 ? vectorZones : (basePreset.analysisSummary?.vectorZones || ['Celá tvár & dekolt'])
-      },
-      cosmeticsRoutine: basePreset.cosmeticsRoutine || PRESET_PATIENT_PLANS.face_annual_rejuvenation.cosmeticsRoutine!,
-      annualTreatments: (basePreset.annualTreatments || []).map((t, idx) => ({
-        ...t,
-        id: `trt-${Date.now()}-${idx}`,
-        status: 'planned'
-      })),
-      preOpCare: basePreset.preOpCare ? {
-        ...basePreset.preOpCare,
-        procedureName: procedureName || basePreset.preOpCare.procedureName
-      } : undefined,
-      postOpCare: basePreset.postOpCare ? {
-        ...basePreset.postOpCare,
-        procedureName: procedureName || basePreset.postOpCare.procedureName
-      } : undefined,
-      doctorNote: basePreset.doctorNote || 'Personalizovaný plán pripravený v spolupráci s lekárskym tímom SAY CLINIC.'
-    };
-
-    return NextResponse.json({ success: true, plan: synthesizedPlan, source: 'clinical-expert-engine' });
+    // 3. Vrátime kompletne zostavený, EBM overený a pre pacienta zrozumiteľný plán
+    planCache.set(cacheKey, { plan: ebmFoundationPlan, timestamp: Date.now() });
+    return NextResponse.json({
+      success: true,
+      plan: ebmFoundationPlan,
+      source: 'ebm-clinical-guidelines-engine'
+    });
   } catch (error: any) {
-    console.error('Error generating patient plan:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Chyba pri generovaní plánu pacienta' }, { status: 500 });
+    console.error('Error generating EBM patient plan:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Chyba pri generovaní plánu pacienta' },
+      { status: 500 }
+    );
   }
 }
