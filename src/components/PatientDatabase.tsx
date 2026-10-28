@@ -1763,20 +1763,20 @@ export default function PatientDatabase({
                       </button>
                     )}
 
-                    {/* SAY Skincare & Meicet Pro-A (3-v-1 Plán) */}
+                    {/* Plán terapie (3-v-1: SAY Skincare, Ročný plán & SAY Care) */}
                     <button
                       type="button"
                       onClick={() => {
                         setActiveFolder('plany');
                       }}
-                      className="w-full px-3 py-1.5 rounded-lg bg-[#FAF8F5] hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] text-xs font-medium transition-all shadow-2xs flex items-center justify-between cursor-pointer"
-                      title="1. SAY Skincare (Meicet 3D + rutina) • 2. Ročný Plán • 3. SAY Care"
+                      className="w-full px-3 py-2 rounded-lg bg-[#FAF8F5] hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] text-xs font-semibold transition-all shadow-2xs flex items-center justify-between cursor-pointer group"
+                      title="Plán terapie: 1. SAY Skincare & Meicet • 2. Ročný plán • 3. SAY Care"
                     >
                       <span className="flex items-center gap-2">
-                        <Sparkles className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
-                        <span>SAY Skincare & Meicet 3D</span>
+                        <Sparkles className="w-3.5 h-3.5 text-[#C5A059] group-hover:scale-110 transition-transform shrink-0" />
+                        <span>Plán terapie</span>
                       </span>
-                      <span className="text-[9px] text-[#8C857B] font-mono">3-v-1</span>
+                      <span className="text-[9px] text-[#8C857B] group-hover:text-[#C5A059] font-mono">3-v-1</span>
                     </button>
                   </div>
                 </div>
@@ -1788,7 +1788,7 @@ export default function PatientDatabase({
                       <span className="w-2 h-2 rounded-full bg-[#C5A059]"></span>
                       <span>Plánovanie & Pokladňa</span>
                     </div>
-                    <span className="text-[9px] uppercase font-semibold text-[#8C857B] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">3 akcie</span>
+                    <span className="text-[9px] uppercase font-semibold text-[#8C857B] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">2 akcie</span>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -1796,7 +1796,7 @@ export default function PatientDatabase({
                     <button
                       type="button"
                       onClick={() => handleOpenScheduleModal()}
-                      className="w-full px-3 py-1.5 rounded-lg bg-sky-50/70 hover:bg-sky-100/80 border border-sky-200/80 text-sky-950 text-xs font-medium transition-all shadow-2xs flex items-center justify-between cursor-pointer"
+                      className="w-full px-3 py-2 rounded-lg bg-sky-50/70 hover:bg-sky-100/80 border border-sky-200/80 text-sky-950 text-xs font-semibold transition-all shadow-2xs flex items-center justify-between cursor-pointer"
                       title="Zarezervovať operačnú sálu alebo ambulantný termín"
                     >
                       <span className="flex items-center gap-2">
@@ -1806,26 +1806,12 @@ export default function PatientDatabase({
                       <span className="text-[9px] text-sky-700/80 font-mono">Sála</span>
                     </button>
 
-                    {/* Vytvoriť plán liečby */}
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingPlan(true)}
-                      className="w-full px-3 py-1.5 rounded-lg bg-[#FAF8F5] hover:bg-white border border-[#E8E2D9] hover:border-amber-300 text-[#2C2A29] text-xs font-medium transition-all shadow-2xs flex items-center justify-between cursor-pointer"
-                      title="Ročný estetický alebo pred/pooperačný liečebný plán"
-                    >
-                      <span className="flex items-center gap-2">
-                        <ClipboardList className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span>Vytvoriť plán liečby</span>
-                      </span>
-                      <span className="text-[9px] text-amber-700/80 font-mono">Plán</span>
-                    </button>
-
                     {/* Pokladňa po ošetrení (POS) */}
                     {onNavigateToCosmetics && (
                       <button
                         type="button"
                         onClick={() => onNavigateToCosmetics(selectedPatient)}
-                        className="w-full px-3 py-1.5 rounded-lg bg-[#FAF8F5] hover:bg-white border border-[#E8E2D9] hover:border-purple-300 text-[#2C2A29] text-xs font-medium transition-all shadow-2xs flex items-center justify-between cursor-pointer"
+                        className="w-full px-3 py-2 rounded-lg bg-[#FAF8F5] hover:bg-white border border-[#E8E2D9] hover:border-purple-300 text-[#2C2A29] text-xs font-semibold transition-all shadow-2xs flex items-center justify-between cursor-pointer"
                         title="Pokladňa po ošetrení & nákup kozmetiky"
                       >
                         <span className="flex items-center gap-2">

@@ -281,15 +281,15 @@ export default function ActivePatientBar({
             <span>Recept Rp.</span>
           </button>
 
-          {/* PLÁN STAROSTLIVOSTI 3-V-1 (SAY SKINCARE / ROČNÝ PLÁN / SAY CARE) */}
+          {/* PLÁN TERAPIE (3-V-1: SAY SKINCARE / ROČNÝ PLÁN / SAY CARE) */}
           <button
             type="button"
             onClick={() => onNavigateToTab('patients', { folder: 'plany' })}
             className="px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer border bg-[#282523]/80 hover:bg-[#34302D] text-[#E8E2D9] hover:text-white border-[#3F3A36] hover:border-[#C5A059]/60"
-            title="1. SAY Skincare (Meicet 3D + rutina) • 2. Ročný Plán • 3. SAY Care"
+            title="Plán terapie: 1. SAY Skincare • 2. Ročný Plán • 3. SAY Care"
           >
             <ScanFace className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span className="hidden lg:inline">Plán & Meicet 3D</span>
+            <span className="hidden lg:inline">Plán terapie</span>
           </button>
 
           {/* 5. PREDAJ KOZMETIKY (POS) */}
