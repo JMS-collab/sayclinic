@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { MeicetUploadModal } from '../meicet/MeicetUploadModal';
 import { MeicetService } from '@/services/meicetService';
-import { EBM_PROCEDURE_CATALOG, synthesizeEbmPatientPlan } from '@/services/ebmPlanSynthesizer';
+import { EBM_PROCEDURE_CATALOG, EBM_PROCEDURE_GROUPS, synthesizeEbmPatientPlan } from '@/services/ebmPlanSynthesizer';
 
 interface CreatePatientPlanModalProps {
   isOpen: boolean;
@@ -208,54 +208,110 @@ export default function CreatePatientPlanModal({
             </button>
           </div>
 
-          {/* VÝBER OPERÁCIÍ A VÝKONOV PRE AI ZOSTAVENIE PLÁNU */}
+          {/* DROPDOWN VŠETKÝCH VÝKONOV A ZVOLENÉ CHIPY PRE AI PLÁN */}
           <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-2xl p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <label className="font-bold text-xs uppercase tracking-wider text-[#2C2A29] flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
-                  <span>1. Vyklikajte operácie a výkony, ktorým AI prispôsobí celý ročný plán:</span>
+                  <span>1. Vyberte operácie a výkony pre pacienta (Dropdown):</span>
                 </label>
                 <p className="text-[11px] text-[#8C857B] mt-0.5">
-                  AI automaticky zoradí výkony do bezpečnej postupnosti, nastaví rozostupy, Skincare rutinu, Prehabilitáciu aj protokol jaziev zrozumiteľne pre pacienta.
+                  AI automaticky zostaví bezpečné rozostupy, Skincare rutinu, Prehabilitáciu aj protokol jaziev na mieru zvoleným výkonom.
                 </p>
               </div>
               <span className="text-[10px] font-bold bg-[#2C2A29] text-[#C5A059] px-2.5 py-1 rounded-full">
-                Zvolené: {selectedProcedureIds.length} výkony
+                Zvolené: {selectedProcedureIds.length} výkonov
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {EBM_PROCEDURE_CATALOG.map(proc => {
-                const isSelected = selectedProcedureIds.includes(proc.id);
-                return (
-                  <button
-                    key={proc.id}
-                    type="button"
-                    onClick={() => toggleProcedureId(proc.id)}
-                    className={`p-2.5 rounded-xl border text-left transition-all flex items-start gap-2.5 cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#2C2A29] text-white border-[#C5A059] shadow-sm'
-                        : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
-                    }`}
-                  >
-                    <div className={`w-4 h-4 rounded mt-0.5 flex items-center justify-center shrink-0 border ${
-                      isSelected ? 'bg-[#C5A059] border-[#C5A059] text-[#2C2A29]' : 'border-stone-300 bg-white'
-                    }`}>
-                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold flex items-center gap-1.5">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (id && !selectedProcedureIds.includes(id)) {
+                      toggleProcedureId(id);
+                    }
+                  }}
+                  className="w-full bg-white border-2 border-[#C5A059]/80 focus:border-[#C5A059] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#2C2A29] shadow-xs cursor-pointer appearance-none pr-9 hover:border-[#C5A059]"
+                >
+                  <option value="" disabled>
+                    ➕ Kliknite sem a zvoľte výkon (Plastická chirurgia, Lasery, Injekcie, Pleť)...
+                  </option>
+                  {EBM_PROCEDURE_GROUPS.map(group => {
+                    const groupProcs = EBM_PROCEDURE_CATALOG.filter(p => p.group === group.key);
+                    if (groupProcs.length === 0) return null;
+                    return (
+                      <optgroup key={group.key} label={`${group.icon} ${group.label} (${groupProcs.length})`}>
+                        {groupProcs.map(proc => {
+                          const isAlreadySelected = selectedProcedureIds.includes(proc.id);
+                          return (
+                            <option
+                              key={proc.id}
+                              value={proc.id}
+                              className={isAlreadySelected ? 'font-bold text-emerald-700 bg-emerald-50' : 'text-[#2C2A29]'}
+                            >
+                              {isAlreadySelected ? '✓ [ZVOLENÉ] ' : '• '}
+                              {proc.label} — {proc.recoveryTimePatient.split('(')[0].trim()} (~{proc.defaultPrice} €)
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                    );
+                  })}
+                </select>
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#C5A059] font-bold text-xs">
+                  ▼
+                </div>
+              </div>
+
+              {selectedProcedureIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedProcedureIds([])}
+                  className="px-3 py-2 rounded-xl bg-white hover:bg-rose-50 border border-[#E8E2D9] hover:border-rose-300 text-rose-700 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs"
+                >
+                  ✕ Vyčistiť ({selectedProcedureIds.length})
+                </button>
+              )}
+            </div>
+
+            {/* Zobrazenie zvolených čipov */}
+            <div className="pt-1">
+              {selectedProcedureIds.length === 0 ? (
+                <div className="p-3 text-center rounded-xl border border-dashed border-[#E8E2D9] bg-white text-xs text-[#8C857B]">
+                  Zatiaľ ste nezvolili žiadny výkon. Vyberte zákroky z <strong>dropdownu vyššie</strong> alebo zvoľte rýchly profil nižšie.
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {selectedProcedureIds.map(procId => {
+                    const proc = EBM_PROCEDURE_CATALOG.find(p => p.id === procId);
+                    if (!proc) return null;
+                    return (
+                      <div
+                        key={proc.id}
+                        className="inline-flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-xl bg-[#2C2A29] text-white border border-[#C5A059] shadow-xs text-xs font-bold"
+                      >
                         <span>{proc.icon}</span>
-                        <span className="truncate">{proc.shortLabel}</span>
+                        <span>{proc.shortLabel}</span>
+                        <span className="text-[9px] font-normal text-amber-200 bg-white/10 px-1.5 py-0.5 rounded">
+                          ~{proc.defaultPrice} €
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleProcedureId(proc.id)}
+                          className="w-4 h-4 rounded-full bg-white/20 hover:bg-rose-500 hover:text-white flex items-center justify-center text-white/80 transition-colors cursor-pointer ml-1"
+                          title="Odstrániť"
+                        >
+                          <X className="w-2.5 h-2.5 stroke-[2.5]" />
+                        </button>
                       </div>
-                      <p className={`text-[10px] truncate mt-0.5 ${isSelected ? 'text-stone-300' : 'text-[#8C857B]'}`}>
-                        {proc.targetArea} • ~{proc.defaultPrice} €
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
