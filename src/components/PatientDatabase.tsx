@@ -1686,7 +1686,7 @@ export default function PatientDatabase({
                       <span className="w-2 h-2 rounded-full bg-[#C5A059]"></span>
                       <span>Dokumentácia & Predpis</span>
                     </div>
-                    <span className="text-[9px] uppercase font-semibold text-[#8C857B] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">3 akcie</span>
+                    <span className="text-[9px] uppercase font-semibold text-[#8C857B] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">4 akcie</span>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -1732,6 +1732,20 @@ export default function PatientDatabase({
                         <span>Dermatologické vyš.</span>
                       </span>
                       <span className="text-[9px] text-violet-700/80 font-mono">Dermato</span>
+                    </button>
+
+                    {/* Excízia névov (Chirurgicky / Laserom) */}
+                    <button
+                      type="button"
+                      onClick={() => onNavigateToGenerator?.({ ...selectedPatient, initialDocType: 'zaznam_excizia_nevov' })}
+                      className="w-full px-3 py-1.5 rounded-lg bg-[#FAF8F5] hover:bg-white border border-[#E8E2D9] hover:border-amber-300 text-[#2C2A29] text-xs font-medium transition-all shadow-2xs flex items-center justify-between cursor-pointer"
+                      title="Chirurgická a CO2 laserová excízia névov s výberom položiek a zúčtovaním"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Activity className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                        <span>Excízia névov</span>
+                      </span>
+                      <span className="text-[9px] text-amber-800 font-mono">Laser / Chir</span>
                     </button>
                   </div>
                 </div>

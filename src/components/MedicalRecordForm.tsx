@@ -14,6 +14,9 @@ import PrescriptionModule from './PrescriptionModule';
 import DermatologyExamEditor from './dermatology/DermatologyExamEditor';
 import DermatologyExamPrintView from './dermatology/DermatologyExamPrintView';
 import { DermatologyExamData, INITIAL_DERMATOLOGY_DATA } from './dermatology/dermatologyTypes';
+import NevusExcisionEditor from './dermatology/NevusExcisionEditor';
+import NevusExcisionPrintView from './dermatology/NevusExcisionPrintView';
+import { NevusExcisionData, INITIAL_NEVUS_EXCISION_DATA } from './dermatology/nevusExcisionTypes';
 import { Sliders, Save, RotateCcw, Check } from './Icons';
 import { InventoryService, InventoryItem } from '../services/inventoryService';
 import { FinanceBillingService } from '../services/financeBillingService';
@@ -570,6 +573,7 @@ export type DocumentType =
   | 'vstupne_vysetrenie'
   | 'kontrolne_vysetrenie'
   | 'dermatologicke_vysetrenie'
+  | 'zaznam_excizia_nevov'
   | 'cenova_ponuka'
   | 'dohoda_o_cene'
   | 'operacny_protokol'
@@ -585,6 +589,7 @@ export const DOC_TITLES: Record<DocumentType, string> = {
   vstupne_vysetrenie: 'Vstupné vyšetrenie',
   kontrolne_vysetrenie: 'Kontrolné vyšetrenie',
   dermatologicke_vysetrenie: '🩺 Dermatologické vyšetrenie & Dermatoskopia',
+  zaznam_excizia_nevov: '🔬 Záznam o excízii névov (Chirurgicky / Laserom)',
   cenova_ponuka: 'Cenová ponuka',
   dohoda_o_cene: 'Dohoda o cene a podmienkach',
   operacny_protokol: 'Operačný protokol',
@@ -689,6 +694,9 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient, all
 
   // DERMATOLOGICKÉ VYŠETRENIE
   const [dermatologyData, setDermatologyData] = useState<DermatologyExamData>(INITIAL_DERMATOLOGY_DATA);
+
+  // EXCÍZIA NÉVOV (CHIRURGICKY / LASEROM)
+  const [nevusExcisionData, setNevusExcisionData] = useState<NevusExcisionData>(INITIAL_NEVUS_EXCISION_DATA);
 
   // DOHODA O CENE - ROZŠÍRENÉ ŠPECIFICKÉ ÚDAJE
   const [patientCitizenship, setPatientCitizenship] = useState('Slovenská republika');
@@ -1380,12 +1388,20 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient, all
 
     setCloudSaveFeedback(null);
 
+    const excisionSubtotal = nevusExcisionData.items.reduce((acc, it) => acc + (Number(it.price) || 0), 0);
+    const excisionDiscount = nevusExcisionData.discountType === 'percent'
+      ? (excisionSubtotal * (Number(nevusExcisionData.discountValue) || 0)) / 100
+      : Math.min(excisionSubtotal, Number(nevusExcisionData.discountValue) || 0);
+    const excisionFinalPrice = Math.max(0, excisionSubtotal - excisionDiscount);
+
     const serviceTitle = (docType === 'cenova_ponuka' || docType === 'dohoda_o_cene')
       ? selectedItems.map((i) => i.name).join(', ') || DOC_TITLES[docType]
       : docType === 'kontrolne_vysetrenie'
       ? `Kontrola po: ${checkupData.operationName}`
       : docType === 'dermatologicke_vysetrenie'
       ? `Dermatologické vyšetrenie: ${dermatologyData.primaryDiagnosis.code || 'Z01.8'}`
+      : docType === 'zaznam_excizia_nevov'
+      ? `Excízia névov (${nevusExcisionData.primaryMethod}) - ${nevusExcisionData.items.length} ${nevusExcisionData.items.length === 1 ? 'lézia' : 'lézií'}`
       : docType === 'vstupne_vysetrenie'
       ? (vvPlan ? `Vstupné vyšetrenie: ${vvPlan}` : 'Vstupné predoperačné vyšetrenie')
       : manualProcedure || DOC_TITLES[docType];
@@ -1422,6 +1438,8 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
       ? `Operácia: ${checkupData.operationName} (${checkupData.operationDate})\nSubjektívne: ${checkupData.subjective}\nObjektívne: ${checkupData.objective}\nOdporúčania:\n${checkupData.recommendations}` 
       : docType === 'dermatologicke_vysetrenie'
       ? `Dermatologické vyšetrenie & Dermatoskopia\nFototyp: ${dermatologyData.fitzpatrick}\nHlavná diagnóza: ${dermatologyData.primaryDiagnosis.code} - ${dermatologyData.primaryDiagnosis.name}\n${dermatologyData.secondaryDiagnoses.length > 0 ? `Vedľajšie diagnózy:\n${dermatologyData.secondaryDiagnoses.map(d => `• ${d.code} - ${d.name}`).join('\n')}\n` : ''}Koža: ${dermatologyData.skinHydration}, ${dermatologyData.skinTurgor}\nDermatoskopia (${dermatologyData.neviCountCategory}): ${dermatologyData.dermoscopySummary}\nLézie (${dermatologyData.examinedLesions.length}): ${dermatologyData.examinedLesions.map(l => `${l.location} (${l.sizeMm}) -> ${l.conclusion} [${l.recommendation}]`).join('; ')}\nTerapia: ${dermatologyData.localTherapy}\nRežim: ${dermatologyData.regimeRecommendations}\nKontrola: ${dermatologyData.nextCheckup}`
+      : docType === 'zaznam_excizia_nevov'
+      ? `ZÁZNAM O EXCÍZII NÉVOV (${nevusExcisionData.primaryMethod.toUpperCase()})\nIndikácia: ${nevusExcisionData.indication}\nAnestézia: ${nevusExcisionData.anesthesiaType} (${nevusExcisionData.anesthesiaVolume})\nDezinfekcia: ${nevusExcisionData.disinfection}\nPočet lézií: ${nevusExcisionData.items.length}\nPoložky výkonu:\n${nevusExcisionData.items.map((it, idx) => `${idx + 1}. ${it.location} - ${it.typeOrDiagnosis} [${it.methodLabel}], Sutúra: ${it.sutureType}, HP: ${it.histology ? `Áno (${it.histologyCode || 'nádobka'})` : 'Nie'}, Cena: ${it.price} €`).join('\n')}\nMedzisúčet: ${excisionSubtotal.toFixed(2)} € | Zľava: ${excisionDiscount.toFixed(2)} € | Celkom: ${excisionFinalPrice.toFixed(2)} €\nSpôsob úhrady: ${nevusExcisionData.paymentMethod} (Stav: ${nevusExcisionData.paymentStatus})\nPostup: ${nevusExcisionData.procedureCourse}\nStehy: ${nevusExcisionData.sutureRemovalNotes}\nHistológia: ${nevusExcisionData.histologyNotice}`
       : notes;
 
     // Uloženie operácie pre budúce kontroly tohto pacienta
@@ -1635,12 +1653,30 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
 
     // 6. AUTOMATICKÉ PREPOJENIE DO FINANCIÍ A POKLADNE POS (ak ide o výkon s cenou alebo operačný/lekársky výkon)
     try {
-      const effectivePrice = totalPrice > 0
+      const effectivePrice = docType === 'zaznam_excizia_nevov'
+        ? excisionFinalPrice
+        : totalPrice > 0
         ? totalPrice
         : (docType === 'vstupne_vysetrenie' || docType === 'dermatologicke_vysetrenie') ? 50 : 0;
 
       if (effectivePrice > 0 || docType === 'operacny_protokol' || autoLoggedCount > 0) {
-        const checkoutItems = selectedItems.length > 0
+        const checkoutItems = docType === 'zaznam_excizia_nevov'
+          ? (nevusExcisionData.items.length > 0 
+              ? nevusExcisionData.items.map((it, idx) => ({
+                  id: it.id || `lesion-${idx}`,
+                  name: `${it.location} - ${it.typeOrDiagnosis} (${it.methodLabel})`,
+                  brand: 'SAY CLINIC Dermatochirurgia',
+                  price: Number(it.price) || 0,
+                  quantity: 1
+                }))
+              : [{
+                  id: `excision-${Date.now()}`,
+                  name: `${DOC_TITLES[docType]}: ${serviceTitle}`,
+                  brand: 'SAY CLINIC Dermatochirurgia',
+                  price: effectivePrice,
+                  quantity: 1
+                }])
+          : selectedItems.length > 0
           ? selectedItems.map(si => ({
               id: si.id,
               name: si.name,
@@ -1667,11 +1703,11 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
           sourceModule: docType === 'operacny_protokol' ? 'surgery' : 'medical_record',
           procedureTitle: `${DOC_TITLES[docType]}: ${serviceTitle}`,
           items: checkoutItems,
-          subtotal: effectivePrice,
-          discountAmount: 0,
+          subtotal: docType === 'zaznam_excizia_nevov' ? excisionSubtotal : effectivePrice,
+          discountAmount: docType === 'zaznam_excizia_nevov' ? excisionDiscount : 0,
           totalAmount: effectivePrice,
           depositPaid: depositPaid || 0,
-          notes: `${DOC_TITLES[docType]} (${doctor})`
+          notes: `${DOC_TITLES[docType]} (${doctor})${docType === 'zaznam_excizia_nevov' ? ` | Platba: ${nevusExcisionData.paymentMethod} (${nevusExcisionData.paymentStatus})` : ''}`
         });
       }
     } catch (finErr) {
@@ -1684,7 +1720,7 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
         patientName: patientName || 'Neznámy pacient',
         doctorName: doctor,
         serviceType: `${DOC_TITLES[docType]}: ${serviceTitle}`,
-        amount: totalPrice > 0 ? totalPrice : ((docType === 'vstupne_vysetrenie' || docType === 'dermatologicke_vysetrenie') ? 50 : 0),
+        amount: docType === 'zaznam_excizia_nevov' ? excisionFinalPrice : (totalPrice > 0 ? totalPrice : ((docType === 'vstupne_vysetrenie' || docType === 'dermatologicke_vysetrenie') ? 50 : 0)),
       });
     }
   };
@@ -1719,6 +1755,7 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
   const showVV = docType === 'vstupne_vysetrenie';
   const showCheckup = docType === 'kontrolne_vysetrenie';
   const showDerm = docType === 'dermatologicke_vysetrenie';
+  const showExcision = docType === 'zaznam_excizia_nevov';
   const showNotes = docType === 'operacny_protokol' || docType === 'prepustacia_sprava';
   const showSurgeryConsent = docType === 'suhlas_operacia';
   const showAestheticConsent = docType === 'suhlas_aplikacia';
@@ -2488,6 +2525,14 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                 data={dermatologyData}
                 onChange={setDermatologyData}
                 mkchDatabase={mkchDatabase}
+              />
+            )}
+
+            {/* SEKCIA: ZÁZNAM O EXCÍZII NÉVOV (CHIRURGICKY / LASEROM) */}
+            {showExcision && (
+              <NevusExcisionEditor
+                data={nevusExcisionData}
+                onChange={setNevusExcisionData}
               />
             )}
 
@@ -4509,10 +4554,10 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                 <div className="bg-[#FBF9F6] p-4 rounded-xl mb-6 border border-[#E8E2D9] text-xs space-y-2">
                   <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Pacient / Klient:</strong> <span className="text-sm font-bold ml-2">{patientName || '---'}</span></p>
                   <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Rodné číslo:</strong> <span className="ml-2 font-mono">{birthNumber || '---'}</span></p>
-                  {!showDerm && (
+                  {!showDerm && !showExcision && (
                     <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Diagnóza:</strong> <span className="ml-2">{diagnosis}</span></p>
                   )}
-                  {!showPricing && !showAnesthesiaQ && !showVV && !showCheckup && !showDerm && manualProcedure && (
+                  {!showPricing && !showAnesthesiaQ && !showVV && !showCheckup && !showDerm && !showExcision && manualProcedure && (
                     <p><strong className="text-[#8C857B] uppercase text-[9px] tracking-wider">Zákrok:</strong> <span className="ml-2 font-bold">{manualProcedure}</span></p>
                   )}
                 </div>
@@ -4526,6 +4571,15 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
               <div className="mb-8">
                 <DermatologyExamPrintView
                   data={dermatologyData}
+                />
+              </div>
+            )}
+
+            {/* --- ZÁZNAM O EXCÍZII NÉVOV (CHIRURGICKY / LASEROM) --- */}
+            {showExcision && (
+              <div className="mb-8">
+                <NevusExcisionPrintView
+                  data={nevusExcisionData}
                 />
               </div>
             )}
