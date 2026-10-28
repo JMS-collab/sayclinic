@@ -1052,18 +1052,8 @@ export default function PatientDatabase({
     }
   };
 
-  // Hromadná synchronizácia kontaktov zo Sheetov pre všetkých pacientov s 'Importované z Drive' alebo chýbajúcim telefónom
-  const handleBatchExtractAllSheets = async () => {
-    const targetList = patients.filter(p => p.birthNumber === 'Importované z Drive' || p.phone === '---' || !p.phone);
-    if (targetList.length === 0) {
-      setDriveStatusMessage({
-        type: 'info' as any,
-        text: 'Všetci pacienti v kartotéke už majú reálne údaje.'
-      });
-      setTimeout(() => setDriveStatusMessage(null), 4000);
-      return;
-    }
-
+  // Hromadná synchronizácia kontaktov zo Sheetov pre všetkých pacientov
+  const handleBatchExtractAllSheets = async (forceAll: boolean = false) => {
     let token = workspaceToken || (session as any)?.accessToken;
     if (!token) {
       try {
@@ -1076,12 +1066,70 @@ export default function PatientDatabase({
         return;
       }
     }
-    if (!token) return;
+    if (!token) {
+      setDriveStatusMessage({
+        type: 'error',
+        text: 'Pre prístup k Google Drive sa prosím prihláste cez Google účet.'
+      });
+      return;
+    }
 
     setIsExtractingSheet(true);
-    let successCount = 0;
 
     try {
+      let currentPatients = [...patients];
+
+      // 1. Najprv overíme, či na Google Disku v priečinku "Klienti SAY" nie sú noví klienti
+      try {
+        const importRes = await fetch('/api/drive/import', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (importRes.ok) {
+          const importData = await importRes.json();
+          if (importData.success && importData.patients) {
+            const existingNames = new Set(currentPatients.map(p => p.name.toLowerCase().trim()));
+            const newImported: Patient[] = importData.patients
+              .filter((item: any) => !existingNames.has(item.name.toLowerCase().trim()))
+              .map((item: any, idx: number) => ({
+                id: item.id || `P-drive-${idx}-${Date.now()}`,
+                name: item.name,
+                birthNumber: 'Importované z Drive',
+                phone: '---',
+                email: '---',
+                address: '---',
+                dob: '---',
+                insurance: 'Drive Klient',
+                driveFolderLink: item.driveFolderLink,
+                driveFolderId: item.driveFolderId || (item.driveFolderLink ? item.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined)
+              }));
+
+            if (newImported.length > 0) {
+              currentPatients = [...newImported, ...currentPatients];
+              setPatients(currentPatients);
+            }
+          }
+        }
+      } catch (impErr) {
+        console.warn('Overenie nových zložiek z Google Drive zlyhalo, pokračujem s evidovanými:', impErr);
+      }
+
+      // 2. Filtrujeme pacientov, ktorí potrebujú doplniť reálne údaje (alebo všetkých pri forceAll)
+      const targetList = forceAll
+        ? currentPatients
+        : currentPatients.filter(p => p.birthNumber === 'Importované z Drive' || p.phone === '---' || !p.phone);
+
+      if (targetList.length === 0) {
+        setDriveStatusMessage({
+          type: 'info' as any,
+          text: 'Všetci klienti v kartotéke už majú reálne údaje. Pre opätovné načítanie všetkých kliknite s podržaním klávesu Shift.'
+        });
+        setTimeout(() => setDriveStatusMessage(null), 5000);
+        return;
+      }
+
+      let successCount = 0;
+
       for (let i = 0; i < targetList.length; i++) {
         const pt = targetList[i];
         setBatchExtractProgress({ current: i + 1, total: targetList.length, patientName: pt.name });
@@ -1104,7 +1152,9 @@ export default function PatientDatabase({
 
             await PatientCloudService.savePatient(updated, token);
 
-            setPatients(prev => prev.map(p => p.id === updated.id ? updated : p));
+            currentPatients = currentPatients.map(p => p.id === updated.id ? updated : p);
+            setPatients([...currentPatients]);
+
             if (selectedPatient && selectedPatient.id === updated.id) {
               setSelectedPatient(updated);
             }
@@ -1121,7 +1171,7 @@ export default function PatientDatabase({
 
       setDriveStatusMessage({
         type: 'success',
-        text: `Úspešne doplnené údaje zo Sheetov pre ${successCount} z ${targetList.length} pacientov a synchronizované do Cloudu.`
+        text: `Hromadné spracovanie dokončené: Úspešne doplnené údaje zo Sheetov pre ${successCount} z ${targetList.length} klientov a uložené do Cloudu.`
       });
       setTimeout(() => setDriveStatusMessage(null), 6000);
     } catch (err: any) {
@@ -1740,21 +1790,21 @@ export default function PatientDatabase({
               </div>
               
               <div className="flex flex-wrap items-center gap-2">
-                {drivePatientsNeedingSync.length > 0 && (
-                  <button 
-                    onClick={handleBatchExtractAllSheets}
-                    disabled={isExtractingSheet || isDriveSyncing || isImporting}
-                    className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-[#C5A059]/40 px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-2xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-60"
-                    title="Prejsť priečinky pacientov na Google Disku a automaticky načítať ich telefóny a RČ z Google Sheetov"
-                  >
-                    <Sparkles className={`w-3.5 h-3.5 text-[#C5A059] ${isExtractingSheet ? 'animate-spin' : ''}`} />
-                    <span>
-                      {batchExtractProgress 
-                        ? `Spracúvam (${batchExtractProgress.current}/${batchExtractProgress.total})...` 
-                        : `⚡ Doplniť kontakty zo Sheetov (${drivePatientsNeedingSync.length})`}
-                    </span>
-                  </button>
-                )}
+                <button 
+                  onClick={(e) => handleBatchExtractAllSheets(e.shiftKey)}
+                  disabled={isExtractingSheet || isDriveSyncing || isImporting}
+                  className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-[#C5A059]/40 px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-2xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-60"
+                  title="Načítať údaje klientov zo Sheetov na Google Disku (Shift+klik pre vynútené načítanie úplne všetkých)"
+                >
+                  <Sparkles className={`w-3.5 h-3.5 text-[#C5A059] ${isExtractingSheet ? 'animate-spin' : ''}`} />
+                  <span>
+                    {batchExtractProgress 
+                      ? `Spracúvam (${batchExtractProgress.current}/${batchExtractProgress.total})...` 
+                      : drivePatientsNeedingSync.length > 0
+                        ? `⚡ Načítať údaje klientov zo Sheetov (${drivePatientsNeedingSync.length})`
+                        : `⚡ Načítať údaje všetkých zo Sheetov`}
+                  </span>
+                </button>
 
                 <button 
                   onClick={handleForceSyncDriveAndCloud}
