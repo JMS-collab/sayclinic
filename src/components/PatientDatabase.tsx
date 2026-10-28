@@ -2617,7 +2617,7 @@ export default function PatientDatabase({
                       </span>
                     </h3>
                     <p className="text-xs text-[#8C857B]">
-                      Klient: <strong className="text-[#2C2A29] font-semibold">{selectedPatient.name}</strong> • RČ: <span className="font-mono text-[#2C2A29]">{selectedPatient.birthNumber}</span>
+                      Klient: <strong className="text-[#2C2A29] font-semibold">{selectedPatient?.name}</strong> • RČ: <span className="font-mono text-[#2C2A29]">{selectedPatient?.birthNumber}</span>
                     </p>
                   </div>
                 </div>
@@ -2723,11 +2723,12 @@ export default function PatientDatabase({
 
                   {/* Zoznam položiek v balíčku */}
                   {(() => {
-                    const currentBundle = InventoryService.getBundles().find(b => b.id === selectedBundleId);
-                    if (!currentBundle) return null;
+                    const bundles = InventoryService.getBundles();
+                    const foundBundle = bundles.find(b => b.id === selectedBundleId);
+                    if (!foundBundle) return null;
+                    const allItems = (foundBundle as any).items || [];
 
-                    const allItems = currentBundle.items;
-                    const activeCount = allItems.filter(item => !bundleDisabledItems[item.itemId]).length;
+                    const activeCount = allItems.filter((item: any) => !bundleDisabledItems[item.itemId]).length;
 
                     return (
                       <div className="space-y-2">
@@ -2741,7 +2742,7 @@ export default function PatientDatabase({
                         </div>
 
                         <div className="border border-[#E8E2D9] rounded-xl overflow-hidden divide-y divide-[#E8E2D9] bg-white max-h-56 overflow-y-auto">
-                          {allItems.map(item => {
+                          {allItems.map((item: any) => {
                             const matchedStock = allStockItems.find(i => i.id === item.itemId);
                             const itemName = matchedStock?.name || item.name || item.itemId;
                             const isExcluded = !!bundleDisabledItems[item.itemId];

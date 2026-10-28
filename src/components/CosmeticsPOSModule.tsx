@@ -426,7 +426,8 @@ export function CosmeticsPOSModule({
         description: `Výkon v ambulancii (${chk.doctorName})`,
         volume: 'Výkon',
         price: Number(item.price) || 0,
-        stock: 99
+        stock: 99,
+        imageColor: 'from-amber-100 via-amber-200 to-yellow-100'
       },
       quantity: item.quantity || 1
     }));

@@ -26,12 +26,17 @@ import {
   ArrowUp,
   ArrowDown,
   Trash2,
-  Activity
+  Activity,
+  Edit2,
+  Check,
+  Search,
+  Filter
 } from 'lucide-react';
 import { generatePdfFilename, exportElementToPdf } from '@/lib/pdfGenerator';
 import { PatientPlanPdfDocument } from './PatientPlanPdfDocument';
 import { MeicetUploadModal } from '../meicet/MeicetUploadModal';
 import { MeicetService } from '@/services/meicetService';
+import { INITIAL_COSMETICS_CATALOG, CosmeticProduct, CosmeticBrand } from '@/data/cosmeticsCatalog';
 
 interface PatientPlanViewerProps {
   plan: PatientPlan;
@@ -148,6 +153,46 @@ export default function PatientPlanViewer({
   const [newStepSessions, setNewStepSessions] = useState('1 zákrok / sedenie');
   const [newStepPrice, setNewStepPrice] = useState('450');
   const [newStepNotes, setNewStepNotes] = useState('');
+
+  // Stav pre modálne okno Skincare (pridanie / úprava kroku)
+  const [skincareModal, setSkincareModal] = useState<{
+    isOpen: boolean;
+    mode: 'add' | 'edit';
+    routineType: 'morning' | 'evening';
+    stepIndex: number | null;
+    category: string;
+    stdName: string;
+    stdBrand: string;
+    stdPrice: string;
+    stdUsage: string;
+    stdPurpose: string;
+    premName: string;
+    premBrand: string;
+    premPrice: string;
+    premUsage: string;
+    premPurpose: string;
+  } | null>(null);
+
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [catalogBrandFilter, setCatalogBrandFilter] = useState<'all' | CosmeticBrand>('all');
+
+  // Stav pre modálne okno Ročného plánu (pridanie / úprava zákroku)
+  const [treatmentModal, setTreatmentModal] = useState<{
+    isOpen: boolean;
+    mode: 'add' | 'edit';
+    treatmentId?: string;
+    stepOrder: number;
+    name: string;
+    category: ScheduledTreatment['category'];
+    seasonOrMonth: string;
+    targetArea: string;
+    frequencyOrSessions: string;
+    estimatedPrice: string;
+    priority: ScheduledTreatment['priority'];
+    status: ScheduledTreatment['status'];
+    isSkinTreatment: boolean;
+    notes: string;
+  } | null>(null);
 
   const standardMorningTotal = (plan.cosmeticsRoutine?.morning || []).reduce((sum, item) => sum + (item.standardOption?.price ?? item.price ?? 0), 0);
   const standardEveningTotal = (plan.cosmeticsRoutine?.evening || []).reduce((sum, item) => sum + (item.standardOption?.price ?? item.price ?? 0), 0);
@@ -348,6 +393,290 @@ export default function PatientPlanViewer({
     setNewStepName('');
     setNewStepNotes('');
     setIsAddingStep(false);
+  };
+
+  // -------------------------------------------------------------
+  // HANDLERY PRE RUČNÚ SPRÁVU SKINCARE RUTINY (PRIDAŤ, UPRAVIŤ, VYMAZAŤ, POSUNÚŤ, PREPNÚŤ)
+  // -------------------------------------------------------------
+  const handleOpenAddSkincareModal = (routineType: 'morning' | 'evening') => {
+    setCatalogSearch('');
+    setCatalogBrandFilter('all');
+    setSkincareModal({
+      isOpen: true,
+      mode: 'add',
+      routineType,
+      stepIndex: null,
+      category: routineType === 'morning' ? 'Sérum / Antioxidant' : 'Nočná regenerácia',
+      stdName: '',
+      stdBrand: 'La Roche-Posay',
+      stdPrice: '38',
+      stdUsage: routineType === 'morning' ? 'Ráno 4-5 kvapiek na vyčistenú pleť' : 'Večer 3-4 kvapky na vyčistenú pleť',
+      stdPurpose: 'Bunková ochrana a hydratácia',
+      premName: '',
+      premBrand: 'SkinCeuticals',
+      premPrice: '125',
+      premUsage: routineType === 'morning' ? 'Ráno 4-5 kvapiek na tvár, krk a dekolt' : 'Večer po čistení pleti',
+      premPurpose: 'Klinický antioxidačný etalón a stimulácia kolagénu'
+    });
+  };
+
+  const handleOpenEditSkincareModal = (routineType: 'morning' | 'evening', index: number) => {
+    const item = plan.cosmeticsRoutine?.[routineType]?.[index];
+    if (!item) return;
+    setCatalogSearch('');
+    setCatalogBrandFilter('all');
+    setSkincareModal({
+      isOpen: true,
+      mode: 'edit',
+      routineType,
+      stepIndex: index,
+      category: item.category || 'Starostlivosť',
+      stdName: item.standardOption?.productName || item.productName || '',
+      stdBrand: item.standardOption?.brand || item.brand || 'La Roche-Posay',
+      stdPrice: (item.standardOption?.price ?? item.price ?? 38).toString(),
+      stdUsage: item.standardOption?.usage || item.usage || '',
+      stdPurpose: item.standardOption?.purpose || item.purpose || '',
+      premName: item.premiumOption?.productName || '',
+      premBrand: item.premiumOption?.brand || 'SkinCeuticals',
+      premPrice: (item.premiumOption?.price ?? 125).toString(),
+      premUsage: item.premiumOption?.usage || '',
+      premPurpose: item.premiumOption?.purpose || ''
+    });
+  };
+
+  const handleDeleteSkincareStep = (routineType: 'morning' | 'evening', index: number) => {
+    const currentList = [...(plan.cosmeticsRoutine?.[routineType] || [])];
+    currentList.splice(index, 1);
+    const reordered = currentList.map((item, idx) => ({ ...item, step: idx + 1 }));
+    onUpdatePlan({
+      ...plan,
+      cosmeticsRoutine: {
+        ...plan.cosmeticsRoutine,
+        morning: plan.cosmeticsRoutine?.morning || [],
+        evening: plan.cosmeticsRoutine?.evening || [],
+        [routineType]: reordered
+      }
+    });
+  };
+
+  const handleMoveSkincareStep = (routineType: 'morning' | 'evening', index: number, direction: 'up' | 'down') => {
+    const list = [...(plan.cosmeticsRoutine?.[routineType] || [])];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= list.length) return;
+    const temp = list[index];
+    list[index] = list[targetIndex];
+    list[targetIndex] = temp;
+    const reordered = list.map((item, idx) => ({ ...item, step: idx + 1 }));
+    onUpdatePlan({
+      ...plan,
+      cosmeticsRoutine: {
+        ...plan.cosmeticsRoutine,
+        morning: plan.cosmeticsRoutine?.morning || [],
+        evening: plan.cosmeticsRoutine?.evening || [],
+        [routineType]: reordered
+      }
+    });
+  };
+
+  const handleToggleItemTier = (routineType: 'morning' | 'evening', index: number, tier: 'standard' | 'premium') => {
+    const list = [...(plan.cosmeticsRoutine?.[routineType] || [])];
+    if (!list[index]) return;
+    const currentTier = list[index].selectedTier;
+    list[index] = {
+      ...list[index],
+      selectedTier: currentTier === tier ? undefined : tier
+    };
+    onUpdatePlan({
+      ...plan,
+      cosmeticsRoutine: {
+        ...plan.cosmeticsRoutine,
+        morning: plan.cosmeticsRoutine?.morning || [],
+        evening: plan.cosmeticsRoutine?.evening || [],
+        [routineType]: list
+      }
+    });
+  };
+
+  const handleApplyCatalogProductToModal = (product: CosmeticProduct, targetTier: 'standard' | 'premium') => {
+    if (!skincareModal) return;
+    if (targetTier === 'standard') {
+      setSkincareModal({
+        ...skincareModal,
+        stdName: product.name,
+        stdBrand: product.brand,
+        stdPrice: product.price.toString(),
+        stdPurpose: product.description,
+        stdUsage: skincareModal.stdUsage || (skincareModal.routineType === 'morning' ? 'Ráno aplikovať na čistú pleť' : 'Večer pred spaním')
+      });
+    } else {
+      setSkincareModal({
+        ...skincareModal,
+        premName: product.name,
+        premBrand: product.brand,
+        premPrice: product.price.toString(),
+        premPurpose: product.description,
+        premUsage: skincareModal.premUsage || (skincareModal.routineType === 'morning' ? 'Ráno 4-5 kvapiek na tvár a krk' : 'Večer po čistení pleti')
+      });
+    }
+  };
+
+  const handleSaveSkincareModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!skincareModal) return;
+    const { routineType, mode, stepIndex, category, stdName, stdBrand, stdPrice, stdUsage, stdPurpose, premName, premBrand, premPrice, premUsage, premPurpose } = skincareModal;
+    
+    const currentList = [...(plan.cosmeticsRoutine?.[routineType] || [])];
+    const stepNum = mode === 'edit' && stepIndex !== null ? (currentList[stepIndex]?.step || stepIndex + 1) : currentList.length + 1;
+    
+    const parsedStdPrice = parseFloat(stdPrice) || 0;
+    const parsedPremPrice = parseFloat(premPrice) || 0;
+
+    const newItem: CosmeticRoutineItem = {
+      step: stepNum,
+      category: category.trim() || 'Starostlivosť',
+      productName: premName.trim() || stdName.trim() || 'Produkt starostlivosti',
+      brand: premBrand.trim() || stdBrand.trim() || 'SAY Clinic',
+      usage: premUsage.trim() || stdUsage.trim() || '',
+      purpose: premPurpose.trim() || stdPurpose.trim() || '',
+      price: parsedPremPrice || parsedStdPrice || 0,
+      standardOption: stdName.trim() ? {
+        tier: 'standard',
+        tierName: 'Základná starostlivosť',
+        productName: stdName.trim(),
+        brand: stdBrand.trim(),
+        price: parsedStdPrice,
+        usage: stdUsage.trim(),
+        purpose: stdPurpose.trim()
+      } : undefined,
+      premiumOption: premName.trim() ? {
+        tier: 'premium',
+        tierName: 'Prémiová starostlivosť',
+        productName: premName.trim(),
+        brand: premBrand.trim(),
+        price: parsedPremPrice,
+        usage: premUsage.trim(),
+        purpose: premPurpose.trim()
+      } : undefined
+    };
+
+    if (mode === 'edit' && stepIndex !== null && currentList[stepIndex]) {
+      currentList[stepIndex] = newItem;
+    } else {
+      currentList.push(newItem);
+    }
+
+    const reordered = currentList.map((item, idx) => ({ ...item, step: idx + 1 }));
+
+    onUpdatePlan({
+      ...plan,
+      cosmeticsRoutine: {
+        ...plan.cosmeticsRoutine,
+        morning: plan.cosmeticsRoutine?.morning || [],
+        evening: plan.cosmeticsRoutine?.evening || [],
+        [routineType]: reordered
+      }
+    });
+
+    setSkincareModal(null);
+  };
+
+  // -------------------------------------------------------------
+  // HANDLERY PRE RUČNÚ SPRÁVU ROČNÉHO PLÁNU (UPRAVIŤ, PREPNÚŤ STAV/PRIORITU)
+  // -------------------------------------------------------------
+  const handleOpenAddTreatmentModal = () => {
+    const currentList = plan.annualTreatments || [];
+    const nextOrder = currentList.length + 1;
+    setTreatmentModal({
+      isOpen: true,
+      mode: 'add',
+      stepOrder: nextOrder,
+      name: '',
+      category: 'surgery',
+      seasonOrMonth: `${nextOrder}. Krok (podľa dohody)`,
+      targetArea: 'Tvár a krk',
+      frequencyOrSessions: '1 zákrok',
+      estimatedPrice: '500',
+      priority: 'high',
+      status: 'planned',
+      isSkinTreatment: false,
+      notes: ''
+    });
+  };
+
+  const handleOpenEditTreatmentModal = (treatment: ScheduledTreatment) => {
+    setTreatmentModal({
+      isOpen: true,
+      mode: 'edit',
+      treatmentId: treatment.id,
+      stepOrder: treatment.stepOrder || 1,
+      name: treatment.name,
+      category: treatment.category,
+      seasonOrMonth: treatment.seasonOrMonth,
+      targetArea: treatment.targetArea,
+      frequencyOrSessions: treatment.frequencyOrSessions,
+      estimatedPrice: (treatment.estimatedPrice || 0).toString(),
+      priority: treatment.priority,
+      status: treatment.status,
+      isSkinTreatment: !!treatment.isSkinTreatment,
+      notes: treatment.notes || ''
+    });
+  };
+
+  const handleSaveTreatmentModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!treatmentModal) return;
+    const currentList = [...(plan.annualTreatments || [])];
+    const parsedPrice = parseFloat(treatmentModal.estimatedPrice) || 0;
+
+    if (treatmentModal.mode === 'edit' && treatmentModal.treatmentId) {
+      const idx = currentList.findIndex(t => t.id === treatmentModal.treatmentId);
+      if (idx !== -1) {
+        currentList[idx] = {
+          ...currentList[idx],
+          name: treatmentModal.name.trim(),
+          category: treatmentModal.category,
+          seasonOrMonth: treatmentModal.seasonOrMonth.trim(),
+          targetArea: treatmentModal.targetArea.trim(),
+          frequencyOrSessions: treatmentModal.frequencyOrSessions.trim(),
+          estimatedPrice: parsedPrice,
+          priority: treatmentModal.priority,
+          status: treatmentModal.status,
+          isSkinTreatment: treatmentModal.isSkinTreatment || treatmentModal.category === 'skin_care' || treatmentModal.category === 'laser',
+          notes: treatmentModal.notes.trim() || undefined
+        };
+      }
+    } else {
+      const nextOrder = currentList.length + 1;
+      const newTrt: ScheduledTreatment = {
+        id: `trt-manual-${Date.now()}`,
+        stepOrder: nextOrder,
+        name: treatmentModal.name.trim(),
+        category: treatmentModal.category,
+        seasonOrMonth: treatmentModal.seasonOrMonth.trim() || `${nextOrder}. Krok`,
+        targetArea: treatmentModal.targetArea.trim(),
+        frequencyOrSessions: treatmentModal.frequencyOrSessions.trim(),
+        estimatedPrice: parsedPrice,
+        priority: treatmentModal.priority,
+        status: treatmentModal.status,
+        isSkinTreatment: treatmentModal.isSkinTreatment || treatmentModal.category === 'skin_care' || treatmentModal.category === 'laser',
+        notes: treatmentModal.notes.trim() || undefined
+      };
+      currentList.push(newTrt);
+    }
+
+    const reordered = currentList.map((t, idx) => ({ ...t, stepOrder: idx + 1 }));
+    onUpdatePlan({
+      ...plan,
+      annualTreatments: reordered
+    });
+    setTreatmentModal(null);
+  };
+
+  const handleUpdateTreatmentPriority = (treatmentId: string, priority: ScheduledTreatment['priority']) => {
+    const updated = (plan.annualTreatments || []).map(t => 
+      t.id === treatmentId ? { ...t, priority } : t
+    );
+    onUpdatePlan({ ...plan, annualTreatments: updated });
   };
 
   const handleLoadDemoMeicetMetrics = () => {
@@ -877,135 +1206,226 @@ export default function PatientPlanViewer({
                       Ranná Rutina (Ochrana & Antioxidanty)
                     </h4>
                   </div>
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                    {plan.cosmeticsRoutine?.morning?.length || 0} kroky
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                      {plan.cosmeticsRoutine?.morning?.length || 0} kroky
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAddSkincareModal('morning')}
+                      className="px-2.5 py-1 rounded-lg bg-[#2C2A29] hover:bg-[#C5A059] text-white text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer print:hidden shadow-xs active:scale-95"
+                      title="Pridať nový krok do rannej rutiny"
+                    >
+                      <Plus className="w-3 h-3 text-[#C5A059]" />
+                      <span>+ Pridať krok</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
-                  {plan.cosmeticsRoutine?.morning?.map((item, idx) => {
-                    const hasBoth = !!(item.standardOption && item.premiumOption);
-                    return (
-                      <div 
-                        key={idx} 
-                        className="p-3.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5]/50 hover:bg-white hover:border-[#C5A059] transition-all space-y-2.5"
+                  {(!plan.cosmeticsRoutine?.morning || plan.cosmeticsRoutine.morning.length === 0) ? (
+                    <div className="p-6 text-center border border-dashed border-amber-200 rounded-xl bg-amber-50/30">
+                      <p className="text-xs text-[#8C857B] mb-2">V rannej rutine zatiaľ nie sú žiadne produkty.</p>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAddSkincareModal('morning')}
+                        className="px-3 py-1.5 rounded-lg bg-[#2C2A29] text-white text-xs font-bold hover:bg-[#C5A059] cursor-pointer"
                       >
-                        <div className="flex justify-between items-center gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-[#C5A059] text-[10px] font-bold flex items-center justify-center shrink-0">
-                              {item.step}
-                            </span>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
-                              {item.category}
-                            </span>
-                          </div>
-                        </div>
-
-                        {selectedTierFilter === 'both' && hasBoth ? (
-                          <div className="space-y-2 pt-1">
-                            {/* ZÁKLADNÁ STAROSTLIVOSŤ */}
-                            <div className="p-2.5 rounded-lg bg-sky-50/60 border border-sky-200/70 space-y-1">
-                              <div className="flex justify-between items-start gap-2">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-[9px] font-bold uppercase tracking-wider text-sky-800 bg-sky-100 px-1.5 py-0.5 rounded">
-                                    Základná starostlivosť
-                                  </span>
-                                  {item.standardOption!.brand && (
-                                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-sky-950 bg-sky-200/90 px-1.5 py-0.5 rounded border border-sky-300">
-                                      Značka: {item.standardOption!.brand}
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-xs font-mono font-bold text-sky-900 shrink-0">
-                                  {item.standardOption!.price.toFixed(2)} €
+                        + Pridať 1. ranný krok
+                      </button>
+                    </div>
+                  ) : (
+                    plan.cosmeticsRoutine.morning.map((item, idx) => {
+                      const hasBoth = !!(item.standardOption && item.premiumOption);
+                      return (
+                        <div 
+                          key={idx} 
+                          className="p-3.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5]/50 hover:bg-white hover:border-[#C5A059] transition-all space-y-2.5 shadow-2xs"
+                        >
+                          <div className="flex justify-between items-center gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-[#C5A059] text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {item.step}
+                              </span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
+                                {item.category}
+                              </span>
+                              {item.selectedTier && (
+                                <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase tracking-wider flex items-center gap-1 ${
+                                  item.selectedTier === 'standard' 
+                                    ? 'bg-sky-100 text-sky-900 border border-sky-300' 
+                                    : 'bg-amber-100 text-amber-900 border border-amber-300'
+                                }`}>
+                                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                  <span>Zvolené: {item.selectedTier === 'standard' ? 'Základná' : 'Prémiová'}</span>
                                 </span>
-                              </div>
-                              <h5 className="text-xs font-bold text-[#2C2A29]">
-                                {item.standardOption!.productName}
-                              </h5>
-                              <p className="text-[10px] text-[#6B6357]">
-                                <strong>Aplikácia:</strong> {item.standardOption!.usage}
-                              </p>
-                              <p className="text-[10px] text-[#8C857B] italic">
-                                💡 {item.standardOption!.purpose}
-                              </p>
+                              )}
                             </div>
 
-                            {/* PRÉMIOVÁ STAROSTLIVOSŤ */}
-                            <div className="p-2.5 rounded-lg bg-amber-50/60 border border-amber-200/70 space-y-1">
-                              <div className="flex justify-between items-start gap-2">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-[9px] font-bold uppercase tracking-wider text-amber-900 bg-amber-200/60 px-1.5 py-0.5 rounded">
-                                    Prémiová starostlivosť
-                                  </span>
-                                  {item.premiumOption!.brand && (
-                                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-amber-950 bg-amber-200/90 px-1.5 py-0.5 rounded border border-amber-300">
-                                      Značka: {item.premiumOption!.brand}
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-xs font-mono font-bold text-[#2C2A29] shrink-0">
-                                  {item.premiumOption!.price.toFixed(2)} €
-                                </span>
-                              </div>
-                              <h5 className="text-xs font-bold text-[#2C2A29]">
-                                {item.premiumOption!.productName}
-                              </h5>
-                              <p className="text-[10px] text-[#6B6357]">
-                                <strong>Aplikácia:</strong> {item.premiumOption!.usage}
-                              </p>
-                              <p className="text-[10px] text-[#8C857B] italic">
-                                👑 {item.premiumOption!.purpose}
-                              </p>
+                            {/* Tlačidlá na posun, úpravu a vymazanie kroku */}
+                            <div className="flex items-center gap-1 print:hidden">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveSkincareStep('morning', idx, 'up')}
+                                className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#6B6357] disabled:opacity-30 cursor-pointer transition-colors"
+                                title="Posunúť krok vyššie"
+                              >
+                                <ArrowUp className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === (plan.cosmeticsRoutine?.morning?.length || 1) - 1}
+                                onClick={() => handleMoveSkincareStep('morning', idx, 'down')}
+                                className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#6B6357] disabled:opacity-30 cursor-pointer transition-colors"
+                                title="Posunúť krok nižšie"
+                              >
+                                <ArrowDown className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditSkincareModal('morning', idx)}
+                                className="px-2 py-0.5 rounded bg-white border border-[#E8E2D9] hover:border-[#C5A059] hover:text-[#2C2A29] text-[#6B6357] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                title="Upraviť krok (zmeniť produkt, značku, cenu, aplikáciu)"
+                              >
+                                <Edit2 className="w-3 h-3 text-[#C5A059]" />
+                                <span>Upraviť</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSkincareStep('morning', idx)}
+                                className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-rose-400 text-rose-600 cursor-pointer transition-colors"
+                                title="Odstrániť krok z rannej rutiny"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
                             </div>
                           </div>
-                        ) : (
-                          (() => {
-                            const activeOpt = (selectedTierFilter === 'standard' && item.standardOption)
-                              ? item.standardOption
-                              : (selectedTierFilter === 'premium' && item.premiumOption)
-                              ? item.premiumOption
-                              : (item.standardOption || item.premiumOption || item);
-                            const isPrem = activeOpt === item.premiumOption;
-                            return (
-                              <div className="space-y-1.5">
+
+                          {selectedTierFilter === 'both' && hasBoth ? (
+                            <div className="space-y-2 pt-1">
+                              {/* ZÁKLADNÁ STAROSTLIVOSŤ */}
+                              <div 
+                                onClick={() => handleToggleItemTier('morning', idx, 'standard')}
+                                className={`p-2.5 rounded-lg border transition-all cursor-pointer space-y-1 relative ${
+                                  item.selectedTier === 'standard' 
+                                    ? 'bg-sky-100/90 border-sky-500 ring-2 ring-sky-300 shadow-xs' 
+                                    : 'bg-sky-50/60 border-sky-200/70 hover:border-sky-300'
+                                }`}
+                                title="Kliknutím zvolíte tento variant ako preferovaný pre pacienta"
+                              >
                                 <div className="flex justify-between items-start gap-2">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                                      isPrem ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-800'
-                                    }`}>
-                                      {isPrem ? 'Prémiová starostlivosť' : 'Základná starostlivosť'}
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-sky-800 bg-sky-100 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      {item.selectedTier === 'standard' && <Check className="w-2.5 h-2.5 text-sky-900 stroke-[3]" />}
+                                      <span>Základná starostlivosť</span>
                                     </span>
-                                    {(activeOpt.brand || item.brand) && (
-                                      <span className={`text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded border ${
-                                        isPrem ? 'bg-amber-200/90 text-amber-950 border-amber-300' : 'bg-sky-200/90 text-sky-950 border-sky-300'
-                                      }`}>
-                                        Značka: {activeOpt.brand || item.brand}
+                                    {item.standardOption!.brand && (
+                                      <span className="text-[9px] font-extrabold uppercase tracking-wide text-sky-950 bg-sky-200/90 px-1.5 py-0.5 rounded border border-sky-300">
+                                        Značka: {item.standardOption!.brand}
                                       </span>
                                     )}
                                   </div>
-                                  {activeOpt.price && (
-                                    <span className="text-xs font-mono font-bold text-[#2C2A29] shrink-0">
-                                      {activeOpt.price.toFixed(2)} €
-                                    </span>
-                                  )}
+                                  <span className="text-xs font-mono font-bold text-sky-900 shrink-0">
+                                    {item.standardOption!.price.toFixed(2)} €
+                                  </span>
                                 </div>
                                 <h5 className="text-xs font-bold text-[#2C2A29]">
-                                  {activeOpt.productName}
+                                  {item.standardOption!.productName}
                                 </h5>
-                                <p className="text-[11px] text-[#8C857B] leading-relaxed">
-                                  <strong>Aplikácia:</strong> {activeOpt.usage}
+                                <p className="text-[10px] text-[#6B6357]">
+                                  <strong>Aplikácia:</strong> {item.standardOption!.usage}
                                 </p>
-                                <p className="text-[10px] text-[#6B6357] italic bg-white p-2 rounded-lg border border-[#E8E2D9]/60">
-                                  💡 <strong>Účel:</strong> {activeOpt.purpose}
+                                <p className="text-[10px] text-[#8C857B] italic">
+                                  💡 {item.standardOption!.purpose}
                                 </p>
                               </div>
-                            );
-                          })()
-                        )}
-                      </div>
-                    );
-                  })}
+
+                              {/* PRÉMIOVÁ STAROSTLIVOSŤ */}
+                              <div 
+                                onClick={() => handleToggleItemTier('morning', idx, 'premium')}
+                                className={`p-2.5 rounded-lg border transition-all cursor-pointer space-y-1 relative ${
+                                  item.selectedTier === 'premium' 
+                                    ? 'bg-amber-100/90 border-[#C5A059] ring-2 ring-amber-300 shadow-xs' 
+                                    : 'bg-amber-50/60 border-amber-200/70 hover:border-[#C5A059]'
+                                }`}
+                                title="Kliknutím zvolíte tento variant ako preferovaný pre pacienta"
+                              >
+                                <div className="flex justify-between items-start gap-2">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-amber-900 bg-amber-200/60 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      {item.selectedTier === 'premium' && <Check className="w-2.5 h-2.5 text-amber-950 stroke-[3]" />}
+                                      <span>Prémiová starostlivosť</span>
+                                    </span>
+                                    {item.premiumOption!.brand && (
+                                      <span className="text-[9px] font-extrabold uppercase tracking-wide text-amber-950 bg-amber-200/90 px-1.5 py-0.5 rounded border border-amber-300">
+                                        Značka: {item.premiumOption!.brand}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-mono font-bold text-[#2C2A29] shrink-0">
+                                    {item.premiumOption!.price.toFixed(2)} €
+                                  </span>
+                                </div>
+                                <h5 className="text-xs font-bold text-[#2C2A29]">
+                                  {item.premiumOption!.productName}
+                                </h5>
+                                <p className="text-[10px] text-[#6B6357]">
+                                  <strong>Aplikácia:</strong> {item.premiumOption!.usage}
+                                </p>
+                                <p className="text-[10px] text-[#8C857B] italic">
+                                  👑 {item.premiumOption!.purpose}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            (() => {
+                              const activeOpt = (selectedTierFilter === 'standard' && item.standardOption)
+                                ? item.standardOption
+                                : (selectedTierFilter === 'premium' && item.premiumOption)
+                                ? item.premiumOption
+                                : (item.standardOption || item.premiumOption || item);
+                              const isPrem = activeOpt === item.premiumOption;
+                              return (
+                                <div className="space-y-1.5">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                        isPrem ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-800'
+                                      }`}>
+                                        {isPrem ? 'Prémiová starostlivosť' : 'Základná starostlivosť'}
+                                      </span>
+                                      {(activeOpt.brand || item.brand) && (
+                                        <span className={`text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded border ${
+                                          isPrem ? 'bg-amber-200/90 text-amber-950 border-amber-300' : 'bg-sky-200/90 text-sky-950 border-sky-300'
+                                        }`}>
+                                          Značka: {activeOpt.brand || item.brand}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {activeOpt.price && (
+                                      <span className="text-xs font-mono font-bold text-[#2C2A29] shrink-0">
+                                        {activeOpt.price.toFixed(2)} €
+                                      </span>
+                                    )}
+                                  </div>
+                                  <h5 className="text-xs font-bold text-[#2C2A29]">
+                                    {activeOpt.productName}
+                                  </h5>
+                                  <p className="text-[11px] text-[#8C857B] leading-relaxed">
+                                    <strong>Aplikácia:</strong> {activeOpt.usage}
+                                  </p>
+                                  <p className="text-[10px] text-[#6B6357] italic bg-white p-2 rounded-lg border border-[#E8E2D9]/60">
+                                    💡 <strong>Účel:</strong> {activeOpt.purpose}
+                                  </p>
+                                </div>
+                              );
+                            })()
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -1018,135 +1438,226 @@ export default function PatientPlanViewer({
                       Večerná Rutina (Bunková Obnova & Regenerácia)
                     </h4>
                   </div>
-                  <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">
-                    {plan.cosmeticsRoutine?.evening?.length || 0} kroky
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">
+                      {plan.cosmeticsRoutine?.evening?.length || 0} kroky
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAddSkincareModal('evening')}
+                      className="px-2.5 py-1 rounded-lg bg-[#2C2A29] hover:bg-[#C5A059] text-white text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer print:hidden shadow-xs active:scale-95"
+                      title="Pridať nový krok do večernej rutiny"
+                    >
+                      <Plus className="w-3 h-3 text-[#C5A059]" />
+                      <span>+ Pridať krok</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
-                  {plan.cosmeticsRoutine?.evening?.map((item, idx) => {
-                    const hasBoth = !!(item.standardOption && item.premiumOption);
-                    return (
-                      <div 
-                        key={idx} 
-                        className="p-3.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5]/50 hover:bg-white hover:border-indigo-300 transition-all space-y-2.5"
+                  {(!plan.cosmeticsRoutine?.evening || plan.cosmeticsRoutine.evening.length === 0) ? (
+                    <div className="p-6 text-center border border-dashed border-indigo-200 rounded-xl bg-indigo-50/30">
+                      <p className="text-xs text-[#8C857B] mb-2">Vo večernej rutine zatiaľ nie sú žiadne produkty.</p>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAddSkincareModal('evening')}
+                        className="px-3 py-1.5 rounded-lg bg-[#2C2A29] text-white text-xs font-bold hover:bg-[#C5A059] cursor-pointer"
                       >
-                        <div className="flex justify-between items-center gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-indigo-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                              {item.step}
-                            </span>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800">
-                              {item.category}
-                            </span>
-                          </div>
-                        </div>
-
-                        {selectedTierFilter === 'both' && hasBoth ? (
-                          <div className="space-y-2 pt-1">
-                            {/* ZÁKLADNÁ STAROSTLIVOSŤ */}
-                            <div className="p-2.5 rounded-lg bg-sky-50/60 border border-sky-200/70 space-y-1">
-                              <div className="flex justify-between items-start gap-2">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-[9px] font-bold uppercase tracking-wider text-sky-800 bg-sky-100 px-1.5 py-0.5 rounded">
-                                    Základná starostlivosť
-                                  </span>
-                                  {item.standardOption!.brand && (
-                                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-sky-950 bg-sky-200/90 px-1.5 py-0.5 rounded border border-sky-300">
-                                      Značka: {item.standardOption!.brand}
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-xs font-mono font-bold text-sky-900 shrink-0">
-                                  {item.standardOption!.price.toFixed(2)} €
+                        + Pridať 1. večerný krok
+                      </button>
+                    </div>
+                  ) : (
+                    plan.cosmeticsRoutine.evening.map((item, idx) => {
+                      const hasBoth = !!(item.standardOption && item.premiumOption);
+                      return (
+                        <div 
+                          key={idx} 
+                          className="p-3.5 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5]/50 hover:bg-white hover:border-indigo-300 transition-all space-y-2.5 shadow-2xs"
+                        >
+                          <div className="flex justify-between items-center gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-indigo-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {item.step}
+                              </span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800">
+                                {item.category}
+                              </span>
+                              {item.selectedTier && (
+                                <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase tracking-wider flex items-center gap-1 ${
+                                  item.selectedTier === 'standard' 
+                                    ? 'bg-sky-100 text-sky-900 border border-sky-300' 
+                                    : 'bg-indigo-100 text-indigo-900 border border-indigo-300'
+                                }`}>
+                                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                  <span>Zvolené: {item.selectedTier === 'standard' ? 'Základná' : 'Prémiová'}</span>
                                 </span>
-                              </div>
-                              <h5 className="text-xs font-bold text-[#2C2A29]">
-                                {item.standardOption!.productName}
-                              </h5>
-                              <p className="text-[10px] text-[#6B6357]">
-                                <strong>Aplikácia:</strong> {item.standardOption!.usage}
-                              </p>
-                              <p className="text-[10px] text-[#8C857B] italic">
-                                💡 {item.standardOption!.purpose}
-                              </p>
+                              )}
                             </div>
 
-                            {/* PRÉMIOVÁ STAROSTLIVOSŤ */}
-                            <div className="p-2.5 rounded-lg bg-indigo-50/60 border border-indigo-200/70 space-y-1">
-                              <div className="flex justify-between items-start gap-2">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-900 bg-indigo-100 px-1.5 py-0.5 rounded">
-                                    Prémiová starostlivosť
-                                  </span>
-                                  {item.premiumOption!.brand && (
-                                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-indigo-950 bg-indigo-200/80 px-1.5 py-0.5 rounded border border-indigo-300">
-                                      Značka: {item.premiumOption!.brand}
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-xs font-mono font-bold text-[#2C2A29] shrink-0">
-                                  {item.premiumOption!.price.toFixed(2)} €
-                                </span>
-                              </div>
-                              <h5 className="text-xs font-bold text-[#2C2A29]">
-                                {item.premiumOption!.productName}
-                              </h5>
-                              <p className="text-[10px] text-[#6B6357]">
-                                <strong>Aplikácia:</strong> {item.premiumOption!.usage}
-                              </p>
-                              <p className="text-[10px] text-[#8C857B] italic">
-                                👑 {item.premiumOption!.purpose}
-                              </p>
+                            {/* Tlačidlá na posun, úpravu a vymazanie kroku */}
+                            <div className="flex items-center gap-1 print:hidden">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveSkincareStep('evening', idx, 'up')}
+                                className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#6B6357] disabled:opacity-30 cursor-pointer transition-colors"
+                                title="Posunúť krok vyššie"
+                              >
+                                <ArrowUp className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === (plan.cosmeticsRoutine?.evening?.length || 1) - 1}
+                                onClick={() => handleMoveSkincareStep('evening', idx, 'down')}
+                                className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#6B6357] disabled:opacity-30 cursor-pointer transition-colors"
+                                title="Posunúť krok nižšie"
+                              >
+                                <ArrowDown className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditSkincareModal('evening', idx)}
+                                className="px-2 py-0.5 rounded bg-white border border-[#E8E2D9] hover:border-indigo-400 hover:text-indigo-900 text-[#6B6357] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                title="Upraviť krok (zmeniť produkt, značku, cenu, aplikáciu)"
+                              >
+                                <Edit2 className="w-3 h-3 text-indigo-600" />
+                                <span>Upraviť</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSkincareStep('evening', idx)}
+                                className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-rose-400 text-rose-600 cursor-pointer transition-colors"
+                                title="Odstrániť krok z večernej rutiny"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
                             </div>
                           </div>
-                        ) : (
-                          (() => {
-                            const activeOpt = (selectedTierFilter === 'standard' && item.standardOption)
-                              ? item.standardOption
-                              : (selectedTierFilter === 'premium' && item.premiumOption)
-                              ? item.premiumOption
-                              : (item.standardOption || item.premiumOption || item);
-                            const isPrem = activeOpt === item.premiumOption;
-                            return (
-                              <div className="space-y-1.5">
+
+                          {selectedTierFilter === 'both' && hasBoth ? (
+                            <div className="space-y-2 pt-1">
+                              {/* ZÁKLADNÁ STAROSTLIVOSŤ */}
+                              <div 
+                                onClick={() => handleToggleItemTier('evening', idx, 'standard')}
+                                className={`p-2.5 rounded-lg border transition-all cursor-pointer space-y-1 relative ${
+                                  item.selectedTier === 'standard' 
+                                    ? 'bg-sky-100/90 border-sky-500 ring-2 ring-sky-300 shadow-xs' 
+                                    : 'bg-sky-50/60 border-sky-200/70 hover:border-sky-300'
+                                }`}
+                                title="Kliknutím zvolíte tento variant ako preferovaný pre pacienta"
+                              >
                                 <div className="flex justify-between items-start gap-2">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                                      isPrem ? 'bg-indigo-100 text-indigo-900' : 'bg-sky-100 text-sky-800'
-                                    }`}>
-                                      {isPrem ? 'Prémiová starostlivosť' : 'Základná starostlivosť'}
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-sky-800 bg-sky-100 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      {item.selectedTier === 'standard' && <Check className="w-2.5 h-2.5 text-sky-900 stroke-[3]" />}
+                                      <span>Základná starostlivosť</span>
                                     </span>
-                                    {(activeOpt.brand || item.brand) && (
-                                      <span className={`text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded border ${
-                                        isPrem ? 'bg-indigo-200/80 text-indigo-950 border-indigo-300' : 'bg-sky-200/90 text-sky-950 border-sky-300'
-                                      }`}>
-                                        Značka: {activeOpt.brand || item.brand}
+                                    {item.standardOption!.brand && (
+                                      <span className="text-[9px] font-extrabold uppercase tracking-wide text-sky-950 bg-sky-200/90 px-1.5 py-0.5 rounded border border-sky-300">
+                                        Značka: {item.standardOption!.brand}
                                       </span>
                                     )}
                                   </div>
-                                  {activeOpt.price && (
-                                    <span className="text-xs font-mono font-bold text-[#2C2A29] shrink-0">
-                                      {activeOpt.price.toFixed(2)} €
-                                    </span>
-                                  )}
+                                  <span className="text-xs font-mono font-bold text-sky-900 shrink-0">
+                                    {item.standardOption!.price.toFixed(2)} €
+                                  </span>
                                 </div>
                                 <h5 className="text-xs font-bold text-[#2C2A29]">
-                                  {activeOpt.productName}
+                                  {item.standardOption!.productName}
                                 </h5>
-                                <p className="text-[11px] text-[#8C857B] leading-relaxed">
-                                  <strong>Aplikácia:</strong> {activeOpt.usage}
+                                <p className="text-[10px] text-[#6B6357]">
+                                  <strong>Aplikácia:</strong> {item.standardOption!.usage}
                                 </p>
-                                <p className="text-[10px] text-[#6B6357] italic bg-white p-2 rounded-lg border border-[#E8E2D9]/60">
-                                  💡 <strong>Účel:</strong> {activeOpt.purpose}
+                                <p className="text-[10px] text-[#8C857B] italic">
+                                  💡 {item.standardOption!.purpose}
                                 </p>
                               </div>
-                            );
-                          })()
-                        )}
-                      </div>
-                    );
-                  })}
+
+                              {/* PRÉMIOVÁ STAROSTLIVOSŤ */}
+                              <div 
+                                onClick={() => handleToggleItemTier('evening', idx, 'premium')}
+                                className={`p-2.5 rounded-lg border transition-all cursor-pointer space-y-1 relative ${
+                                  item.selectedTier === 'premium' 
+                                    ? 'bg-indigo-100/90 border-indigo-400 ring-2 ring-indigo-300 shadow-xs' 
+                                    : 'bg-indigo-50/60 border-indigo-200/70 hover:border-indigo-300'
+                                }`}
+                                title="Kliknutím zvolíte tento variant ako preferovaný pre pacienta"
+                              >
+                                <div className="flex justify-between items-start gap-2">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-900 bg-indigo-100 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      {item.selectedTier === 'premium' && <Check className="w-2.5 h-2.5 text-indigo-950 stroke-[3]" />}
+                                      <span>Prémiová starostlivosť</span>
+                                    </span>
+                                    {item.premiumOption!.brand && (
+                                      <span className="text-[9px] font-extrabold uppercase tracking-wide text-indigo-950 bg-indigo-200/80 px-1.5 py-0.5 rounded border border-indigo-300">
+                                        Značka: {item.premiumOption!.brand}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-mono font-bold text-[#2C2A29] shrink-0">
+                                    {item.premiumOption!.price.toFixed(2)} €
+                                  </span>
+                                </div>
+                                <h5 className="text-xs font-bold text-[#2C2A29]">
+                                  {item.premiumOption!.productName}
+                                </h5>
+                                <p className="text-[10px] text-[#6B6357]">
+                                  <strong>Aplikácia:</strong> {item.premiumOption!.usage}
+                                </p>
+                                <p className="text-[10px] text-[#8C857B] italic">
+                                  👑 {item.premiumOption!.purpose}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            (() => {
+                              const activeOpt = (selectedTierFilter === 'standard' && item.standardOption)
+                                ? item.standardOption
+                                : (selectedTierFilter === 'premium' && item.premiumOption)
+                                ? item.premiumOption
+                                : (item.standardOption || item.premiumOption || item);
+                              const isPrem = activeOpt === item.premiumOption;
+                              return (
+                                <div className="space-y-1.5">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                        isPrem ? 'bg-indigo-100 text-indigo-900' : 'bg-sky-100 text-sky-800'
+                                      }`}>
+                                        {isPrem ? 'Prémiová starostlivosť' : 'Základná starostlivosť'}
+                                      </span>
+                                      {(activeOpt.brand || item.brand) && (
+                                        <span className={`text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded border ${
+                                          isPrem ? 'bg-indigo-200/80 text-indigo-950 border-indigo-300' : 'bg-sky-200/90 text-sky-950 border-sky-300'
+                                        }`}>
+                                          Značka: {activeOpt.brand || item.brand}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {activeOpt.price && (
+                                      <span className="text-xs font-mono font-bold text-[#2C2A29] shrink-0">
+                                        {activeOpt.price.toFixed(2)} €
+                                      </span>
+                                    )}
+                                  </div>
+                                  <h5 className="text-xs font-bold text-[#2C2A29]">
+                                    {activeOpt.productName}
+                                  </h5>
+                                  <p className="text-[11px] text-[#8C857B] leading-relaxed">
+                                    <strong>Aplikácia:</strong> {activeOpt.usage}
+                                  </p>
+                                  <p className="text-[10px] text-[#6B6357] italic bg-white p-2 rounded-lg border border-[#E8E2D9]/60">
+                                    💡 <strong>Účel:</strong> {activeOpt.purpose}
+                                  </p>
+                                </div>
+                              );
+                            })()
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
@@ -1403,11 +1914,28 @@ export default function PatientPlanViewer({
                         <span className="text-[11px] font-bold text-[#2C2A29] bg-stone-200/80 px-2 py-0.5 rounded">
                           📅 {treatment.seasonOrMonth}
                         </span>
-                        {treatment.priority === 'high' && (
-                          <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
-                            Kľúčový krok
-                          </span>
-                        )}
+                        {/* Klikateľný prepínač priority */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextPriority: Record<ScheduledTreatment['priority'], ScheduledTreatment['priority']> = {
+                              high: 'medium',
+                              medium: 'recommended',
+                              recommended: 'high'
+                            };
+                            handleUpdateTreatmentPriority(treatment.id, nextPriority[treatment.priority] || 'high');
+                          }}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                            treatment.priority === 'high'
+                              ? 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100'
+                              : treatment.priority === 'medium'
+                              ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                          }`}
+                          title="Kliknutím prepnete prioritu (Kľúčový / Odporúčaný / Štandardný)"
+                        >
+                          {treatment.priority === 'high' ? '🔴 Kľúčový krok' : treatment.priority === 'medium' ? '🟡 Odporúčaný' : '⚪ Štandardný'}
+                        </button>
                       </div>
 
                       <h4 className="text-sm font-bold text-[#2C2A29] pl-8">
@@ -1435,13 +1963,13 @@ export default function PatientPlanViewer({
                           <span className="text-xs text-[#8C857B] italic">V cene operácie</span>
                         )}
 
-                        {/* Tlačidlá na zmenu poradia a vymazanie kroku */}
+                        {/* Tlačidlá na zmenu poradia, úpravu a vymazanie kroku */}
                         <div className="flex items-center gap-1 print:hidden">
                           <button
                             type="button"
                             disabled={idx === 0}
                             onClick={() => handleMoveTreatment(idx, 'up')}
-                            className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#6B6357] disabled:opacity-30 cursor-pointer"
+                            className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#6B6357] disabled:opacity-30 cursor-pointer transition-colors"
                             title="Posunúť krok vyššie v sekvencii"
                           >
                             <ArrowUp className="w-3 h-3" />
@@ -1450,15 +1978,24 @@ export default function PatientPlanViewer({
                             type="button"
                             disabled={idx === (plan.annualTreatments?.length || 1) - 1}
                             onClick={() => handleMoveTreatment(idx, 'down')}
-                            className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#6B6357] disabled:opacity-30 cursor-pointer"
+                            className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#6B6357] disabled:opacity-30 cursor-pointer transition-colors"
                             title="Posunúť krok nižšie v sekvencii"
                           >
                             <ArrowDown className="w-3 h-3" />
                           </button>
                           <button
                             type="button"
+                            onClick={() => handleOpenEditTreatmentModal(treatment)}
+                            className="px-2 py-0.5 rounded bg-white border border-[#E8E2D9] hover:border-[#C5A059] hover:text-[#2C2A29] text-[#6B6357] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                            title="Upraviť tento krok (názov, kategória, cena, anestézia, obdobie)"
+                          >
+                            <Edit2 className="w-3 h-3 text-[#C5A059]" />
+                            <span>Upraviť</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleDeleteTreatment(treatment.id)}
-                            className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-rose-400 text-rose-600 cursor-pointer"
+                            className="p-1 rounded bg-white border border-[#E8E2D9] hover:border-rose-400 text-rose-600 cursor-pointer transition-colors"
                             title="Odstrániť tento krok z Ročného plánu"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -1466,11 +2003,11 @@ export default function PatientPlanViewer({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 print:hidden">
+                      <div className="flex flex-wrap items-center gap-1.5 print:hidden">
                         {onScheduleTreatment && (
                           <button
                             onClick={() => onScheduleTreatment(treatment)}
-                            className="text-xs bg-sky-700 hover:bg-sky-800 text-white px-3 py-1.5 rounded-lg font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                            className="text-xs bg-sky-700 hover:bg-sky-800 text-white px-2.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
                             title="Naplánovať tento zákrok priamo do klinického kalendára"
                           >
                             <CalendarPlus className="w-3.5 h-3.5" />
@@ -1478,15 +2015,42 @@ export default function PatientPlanViewer({
                           </button>
                         )}
 
-                        <select
-                          value={treatment.status}
-                          onChange={(e) => updateTreatmentStatus(treatment.id, e.target.value as any)}
-                          className="text-[11px] bg-white border border-[#E8E2D9] rounded-lg px-2 py-1.5 font-bold text-[#2C2A29] cursor-pointer"
-                        >
-                          <option value="planned">⏳ Plánované</option>
-                          <option value="booked">📅 V kalendári</option>
-                          <option value="completed">✅ Absolvované</option>
-                        </select>
+                        {/* Vyklikanie stavu kroku */}
+                        <div className="inline-flex p-0.5 bg-white border border-[#E8E2D9] rounded-lg">
+                          <button
+                            type="button"
+                            onClick={() => updateTreatmentStatus(treatment.id, 'planned')}
+                            className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                              treatment.status === 'planned' 
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs' 
+                                : 'text-[#8C857B] hover:text-[#2C2A29]'
+                            }`}
+                          >
+                            ⏳ Plánované
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateTreatmentStatus(treatment.id, 'booked')}
+                            className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                              treatment.status === 'booked' 
+                                ? 'bg-sky-100 text-sky-900 border border-sky-300 shadow-2xs' 
+                                : 'text-[#8C857B] hover:text-sky-800'
+                            }`}
+                          >
+                            📅 V kalendári
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateTreatmentStatus(treatment.id, 'completed')}
+                            className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                              treatment.status === 'completed' 
+                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs' 
+                                : 'text-[#8C857B] hover:text-emerald-800'
+                            }`}
+                          >
+                            ✅ Hotovo
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1924,6 +2488,583 @@ export default function PatientPlanViewer({
               >
                 Zavrieť náhľad
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODÁLNE OKNO: PRIDAŤ / UPRAVIŤ KROK SKINCARE RUTINY S KATALÓGOM KLINIKY   */}
+      {/* ========================================================================= */}
+      {skincareModal && skincareModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-[#2C2A29] text-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-[#C5A059]/40 overflow-hidden">
+            {/* Hlavička modálu */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#242221]">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl p-2 bg-white/10 rounded-xl text-[#C5A059]">
+                  {skincareModal.routineType === 'morning' ? '☀️' : '🌙'}
+                </span>
+                <div>
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <span>
+                      {skincareModal.mode === 'add' ? '+ Pridať nový krok do' : 'Upraviť krok v'}{' '}
+                      {skincareModal.routineType === 'morning' ? 'rannej' : 'večernej'} rutiny
+                    </span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#C5A059] text-[#2C2A29]">
+                      {skincareModal.routineType === 'morning' ? 'Ranná rutina' : 'Večerná rutina'}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-white/60">
+                    Nastavte produkty pre Základnú starostlivosť aj Prémiovú starostlivosť alebo vyberte z klinického katalógu.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSkincareModal(null)}
+                className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Obsah modálu */}
+            <div className="p-5 overflow-y-auto space-y-5 bg-[#FAF8F5] text-[#2C2A29]">
+              {/* Sekcia 1: Katalóg kliniky pre 1-klikové vloženie */}
+              <div className="bg-white border border-[#E8E2D9] rounded-xl p-3.5 space-y-3 shadow-2xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-[#C5A059]" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#2C2A29]">
+                      Rýchly výber z dermatologického katalógu SAY Clinic
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-[#8C857B]">
+                    Kliknutím na produkt automaticky vyplníte názov, značku, cenu a popis
+                  </span>
+                </div>
+
+                {/* Filtre a vyhľadávanie v katalógu */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-2.5" />
+                    <input
+                      type="text"
+                      value={catalogSearch}
+                      onChange={e => setCatalogSearch(e.target.value)}
+                      placeholder="Hľadať produkt (napr. C E Ferulic, Hyalu B5, Retinol, Cicaplast, Mineral 89)..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAF8F5] border border-[#E8E2D9] rounded-lg focus:outline-none focus:border-[#C5A059]"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {(['all', 'SkinCeuticals', 'La Roche-Posay', 'CeraVe', 'Vichy', 'Dermaceutic'] as const).map(brand => (
+                      <button
+                        key={brand}
+                        type="button"
+                        onClick={() => setCatalogBrandFilter(brand)}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                          catalogBrandFilter === brand
+                            ? 'bg-[#2C2A29] text-white'
+                            : 'bg-[#FAF8F5] text-[#6B6357] hover:bg-stone-200 border border-[#E8E2D9]'
+                        }`}
+                      >
+                        {brand === 'all' ? 'Všetky značky' : brand}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Výsledky z katalógu */}
+                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 divide-y divide-stone-100">
+                  {(() => {
+                    const filtered = INITIAL_COSMETICS_CATALOG.filter(p => {
+                      const matchB = catalogBrandFilter === 'all' || p.brand === catalogBrandFilter;
+                      if (!matchB) return false;
+                      if (!catalogSearch.trim()) return true;
+                      const q = catalogSearch.toLowerCase();
+                      return (
+                        p.name.toLowerCase().includes(q) ||
+                        p.brand.toLowerCase().includes(q) ||
+                        p.description.toLowerCase().includes(q)
+                      );
+                    }).slice(0, 8);
+
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-xs text-stone-400 py-3 text-center">
+                          Nenašli sa žiadne produkty zodpovedajúce filtru. Môžete zadať údaje ručne nižšie.
+                        </p>
+                      );
+                    }
+
+                    return filtered.map(prod => (
+                      <div key={prod.id} className="pt-1.5 first:pt-0 flex flex-wrap items-center justify-between gap-2 hover:bg-stone-50 p-1.5 rounded-lg transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-stone-100 border border-stone-300 text-[#2C2A29]">
+                              {prod.brand}
+                            </span>
+                            <span className="text-xs font-bold text-[#2C2A29] truncate">{prod.name}</span>
+                            <span className="text-[10px] font-mono font-bold text-[#C5A059]">{prod.price} €</span>
+                          </div>
+                          <p className="text-[10px] text-[#8C857B] line-clamp-1">{prod.description}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleApplyCatalogProductToModal(prod, 'standard')}
+                            className="px-2 py-1 rounded bg-sky-50 hover:bg-sky-100 border border-sky-300 text-sky-900 text-[10px] font-bold cursor-pointer transition-colors"
+                            title="Vložiť tento produkt do Základnej starostlivosti"
+                          >
+                            + Do Základnej
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApplyCatalogProductToModal(prod, 'premium')}
+                            className="px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-[10px] font-bold cursor-pointer transition-colors"
+                            title="Vložiť tento produkt do Prémiovej starostlivosti"
+                          >
+                            + Do Prémiovej
+                          </button>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+
+              {/* Sekcia 2: Formulár pre úpravu / manuálne zadanie hodnôt */}
+              <form onSubmit={handleSaveSkincareModal} className="space-y-4">
+                {/* Kategória kroku */}
+                <div className="bg-white p-3.5 rounded-xl border border-[#E8E2D9]">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B] block mb-1">
+                    Kategória kroku rutiny *
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {[
+                      'Čistenie',
+                      'Sérum / Antioxidant',
+                      'Hydratácia',
+                      'SPF Ochrana',
+                      'Retinoidy',
+                      'Očný krém',
+                      'Nočná regenerácia',
+                      'Bariérový krém'
+                    ].map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setSkincareModal({ ...skincareModal, category: cat })}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                          skincareModal.category === cat
+                            ? 'bg-[#C5A059] text-[#2C2A29]'
+                            : 'bg-[#FAF8F5] text-[#6B6357] hover:bg-stone-200 border border-[#E8E2D9]'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={skincareModal.category}
+                    onChange={e => setSkincareModal({ ...skincareModal, category: e.target.value })}
+                    placeholder="Alebo zadajte vlastnú kategóriu (napr. Bunková stimulácia, Peptidové sérum...)"
+                    className="w-full text-xs p-2 bg-[#FAF8F5] border border-[#E8E2D9] rounded-lg"
+                  />
+                </div>
+
+                {/* Dva stĺpce: Základná starostlivosť vs Prémiová starostlivosť */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* ZÁKLADNÁ STAROSTLIVOSŤ */}
+                  <div className="bg-sky-50/60 border border-sky-200 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-sky-200 pb-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-sky-900 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                        <span>Základná starostlivosť</span>
+                      </span>
+                      <span className="text-[10px] text-sky-700 font-bold">Lekárenská dermokozmetika</span>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-sky-900 block mb-1">Názov produktu</label>
+                      <input
+                        type="text"
+                        value={skincareModal.stdName}
+                        onChange={e => setSkincareModal({ ...skincareModal, stdName: e.target.value })}
+                        placeholder="napr. Hyalu B5 Sérum / Toleriane krém"
+                        className="w-full text-xs p-2 bg-white border border-sky-300 rounded-lg text-[#2C2A29]"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-sky-900 block mb-1">Značka</label>
+                        <input
+                          type="text"
+                          value={skincareModal.stdBrand}
+                          onChange={e => setSkincareModal({ ...skincareModal, stdBrand: e.target.value })}
+                          placeholder="La Roche-Posay / CeraVe / Vichy"
+                          className="w-full text-xs p-2 bg-white border border-sky-300 rounded-lg text-[#2C2A29]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-sky-900 block mb-1">Cena (€)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={skincareModal.stdPrice}
+                          onChange={e => setSkincareModal({ ...skincareModal, stdPrice: e.target.value })}
+                          placeholder="38"
+                          className="w-full text-xs p-2 bg-white border border-sky-300 rounded-lg text-[#2C2A29] font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-sky-900 block mb-1">Spôsob aplikácie</label>
+                      <input
+                        type="text"
+                        value={skincareModal.stdUsage}
+                        onChange={e => setSkincareModal({ ...skincareModal, stdUsage: e.target.value })}
+                        placeholder="napr. Ráno 4-5 kvapiek na vyčistenú pleť tváre a krku"
+                        className="w-full text-xs p-2 bg-white border border-sky-300 rounded-lg text-[#2C2A29]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-sky-900 block mb-1">Klinický účel / Benefit</label>
+                      <textarea
+                        rows={2}
+                        value={skincareModal.stdPurpose}
+                        onChange={e => setSkincareModal({ ...skincareModal, stdPurpose: e.target.value })}
+                        placeholder="napr. Hĺbková hydratácia a obnova bariéry pomocou čistej kyseliny hyalurónovej..."
+                        className="w-full text-xs p-2 bg-white border border-sky-300 rounded-lg text-[#2C2A29]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* PRÉMIOVÁ STAROSTLIVOSŤ */}
+                  <div className="bg-amber-50/60 border border-amber-300 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-amber-300 pb-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#C5A059]"></span>
+                        <span>Prémiová starostlivosť</span>
+                      </span>
+                      <span className="text-[10px] text-amber-800 font-bold">Medicínska kozmeceutika</span>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-amber-950 block mb-1">Názov produktu</label>
+                      <input
+                        type="text"
+                        value={skincareModal.premName}
+                        onChange={e => setSkincareModal({ ...skincareModal, premName: e.target.value })}
+                        placeholder="napr. C E Ferulic Triple Antioxidant / H.A. Intensifier"
+                        className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-[#2C2A29]"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-amber-950 block mb-1">Značka</label>
+                        <input
+                          type="text"
+                          value={skincareModal.premBrand}
+                          onChange={e => setSkincareModal({ ...skincareModal, premBrand: e.target.value })}
+                          placeholder="SkinCeuticals / Dermaceutic"
+                          className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-[#2C2A29]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-amber-950 block mb-1">Cena (€)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={skincareModal.premPrice}
+                          onChange={e => setSkincareModal({ ...skincareModal, premPrice: e.target.value })}
+                          placeholder="175"
+                          className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-[#2C2A29] font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-amber-950 block mb-1">Spôsob aplikácie</label>
+                      <input
+                        type="text"
+                        value={skincareModal.premUsage}
+                        onChange={e => setSkincareModal({ ...skincareModal, premUsage: e.target.value })}
+                        placeholder="napr. Ráno 4-5 kvapiek do dlane a jemne vtlačiť do pokožky"
+                        className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-[#2C2A29]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-amber-950 block mb-1">Klinický účel / Benefit</label>
+                      <textarea
+                        rows={2}
+                        value={skincareModal.premPurpose}
+                        onChange={e => setSkincareModal({ ...skincareModal, premPurpose: e.target.value })}
+                        placeholder="napr. Zlatý klinický štandard s 15% vitamínom C, alfa-tokoferolom a kyselinou ferulovou..."
+                        className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-[#2C2A29]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center pt-3 border-t border-[#E8E2D9]">
+                  <span className="text-[11px] text-[#8C857B]">
+                    Po uložení sa poradie a súčty v pláne okamžite aktualizujú.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSkincareModal(null)}
+                      className="px-4 py-2 rounded-xl border border-[#E8E2D9] bg-white text-xs font-bold text-[#6B6357] hover:bg-stone-50 cursor-pointer"
+                    >
+                      Zrušiť
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all shadow-md cursor-pointer"
+                    >
+                      ✓ Uložiť krok do rutiny
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODÁLNE OKNO: PRIDAŤ / UPRAVIŤ KROK V 2. ROČNOM PLÁNE                      */}
+      {/* ========================================================================= */}
+      {treatmentModal && treatmentModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-[#2C2A29] text-white rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-[#C5A059]/40 overflow-hidden">
+            {/* Hlavička modálu */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#242221]">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl p-2 bg-white/10 rounded-xl text-[#C5A059]">
+                  📅
+                </span>
+                <div>
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <span>
+                      {treatmentModal.mode === 'add'
+                        ? '+ Pridať nový krok do Ročného plánu'
+                        : `Upraviť krok #${treatmentModal.stepOrder} v Ročnom pláne`}
+                    </span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#C5A059] text-[#2C2A29]">
+                      2. Ročný Plán
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-white/60">
+                    Sekvenčný plán operačných a ambulantných výkonov pre pacienta na 12 mesiacov.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTreatmentModal(null)}
+                className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Obsah modálu */}
+            <div className="p-5 overflow-y-auto space-y-4 bg-[#FAF8F5] text-[#2C2A29]">
+              {/* Rýchle šablóny pre 1-klikové predvyplnenie */}
+              <div className="bg-white border border-[#E8E2D9] rounded-xl p-3 space-y-1.5 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B] block">
+                  ⚡ Rýchlo predvyplniť podľa šablóny zákroku:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { name: 'Deep Plane Facelift & Necklift', category: 'surgery' as const, season: '1. Krok (Jeseň / Zima)', area: 'Tvár a krk', sessions: 'Celková anestézia', price: 4800, notes: 'Repozícia SMAS a platyzmy.' },
+                    { name: 'Horná a dolná blefaroplastika', category: 'surgery' as const, season: '2. Krok (+2-3 mesiace)', area: 'Očné viečka', sessions: 'Lokálna anestézia', price: 1650, notes: 'Odstránenie kožných a tukových prebytkov.' },
+                    { name: 'Frakčný CO2 Laser Resurfacing & Jazvy', category: 'laser' as const, season: '3. Krok (Zima / Jar)', area: 'Celá tvár & jazvy', sessions: '1-2 sedenia', price: 550, notes: 'Zjednotenie textúry a stimulácia nového kolagénu.' },
+                    { name: 'Botulotoxín & Kyselina hyalurónová', category: 'injectable' as const, season: 'Priebežne', area: 'Horná tretina tváre', sessions: '1 aplikácia', price: 420, notes: 'Dynamická relaxácia mimických svalov.' },
+                    { name: 'Bioremodelácia Profhilo / Polynukleotidy', category: 'skin_care' as const, season: 'Jar / Jeseň', area: 'Tvár a krk', sessions: '2 sedenia', price: 520, notes: 'Bunková biostimulácia a hydratácia dermis.' }
+                  ].map((tpl, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setTreatmentModal({
+                          ...treatmentModal,
+                          name: tpl.name,
+                          category: tpl.category,
+                          seasonOrMonth: tpl.season,
+                          targetArea: tpl.area,
+                          frequencyOrSessions: tpl.sessions,
+                          estimatedPrice: tpl.price.toString(),
+                          notes: tpl.notes,
+                          isSkinTreatment: tpl.category === 'skin_care' || tpl.category === 'laser'
+                        });
+                      }}
+                      className="px-2.5 py-1 rounded-md bg-[#FAF8F5] hover:bg-[#2C2A29] text-[#2C2A29] hover:text-white border border-[#E8E2D9] text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                    >
+                      {tpl.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Formulár */}
+              <form onSubmit={handleSaveTreatmentModal} className="space-y-3.5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold uppercase text-[#8C857B] block mb-1">Názov zákroku / výkonu *</label>
+                    <input
+                      type="text"
+                      required
+                      value={treatmentModal.name}
+                      onChange={e => setTreatmentModal({ ...treatmentModal, name: e.target.value })}
+                      placeholder="napr. Deep Plane Facelift, Korekcia viečok, Frakčný CO2..."
+                      className="w-full border border-[#E8E2D9] bg-white rounded-xl p-2.5 text-xs text-[#2C2A29] font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-[#8C857B] block mb-1">Kategória</label>
+                    <select
+                      value={treatmentModal.category}
+                      onChange={e => setTreatmentModal({ ...treatmentModal, category: e.target.value as ScheduledTreatment['category'] })}
+                      className="w-full border border-[#E8E2D9] bg-white rounded-xl p-2.5 text-xs text-[#2C2A29] font-bold cursor-pointer"
+                    >
+                      <option value="surgery">🏥 Plastická chirurgia / Operácia</option>
+                      <option value="laser">⚡ Laser & Resurfacing</option>
+                      <option value="injectable">💉 Injekčná aplikácia (Botox / Výplň)</option>
+                      <option value="skin_care">✨ Dermatologické ošetrenie pleti</option>
+                      <option value="scar_care">🩹 Korekcia jaziev & Rekonvalescencia</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-[#8C857B] block mb-1">Obdobie / Krok sekvencie</label>
+                    <input
+                      type="text"
+                      value={treatmentModal.seasonOrMonth}
+                      onChange={e => setTreatmentModal({ ...treatmentModal, seasonOrMonth: e.target.value })}
+                      placeholder="napr. 1. Krok (Október) alebo Q1"
+                      className="w-full border border-[#E8E2D9] bg-white rounded-xl p-2 text-xs text-[#2C2A29]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-[#8C857B] block mb-1">Anatomická oblasť</label>
+                    <input
+                      type="text"
+                      value={treatmentModal.targetArea}
+                      onChange={e => setTreatmentModal({ ...treatmentModal, targetArea: e.target.value })}
+                      placeholder="napr. Tvár, viečka, krk, dekolt"
+                      className="w-full border border-[#E8E2D9] bg-white rounded-xl p-2 text-xs text-[#2C2A29]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-[#8C857B] block mb-1">Rozsah / Anestézia</label>
+                    <input
+                      type="text"
+                      value={treatmentModal.frequencyOrSessions}
+                      onChange={e => setTreatmentModal({ ...treatmentModal, frequencyOrSessions: e.target.value })}
+                      placeholder="napr. Celková anestézia / 2 sedenia"
+                      className="w-full border border-[#E8E2D9] bg-white rounded-xl p-2 text-xs text-[#2C2A29]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-[#8C857B] block mb-1">Odhadovaná cena (€)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      value={treatmentModal.estimatedPrice}
+                      onChange={e => setTreatmentModal({ ...treatmentModal, estimatedPrice: e.target.value })}
+                      className="w-full border border-[#E8E2D9] bg-white rounded-xl p-2 text-xs text-[#2C2A29] font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-[#8C857B] block mb-1">Priorita zákroku</label>
+                    <select
+                      value={treatmentModal.priority}
+                      onChange={e => setTreatmentModal({ ...treatmentModal, priority: e.target.value as ScheduledTreatment['priority'] })}
+                      className="w-full border border-[#E8E2D9] bg-white rounded-xl p-2 text-xs text-[#2C2A29] font-bold cursor-pointer"
+                    >
+                      <option value="high">🔴 Kľúčový krok (vysoká priorita)</option>
+                      <option value="medium">🟡 Odporúčaný krok (stredná priorita)</option>
+                      <option value="recommended">⚪ Štandardný / doplnkový krok</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-[#8C857B] block mb-1">Aktuálny stav</label>
+                    <select
+                      value={treatmentModal.status}
+                      onChange={e => setTreatmentModal({ ...treatmentModal, status: e.target.value as ScheduledTreatment['status'] })}
+                      className="w-full border border-[#E8E2D9] bg-white rounded-xl p-2 text-xs text-[#2C2A29] font-bold cursor-pointer"
+                    >
+                      <option value="planned">⏳ Plánované</option>
+                      <option value="booked">📅 V kalendári (rezervované)</option>
+                      <option value="completed">✅ Absolvované (hotovo)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-[#E8E2D9] flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isSkinTreatmentCheck"
+                    checked={treatmentModal.isSkinTreatment}
+                    onChange={e => setTreatmentModal({ ...treatmentModal, isSkinTreatment: e.target.checked })}
+                    className="w-4 h-4 rounded text-[#C5A059] cursor-pointer"
+                  />
+                  <label htmlFor="isSkinTreatmentCheck" className="text-xs text-[#2C2A29] font-medium cursor-pointer">
+                    Zaradiť tento výkon aj do prehľadu ošetrení pleti v <strong>1. SAY Skincare</strong> (vhodné pre lasery, mezoterapie, peelingy)
+                  </label>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-[#8C857B] block mb-1">Klinická poznámka / Pokyny k načasovaniu</label>
+                  <textarea
+                    rows={2}
+                    value={treatmentModal.notes}
+                    onChange={e => setTreatmentModal({ ...treatmentModal, notes: e.target.value })}
+                    placeholder="napr. Realizovať minimálne 6 týždňov po operácii. Vyžaduje prísnu fotoprotekciu SPF 50+."
+                    className="w-full border border-[#E8E2D9] bg-white rounded-xl p-2 text-xs text-[#2C2A29]"
+                  />
+                </div>
+
+                <div className="flex justify-between items-center pt-3 border-t border-[#E8E2D9]">
+                  <span className="text-[11px] text-[#8C857B]">
+                    Zmeny sa ihneď premietnu do plánu aj A4 PDF exportu.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTreatmentModal(null)}
+                      className="px-4 py-2 rounded-xl border border-[#E8E2D9] bg-white text-xs font-bold text-[#6B6357] hover:bg-stone-50 cursor-pointer"
+                    >
+                      Zrušiť
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all shadow-md cursor-pointer"
+                    >
+                      ✓ Uložiť krok Ročného plánu
+                    </button>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
         </div>
