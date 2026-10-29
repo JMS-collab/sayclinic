@@ -378,6 +378,42 @@ export function parseSheetGrid(grid: any[][], patientNameHint?: string): Extract
 }
 
 /**
+ * Rýchly a bezpečný CSV parser na 2D pole bez alokácie ArrayBufferu (zabraňuje RangeError v prehliadači)
+ */
+function parseCsvToGrid(csvText: string): string[][] {
+  const lines = csvText.split(/\r\n|\n|\r/);
+  const grid: string[][] = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    // Detekcia oddeľovača: čiarka, bodkočiarka alebo tabulátor
+    let delimiter = ',';
+    if (line.includes(';') && (line.split(';').length > line.split(',').length)) {
+      delimiter = ';';
+    } else if (line.includes('\t') && (line.split('\t').length > line.split(',').length)) {
+      delimiter = '\t';
+    }
+
+    const row: string[] = [];
+    let insideQuotes = false;
+    let entry = '';
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char === delimiter && !insideQuotes) {
+        row.push(entry.trim().replace(/^"|"$/g, ''));
+        entry = '';
+      } else {
+        entry += char;
+      }
+    }
+    row.push(entry.trim().replace(/^"|"$/g, ''));
+    grid.push(row);
+  }
+  return grid;
+}
+
+/**
  * Hlavná vstupná brána: parsuje text CSV, reťazec alebo Buffer pomocou SheetJS (xlsx)
  */
 export function parsePatientSheetData(
@@ -389,7 +425,7 @@ export function parsePatientSheetData(
     let workbook: XLSX.WorkBook;
 
     if (typeof fileContent === 'string') {
-      // Skúsime najprv či to nie je JSON (profil_klienta.json)
+      // 1. Skúsime najprv či to nie je JSON (profil_klienta.json)
       if (fileContent.trim().startsWith('{') && fileContent.trim().endsWith('}')) {
         try {
           const jsonObj = JSON.parse(fileContent);
@@ -409,11 +445,35 @@ export function parsePatientSheetData(
             };
           }
         } catch {
-          // Nie je validný JSON profil, pokračujeme cez SheetJS
+          // Nie je validný JSON profil, pokračujeme ďalej
         }
       }
 
-      workbook = XLSX.read(fileContent, { type: 'string', raw: true });
+      // 2. Pre CSV z Google Drive parsujeme priamo grid, čím sa vyhneme RangeError v SheetJS
+      try {
+        const grid = parseCsvToGrid(fileContent);
+        if (grid && grid.length > 0) {
+          const res = parseSheetGrid(grid, patientNameHint);
+          res.sourceFileName = fileName || 'Google Sheet (CSV)';
+          if (res.extractedFieldsCount > 0) {
+            return res;
+          }
+        }
+      } catch (csvErr) {
+        console.warn('Priamy CSV parser zlyhal, skúšam SheetJS:', csvErr);
+      }
+
+      // 3. Skúsime SheetJS pre zložitejšie formáty
+      try {
+        workbook = XLSX.read(fileContent, { type: 'string' });
+      } catch (xlsxErr) {
+        console.warn('SheetJS string read zlyhal:', xlsxErr);
+        // Fallback: rozsekáme riadky ako text a spustíme regex vyhľadávanie
+        const fallbackGrid = fileContent.split('\n').map(l => [l]);
+        const fallbackRes = parseSheetGrid(fallbackGrid, patientNameHint);
+        fallbackRes.sourceFileName = fileName || 'Raw Sheet';
+        return fallbackRes;
+      }
     } else {
       workbook = XLSX.read(fileContent, { type: 'array' });
     }
