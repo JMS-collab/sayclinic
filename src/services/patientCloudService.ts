@@ -5,7 +5,8 @@ import {
   getDocs, 
   deleteDoc, 
   onSnapshot,
-  getDocFromServer
+  getDocFromServer,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { RealtimeSyncService } from './realtimeSyncService';
@@ -26,6 +27,37 @@ export interface Patient {
   allergies?: string[];
   notes?: string;
   updatedAt?: string;
+  sheetStatus?: 'synced' | 'no_sheet' | 'error';
+  sheetCheckedAt?: string;
+}
+
+/**
+ * Overí, či pacient už má skutočne vyplnené kontaktné údaje (telefón, email alebo rodné číslo s adresou)
+ */
+export function hasPatientContactData(p: Patient): boolean {
+  const hasPhone = Boolean(p.phone && p.phone !== '---' && p.phone.trim().length >= 4);
+  const hasEmail = Boolean(p.email && p.email !== '---' && p.email.includes('@'));
+  const hasAddress = Boolean(p.address && p.address !== '---' && p.address.trim().length >= 4);
+  const hasBirthNumber = Boolean(
+    p.birthNumber && 
+    p.birthNumber !== 'Importované z Drive' && 
+    p.birthNumber !== '---' && 
+    p.birthNumber.trim().length >= 6
+  );
+
+  return hasPhone || hasEmail || (hasBirthNumber && hasAddress);
+}
+
+/**
+ * Overí, či pacient potrebuje doplniť kontaktné údaje zo Sheetu na Disku.
+ * Ak includeCheckedNoSheet === false, preskakuje pacientov, ktorých zložka už bola preverená a nemá žiadny Sheet.
+ */
+export function isPatientNeedingSheetSync(p: Patient, includeCheckedNoSheet: boolean = false): boolean {
+  // Ak už má kontaktné údaje vyplnené, nepotrebuje extrakciu
+  if (hasPatientContactData(p)) return false;
+  // Ak už bol preverený a zložka nemá žiadny sheet, opakovane ho neskúšame (pokiaľ nie je vynútené)
+  if (!includeCheckedNoSheet && p.sheetStatus === 'no_sheet') return false;
+  return true;
 }
 
 const STORAGE_KEY = 'say_clinic_patients';
@@ -88,6 +120,9 @@ export class PatientCloudService {
                 dob: data.dob || '',
                 insurance: data.insurance || 'Samoplatca',
                 driveFolderLink: data.driveFolderLink || undefined,
+                driveFolderId: data.driveFolderId || undefined,
+                sheetStatus: data.sheetStatus || undefined,
+                sheetCheckedAt: data.sheetCheckedAt || undefined,
                 allergies: data.allergies || [],
                 notes: data.notes || '',
                 updatedAt: data.updatedAt || undefined,
@@ -137,7 +172,8 @@ export class PatientCloudService {
    */
   public static async savePatient(
     patient: Patient,
-    authToken?: string
+    authToken?: string,
+    options?: { skipDriveSync?: boolean }
   ): Promise<{ success: boolean; patient: Patient; error?: string }> {
     try {
       const patientId = patient.id || `P-${Date.now()}`;
@@ -163,6 +199,15 @@ export class PatientCloudService {
       if (updatedPatient.driveFolderLink) {
         docData.driveFolderLink = updatedPatient.driveFolderLink;
       }
+      if (updatedPatient.driveFolderId) {
+        docData.driveFolderId = updatedPatient.driveFolderId;
+      }
+      if (updatedPatient.sheetStatus) {
+        docData.sheetStatus = updatedPatient.sheetStatus;
+      }
+      if (updatedPatient.sheetCheckedAt) {
+        docData.sheetCheckedAt = updatedPatient.sheetCheckedAt;
+      }
       if (Array.isArray(updatedPatient.allergies)) {
         docData.allergies = updatedPatient.allergies;
       }
@@ -172,8 +217,8 @@ export class PatientCloudService {
 
       await setDoc(doc(db, 'patients', patientId), docData, { merge: true });
 
-      // 2. Synchronizácia na Google Drive (ak je token k dispozícii)
-      if (authToken) {
+      // 2. Synchronizácia na Google Drive (ak je token k dispozícii a nie je preskočená)
+      if (authToken && !options?.skipDriveSync) {
         try {
           // Najprv skúsime bleskový klientsky zápis priamo z prehliadača (bez timeoutov servera)
           let syncSuccess = false;
@@ -238,8 +283,76 @@ export class PatientCloudService {
 
       return { success: true, patient: updatedPatient };
     } catch (error: any) {
-      console.error('Chyba pri ukladaní pacienta do Cloudu:', error);
-      return { success: false, patient, error: error?.message || 'Chyba pri ukladaní do Cloudu' };
+      console.error('Chyba pri ukladaní pacienta:', error);
+      handleFirestoreError(error, OperationType.WRITE, 'patients');
+      return { success: false, patient, error: error?.message || 'Chyba pri ukladaní' };
+    }
+  }
+
+  /**
+   * Hromadné bleskové uloženie pacientov do Firestore (po 400 cez writeBatch)
+   */
+  public static async savePatientsBatch(
+    patientsToSave: Patient[]
+  ): Promise<{ success: boolean; count: number }> {
+    if (!patientsToSave || patientsToSave.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    try {
+      const now = new Date().toISOString();
+      const CHUNK_SIZE = 400;
+
+      for (let i = 0; i < patientsToSave.length; i += CHUNK_SIZE) {
+        const chunk = patientsToSave.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(db);
+
+        for (const pt of chunk) {
+          const patientId = pt.id || `P-${Date.now()}`;
+          const ref = doc(db, 'patients', patientId);
+          const docData: Record<string, any> = {
+            name: pt.name || '',
+            birthNumber: pt.birthNumber || '',
+            phone: pt.phone || '',
+            email: pt.email || '',
+            address: pt.address || '',
+            dob: pt.dob || '',
+            insurance: pt.insurance || 'Samoplatca',
+            updatedAt: pt.updatedAt || now,
+          };
+          if (pt.driveFolderLink) docData.driveFolderLink = pt.driveFolderLink;
+          if (pt.driveFolderId) docData.driveFolderId = pt.driveFolderId;
+          if (pt.sheetStatus) docData.sheetStatus = pt.sheetStatus;
+          if (pt.sheetCheckedAt) docData.sheetCheckedAt = pt.sheetCheckedAt;
+          if (Array.isArray(pt.allergies)) docData.allergies = pt.allergies;
+          if (pt.notes) docData.notes = pt.notes;
+
+          batch.set(ref, docData, { merge: true });
+        }
+
+        await batch.commit();
+      }
+
+      // Aktualizácia lokálnej pamäte
+      if (typeof window !== 'undefined') {
+        try {
+          const currentCached = this.getCachedPatients();
+          const map = new Map(currentCached.map(p => [p.id, p]));
+          for (const p of patientsToSave) {
+            map.set(p.id, p);
+          }
+          const updatedList = Array.from(map.values());
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+          RealtimeSyncService.publish('patients', updatedList);
+        } catch {
+          // ignore
+        }
+      }
+
+      return { success: true, count: patientsToSave.length };
+    } catch (err) {
+      console.warn('Hromadný zápis pacientov do Firestore zlyhal:', err);
+      return { success: false, count: 0 };
     }
   }
 
@@ -283,6 +396,9 @@ export class PatientCloudService {
             dob: data.dob || '',
             insurance: data.insurance || 'Samoplatca',
             driveFolderLink: data.driveFolderLink || undefined,
+            driveFolderId: data.driveFolderId || undefined,
+            sheetStatus: data.sheetStatus || undefined,
+            sheetCheckedAt: data.sheetCheckedAt || undefined,
             allergies: data.allergies || [],
             notes: data.notes || '',
             updatedAt: data.updatedAt || undefined,

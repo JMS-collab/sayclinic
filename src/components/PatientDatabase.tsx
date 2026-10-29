@@ -49,7 +49,11 @@ import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
-import { PatientCloudService } from '../services/patientCloudService';
+import { 
+  PatientCloudService, 
+  hasPatientContactData, 
+  isPatientNeedingSheetSync 
+} from '../services/patientCloudService';
 import { DriveClientService } from '../services/driveClientService';
 import { 
   PatientDriveOrganizerService, 
@@ -75,6 +79,8 @@ export interface Patient {
   allergies?: string[];
   notes?: string;
   updatedAt?: string;
+  sheetStatus?: 'synced' | 'no_sheet' | 'error';
+  sheetCheckedAt?: string;
 }
 
 export interface MedicalRecord {
@@ -420,6 +426,16 @@ export default function PatientDatabase({
   const [isExtractingSheet, setIsExtractingSheet] = useState(false);
   const [sheetExtractNotice, setSheetExtractNotice] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [batchExtractProgress, setBatchExtractProgress] = useState<{ current: number; total: number; patientName: string } | null>(null);
+  const batchCancelRef = useRef<boolean>(false);
+
+  const handleCancelBatchExtract = () => {
+    batchCancelRef.current = true;
+    setDriveStatusMessage({
+      type: 'info' as any,
+      text: 'Hromadné sťahovanie kontaktov bolo zastavené používateľom.'
+    });
+    setTimeout(() => setDriveStatusMessage(null), 4000);
+  };
 
   // STAV PRE ROZTRIEDENÉ SÚBORY Z GOOGLE DRIVE (FOTKY, PREDOPERAČNÉ, SPRÁVY)
   const [categorizedDriveFiles, setCategorizedDriveFiles] = useState<CategorizedPatientFiles | null>(null);
@@ -793,7 +809,7 @@ export default function PatientDatabase({
   }, [patients, searchTerm]);
 
   const drivePatientsNeedingSync = useMemo(() => {
-    return patients.filter(p => p.birthNumber === 'Importované z Drive' || p.phone === '---' || !p.phone);
+    return patients.filter(p => isPatientNeedingSheetSync(p, false));
   }, [patients]);
 
   const handlePatientSelect = (patient: Patient) => {
@@ -1099,7 +1115,7 @@ export default function PatientDatabase({
     }
   };
 
-  // Hromadná synchronizácia kontaktov zo Sheetov pre všetkých pacientov
+  // Hromadná synchronizácia kontaktov zo Sheetov pre pacientov (blesková, paralelná)
   const handleBatchExtractAllSheets = async (forceAll: boolean = false) => {
     let token = workspaceToken || (session as any)?.accessToken;
     if (!token) {
@@ -1122,6 +1138,8 @@ export default function PatientDatabase({
     }
 
     setIsExtractingSheet(true);
+    batchCancelRef.current = false;
+    const startTime = Date.now();
 
     try {
       let currentPatients = [...patients];
@@ -1161,65 +1179,107 @@ export default function PatientDatabase({
         console.warn('Overenie nových zložiek z Google Drive zlyhalo, pokračujem s evidovanými:', impErr);
       }
 
-      // 2. Filtrujeme pacientov, ktorí potrebujú doplniť reálne údaje (alebo všetkých pri forceAll)
+      // 2. Filtrujeme pacientov: predvolene LEN TÍ, KDE CHÝBAJÚ KONTAKTY (alebo všetci pri forceAll / Shift+klik)
       const targetList = forceAll
         ? currentPatients
-        : currentPatients.filter(p => p.birthNumber === 'Importované z Drive' || p.phone === '---' || !p.phone);
+        : currentPatients.filter(p => isPatientNeedingSheetSync(p, false));
 
       if (targetList.length === 0) {
         setDriveStatusMessage({
           type: 'info' as any,
-          text: 'Všetci klienti v kartotéke už majú reálne údaje. Pre opätovné načítanie všetkých kliknite s podržaním klávesu Shift.'
+          text: 'Všetci evidovaní klienti už majú kontaktné údaje. Pre opätovné overenie všetkých kliknite s podržaním klávesu Shift.'
         });
         setTimeout(() => setDriveStatusMessage(null), 5000);
         return;
       }
 
+      setBatchExtractProgress({ current: 0, total: targetList.length, patientName: 'Indexujem tabuľky na Google Disku...' });
+
+      // 3. BLESKOVÉ INDEXOVANIE: V 1 až 2 dopytoch načítame všetky tabuľky na Google Disku
+      const folderToSheetMap = await DriveClientService.fetchAllSpreadsheetsIndex(token);
+
+      const updatedPatientsToSave: Patient[] = [];
       let successCount = 0;
 
-      for (let i = 0; i < targetList.length; i++) {
-        const pt = targetList[i];
-        setBatchExtractProgress({ current: i + 1, total: targetList.length, patientName: pt.name });
+      // 4. SÚBEŽNÉ SPRACOVANIE V BAZÉNE PRACOVNÍKOV (CONCURRENCY POOL = 8)
+      await DriveClientService.runConcurrentPool(
+        targetList,
+        8, // 8 súbežných streamov
+        async (pt) => {
+          if (batchCancelRef.current) return;
 
-        try {
           const folderId = pt.driveFolderId || (pt.driveFolderLink ? pt.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined);
-          const res = await DriveClientService.readAndExtractPatientSheet(token, pt.name, folderId);
+          const matchedFile = folderId ? folderToSheetMap.get(folderId) : undefined;
 
-          if (res.success && res.data) {
-            const d = res.data;
-            const updated: Patient = {
-              ...pt,
-              birthNumber: (d.birthNumber && d.birthNumber !== 'Importované z Drive') ? d.birthNumber : pt.birthNumber,
-              phone: (d.phone && d.phone !== '---') ? d.phone : pt.phone,
-              email: (d.email && d.email !== '---') ? d.email : pt.email,
-              address: (d.address && d.address !== '---') ? d.address : pt.address,
-              dob: (d.dob && d.dob !== '---') ? d.dob : pt.dob,
-              insurance: (d.insurance && d.insurance !== 'Drive Klient') ? d.insurance : pt.insurance,
-            };
-
-            await PatientCloudService.savePatient(updated, token);
-
-            currentPatients = currentPatients.map(p => p.id === updated.id ? updated : p);
-            setPatients([...currentPatients]);
-
-            if (selectedPatient && selectedPatient.id === updated.id) {
-              setSelectedPatient(updated);
+          if (matchedFile) {
+            // Súbor existuje - stiahneme a vyextrahujeme údaje
+            const extractRes = await DriveClientService.extractDataFromDriveFile(token, matchedFile, pt.name);
+            if (extractRes.success && extractRes.data) {
+              const d = extractRes.data;
+              const updated: Patient = {
+                ...pt,
+                birthNumber: (d.birthNumber && d.birthNumber !== 'Importované z Drive') ? d.birthNumber : pt.birthNumber,
+                phone: (d.phone && d.phone !== '---') ? d.phone : pt.phone,
+                email: (d.email && d.email !== '---') ? d.email : pt.email,
+                address: (d.address && d.address !== '---') ? d.address : pt.address,
+                dob: (d.dob && d.dob !== '---') ? d.dob : pt.dob,
+                insurance: (d.insurance && d.insurance !== 'Drive Klient') ? d.insurance : pt.insurance,
+                sheetStatus: 'synced',
+                sheetCheckedAt: new Date().toISOString(),
+              };
+              updatedPatientsToSave.push(updated);
+              successCount++;
+              return;
             }
-            if (onSetActivePatient && selectedPatient && selectedPatient.id === updated.id) {
-              onSetActivePatient(updated);
-            }
-
-            successCount++;
           }
-        } catch (itemErr) {
-          console.warn(`Nepodarilo sa spracovať Sheet pre pacienta ${pt.name}:`, itemErr);
+
+          // Ak zložka nemá sheet alebo zlyhalo čítanie, zaznamenáme to, aby sme ju neopakovali zbytočne
+          updatedPatientsToSave.push({
+            ...pt,
+            sheetStatus: 'no_sheet',
+            sheetCheckedAt: new Date().toISOString(),
+          });
+        },
+        (completed, total, currentItem) => {
+          if (!batchCancelRef.current) {
+            setBatchExtractProgress({
+              current: completed,
+              total,
+              patientName: currentItem.name
+            });
+          }
+        },
+        () => batchCancelRef.current
+      );
+
+      // 5. Hromadné uloženie do Firestore (rýchlo cez writeBatch)
+      if (updatedPatientsToSave.length > 0) {
+        await PatientCloudService.savePatientsBatch(updatedPatientsToSave);
+
+        const updatedMap = new Map(updatedPatientsToSave.map(p => [p.id, p]));
+        currentPatients = currentPatients.map(p => updatedMap.get(p.id) || p);
+        setPatients([...currentPatients]);
+
+        if (selectedPatient && updatedMap.has(selectedPatient.id)) {
+          const freshSelected = updatedMap.get(selectedPatient.id)!;
+          setSelectedPatient(freshSelected);
+          if (onSetActivePatient) onSetActivePatient(freshSelected);
         }
       }
 
-      setDriveStatusMessage({
-        type: 'success',
-        text: `Hromadné spracovanie dokončené: Úspešne doplnené údaje zo Sheetov pre ${successCount} z ${targetList.length} klientov a uložené do Cloudu.`
-      });
+      const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
+
+      if (batchCancelRef.current) {
+        setDriveStatusMessage({
+          type: 'info' as any,
+          text: `Sťahovanie zastavené: Údaje boli doplnené pre ${successCount} pacientov pred zrušením (${elapsedSec}s).`
+        });
+      } else {
+        setDriveStatusMessage({
+          type: 'success',
+          text: `Hotovo! Úspešne doplnené kontaktné údaje zo Sheetov pre ${successCount} z ${targetList.length} klientov za bleskových ${elapsedSec}s.`
+        });
+      }
       setTimeout(() => setDriveStatusMessage(null), 6000);
     } catch (err: any) {
       setDriveStatusMessage({
@@ -1972,15 +2032,15 @@ export default function PatientDatabase({
                   onClick={(e) => handleBatchExtractAllSheets(e.shiftKey)}
                   disabled={isExtractingSheet || isDriveSyncing || isImporting}
                   className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-[#C5A059]/40 px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-2xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-60"
-                  title="Načítať údaje klientov zo Sheetov na Google Disku (Shift+klik pre vynútené načítanie úplne všetkých)"
+                  title="Doplniť chýbajúce kontaktné údaje (telefón, email, adresa) zo Sheetov na Google Disku. Shift+klik pre vynútené opätovné preverenie všetkých klientov."
                 >
                   <Sparkles className={`w-3.5 h-3.5 text-[#C5A059] ${isExtractingSheet ? 'animate-spin' : ''}`} />
                   <span>
                     {batchExtractProgress 
                       ? `Spracúvam (${batchExtractProgress.current}/${batchExtractProgress.total})...` 
                       : drivePatientsNeedingSync.length > 0
-                        ? `⚡ Načítať údaje klientov zo Sheetov (${drivePatientsNeedingSync.length})`
-                        : `⚡ Načítať údaje všetkých zo Sheetov`}
+                        ? `⚡ Doplniť chýbajúce kontakty (${drivePatientsNeedingSync.length})`
+                        : `✓ Všetky kontakty doplnené`}
                   </span>
                 </button>
 
@@ -2015,18 +2075,28 @@ export default function PatientDatabase({
 
             {/* INDIKÁTOR HROMADNÉHO SPRACOVANIA SHEETOV */}
             {batchExtractProgress && (
-              <div className="bg-amber-50 border border-[#C5A059]/40 p-3 rounded-xl flex items-center justify-between gap-3 text-xs">
+              <div className="bg-amber-50 border border-[#C5A059]/40 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2.5 text-amber-900 font-medium">
                   <Loader2 className="w-4 h-4 animate-spin text-[#C5A059] shrink-0" />
                   <span>
-                    Spracúvam Google Sheet pacienta: <strong>{batchExtractProgress.patientName}</strong> ({batchExtractProgress.current} z {batchExtractProgress.total})...
+                    Spracúvam súbežne: <strong>{batchExtractProgress.patientName}</strong> ({batchExtractProgress.current} z {batchExtractProgress.total})...
                   </span>
                 </div>
-                <div className="w-28 bg-amber-200/60 rounded-full h-2 overflow-hidden shrink-0">
-                  <div 
-                    className="bg-[#C5A059] h-full transition-all duration-300"
-                    style={{ width: `${Math.round((batchExtractProgress.current / batchExtractProgress.total) * 100)}%` }}
-                  />
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <div className="flex-1 sm:w-36 bg-amber-200/60 rounded-full h-2 overflow-hidden shrink-0">
+                    <div 
+                      className="bg-[#C5A059] h-full transition-all duration-300"
+                      style={{ width: `${Math.round((batchExtractProgress.current / Math.max(1, batchExtractProgress.total)) * 100)}%` }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCancelBatchExtract}
+                    className="px-2.5 py-1 text-[11px] font-bold text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-colors cursor-pointer shrink-0"
+                    title="Zastaviť hromadné sťahovanie"
+                  >
+                    Zrušiť
+                  </button>
                 </div>
               </div>
             )}

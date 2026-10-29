@@ -482,4 +482,139 @@ export class DriveClientService {
       error: `V zložke pacienta "${patientName}" sa nenašiel Google Sheet s údajmi.`,
     };
   }
+
+  /**
+   * Bleskovo načíta index všetkých tabuľkových súborov (Google Sheet, Excel, CSV) na Google Disku.
+   * Využíva dopyt so zoznamom rodičovských zložiek (parents) - 1 až 2 dopyty pre celú kartotéku!
+   * Kľúčom mapy je ID zložky pacienta (folderId).
+   */
+  public static async fetchAllSpreadsheetsIndex(
+    accessToken: string
+  ): Promise<Map<string, { id: string; name: string; mimeType: string; webViewLink?: string }>> {
+    const headers = { Authorization: `Bearer ${accessToken}` };
+    const folderToSheetMap = new Map<string, { id: string; name: string; mimeType: string; webViewLink?: string }>();
+
+    try {
+      let pageToken: string | null = null;
+      // Hľadáme Google Sheety, Excel, CSV alebo profil_klienta.json
+      const q = "(mimeType = 'application/vnd.google-apps.spreadsheet' or mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or name contains '.xlsx' or name contains '.csv' or name = 'profil_klienta.json') and trashed = false";
+
+      do {
+        let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=1000&fields=nextPageToken,files(id,name,mimeType,parents,webViewLink)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+        if (pageToken) url += `&pageToken=${pageToken}`;
+
+        const res = await fetch(url, { headers });
+        if (!res.ok) break;
+
+        const data = await res.json();
+        const files: any[] = data.files || [];
+
+        for (const f of files) {
+          if (Array.isArray(f.parents)) {
+            for (const parentId of f.parents) {
+              const existing = folderToSheetMap.get(parentId);
+              // Priorita: Google Sheet má vyššiu prioritu než xlsx/csv/profil_klienta
+              if (!existing || f.mimeType === 'application/vnd.google-apps.spreadsheet') {
+                folderToSheetMap.set(parentId, {
+                  id: f.id,
+                  name: f.name,
+                  mimeType: f.mimeType,
+                  webViewLink: f.webViewLink
+                });
+              }
+            }
+          }
+        }
+
+        pageToken = data.nextPageToken || null;
+      } while (pageToken);
+    } catch (err) {
+      console.warn('Indexovanie tabuliek z Google Drive zlyhalo:', err);
+    }
+
+    return folderToSheetMap;
+  }
+
+  /**
+   * Bleskové priame stiahnutie a extrakcia údajov z už známeho súboru bez nutnosti hľadať zložku
+   */
+  public static async extractDataFromDriveFile(
+    accessToken: string,
+    file: { id: string; name: string; mimeType: string },
+    patientName?: string
+  ): Promise<{ success: boolean; data?: ExtractedPatientData; error?: string }> {
+    const headers = { Authorization: `Bearer ${accessToken}` };
+    try {
+      let extracted: ExtractedPatientData | null = null;
+
+      if (file.mimeType === 'application/vnd.google-apps.spreadsheet') {
+        const exportRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text/csv`,
+          { headers }
+        );
+        if (exportRes.ok) {
+          const csvText = await exportRes.text();
+          extracted = parsePatientSheetData(csvText, file.name, patientName);
+        }
+      } else {
+        const dlRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+          { headers }
+        );
+        if (dlRes.ok) {
+          if (file.name.endsWith('.xlsx') || file.mimeType.includes('excel')) {
+            const buf = await dlRes.arrayBuffer();
+            extracted = parsePatientSheetData(buf, file.name, patientName);
+          } else {
+            const text = await dlRes.text();
+            extracted = parsePatientSheetData(text, file.name, patientName);
+          }
+        }
+      }
+
+      if (extracted && extracted.extractedFieldsCount > 0) {
+        return { success: true, data: extracted };
+      }
+      return { success: false, error: 'Súbor neobsahuje žiadne rozpoznateľné údaje pacienta.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Chyba sťahovania' };
+    }
+  }
+
+  /**
+   * Spustí úlohy paralelne s riadenou súbežnosťou (concurrency pool) a podporou zrušenia
+   */
+  public static async runConcurrentPool<T, R>(
+    items: T[],
+    concurrency: number,
+    worker: (item: T, index: number) => Promise<R>,
+    onProgress?: (completed: number, total: number, currentItem: T) => void,
+    isCancelled?: () => boolean
+  ): Promise<R[]> {
+    const results: R[] = new Array(items.length);
+    let nextIndex = 0;
+    let completedCount = 0;
+
+    const workerRunner = async () => {
+      while (nextIndex < items.length) {
+        if (isCancelled && isCancelled()) break;
+        const currentIndex = nextIndex++;
+        const item = items[currentIndex];
+        try {
+          const res = await worker(item, currentIndex);
+          results[currentIndex] = res;
+        } catch {
+          // ignore
+        }
+        completedCount++;
+        if (onProgress) {
+          onProgress(completedCount, items.length, item);
+        }
+      }
+    };
+
+    const pool = Array.from({ length: Math.min(concurrency, items.length) }, () => workerRunner());
+    await Promise.all(pool);
+    return results;
+  }
 }
