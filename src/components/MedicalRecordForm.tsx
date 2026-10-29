@@ -20,6 +20,7 @@ import { NevusExcisionData, INITIAL_NEVUS_EXCISION_DATA } from './dermatology/ne
 import { Sliders, Save, RotateCcw, Check } from './Icons';
 import { InventoryService, InventoryItem } from '../services/inventoryService';
 import { FinanceBillingService } from '../services/financeBillingService';
+import { LoyaltyService } from '../services/loyaltyService';
 import { AuditLogService } from '../services/auditLogService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
 import { StaffService } from '../services/staffService';
@@ -1708,6 +1709,17 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
           totalAmount: effectivePrice,
           depositPaid: depositPaid || 0,
           notes: `${DOC_TITLES[docType]} (${doctor})${docType === 'zaznam_excizia_nevov' ? ` | Platba: ${nevusExcisionData.paymentMethod} (${nevusExcisionData.paymentStatus})` : ''}`
+        });
+
+        // Zápis do Vernostného systému klienta (Operácia sa nezarátava do minutej sumy, ale > 1000 € automaticky zaradí klienta do Premium 5 %)
+        LoyaltyService.recordTransaction({
+          patientId: resolvedPatientId,
+          patientName: patientName || 'Neznámy pacient',
+          date: new Date().toISOString().split('T')[0],
+          category: docType === 'operacny_protokol' ? 'surgery' : 'treatment',
+          title: `${DOC_TITLES[docType]}: ${serviceTitle}`,
+          amount: effectivePrice,
+          sourceId: `medrec-${Date.now()}`
         });
       }
     } catch (finErr) {

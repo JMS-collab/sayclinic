@@ -18,10 +18,13 @@ import {
   ScanFace,
   ShieldCheck,
   Phone,
-  Clock
+  Clock,
+  Award
 } from 'lucide-react';
 import { LiquidAvatar } from './LiquidAvatar';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
+import { LoyaltyService } from '../services/loyaltyService';
+import ClientLoyaltyModal from './ClientLoyaltyModal';
 
 interface ActivePatientBarProps {
   activePatient: Patient | null;
@@ -47,7 +50,15 @@ export default function ActivePatientBar({
   const [showSwitchDropdown, setShowSwitchDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [concurrentUsers, setConcurrentUsers] = useState<any[]>([]);
+  const [loyaltyVersion, setLoyaltyVersion] = useState(0);
+  const [showLoyaltyModal, setShowLoyaltyModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleLoyaltyChange = () => setLoyaltyVersion(v => v + 1);
+    window.addEventListener('say_clinic_loyalty_changed', handleLoyaltyChange);
+    return () => window.removeEventListener('say_clinic_loyalty_changed', handleLoyaltyChange);
+  }, []);
 
   // Live Presence: automatické hlásenie prítomnosti a sledovanie kolegov súbežne pracujúcich na pacientovi
   useEffect(() => {
@@ -126,6 +137,7 @@ export default function ActivePatientBar({
   };
 
   const patientAge = getAge(activePatient.birthNumber);
+  const activeLoyalty = LoyaltyService.calculateClientLoyalty(activePatient);
 
   return (
     <div className="bg-[#1C1A19]/95 backdrop-blur-md border-b border-[#383431] shadow-[0_4px_20px_rgba(0,0,0,0.25)] z-30 sticky top-[73px] print:hidden animate-in fade-in duration-200">
@@ -167,6 +179,24 @@ export default function ActivePatientBar({
                   {patientAge}
                 </span>
               )}
+
+              <button
+                type="button"
+                onClick={() => setShowLoyaltyModal(true)}
+                className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border cursor-pointer transition-all hover:scale-105 ${
+                  activeLoyalty.tier === 'vip'
+                    ? 'bg-[#C5A059] text-[#1C1A19] border-[#D4AF37] shadow-[0_0_10px_rgba(197,160,89,0.4)]'
+                    : activeLoyalty.tier === 'premium'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-400/50'
+                    : 'bg-[#2C2A29] text-[#A8A29E] border-[#3F3A36] hover:text-white'
+                }`}
+                title={`Vernostný systém: ${activeLoyalty.tierDef.name} (Zľava ${activeLoyalty.tierDef.discountPercent}%) • Obrat za 365 dní (Skin Care & Ošetrenia): ${activeLoyalty.eligibleSpend365d.toFixed(0)} €${activeLoyalty.hasSurgeryOver1000 ? ' • Operácia > 1 000 € (Premium)' : ''} • Kliknite pre nastavenie`}
+              >
+                <Award className="w-3 h-3" />
+                <span>
+                  {activeLoyalty.tierDef.name.toUpperCase()} {activeLoyalty.tierDef.discountPercent > 0 ? `-${activeLoyalty.tierDef.discountPercent}%` : '0%'}
+                </span>
+              </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-[#A8A29E]">
@@ -425,6 +455,14 @@ export default function ActivePatientBar({
         </div>
 
       </div>
+
+      <ClientLoyaltyModal
+        isOpen={showLoyaltyModal}
+        onClose={() => setShowLoyaltyModal(false)}
+        patientId={activePatient.id}
+        patientName={activePatient.name}
+        onLoyaltyUpdated={() => setLoyaltyVersion(v => v + 1)}
+      />
     </div>
   );
 }

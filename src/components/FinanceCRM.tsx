@@ -16,6 +16,13 @@ import InvoiceDetailModal from './finance/InvoiceDetailModal';
 import CreateInvoiceModal from './finance/CreateInvoiceModal';
 import ClientFinanceDetailModal from './finance/ClientFinanceDetailModal';
 import MonthlyFinancialVisualizer from './finance/MonthlyFinancialVisualizer';
+import ClientLoyaltyModal from './ClientLoyaltyModal';
+import {
+  LoyaltyService,
+  LOYALTY_TIERS,
+  LoyaltyTierId,
+  ClientLoyaltySummary
+} from '@/services/loyaltyService';
 import { 
   Coins, 
   FileText, 
@@ -41,7 +48,8 @@ import {
   Sparkles,
   RotateCcw,
   Trash2,
-  Lock
+  Lock,
+  Award
 } from 'lucide-react';
 import { UserAccount } from './LoginForm';
 import { PermissionsService } from '../services/permissionsService';
@@ -75,7 +83,7 @@ export default function FinanceCRM({
   const canManageInvoices = PermissionsService.canUserDo(currentUser || null, 'manage_invoices');
 
   // Hlavné podzáložky
-  const [activeSubTab, setActiveSubTab] = useState<'clients' | 'overview' | 'monthly_analytics' | 'invoices' | 'unit_economics' | 'credits'>('clients');
+  const [activeSubTab, setActiveSubTab] = useState<'clients' | 'loyalty' | 'overview' | 'monthly_analytics' | 'invoices' | 'unit_economics' | 'credits'>('clients');
 
   // Bezpečnostná poistka: ak používateľ nemá oprávnenie na P&L výkazy kliniky, nepovolíme mu tieto podzáložky
   useEffect(() => {
@@ -154,6 +162,12 @@ export default function FinanceCRM({
   const [selectedProfile, setSelectedProfile] = useState<PatientFinancialProfile | null>(null);
   const [isProfileDetailOpen, setIsProfileDetailOpen] = useState(false);
 
+  // Vernostný systém (Loyalty 365d)
+  const [loyaltyTierFilter, setLoyaltyTierFilter] = useState<'all' | LoyaltyTierId | 'surgery_upgrade'>('all');
+  const [loyaltySearchQuery, setLoyaltySearchQuery] = useState('');
+  const [loyaltyModalPatient, setLoyaltyModalPatient] = useState<{ id?: string; name: string } | null>(null);
+  const [loyaltyRefreshCounter, setLoyaltyRefreshCounter] = useState(0);
+
   // Načítanie a synchronizácia dát pri štarte
   const refreshData = () => {
     // 1. Zosynchronizujeme udalosti z kalendára a kartotéky
@@ -197,17 +211,22 @@ export default function FinanceCRM({
     const handleExpensesChanged = (e: any) => {
       if (e.detail && Array.isArray(e.detail)) setExpenses(e.detail);
     };
+    const handleLoyaltyChanged = () => {
+      setLoyaltyRefreshCounter(c => c + 1);
+    };
 
     window.addEventListener('say_clinic_invoices_changed', handleInvoicesChanged);
     window.addEventListener('say_clinic_client_profiles_changed', handleProfilesChanged);
     window.addEventListener('say_clinic_credit_logs_changed', handleCreditsChanged);
     window.addEventListener('say_clinic_expenses_changed', handleExpensesChanged);
+    window.addEventListener('say_clinic_loyalty_changed', handleLoyaltyChanged);
 
     return () => {
       window.removeEventListener('say_clinic_invoices_changed', handleInvoicesChanged);
       window.removeEventListener('say_clinic_client_profiles_changed', handleProfilesChanged);
       window.removeEventListener('say_clinic_credit_logs_changed', handleCreditsChanged);
       window.removeEventListener('say_clinic_expenses_changed', handleExpensesChanged);
+      window.removeEventListener('say_clinic_loyalty_changed', handleLoyaltyChanged);
     };
   }, [calendarEvents.length, patients.length]);
 
@@ -346,6 +365,71 @@ export default function FinanceCRM({
     });
   }, [invoices, invoiceTypeFilter, invoiceStatusFilter]);
 
+  // VÝPOČET VERNOSTNÉHO SYSTÉMU PRE VŠETKÝCH KLIENTOV KLINIKY (365 DNÍ)
+  const allClientsLoyalty = useMemo(() => {
+    const clientMap = new Map<string, { id?: string; name: string; phone?: string; email?: string }>();
+
+    patients.forEach(p => {
+      if (!p.name) return;
+      const key = p.name.trim().toLowerCase();
+      clientMap.set(key, {
+        id: p.id,
+        name: p.name,
+        phone: p.phone,
+        email: p.email
+      });
+    });
+
+    clientProfiles.forEach(cp => {
+      if (!cp.patientName) return;
+      const key = cp.patientName.trim().toLowerCase();
+      if (!clientMap.has(key)) {
+        clientMap.set(key, {
+          id: cp.patientId,
+          name: cp.patientName,
+          phone: cp.patientPhone
+        });
+      }
+    });
+
+    return Array.from(clientMap.values()).map(c => ({
+      ...c,
+      loyalty: LoyaltyService.calculateClientLoyalty({ id: c.id, name: c.name })
+    })).sort((a, b) => {
+      const rank = { vip: 3, premium: 2, basic: 1 };
+      if (rank[b.loyalty.tier] !== rank[a.loyalty.tier]) {
+        return rank[b.loyalty.tier] - rank[a.loyalty.tier];
+      }
+      return b.loyalty.eligibleSpend365d - a.loyalty.eligibleSpend365d;
+    });
+  }, [patients, clientProfiles, invoices, sales, loyaltyRefreshCounter]);
+
+  const loyaltySummaryStats = useMemo(() => {
+    const counts = { basic: 0, premium: 0, vip: 0, surgeryUpgrade: 0 };
+    let totalEligibleSpend = 0;
+    allClientsLoyalty.forEach(c => {
+      counts[c.loyalty.tier] = (counts[c.loyalty.tier] || 0) + 1;
+      if (c.loyalty.hasSurgeryOver1000) counts.surgeryUpgrade += 1;
+      totalEligibleSpend += c.loyalty.eligibleSpend365d;
+    });
+    return { ...counts, totalEligibleSpend };
+  }, [allClientsLoyalty]);
+
+  const filteredLoyaltyClients = useMemo(() => {
+    return allClientsLoyalty.filter(c => {
+      if (loyaltyTierFilter === 'surgery_upgrade' && !c.loyalty.hasSurgeryOver1000) return false;
+      if (loyaltyTierFilter !== 'all' && loyaltyTierFilter !== 'surgery_upgrade' && c.loyalty.tier !== loyaltyTierFilter) return false;
+
+      if (loyaltySearchQuery.trim()) {
+        const matchName = matchesQuery(c.name, loyaltySearchQuery).match;
+        const matchPhone = c.phone ? matchesQuery(c.phone, loyaltySearchQuery).match : false;
+        const matchEmail = c.email ? matchesQuery(c.email, loyaltySearchQuery).match : false;
+        return matchName || matchPhone || matchEmail;
+      }
+      return true;
+    });
+  }, [allClientsLoyalty, loyaltyTierFilter, loyaltySearchQuery]);
+
   // Pridanie nového výdavku
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
@@ -482,6 +566,24 @@ export default function FinanceCRM({
             <span>Klienti (Plánovaní & Odoperovaní)</span>
             <span className="ml-1 px-1.5 py-0.2 text-[10px] rounded-full bg-white/20">
               {clientProfiles.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('loyalty')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeSubTab === 'loyalty'
+                ? 'bg-[#2C2A29] text-[#C5A059] shadow-xs'
+                : 'text-[#8C857B] hover:text-[#2C2A29]'
+            }`}
+          >
+            <Award className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Vernostný systém (365d)</span>
+            <span className={`ml-1 px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
+              activeSubTab === 'loyalty' ? 'bg-[#C5A059] text-[#2C2A29]' : 'bg-[#FAF6EF] text-[#8A6827] border border-[#E6D4B2]'
+            }`}>
+              {allClientsLoyalty.length}
             </span>
           </button>
 
@@ -814,23 +916,41 @@ export default function FinanceCRM({
                       const isPlanned = p.status === 'planned';
                       const hasDue = p.balanceDue > 0;
                       const hasCredit = (p.clientCredit || 0) > 0;
+                      const clientLoyalty = LoyaltyService.calculateClientLoyalty({ id: p.patientId, name: p.patientName });
 
                       return (
                         <tr key={p.id} className="hover:bg-[#FBF9F6]/70 transition-colors">
                           
                           {/* KLIENT A VÝKON */}
                           <td className="py-3 px-3">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenClientDetail(p)}
-                              className="text-left group"
-                            >
-                              <p className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors flex items-center gap-1.5">
-                                {p.patientName}
-                                <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-[#C5A059]" />
-                              </p>
-                              <p className="text-[11px] text-[#8C857B] line-clamp-1">{p.procedureName}</p>
-                            </button>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenClientDetail(p)}
+                                className="text-left group"
+                              >
+                                <p className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors flex items-center gap-1">
+                                  {p.patientName}
+                                  <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-[#C5A059]" />
+                                </p>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setLoyaltyModalPatient({ id: p.patientId, name: p.patientName })}
+                                title={`Vernostný systém: ${clientLoyalty.tierDef.name} (${clientLoyalty.tierDef.discountPercent}% zľava). Minuté 365d (Skin Care + Ošetrenia): ${clientLoyalty.eligibleSpend365d.toFixed(0)} €`}
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                                  clientLoyalty.tier === 'vip'
+                                    ? 'bg-[#2C2A29] text-[#C5A059] border-[#C5A059]'
+                                    : clientLoyalty.tier === 'premium'
+                                      ? 'bg-[#FAF6EF] text-[#8A6827] border-[#C5A059]'
+                                      : 'bg-[#FBF9F6] text-[#8C857B] border-[#E8E2D9] hover:border-[#C5A059]'
+                                }`}
+                              >
+                                <Award className="w-2.5 h-2.5 text-[#C5A059]" />
+                                <span>{clientLoyalty.tierDef.name} {clientLoyalty.tierDef.discountPercent > 0 ? `-${clientLoyalty.tierDef.discountPercent}%` : '0%'}</span>
+                              </button>
+                            </div>
+                            <p className="text-[11px] text-[#8C857B] line-clamp-1">{p.procedureName}</p>
                           </td>
 
                           {/* DÁTUM A OPERATÉR */}
@@ -935,6 +1055,330 @@ export default function FinanceCRM({
 
           </div>
 
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB: VERNOSTNÝ SYSTÉM KLIENTOV (365 DNÍ • BASIC / PREMIUM / VIP)       */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'loyalty' && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* PRAVIDLÁ A KATEGÓRIE VERNOSTNÉHO SYSTÉMU */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* BASIC */}
+            <div className="bg-white p-5 rounded-3xl border border-[#E8E2D9] shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-center">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FBF9F6] text-[#8C857B] border border-[#E8E2D9]">
+                    Basic • 0% zľava
+                  </span>
+                  <span className="font-mono font-bold text-lg text-[#2C2A29]">{loyaltySummaryStats.basic} kl.</span>
+                </div>
+                <p className="text-xl font-brand font-bold text-[#2C2A29] mt-2">Do 1 000 € / 365 dní</p>
+                <p className="text-[11px] text-[#8C857B] mt-1">
+                  Základná kategória pre všetkých klientov s obratom za Skin Care a Ošetrenia do 1 000 € za posledných 365 dní.
+                </p>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-[#E8E2D9] flex justify-between items-center text-[11px]">
+                <span className="text-[#8C857B]">Vernostná zľava:</span>
+                <span className="font-mono font-bold text-[#2C2A29]">0 %</span>
+              </div>
+            </div>
+
+            {/* PREMIUM */}
+            <div className="bg-[#FAF6EF] p-5 rounded-3xl border border-[#C5A059] shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-center">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white text-[#8A6827] border border-[#C5A059]">
+                    Premium • 5% zľava
+                  </span>
+                  <span className="font-mono font-bold text-lg text-[#8A6827]">{loyaltySummaryStats.premium} kl.</span>
+                </div>
+                <p className="text-xl font-brand font-bold text-[#2C2A29] mt-2">1 000 – 3 000 € / 365 dní</p>
+                <p className="text-[11px] text-[#8A6827] mt-1">
+                  Obrat 1 000 – 3 000 € za Skin Care a Ošetrenia <strong>alebo automaticky po operácii nad 1 000 €</strong>.
+                </p>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-[#E6D4B2] flex justify-between items-center text-[11px]">
+                <span className="text-[#8A6827]">Vernostná zľava:</span>
+                <span className="font-mono font-bold text-emerald-700">-5 %</span>
+              </div>
+            </div>
+
+            {/* VIP */}
+            <div className="bg-[#2C2A29] text-white p-5 rounded-3xl border border-[#C5A059] shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-center">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]">
+                    ★ VIP • 10% zľava
+                  </span>
+                  <span className="font-mono font-bold text-lg text-[#C5A059]">{loyaltySummaryStats.vip} kl.</span>
+                </div>
+                <p className="text-xl font-brand font-bold text-white mt-2">Nad 3 000 € / 365 dní</p>
+                <p className="text-[11px] text-[#E8E2D9]/80 mt-1">
+                  Najvyššia vernostná kategória pri obrate nad 3 000 € za Skin Care a Ošetrenia za posledných 365 dní.
+                </p>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-white/15 flex justify-between items-center text-[11px]">
+                <span className="text-[#C5A059]">Vernostná zľava:</span>
+                <span className="font-mono font-bold text-[#C5A059]">-10 %</span>
+              </div>
+            </div>
+
+            {/* PRAVIDLO PRE OPERÁCIE & CELKOVÝ OBRAT 365D */}
+            <div className="bg-white p-5 rounded-3xl border border-[#E8E2D9] shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-[#8C857B]">
+                  <span>Pravidlo výpočtu (365 dní)</span>
+                  <Sparkles className="w-4 h-4 text-[#C5A059]" />
+                </div>
+                <p className="text-xs font-bold text-[#2C2A29] mt-2 leading-relaxed">
+                  ✅ Započítava sa: <span className="text-emerald-700">Skin Care + Ošetrenia</span>
+                </p>
+                <p className="text-[11px] text-[#8C857B] mt-1 leading-relaxed">
+                  ❌ <strong>Operácie</strong> sa do minutej sumy nezapočítavajú, ale <strong>po operácii nad 1 000 €</strong> sa klient automaticky radí do <strong>Premium (5% zľava)</strong>.
+                </p>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-[#E8E2D9] flex justify-between items-center text-[11px]">
+                <span className="text-[#8C857B]">Obrat Skin Care + Ošetrenia (365d):</span>
+                <span className="font-mono font-bold text-[#2C2A29]">{loyaltySummaryStats.totalEligibleSpend.toLocaleString('sk-SK', { maximumFractionDigits: 0 })} €</span>
+              </div>
+            </div>
+          </div>
+
+          {/* FILTRE A TABUĽKA VŠETKÝCH KLIENTOV */}
+          <div className="bg-white rounded-3xl p-5 border border-[#E8E2D9] shadow-xs space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setLoyaltyTierFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    loyaltyTierFilter === 'all'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'bg-[#FBF9F6] text-[#8C857B] hover:text-[#2C2A29] border border-[#E8E2D9]'
+                  }`}
+                >
+                  Všetci klienti ({allClientsLoyalty.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoyaltyTierFilter('basic')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    loyaltyTierFilter === 'basic'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'bg-[#FBF9F6] text-[#8C857B] hover:text-[#2C2A29] border border-[#E8E2D9]'
+                  }`}
+                >
+                  Basic • 0% ({loyaltySummaryStats.basic})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoyaltyTierFilter('premium')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    loyaltyTierFilter === 'premium'
+                      ? 'bg-[#C5A059] text-white shadow-xs'
+                      : 'bg-[#FAF6EF] text-[#8A6827] hover:bg-[#F5EEDF] border border-[#C5A059]'
+                  }`}
+                >
+                  Premium • -5% ({loyaltySummaryStats.premium})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoyaltyTierFilter('vip')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    loyaltyTierFilter === 'vip'
+                      ? 'bg-[#2C2A29] text-[#C5A059] border border-[#C5A059] shadow-xs'
+                      : 'bg-[#2C2A29]/5 text-[#2C2A29] hover:bg-[#2C2A29]/10 border border-[#E8E2D9]'
+                  }`}
+                >
+                  ★ VIP • -10% ({loyaltySummaryStats.vip})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoyaltyTierFilter('surgery_upgrade')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    loyaltyTierFilter === 'surgery_upgrade'
+                      ? 'bg-amber-700 text-white shadow-xs'
+                      : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                  }`}
+                >
+                  ✨ Po operácii &gt; 1 000 € ({loyaltySummaryStats.surgeryUpgrade})
+                </button>
+              </div>
+
+              <div className="relative md:w-72">
+                <Search className="w-4 h-4 text-[#8C857B] absolute left-3 top-2.5 pointer-events-none" />
+                <input
+                  type="text"
+                  value={loyaltySearchQuery}
+                  onChange={(e) => setLoyaltySearchQuery(e.target.value)}
+                  placeholder="Hľadať klienta podľa mena, tel..."
+                  className="w-full bg-[#FBF9F6] border border-[#E8E2D9] pl-9 pr-8 py-2 rounded-xl text-xs text-[#2C2A29] focus:outline-none focus:border-[#C5A059]"
+                />
+                {loyaltySearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setLoyaltySearchQuery('')}
+                    className="absolute right-2.5 top-2.5 text-[#8C857B] hover:text-[#2C2A29]"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-[#E8E2D9]">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[#FBF9F6] border-b border-[#E8E2D9] text-[10px] uppercase text-[#8C857B] font-bold tracking-wider">
+                    <th className="py-3 px-3">Klient</th>
+                    <th className="py-3 px-3 text-center">Kategória & Zľava</th>
+                    <th className="py-3 px-3 text-right">Minuté 365d (Skin Care + Ošetrenia)</th>
+                    <th className="py-3 px-3 text-right">Skin Care (365d)</th>
+                    <th className="py-3 px-3 text-right">Ošetrenia (365d)</th>
+                    <th className="py-3 px-3 text-center">Operácie &gt; 1 000 €</th>
+                    <th className="py-3 px-3 text-center">Rýchle nastavenie kategórie</th>
+                    <th className="py-3 px-3 text-center">Detail</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E8E2D9] bg-white">
+                  {filteredLoyaltyClients.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-[#8C857B]">
+                        Neboli nájdení žiadni klienti pre zvolený filter vernostného systému.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLoyaltyClients.map((client) => {
+                      const st = client.loyalty;
+
+                      return (
+                        <tr key={client.id || client.name} className="hover:bg-[#FBF9F6]/70 transition-colors">
+                          <td className="py-3 px-3">
+                            <p className="font-bold text-sm text-[#2C2A29]">{client.name}</p>
+                            <p className="text-[10px] text-[#8C857B]">{client.phone || client.email || 'Klient SAY CLINIC'}</p>
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
+                              st.tier === 'vip'
+                                ? 'bg-[#2C2A29] text-[#C5A059] border-[#C5A059]'
+                                : st.tier === 'premium'
+                                  ? 'bg-[#FAF6EF] text-[#8A6827] border-[#C5A059]'
+                                  : 'bg-[#FBF9F6] text-[#8C857B] border-[#E8E2D9]'
+                            }`}>
+                              <Award className="w-3 h-3 text-[#C5A059]" />
+                              <span>{st.tierDef.name} • {st.tierDef.discountPercent > 0 ? `-${st.tierDef.discountPercent}%` : '0%'}</span>
+                            </span>
+                            {st.upgradedToPremiumBySurgery && (
+                              <span className="block text-[9px] text-amber-800 font-semibold mt-0.5">
+                                Po operácii &gt; 1 000 €
+                              </span>
+                            )}
+                            {st.isManualOverride && (
+                              <span className="block text-[9px] text-[#8C857B] font-semibold mt-0.5">
+                                Manuálne nastavené
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-3 text-right">
+                            <p className="font-mono font-bold text-sm text-[#2C2A29]">
+                              {st.eligibleSpend365d.toFixed(2)} €
+                            </p>
+                            {st.nextTier ? (
+                              <p className="text-[10px] text-[#8C857B]">
+                                Do {LOYALTY_TIERS[st.nextTier].name}: ešte {st.amountToNextTier.toFixed(0)} €
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-[#C5A059] font-bold">Maximálna VIP úroveň</p>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-3 text-right font-mono text-xs text-emerald-700 font-semibold">
+                            {st.skincareSpend365d.toFixed(2)} €
+                          </td>
+
+                          <td className="py-3 px-3 text-right font-mono text-xs text-[#8A6827] font-semibold">
+                            {st.treatmentsSpend365d.toFixed(2)} €
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                LoyaltyService.setClientLoyaltyOverride(
+                                  client.id || client.name,
+                                  client.name,
+                                  st.overrideMode,
+                                  { forceSurgeryPremium: !st.hasSurgeryOver1000 }
+                                );
+                              }}
+                              title="Kliknutím prepnete príznak Operácia > 1 000 € (automatické zaradenie do Premium 5%)"
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                                st.hasSurgeryOver1000
+                                  ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                  : 'bg-[#FBF9F6] text-[#8C857B] border-[#E8E2D9] hover:border-[#C5A059]'
+                              }`}
+                            >
+                              {st.hasSurgeryOver1000
+                                ? `✨ Áno (${st.surgeriesSpend365d > 0 ? `${st.surgeriesSpend365d.toFixed(0)} €` : '> 1 000 €'})`
+                                : st.surgeriesSpend365d > 0
+                                  ? `${st.surgeriesSpend365d.toFixed(0)} €`
+                                  : 'Nie'}
+                            </button>
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <div className="inline-flex items-center gap-1 bg-[#FBF9F6] p-1 rounded-xl border border-[#E8E2D9]">
+                              {(['auto', 'basic', 'premium', 'vip'] as const).map((opt) => {
+                                const isSelected = st.overrideMode === opt;
+                                return (
+                                  <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => {
+                                      LoyaltyService.setClientLoyaltyOverride(
+                                        client.id || client.name,
+                                        client.name,
+                                        opt
+                                      );
+                                    }}
+                                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                      isSelected
+                                        ? opt === 'vip'
+                                          ? 'bg-[#2C2A29] text-[#C5A059] shadow-2xs'
+                                          : opt === 'premium'
+                                            ? 'bg-[#C5A059] text-white shadow-2xs'
+                                            : 'bg-[#2C2A29] text-white shadow-2xs'
+                                        : 'text-[#8C857B] hover:text-[#2C2A29]'
+                                    }`}
+                                  >
+                                    {opt === 'auto' ? 'Auto' : opt === 'basic' ? 'Basic' : opt === 'premium' ? 'Premium' : 'VIP'}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setLoyaltyModalPatient({ id: client.id, name: client.name })}
+                              className="px-2.5 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-[10px] font-bold transition-colors cursor-pointer"
+                            >
+                              Nastaviť / História
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1570,6 +2014,18 @@ export default function FinanceCRM({
           setIsProfileDetailOpen(false);
           handleTriggerCreateInvoice(patName, procName, amt, type);
         }}
+        onOpenLoyaltyModal={(patientId, patientName) => {
+          setIsProfileDetailOpen(false);
+          setLoyaltyModalPatient({ id: patientId, name: patientName });
+        }}
+      />
+
+      {/* MODAL: VERNOSTNÝ SYSTÉM KLIENTA (365 DNÍ) */}
+      <ClientLoyaltyModal
+        isOpen={!!loyaltyModalPatient}
+        onClose={() => setLoyaltyModalPatient(null)}
+        patientId={loyaltyModalPatient?.id}
+        patientName={loyaltyModalPatient?.name || ''}
       />
 
       {/* MODAL: POTVRDENIE VYNULOVANIA PRE OSTRÚ PREVÁDZKU */}

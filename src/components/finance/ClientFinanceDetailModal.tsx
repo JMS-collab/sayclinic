@@ -11,8 +11,10 @@ import {
   Coins, 
   FileText, 
   AlertCircle, 
-  Package 
+  Package,
+  Award
 } from 'lucide-react';
+import { LoyaltyService } from '@/services/loyaltyService';
 
 interface ClientFinanceDetailModalProps {
   profile: PatientFinancialProfile | null;
@@ -21,6 +23,7 @@ interface ClientFinanceDetailModalProps {
   onProfileUpdated: (updated: PatientFinancialProfile) => void;
   onOpenInvoiceDetail: (invoiceNumber: string) => void;
   onCreateInvoiceForClient: (clientName: string, procedureName: string, amount: number, type: 'advance' | 'standard') => void;
+  onOpenLoyaltyModal?: (patientId: string | undefined, patientName: string) => void;
 }
 
 export default function ClientFinanceDetailModal({
@@ -29,7 +32,8 @@ export default function ClientFinanceDetailModal({
   onClose,
   onProfileUpdated,
   onOpenInvoiceDetail,
-  onCreateInvoiceForClient
+  onCreateInvoiceForClient,
+  onOpenLoyaltyModal
 }: ClientFinanceDetailModalProps) {
   // Stav pre zaevidovanie platby
   const [showPaymentForm, setShowPaymentForm] = useState(false);
@@ -47,6 +51,10 @@ export default function ClientFinanceDetailModal({
   if (!isOpen || !profile) return null;
 
   const isPlanned = profile.status === 'planned';
+  const loyaltyStatus = LoyaltyService.calculateClientLoyalty({
+    id: profile.patientId,
+    name: profile.patientName
+  });
 
   // Načítanie spotrebovaného materiálu zo skladu
   const materialUsage = FinanceBillingService.calculateClientMaterialUsage(profile.patientName, profile.patientId);
@@ -111,9 +119,26 @@ export default function ClientFinanceDetailModal({
               {isPlanned ? '📅 Plánovaný zákrok' : '✅ Odoperovaný klient'}
             </span>
             <div>
-              <h3 className="font-brand text-xl font-bold text-[#2C2A29]">
-                {profile.patientName}
-              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-brand text-xl font-bold text-[#2C2A29]">
+                  {profile.patientName}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => onOpenLoyaltyModal?.(profile.patientId, profile.patientName)}
+                  title={`Vernostná kategória klienta: ${loyaltyStatus.tierDef.name} (${loyaltyStatus.tierDef.discountPercent}% zľava). Minuté za 365d (Skin Care + Ošetrenia): ${loyaltyStatus.eligibleSpend365d.toFixed(0)} €`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                    loyaltyStatus.tier === 'vip'
+                      ? 'bg-[#2C2A29] text-[#C5A059] border-[#C5A059]'
+                      : loyaltyStatus.tier === 'premium'
+                        ? 'bg-[#FAF6EF] text-[#8A6827] border-[#C5A059]'
+                        : 'bg-white text-[#8C857B] border-[#E8E2D9] hover:border-[#C5A059]'
+                  }`}
+                >
+                  <Award className="w-3 h-3 text-[#C5A059]" />
+                  <span>{loyaltyStatus.tierDef.name} • {loyaltyStatus.tierDef.discountPercent > 0 ? `-${loyaltyStatus.tierDef.discountPercent}%` : '0%'}</span>
+                </button>
+              </div>
               <p className="text-xs text-[#8C857B] flex items-center gap-2">
                 <span>{profile.procedureName}</span>
                 <span>•</span>

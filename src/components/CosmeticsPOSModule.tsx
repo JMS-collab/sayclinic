@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Tag,
   SlidersHorizontal,
-  FileCheck
+  FileCheck,
+  Award
 } from 'lucide-react';
 import { Patient } from './PatientDatabase';
 import { filterAndRankPatients, matchesQuery } from '@/utils/fuzzySearch';
@@ -34,6 +35,8 @@ import {
 } from '@/data/cosmeticsCatalog';
 import { PatientPlan, CosmeticRoutineItem } from '@/data/patientPlanConfig';
 import { FinanceBillingService, PendingPOSCheckout } from '../services/financeBillingService';
+import { LoyaltyService, LOYALTY_TIERS } from '../services/loyaltyService';
+import ClientLoyaltyModal from './ClientLoyaltyModal';
 
 interface CartItem {
   product: CosmeticProduct;
@@ -78,15 +81,44 @@ export function CosmeticsPOSModule({
   // Čakajúce účty z ambulancie (Estetika, Lekárske záznamy, Operácie)
   const [pendingCheckouts, setPendingCheckouts] = useState<PendingPOSCheckout[]>(() => FinanceBillingService.getPendingPOSCheckouts());
   const [activePendingCheckoutIds, setActivePendingCheckoutIds] = useState<string[]>([]);
+  const [loyaltyVersion, setLoyaltyVersion] = useState<number>(0);
+  const [isLoyaltyModalOpen, setIsLoyaltyModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     setPendingCheckouts(FinanceBillingService.getPendingPOSCheckouts());
     const handlePendingChanged = () => {
       setPendingCheckouts(FinanceBillingService.getPendingPOSCheckouts());
     };
+    const handleLoyaltyChanged = () => {
+      setLoyaltyVersion(v => v + 1);
+    };
     window.addEventListener('say_clinic_pending_pos_checkouts_changed', handlePendingChanged);
-    return () => window.removeEventListener('say_clinic_pending_pos_checkouts_changed', handlePendingChanged);
+    window.addEventListener('say_clinic_loyalty_changed', handleLoyaltyChanged);
+    return () => {
+      window.removeEventListener('say_clinic_pending_pos_checkouts_changed', handlePendingChanged);
+      window.removeEventListener('say_clinic_loyalty_changed', handleLoyaltyChanged);
+    };
   }, []);
+
+  // Aktuálne vybraný pacient a jeho vernostný profil (Basic 0%, Premium 5%, VIP 10% za 365 dní)
+  const selectedPatientObj = useMemo(() => {
+    if (!selectedPatientId) return null;
+    return patients.find(p => p.id === selectedPatientId) || null;
+  }, [patients, selectedPatientId]);
+
+  const selectedPatientLoyalty = useMemo(() => {
+    if (!selectedPatientObj) return null;
+    return LoyaltyService.calculateClientLoyalty(selectedPatientObj);
+  }, [selectedPatientObj, loyaltyVersion]);
+
+  // Automatické nastavenie vernostnej zľavy pri výbere klienta (Basic 0%, Premium 5%, VIP 10%)
+  useEffect(() => {
+    if (selectedPatientLoyalty) {
+      setDiscountPercent(selectedPatientLoyalty.tierDef.discountPercent);
+    } else if (!selectedPatientId) {
+      setDiscountPercent(0);
+    }
+  }, [selectedPatientId, selectedPatientLoyalty?.tier]);
 
   // Modal editácie / pridania produktu
   const [isEditingProduct, setIsEditingProduct] = useState<boolean>(false);
@@ -416,6 +448,22 @@ export function CosmeticsPOSModule({
     FinanceBillingService.completePendingPOSCheckout(chk.id, paymentMethod, chk.totalAmount);
     setPendingCheckouts(FinanceBillingService.getPendingPOSCheckouts());
 
+    // Zápis do vernostného systému klienta (ošetrenie vs. operácia)
+    const txCategory = chk.sourceModule === 'surgery'
+      ? 'surgery'
+      : LoyaltyService.classifyProcedureOrItem(chk.procedureTitle, chk.sourceModule, chk.totalAmount);
+
+    LoyaltyService.recordTransaction({
+      patientId: chk.patientId,
+      patientName: chk.patientName,
+      date: new Date().toISOString().split('T')[0],
+      category: txCategory,
+      title: chk.procedureTitle,
+      amount: chk.totalAmount,
+      sourceId: chk.protocolNumber || chk.id
+    });
+    setLoyaltyVersion(v => v + 1);
+
     const receiptNumStr = `POS-${receiptSeq}`;
     const receiptItems: CartItem[] = (chk.items || []).map((item, idx) => ({
       product: {
@@ -503,10 +551,57 @@ export function CosmeticsPOSModule({
       setPendingCheckouts(FinanceBillingService.getPendingPOSCheckouts());
     }
 
+    // Zápis nákupu do Vernostného systému klienta (rozlíšenie Skin Care vs. Ošetrenia vs. Operácie)
+    if (patient) {
+      const todayIso = new Date().toISOString().split('T')[0];
+      const discountFactor = Math.max(0, 1 - discountPercent / 100);
+
+      const skincareItems = cart.filter(c => !c.product.id.startsWith('CLINIC-'));
+      const clinicItems = cart.filter(c => c.product.id.startsWith('CLINIC-'));
+
+      if (skincareItems.length > 0) {
+        const skincareRaw = skincareItems.reduce((s, c) => s + c.product.price * c.quantity, 0);
+        const skincarePaid = Math.round(skincareRaw * discountFactor * 100) / 100;
+        if (skincarePaid > 0) {
+          LoyaltyService.recordTransaction({
+            patientId: patient.id,
+            patientName: patient.name,
+            date: todayIso,
+            category: 'skincare',
+            title: `Skin Care: ${skincareItems.map(i => `${i.quantity}x ${i.product.name}`).join(', ')}`,
+            amount: skincarePaid,
+            originalAmount: skincareRaw,
+            discountPercent,
+            sourceId: `${receiptNumStr}-skincare`
+          });
+        }
+      }
+
+      if (clinicItems.length > 0) {
+        clinicItems.forEach((ci, idx) => {
+          const itemPaid = Math.round(ci.product.price * ci.quantity * discountFactor * 100) / 100;
+          const cat = LoyaltyService.classifyProcedureOrItem(ci.product.name);
+          if (itemPaid > 0) {
+            LoyaltyService.recordTransaction({
+              patientId: patient.id,
+              patientName: patient.name,
+              date: todayIso,
+              category: cat,
+              title: ci.product.name,
+              amount: itemPaid,
+              discountPercent,
+              sourceId: `${receiptNumStr}-clinic-${idx}`
+            });
+          }
+        });
+      }
+      setLoyaltyVersion(v => v + 1);
+    }
+
     setLastReceipt(receiptData);
     setIsReceiptModalOpen(true);
     setCart([]);
-    setDiscountPercent(0);
+    setDiscountPercent(selectedPatientLoyalty ? selectedPatientLoyalty.tierDef.discountPercent : 0);
     setReceiptSeq(prev => prev + 1);
 
     if (onSaleCompleted) {
@@ -1001,6 +1096,68 @@ export function CosmeticsPOSModule({
                   </option>
                 ))}
               </select>
+
+              {/* VERNOSTNÁ KARTA VYBRANÉHO KLIENTA (BASIC 0% / PREMIUM 5% / VIP 10% ZA 365 DNÍ) */}
+              {selectedPatientLoyalty && (
+                <div className="mt-2 p-3 rounded-2xl bg-[#FAF6EF] border border-[#C5A059]/40 space-y-2 animate-fadeIn">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-[#C5A059] shrink-0" />
+                      <span className="text-[11px] font-bold text-[#2C2A29] uppercase tracking-wider">
+                        Vernostný status (365d):
+                      </span>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${selectedPatientLoyalty.tierDef.badgeBg} ${selectedPatientLoyalty.tierDef.badgeText} ${selectedPatientLoyalty.tierDef.badgeBorder}`}
+                    >
+                      {selectedPatientLoyalty.tierDef.name.toUpperCase()} • Zľava {selectedPatientLoyalty.tierDef.discountPercent}%
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px] bg-white/90 p-2 rounded-xl border border-[#E8E2D9]">
+                    <div>
+                      <span className="text-[#8C857B] block">Skin Care & Ošetrenia:</span>
+                      <strong className="font-mono text-[#2C2A29] text-xs">
+                        {selectedPatientLoyalty.eligibleSpend365d.toFixed(0)} €
+                      </strong>
+                      <span className="text-[9px] text-[#8C857B] block">
+                        SC: {selectedPatientLoyalty.skincareSpend365d.toFixed(0)}€ • Oš: {selectedPatientLoyalty.treatmentsSpend365d.toFixed(0)}€
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      {selectedPatientLoyalty.hasSurgeryOver1000 ? (
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[9px] border border-amber-300">
+                          ★ Operácia &gt;1000€ → Premium
+                        </span>
+                      ) : selectedPatientLoyalty.nextTier ? (
+                        <>
+                          <span className="text-[#8C857B] block">
+                            Do {LOYALTY_TIERS[selectedPatientLoyalty.nextTier].name}:
+                          </span>
+                          <strong className="font-mono text-[#C5A059]">
+                            chýba {selectedPatientLoyalty.amountToNextTier.toFixed(0)} €
+                          </strong>
+                        </>
+                      ) : (
+                        <span className="text-emerald-700 font-bold">★ Max úroveň VIP</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] pt-0.5">
+                    <span className="text-[#8C857B]">
+                      Operácie sa do obratu nezarátavajú
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsLoyaltyModalOpen(true)}
+                      className="font-bold text-[#9C7D2B] hover:text-[#2C2A29] underline cursor-pointer"
+                    >
+                      Nastaviť vernosť →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* POLOŽKY V KOŠÍKU */}
@@ -1414,6 +1571,20 @@ export function CosmeticsPOSModule({
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL VERNOSTNÉHO SYSTÉMU PRE VYBRANÉHO KLIENTA */}
+      {selectedPatientObj && (
+        <ClientLoyaltyModal
+          isOpen={isLoyaltyModalOpen}
+          onClose={() => setIsLoyaltyModalOpen(false)}
+          patientId={selectedPatientObj.id}
+          patientName={selectedPatientObj.name}
+          onLoyaltyUpdated={(updated) => {
+            setLoyaltyVersion(v => v + 1);
+            setDiscountPercent(updated.tierDef.discountPercent);
+          }}
+        />
       )}
     </div>
   );

@@ -29,11 +29,14 @@ import {
   Percent,
   Tag,
   RefreshCw,
-  Layers
+  Layers,
+  Award
 } from 'lucide-react';
 import { Patient, MedicalRecord } from './PatientDatabase';
 import { InventoryService } from '../services/inventoryService';
 import { FinanceBillingService } from '../services/financeBillingService';
+import { LoyaltyService } from '../services/loyaltyService';
+import ClientLoyaltyModal from './ClientLoyaltyModal';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { exportElementToPdf, generatePdfFilename } from '../lib/pdfGenerator';
 import { 
@@ -763,6 +766,19 @@ export function AestheticsModule({
   // FEEDBACK TOAST & PDF
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [loyaltyVersion, setLoyaltyVersion] = useState<number>(0);
+  const [showLoyaltyModal, setShowLoyaltyModal] = useState<boolean>(false);
+
+  const currentPatientLoyalty = React.useMemo(() => {
+    if (!currentPatient?.name) return null;
+    return LoyaltyService.calculateClientLoyalty(currentPatient);
+  }, [currentPatient, loyaltyVersion, sessions.length]);
+
+  useEffect(() => {
+    const handleLoyaltyChange = () => setLoyaltyVersion(v => v + 1);
+    window.addEventListener('say_clinic_loyalty_changed', handleLoyaltyChange);
+    return () => window.removeEventListener('say_clinic_loyalty_changed', handleLoyaltyChange);
+  }, []);
 
   // Načítanie histórie zo storage pre aktuálneho pacienta
   useEffect(() => {
@@ -788,7 +804,9 @@ export function AestheticsModule({
     setVectors([]);
     setAppliedTemplateTitles([]);
     setSelectedVectorId(null);
-    setDiscountValue(0);
+    const loyaltyCalc = LoyaltyService.calculateClientLoyalty(currentPatient);
+    setDiscountType('percent');
+    setDiscountValue(loyaltyCalc.tierDef.discountPercent);
     setSessionProtocolNo(`AES-${Date.now().toString().slice(-6)}`);
   }, [currentPatient?.id]);
 
@@ -1159,6 +1177,21 @@ ${sessionNextStep}`;
         totalAmount: finalTotalPrice,
         notes: `Estetický protokol ${sessionProtocolNo} (${lineItems.length} položiek)`
       });
+
+      if (finalTotalPrice > 0) {
+        LoyaltyService.recordTransaction({
+          patientId: currentPatient.id,
+          patientName: currentPatient.name,
+          date: todayStr,
+          category: 'treatment',
+          title: `Estetika: ${newSession.title}`,
+          amount: finalTotalPrice,
+          originalAmount: subtotal,
+          discountPercent: discountType === 'percent' ? discountValue : undefined,
+          sourceId: sessionProtocolNo
+        });
+        setLoyaltyVersion(v => v + 1);
+      }
 
       if (onSessionCompleted && finalTotalPrice > 0) {
         onSessionCompleted({
@@ -1725,11 +1758,27 @@ ${sessionNextStep}`;
             <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
               
               {/* Voľba zľavy */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-[#8C857B] uppercase tracking-wider flex items-center gap-1.5">
-                  <Percent className="w-3.5 h-3.5 text-[#C5A059]" />
-                  Zľava pre klienta:
-                </label>
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-[11px] font-bold text-[#8C857B] uppercase tracking-wider flex items-center gap-1.5">
+                    <Percent className="w-3.5 h-3.5 text-[#C5A059]" />
+                    Zľava pre klienta:
+                  </label>
+
+                  {currentPatientLoyalty && (
+                    <button
+                      type="button"
+                      onClick={() => setShowLoyaltyModal(true)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer hover:opacity-90 transition-all ${currentPatientLoyalty.tierDef.badgeBg} ${currentPatientLoyalty.tierDef.badgeText} ${currentPatientLoyalty.tierDef.badgeBorder}`}
+                      title="Kliknutím otvoríte detail a nastavenie vernostného systému klienta"
+                    >
+                      <Award className="w-3 h-3" />
+                      <span>
+                        Vernostný status: {currentPatientLoyalty.tierDef.name.toUpperCase()} ({currentPatientLoyalty.tierDef.discountPercent}%) • 365d: {currentPatientLoyalty.eligibleSpend365d.toFixed(0)} €
+                      </span>
+                    </button>
+                  )}
+                </div>
                 
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {[0, 5, 10, 15, 20].map((pct) => (
@@ -2729,6 +2778,20 @@ ${sessionNextStep}`;
 
           </div>
         </div>
+      )}
+
+      {currentPatient && (
+        <ClientLoyaltyModal
+          isOpen={showLoyaltyModal}
+          onClose={() => setShowLoyaltyModal(false)}
+          patientId={currentPatient.id}
+          patientName={currentPatient.name}
+          onLoyaltyUpdated={(updated) => {
+            setLoyaltyVersion(v => v + 1);
+            setDiscountType('percent');
+            setDiscountValue(updated.tierDef.discountPercent);
+          }}
+        />
       )}
 
     </div>

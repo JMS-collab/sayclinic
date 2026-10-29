@@ -22,7 +22,9 @@ export type SyncCollection =
   | 'custom_avatars'
   | 'users_updated'
   | 'meicet_reports'
-  | 'audit_logs';
+  | 'audit_logs'
+  | 'loyalty_transactions'
+  | 'loyalty_overrides';
 
 interface CollectionMapping {
   storageKey: string;
@@ -117,6 +119,14 @@ const COLLECTION_MAP: Record<SyncCollection, CollectionMapping> = {
   audit_logs: {
     storageKey: 'say_clinic_audit_logs_v1',
     eventName: 'say_clinic_audit_log_added',
+  },
+  loyalty_transactions: {
+    storageKey: 'say_clinic_loyalty_transactions_v1',
+    eventName: 'say_clinic_loyalty_changed',
+  },
+  loyalty_overrides: {
+    storageKey: 'say_clinic_loyalty_overrides_v1',
+    eventName: 'say_clinic_loyalty_changed',
   },
 };
 
