@@ -30,7 +30,11 @@ import {
   Loader2,
   RefreshCw,
   ClipboardList,
-  Table2
+  Table2,
+  ExternalLink,
+  Download,
+  FolderOpen,
+  FolderCheck
 } from 'lucide-react';
 import { filterAndRankPatients, RankedPatient } from '../utils/fuzzySearch';
 import { googleSignIn, subscribeWorkspaceAuth, setExternalAccessToken } from '@/lib/workspaceAuth';
@@ -47,6 +51,11 @@ import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
 import { PatientCloudService } from '../services/patientCloudService';
 import { DriveClientService } from '../services/driveClientService';
+import { 
+  PatientDriveOrganizerService, 
+  CategorizedPatientFiles, 
+  DriveFileItem 
+} from '../services/patientDriveOrganizerService';
 import GoogleDriveModal from './GoogleDriveModal';
 import { LiquidAvatar } from './LiquidAvatar';
 
@@ -412,6 +421,11 @@ export default function PatientDatabase({
   const [sheetExtractNotice, setSheetExtractNotice] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [batchExtractProgress, setBatchExtractProgress] = useState<{ current: number; total: number; patientName: string } | null>(null);
 
+  // STAV PRE ROZTRIEDENÉ SÚBORY Z GOOGLE DRIVE (FOTKY, PREDOPERAČNÉ, SPRÁVY)
+  const [categorizedDriveFiles, setCategorizedDriveFiles] = useState<CategorizedPatientFiles | null>(null);
+  const [isLoadingDriveFiles, setIsLoadingDriveFiles] = useState(false);
+  const [isOrganizingDriveFiles, setIsOrganizingDriveFiles] = useState(false);
+
   const [patientRecords, setPatientRecords] = useState<Record<string, MedicalRecord[]>>({});
 
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
@@ -474,6 +488,39 @@ export default function PatientDatabase({
       unsubCloud();
     };
   }, [selectedPatient?.id, selectedPatient?.birthNumber]);
+
+  // 2B. Tiché načítanie roztriedených súborov z Google Disku na pozadí pre vybraného pacienta
+  const loadPatientDriveFiles = async (targetPatient: Patient | null, force: boolean = false) => {
+    if (!targetPatient) {
+      setCategorizedDriveFiles(null);
+      return;
+    }
+
+    const token = workspaceToken || (session as any)?.accessToken;
+    if (!token || !targetPatient.name) return;
+
+    setIsLoadingDriveFiles(true);
+    try {
+      const folderId = targetPatient.driveFolderId || (targetPatient.driveFolderLink ? targetPatient.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined);
+      const data = await PatientDriveOrganizerService.getCategorizedPatientFiles(
+        token,
+        targetPatient.name,
+        folderId,
+        force
+      );
+      if (data) {
+        setCategorizedDriveFiles(data);
+      }
+    } catch (err) {
+      console.warn('Tiché načítanie Drive súborov zlyhalo:', err);
+    } finally {
+      setIsLoadingDriveFiles(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPatientDriveFiles(selectedPatient, false);
+  }, [selectedPatient?.id, selectedPatient?.name, workspaceToken, session]);
 
   // 3. Počúvanie okamžitého uloženia záznamu zo systému
   useEffect(() => {
@@ -1185,6 +1232,137 @@ export default function PatientDatabase({
     }
   };
 
+  // Fyzické roztriedenie súborov na Google Disku pre aktuálne vybraného pacienta
+  const handleOrganizeCurrentPatientFiles = async () => {
+    if (!selectedPatient) return;
+    let token = workspaceToken || (session as any)?.accessToken;
+    if (!token) {
+      try {
+        const signRes = await googleSignIn();
+        if (signRes?.accessToken) {
+          token = signRes.accessToken;
+          setExternalAccessToken(signRes.accessToken, signRes.user);
+        }
+      } catch {
+        return;
+      }
+    }
+    if (!token) {
+      setDriveStatusMessage({
+        type: 'error',
+        text: 'Pre prístup k Google Drive sa prosím prihláste.'
+      });
+      return;
+    }
+
+    setIsOrganizingDriveFiles(true);
+    try {
+      const folderId = selectedPatient.driveFolderId || (selectedPatient.driveFolderLink ? selectedPatient.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined);
+      const res = await PatientDriveOrganizerService.autoOrganizePatientFolder(
+        token,
+        selectedPatient.name,
+        folderId
+      );
+
+      if (res.success) {
+        const updated = await PatientDriveOrganizerService.getCategorizedPatientFiles(
+          token,
+          selectedPatient.name,
+          folderId,
+          true
+        );
+        setCategorizedDriveFiles(updated);
+
+        AuditLogService.log({
+          category: 'PATIENT_RECORD',
+          action: 'ROZTRIEDENIE DISKU',
+          details: `Fyzické roztriedenie ${res.movedCount} súborov na Google Disku pre pacienta: ${selectedPatient.name}`,
+          patientId: selectedPatient.id,
+          patientName: selectedPatient.name,
+          severity: 'info'
+        });
+
+        setDriveStatusMessage({
+          type: 'success',
+          text: `Úspešne presunutých ${res.movedCount} súborov do príslušných podzložiek (Fotodokumentácia, Predoperačné vyšetrenia, Dokumentácia) na Google Disku!`
+        });
+        setTimeout(() => setDriveStatusMessage(null), 6000);
+      } else {
+        setDriveStatusMessage({
+          type: 'error',
+          text: `Presun súborov sa nepodarilo dokončiť: ${res.errors.join(', ')}`
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setDriveStatusMessage({
+        type: 'error',
+        text: 'Chyba pri organizácii súborov na Disku: ' + (err?.message || 'Neznáma chyba')
+      });
+    } finally {
+      setIsOrganizingDriveFiles(false);
+    }
+  };
+
+  // Hromadné roztriedenie súborov na Google Disku pre všetkých pacientov
+  const handleBatchOrganizeAllDriveFolders = async () => {
+    let token = workspaceToken || (session as any)?.accessToken;
+    if (!token) {
+      try {
+        const signRes = await googleSignIn();
+        if (signRes?.accessToken) {
+          token = signRes.accessToken;
+          setExternalAccessToken(signRes.accessToken, signRes.user);
+        }
+      } catch {
+        return;
+      }
+    }
+    if (!token) return;
+
+    setIsOrganizingDriveFiles(true);
+    let totalMoved = 0;
+    try {
+      for (let i = 0; i < patients.length; i++) {
+        const pt = patients[i];
+        setBatchExtractProgress({ current: i + 1, total: patients.length, patientName: pt.name });
+        try {
+          const folderId = pt.driveFolderId || (pt.driveFolderLink ? pt.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined);
+          const res = await PatientDriveOrganizerService.autoOrganizePatientFolder(token, pt.name, folderId);
+          if (res.success && res.movedCount > 0) {
+            totalMoved += res.movedCount;
+          }
+        } catch (itemErr) {
+          console.warn(`Nepodarilo sa roztriediť zložku pre ${pt.name}:`, itemErr);
+        }
+      }
+
+      if (selectedPatient) {
+        const updated = await PatientDriveOrganizerService.getCategorizedPatientFiles(
+          token,
+          selectedPatient.name,
+          selectedPatient.driveFolderId,
+          true
+        );
+        setCategorizedDriveFiles(updated);
+      }
+
+      setDriveStatusMessage({
+        type: 'success',
+        text: `Hromadné upratanie Google Disku dokončené: Presunutých ${totalMoved} súborov do príslušných podzložiek naprieč zložkami klientov.`
+      });
+      setTimeout(() => setDriveStatusMessage(null), 6000);
+    } catch (err: any) {
+      setDriveStatusMessage({
+        type: 'error',
+        text: 'Chyba pri hromadnom upratovaní Disku: ' + (err?.message || 'Neznáma chyba')
+      });
+    } finally {
+      setIsOrganizingDriveFiles(false);
+      setBatchExtractProgress(null);
+    }
+  };
+
   // VYNÚTENÁ SYNCHRONIZÁCIA KARTOTÉKY DO CLOUDU AJ GOOGLE DRIVE
   const handleForceSyncDriveAndCloud = async () => {
     let token = workspaceToken || (session as any)?.accessToken;
@@ -1817,6 +1995,16 @@ export default function PatientDatabase({
                 </button>
 
                 <button 
+                  onClick={handleBatchOrganizeAllDriveFolders}
+                  disabled={isOrganizingDriveFiles || isExtractingSheet || isDriveSyncing || isImporting}
+                  className="bg-white hover:bg-sky-50 text-sky-900 border border-sky-200 px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-2xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-60"
+                  title="Fyzicky roztriediť voľné súbory v zložkách všetkých klientov na Google Disku do príslušných podzložiek (Fotky, Predoperačné, Dokumentácia)"
+                >
+                  <FolderCheck className={`w-3.5 h-3.5 text-sky-600 ${isOrganizingDriveFiles ? 'animate-spin' : ''}`} />
+                  <span>{isOrganizingDriveFiles ? 'Upratujem Disk...' : '⚡ Roztriediť Disk'}</span>
+                </button>
+
+                <button 
                   onClick={() => setIsAddingPatient(true)}
                   className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-xs uppercase tracking-wider font-semibold shadow-sm transition-colors cursor-pointer"
                 >
@@ -2118,6 +2306,45 @@ export default function PatientDatabase({
                     <>
                       <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
                       <span>⚡ Načítať údaje zo Sheetu</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* UPOZORNENIE: NEZARADENÉ SÚBORY V KORENI ZLOŽKY PACIENTA NA GOOGLE DISKU */}
+            {categorizedDriveFiles && categorizedDriveFiles.rootUnsorted.length > 0 && (
+              <div className="bg-gradient-to-r from-sky-50 via-indigo-50 to-sky-50 border border-sky-200/90 p-3.5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                    <FolderOpen className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-sky-950 flex items-center gap-1.5">
+                      <span>Nezaradené súbory na Google Disku ({categorizedDriveFiles.rootUnsorted.length})</span>
+                      <span className="text-[10px] bg-sky-200/70 text-sky-900 px-2 py-0.5 rounded-full font-bold">Pripravené na presun</span>
+                    </h4>
+                    <p className="text-[11px] text-sky-800/80">
+                      V koreni zložky ležia súbory (fotky, predoperačné PDF, správy). Jedným klikom ich fyzicky presuniete do príslušných medicínskych podzložiek.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOrganizeCurrentPatientFiles}
+                  disabled={isOrganizingDriveFiles}
+                  className="bg-sky-800 hover:bg-sky-900 text-white font-bold text-xs uppercase px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2 shrink-0 cursor-pointer disabled:opacity-60"
+                  title="Fyzicky presunúť nezaradené súbory na Google Disku do príslušných podzložiek"
+                >
+                  {isOrganizingDriveFiles ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Presúvam súbory...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FolderCheck className="w-3.5 h-3.5 text-sky-200" />
+                      <span>⚡ Upratať a roztriediť na Disku</span>
                     </>
                   )}
                 </button>
@@ -2562,56 +2789,180 @@ export default function PatientDatabase({
                               </button>
                             </div>
                           )}
+
+                          {/* DOKUMENTÁCIA A SPRÁVY NA GOOGLE DISKU */}
+                          {categorizedDriveFiles && (categorizedDriveFiles.dokumentacia.length > 0 || categorizedDriveFiles.suhlasy.length > 0) && (
+                            <div className="mt-4 pt-4 border-t border-[#E8E2D9] space-y-2.5">
+                              <div className="flex justify-between items-center">
+                                <h5 className="text-[10px] uppercase font-bold tracking-wider text-[#8C857B] flex items-center gap-1.5">
+                                  <HardDrive className="w-3.5 h-3.5 text-[#C5A059]" />
+                                  <span>Dokumenty a súhlasy na Google Disku ({categorizedDriveFiles.dokumentacia.length + categorizedDriveFiles.suhlasy.length})</span>
+                                </h5>
+                                {categorizedDriveFiles.subfolderIds?.dokumentacia && (
+                                  <a
+                                    href={`https://drive.google.com/drive/folders/${categorizedDriveFiles.subfolderIds.dokumentacia}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[9px] font-bold text-[#C5A059] hover:underline flex items-center gap-1"
+                                  >
+                                    <span>Zložka Dokumentácia</span>
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {[...categorizedDriveFiles.dokumentacia, ...categorizedDriveFiles.suhlasy].map(file => (
+                                  <a
+                                    key={file.id}
+                                    href={file.webViewLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-3 rounded-xl border border-[#E8E2D9] bg-white hover:border-[#C5A059] transition-all shadow-2xs flex items-center justify-between gap-2 group"
+                                  >
+                                    <div className="flex items-center gap-2.5 overflow-hidden">
+                                      <FileText className="w-4 h-4 text-[#C5A059] shrink-0" />
+                                      <div className="truncate">
+                                        <p className="text-xs font-bold text-[#2C2A29] group-hover:text-[#C5A059] truncate">{file.name}</p>
+                                        <p className="text-[10px] text-[#8C857B]">
+                                          {file.category === 'suhlasy' ? 'Súhlas / Protokol' : 'Lekárska správa'}
+                                          {file.modifiedTime && ` • ${new Date(file.modifiedTime).toLocaleDateString('sk-SK')}`}
+                                          {!file.isInsideSubfolder && ' • V koreni (pripravené na presun)'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <ExternalLink className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] shrink-0" />
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 
                       {/* SUB-OBSAH 1B: VÝSLEDKY & PREDOPERAČNÉ VYŠETRENIA */}
                       {zaznamySubTab === 'vysetrenia' && (
                         <div className="space-y-4">
-                          <div className="flex justify-between items-center">
+                          <div className="flex flex-wrap justify-between items-center gap-2">
                             <div>
-                              <h4 className="text-xs uppercase font-bold text-[#2C2A29]">Výsledky laboratórií, EKG a interných vyšetrení</h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-xs uppercase font-bold text-[#2C2A29]">Výsledky laboratórií, EKG a interných vyšetrení</h4>
+                                {categorizedDriveFiles && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#FAF8F5] border border-[#E8E2D9] text-[#2C2A29]">
+                                    {categorizedDriveFiles.predoperacne.length} súborov
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-[11px] text-[#8C857B]">Predoperačné vyšetrenia k plánovaným anestéziologickým výkonom</p>
                             </div>
-                          </div>
 
-                          <div className="space-y-2.5">
-                            <div className="border border-[#E8E2D9] rounded-xl p-3.5 flex justify-between items-center hover:bg-[#FAF8F5] transition-all bg-white shadow-2xs">
-                              <div className="flex items-center gap-3">
-                                <div className="bg-rose-100 text-rose-700 p-2.5 rounded-xl text-xs font-bold flex items-center justify-center">
-                                  PDF
-                                </div>
-                                <div>
-                                  <p className="text-xs font-bold text-[#2C2A29]">Predoperačné interné vyšetrenie & EKG</p>
-                                  <p className="text-[10px] text-[#8C857B] mt-0.5">Záver: Schopná výkonu v celkovej anestézii • ASA I</p>
-                                </div>
-                              </div>
-                              <button 
-                                onClick={() => alert('Predoperačné vyšetrenie bolo overené a je archivované v elektronickej karte pacienta.')}
-                                className="text-[10px] bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#C5A059] hover:text-[#9C7D2B] px-3 py-1.5 rounded-lg uppercase font-bold transition-all shadow-2xs cursor-pointer"
+                            <div className="flex items-center gap-2">
+                              {categorizedDriveFiles?.subfolderIds?.predoperacne && (
+                                <a
+                                  href={`https://drive.google.com/drive/folders/${categorizedDriveFiles.subfolderIds.predoperacne}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] font-bold text-[#C5A059] hover:text-[#2C2A29] flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#E8E2D9] hover:border-[#C5A059] rounded-lg transition-colors shadow-2xs"
+                                  title="Otvoriť zložku Predoperačné vyšetrenia priamo na Google Disku"
+                                >
+                                  <span>Otvoriť priečinok na Disku</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => loadPatientDriveFiles(selectedPatient, true)}
+                                disabled={isLoadingDriveFiles}
+                                className="text-[10px] font-bold text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1 px-2.5 py-1.5 bg-[#FBF9F6] border border-[#E8E2D9] rounded-lg transition-colors cursor-pointer"
+                                title="Obnoviť súbory z Google Disku"
                               >
-                                Stiahnuť PDF
-                              </button>
-                            </div>
-
-                            <div className="border border-[#E8E2D9] rounded-xl p-3.5 flex justify-between items-center hover:bg-[#FAF8F5] transition-all bg-white shadow-2xs">
-                              <div className="flex items-center gap-3">
-                                <div className="bg-blue-100 text-blue-700 p-2.5 rounded-xl text-xs font-bold flex items-center justify-center">
-                                  LAB
-                                </div>
-                                <div>
-                                  <p className="text-xs font-bold text-[#2C2A29]">Krvný obraz, hemostáza (Quick, aPTT, INR) & Biochémia</p>
-                                  <p className="text-[10px] text-[#8C857B] mt-0.5">Hb, Ery, Leu, Trc, Glykémia, Urea, Kreatinín v referenčnom rozmedzí</p>
-                                </div>
-                              </div>
-                              <button 
-                                onClick={() => alert('Laboratórne výsledky sú platné 14 dní pred plánovaným dňom operácie.')}
-                                className="text-[10px] bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#C5A059] hover:text-[#9C7D2B] px-3 py-1.5 rounded-lg uppercase font-bold transition-all shadow-2xs cursor-pointer"
-                              >
-                                Zobraziť výsledky
+                                <RefreshCw className={`w-3 h-3 text-[#C5A059] ${isLoadingDriveFiles ? 'animate-spin' : ''}`} />
+                                <span>{isLoadingDriveFiles ? 'Načítavam...' : 'Obnoviť'}</span>
                               </button>
                             </div>
                           </div>
+
+                          {/* REÁLNE SÚBORY Z GOOGLE DISKU */}
+                          {categorizedDriveFiles?.predoperacne && categorizedDriveFiles.predoperacne.length > 0 ? (
+                            <div className="space-y-2.5">
+                              {categorizedDriveFiles.predoperacne.map(file => {
+                                const isEkg = file.subCategory === 'EKG záznam';
+                                const isLab = file.subCategory === 'Laboratórne odbery';
+                                const isInternal = file.subCategory === 'Interné predoperačné';
+                                const isRtg = file.subCategory === 'RTG hrudníka';
+
+                                return (
+                                  <div key={file.id} className="border border-[#E8E2D9] rounded-xl p-3.5 flex flex-wrap justify-between items-center hover:bg-[#FAF8F5] transition-all bg-white shadow-2xs gap-3">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-center shrink-0 ${
+                                        isLab ? 'bg-rose-100 text-rose-700' :
+                                        isEkg ? 'bg-purple-100 text-purple-700' :
+                                        isInternal ? 'bg-emerald-100 text-emerald-700' :
+                                        isRtg ? 'bg-amber-100 text-amber-700' :
+                                        'bg-sky-100 text-sky-700'
+                                      }`}>
+                                        {isLab ? 'LAB' : isEkg ? 'EKG' : isInternal ? 'INT' : isRtg ? 'RTG' : 'PDF'}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <p className="text-xs font-bold text-[#2C2A29]">{file.name}</p>
+                                          <span className="text-[9px] bg-stone-100 text-stone-700 px-1.5 py-0.5 rounded font-semibold border border-stone-200">
+                                            {file.subCategory || 'Predoperačné'}
+                                          </span>
+                                          <span className="text-[9px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-semibold flex items-center gap-0.5">
+                                            ☁️ Google Drive
+                                          </span>
+                                          {!file.isInsideSubfolder && (
+                                            <span className="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-semibold">
+                                              V koreni (pripravené na presun)
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-[10px] text-[#8C857B] mt-0.5">
+                                          {file.modifiedTime && `Aktualizované: ${new Date(file.modifiedTime).toLocaleDateString('sk-SK')}`}
+                                          {file.size && ` • ${Math.round(parseInt(file.size) / 1024)} KB`}
+                                          {isLab && ` • Platnosť odberov 14 dní pred výkonom`}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      <a
+                                        href={file.webViewLink}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[10px] bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3 py-1.5 rounded-lg uppercase font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                                      >
+                                        <span>Otvoriť PDF</span>
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="bg-[#FAF8F5] border border-dashed border-[#E8E2D9] rounded-2xl p-8 text-center space-y-2.5">
+                              <div className="w-10 h-10 rounded-xl bg-white border border-[#E8E2D9] flex items-center justify-center mx-auto text-[#C5A059]">
+                                <FileCheck className="w-5 h-5" />
+                              </div>
+                              <h5 className="font-bold text-xs text-[#2C2A29]">Žiadne predoperačné vyšetrenia</h5>
+                              <p className="text-[11px] text-[#8C857B] max-w-md mx-auto">
+                                V zložke <strong>Predoperačné vyšetrenia</strong> na Google Disku sa zatiaľ nenachádzajú žiadne nahraté laboratórne výsledky ani EKG.
+                              </p>
+                              {categorizedDriveFiles?.subfolderIds?.predoperacne && (
+                                <a
+                                  href={`https://drive.google.com/drive/folders/${categorizedDriveFiles.subfolderIds.predoperacne}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs text-[#C5A059] hover:text-[#2C2A29] font-bold mt-2"
+                                >
+                                  <span>Otvoriť zložku na Disku a nahrať vyšetrenia</span>
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -2747,6 +3098,9 @@ export default function PatientDatabase({
                             patientName={selectedPatient.name} 
                             patient={selectedPatient}
                             onPatientUpdated={handlePatientUpdatedFromDrive}
+                            categorizedFiles={categorizedDriveFiles}
+                            onOrganizeFiles={handleOrganizeCurrentPatientFiles}
+                            isOrganizing={isOrganizingDriveFiles}
                           />
                         </div>
                       )}
@@ -2855,42 +3209,189 @@ export default function PatientDatabase({
                   {activeFolder === 'diagnostika' && (
                     <div className="space-y-4">
                       <div>
+                        {/* UPOZORNENIE NA NEZARADENÉ FOTKY NA DISKU */}
+                        {categorizedDriveFiles && categorizedDriveFiles.rootUnsorted.some(f => f.category === 'fotodokumentacia') && (
+                          <div className="mb-4 bg-sky-50 border border-sky-200 p-3 rounded-xl flex items-center justify-between gap-3 text-xs">
+                            <div className="flex items-center gap-2 text-sky-950 font-medium">
+                              <Camera className="w-4 h-4 text-sky-700 shrink-0" />
+                              <span>
+                                Na Google Disku v koreni zložky sa nachádzajú nezaradené fotografie ({categorizedDriveFiles.rootUnsorted.filter(f => f.category === 'fotodokumentacia').length}).
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleOrganizeCurrentPatientFiles}
+                              disabled={isOrganizingDriveFiles}
+                              className="text-[10px] bg-sky-800 hover:bg-sky-900 text-white font-bold px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors shrink-0 cursor-pointer shadow-xs"
+                            >
+                              {isOrganizingDriveFiles ? 'Presúvam...' : '⚡ Presunúť do Fotodokumentácie'}
+                            </button>
+                          </div>
+                        )}
+
                         {!activePhotoCategory ? (
                             <>
-                              <p className="text-[10px] uppercase text-[#8C857B] font-bold mb-4">Fotografické zložky pacienta podľa klinických etáp</p>
-                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-4">
+                              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                                <p className="text-[10px] uppercase text-[#8C857B] font-bold">Fotografické zložky pacienta podľa klinických etáp</p>
+                                <div className="flex items-center gap-2">
+                                  {categorizedDriveFiles?.subfolderIds?.fotodokumentacia && (
+                                    <a
+                                      href={`https://drive.google.com/drive/folders/${categorizedDriveFiles.subfolderIds.fotodokumentacia}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[10px] font-bold text-[#C5A059] hover:text-[#2C2A29] flex items-center gap-1 px-2.5 py-1 bg-white border border-[#E8E2D9] rounded-lg transition-colors shadow-2xs"
+                                    >
+                                      <span>Otvoriť zložku na Disku</span>
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => loadPatientDriveFiles(selectedPatient, true)}
+                                    disabled={isLoadingDriveFiles}
+                                    className="text-[10px] font-bold text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1 px-2.5 py-1 bg-[#FBF9F6] border border-[#E8E2D9] rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    <RefreshCw className={`w-3 h-3 text-[#C5A059] ${isLoadingDriveFiles ? 'animate-spin' : ''}`} />
+                                    <span>{isLoadingDriveFiles ? 'Načítavam...' : 'Obnoviť z Disku'}</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7 gap-4">
                                 {PHOTO_CATEGORIES.map(cat => {
-                                  const key = `${selectedPatient.id}_${cat}`;
-                                  const count = patientPhotos[key]?.length || 0;
+                                  const localCount = patientPhotos[`${selectedPatient.id}_${cat}`]?.length || 0;
+                                  const drivePhotosInCat = (categorizedDriveFiles?.fotodokumentacia || []).filter(f => f.subCategory === cat);
+                                  const totalCount = localCount + drivePhotosInCat.length;
+
                                   return (
                                     <div key={cat} onClick={() => setActivePhotoCategory(cat)} className="border border-[#E8E2D9] rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#C5A059] hover:bg-[#FAF8F5] transition-all group bg-white shadow-2xs">
                                       <span className="text-3xl mb-2 grayscale opacity-80 group-hover:grayscale-0 transition-all">📁</span>
                                       <span className="text-xs font-bold text-[#2C2A29] uppercase">{cat}</span>
-                                      <span className="text-[10px] text-[#8C857B] mt-1">{count} fotografií</span>
+                                      <span className="text-[10px] text-[#8C857B] mt-1">{totalCount} fotografií</span>
+                                      {drivePhotosInCat.length > 0 && (
+                                        <span className="text-[9px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.2 rounded mt-1">
+                                          ☁️ {drivePhotosInCat.length} z Disku
+                                        </span>
+                                      )}
                                     </div>
                                   );
                                 })}
+
+                                {/* ŠPECIÁLNY PRIEČINOK PRE VŠETKY FOTKY NA GOOGLE DISKU */}
+                                <div 
+                                  onClick={() => setActivePhotoCategory('Všetky z Google Disku')} 
+                                  className="border border-[#C5A059]/40 bg-gradient-to-b from-white to-[#FAF8F5] rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#C5A059] hover:shadow-md transition-all group shadow-2xs"
+                                >
+                                  <span className="text-3xl mb-2">📸</span>
+                                  <span className="text-xs font-bold text-[#2C2A29] uppercase">Všetky z Disku</span>
+                                  <span className="text-[10px] text-[#C5A059] font-bold mt-1">
+                                    {(categorizedDriveFiles?.fotodokumentacia || []).length} fotografií
+                                  </span>
+                                  <span className="text-[9px] text-[#8C857B] mt-0.5">Kompletný archív</span>
+                                </div>
                               </div>
                             </>
                           ) : (
                             <div className="space-y-4">
-                              <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
+                              <div className="flex flex-wrap justify-between items-center border-b border-[#E8E2D9] pb-3 gap-2">
                                 <div className="flex items-center gap-3">
-                                  <button onClick={() => setActivePhotoCategory(null)} className="text-[18px] text-[#8C857B] hover:text-[#2C2A29] transition-colors cursor-pointer">←</button>
-                                  <h3 className="text-sm font-bold text-[#2C2A29] uppercase">📁 {activePhotoCategory}</h3>
+                                  <button onClick={() => setActivePhotoCategory(null)} className="text-[18px] text-[#8C857B] hover:text-[#2C2A29] transition-colors cursor-pointer font-bold">← Späť</button>
+                                  <h3 className="text-sm font-bold text-[#2C2A29] uppercase flex items-center gap-2">
+                                    <span>📁 {activePhotoCategory}</span>
+                                    {activePhotoCategory === 'Všetky z Google Disku' && (
+                                      <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
+                                        Google Drive archív
+                                      </span>
+                                    )}
+                                  </h3>
                                 </div>
-                                <label className="cursor-pointer bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-colors flex items-center gap-1 shadow-sm">
-                                  <span>+ Hromadné nahratie fotiek</span>
-                                  <input type="file" multiple accept="image/*" className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
-                                </label>
+                                <div className="flex items-center gap-2">
+                                  {categorizedDriveFiles?.subfolderIds?.fotodokumentacia && (
+                                    <a
+                                      href={`https://drive.google.com/drive/folders/${categorizedDriveFiles.subfolderIds.fotodokumentacia}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[10px] font-bold text-[#C5A059] hover:text-[#2C2A29] flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#E8E2D9] rounded-lg transition-colors shadow-2xs"
+                                    >
+                                      <span>Otvoriť na Disku</span>
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                  )}
+                                  <label className="cursor-pointer bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-colors flex items-center gap-1 shadow-sm">
+                                    <span>+ Hromadné nahratie fotiek</span>
+                                    <input type="file" multiple accept="image/*" className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
+                                  </label>
+                                </div>
                               </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-8 gap-4">
-                                {patientPhotos[`${selectedPatient.id}_${activePhotoCategory}`]?.map((photo, idx) => (
-                                  <div key={idx} className="relative group rounded-lg overflow-hidden border border-[#E8E2D9] aspect-square bg-[#FAF8F5]">
-                                    <img src={photo.url} alt={photo.name} className="w-full h-full object-cover" />
+
+                              {/* ZOBRAZENIE FOTOGRAFIÍ */}
+                              {(() => {
+                                const localPhotos = activePhotoCategory === 'Všetky z Google Disku'
+                                  ? []
+                                  : (patientPhotos[`${selectedPatient.id}_${activePhotoCategory}`] || []);
+                                const drivePhotos = activePhotoCategory === 'Všetky z Google Disku'
+                                  ? (categorizedDriveFiles?.fotodokumentacia || [])
+                                  : (categorizedDriveFiles?.fotodokumentacia || []).filter(f => f.subCategory === activePhotoCategory);
+
+                                const hasAny = localPhotos.length > 0 || drivePhotos.length > 0;
+
+                                if (!hasAny) {
+                                  return (
+                                    <div className="text-center py-12 border border-dashed border-[#E8E2D9] rounded-2xl bg-[#FAF8F5]">
+                                      <p className="text-3xl mb-2">📸</p>
+                                      <p className="text-xs font-bold text-[#2C2A29]">V tejto kategórii zatiaľ nie sú žiadne fotografie</p>
+                                      <p className="text-[11px] text-[#8C857B] mt-1 max-w-sm mx-auto">
+                                        Nahrajte fotografie klinického stavu pacienta cez tlačidlo vyššie, alebo ich umiestnite priamo do zložky Fotodokumentácia na Google Disku.
+                                      </p>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-8 gap-4">
+                                    {/* Lokálne nahrané fotky */}
+                                    {localPhotos.map((photo, idx) => (
+                                      <div key={`loc-${idx}`} className="relative group rounded-xl overflow-hidden border border-[#E8E2D9] aspect-square bg-[#FAF8F5] shadow-2xs">
+                                        <img src={photo.url} alt={photo.name} className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                                          <span className="text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded truncate w-full">
+                                            {photo.name}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+
+                                    {/* Google Drive fotografie */}
+                                    {drivePhotos.map(dPhoto => (
+                                      <div key={dPhoto.id} className="relative group rounded-xl overflow-hidden border border-[#E8E2D9] aspect-square bg-[#FAF8F5] shadow-2xs">
+                                        <img 
+                                          src={dPhoto.thumbnailLink?.replace(/=s\d+/, '=s500') || dPhoto.webViewLink} 
+                                          alt={dPhoto.name} 
+                                          className="w-full h-full object-cover"
+                                          loading="lazy" 
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2.5">
+                                          <span className="text-[9px] bg-black/60 text-white px-2 py-0.5 rounded font-mono truncate self-start">
+                                            {dPhoto.name}
+                                          </span>
+                                          <a 
+                                            href={dPhoto.webViewLink} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="bg-white hover:bg-[#C5A059] hover:text-white text-[#2C2A29] text-[10px] font-bold py-1.5 px-2.5 rounded-lg text-center transition-colors flex items-center justify-center gap-1 shadow-xs"
+                                          >
+                                            <span>Otvoriť originál</span>
+                                            <ExternalLink className="w-3 h-3" />
+                                          </a>
+                                        </div>
+                                        <span className="absolute bottom-1.5 right-1.5 bg-black/60 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none group-hover:hidden">
+                                          ☁️ Drive
+                                        </span>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
+                                );
+                              })()}
                             </div>
                           )}
                         </div>

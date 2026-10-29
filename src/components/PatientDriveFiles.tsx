@@ -25,9 +25,11 @@ import {
   Settings,
   Sparkles,
   Loader2,
+  FolderCheck,
 } from 'lucide-react';
 import { DriveClientService } from '@/services/driveClientService';
 import { PatientCloudService, Patient } from '@/services/patientCloudService';
+import { CategorizedPatientFiles } from '@/services/patientDriveOrganizerService';
 import GoogleDriveModal from './GoogleDriveModal';
 
 interface DriveFile {
@@ -43,9 +45,19 @@ interface PatientDriveFilesProps {
   patientName: string;
   patient?: Patient;
   onPatientUpdated?: (patient: Patient) => void;
+  categorizedFiles?: CategorizedPatientFiles | null;
+  onOrganizeFiles?: () => void;
+  isOrganizing?: boolean;
 }
 
-export default function PatientDriveFiles({ patientName, patient, onPatientUpdated }: PatientDriveFilesProps) {
+export default function PatientDriveFiles({ 
+  patientName, 
+  patient, 
+  onPatientUpdated,
+  categorizedFiles,
+  onOrganizeFiles,
+  isOrganizing
+}: PatientDriveFilesProps) {
   const { data: session } = useSession();
   const [googleUser, setGoogleUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -495,13 +507,59 @@ export default function PatientDriveFiles({ patientName, patient, onPatientUpdat
 
       {/* Štandardné podzložky pacienta na Google Disku */}
       <div>
-        <h4 className="text-[10px] uppercase font-bold tracking-wider text-[#8C857B] mb-2">
-          Priečinky pacienta v Klienti SAY
-        </h4>
+        <div className="flex justify-between items-center mb-2">
+          <h4 className="text-[10px] uppercase font-bold tracking-wider text-[#8C857B]">
+            Priečinky pacienta v Klienti SAY
+          </h4>
+          {categorizedFiles && (
+            <span className="text-[10px] text-[#8C857B] font-medium">
+              Celkovo {categorizedFiles.totalCount} súborov na Disku
+            </span>
+          )}
+        </div>
+
+        {/* UPOZORNENIE A AKCIA NA NEZARADENÉ SÚBORY */}
+        {categorizedFiles && categorizedFiles.rootUnsorted.length > 0 && (
+          <div className="mb-3 bg-sky-50 border border-sky-200/90 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 text-sky-950 font-medium">
+              <FolderOpen className="w-4 h-4 text-sky-700 shrink-0" />
+              <div>
+                <p className="font-bold text-sky-900 leading-tight">
+                  {categorizedFiles.rootUnsorted.length} nezaradených súborov v koreni zložky
+                </p>
+                <p className="text-[10px] text-sky-700 leading-tight mt-0.5">
+                  Fotky, predoperačné vyšetrenia a správy ležia v hlavnom priečinku.
+                </p>
+              </div>
+            </div>
+            {onOrganizeFiles && (
+              <button
+                type="button"
+                onClick={onOrganizeFiles}
+                disabled={isOrganizing}
+                className="bg-sky-800 hover:bg-sky-900 text-white font-bold text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs disabled:opacity-60"
+              >
+                {isOrganizing ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderCheck className="w-3 h-3" />}
+                <span>⚡ Roztriediť do podzložiek</span>
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
           {STANDARD_SUBFOLDERS.map((std) => {
             const foundSub = subfoldersList.find((sub) => sub.name.toLowerCase() === std.name.toLowerCase());
             const SubIcon = std.Icon;
+
+            let fileCount: number | null = null;
+            if (categorizedFiles) {
+              const lower = std.name.toLowerCase();
+              if (lower.includes('foto')) fileCount = categorizedFiles.fotodokumentacia.length;
+              else if (lower.includes('predoperac')) fileCount = categorizedFiles.predoperacne.length;
+              else if (lower.includes('dokument')) fileCount = categorizedFiles.dokumentacia.length;
+              else if (lower.includes('suhlas')) fileCount = categorizedFiles.suhlasy.length;
+            }
+
             return (
               <div
                 key={std.name}
@@ -514,7 +572,7 @@ export default function PatientDriveFiles({ patientName, patient, onPatientUpdat
                     <SubIcon className="w-4 h-4 text-[#C5A059]" />
                     {foundSub ? (
                       <span className="text-[9px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">
-                        Vytvorená
+                        {fileCount !== null ? `${fileCount} súborov` : 'Vytvorená'}
                       </span>
                     ) : (
                       <span className="text-[9px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded">
