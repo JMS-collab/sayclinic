@@ -439,9 +439,68 @@ export class FinanceBillingService {
   }
 
   // Synchronizácia kalendárových udalostí do finančných profilov
+  // (optimalizované: indexované mapy namiesto vnorených lineárnych vyhľadávaní, sklad sa parsuje iba raz)
   public static syncFromCalendarAndDatabase(events: CalendarEvent[], patients: Patient[]): PatientFinancialProfile[] {
     const currentProfiles = this.getClientProfiles();
     const updatedProfiles = [...currentProfiles];
+    const norm = (s?: string) => (s || '').toLowerCase().trim();
+    const now = new Date();
+
+    // Index pacientov (prvý výskyt v poradí poľa, rovnako ako pôvodné Array.find)
+    const patientById = new Map<string, { idx: number; p: Patient }>();
+    const patientByName = new Map<string, { idx: number; p: Patient }>();
+    patients.forEach((p, idx) => {
+      if (!p) return;
+      if (p.id && !patientById.has(p.id)) patientById.set(p.id, { idx, p });
+      const n = norm(p.name);
+      if (n && !patientByName.has(n)) patientByName.set(n, { idx, p });
+    });
+
+    // Index existujúcich profilov
+    const profByLinkedId = new Map<string, number>();
+    const profByNameDate = new Map<string, number>();
+    const indexProfile = (prof: PatientFinancialProfile, idx: number) => {
+      if (prof.linkedEventId && !profByLinkedId.has(prof.linkedEventId)) profByLinkedId.set(prof.linkedEventId, idx);
+      const key = `${(prof.patientName || '').toLowerCase()}|${prof.procedureDate}`;
+      if (!profByNameDate.has(key)) profByNameDate.set(key, idx);
+    };
+    updatedProfiles.forEach((prof, idx) => indexProfile(prof, idx));
+
+    // Skladová spotreba – načítaná raz a zoskupená podľa ID aj mena pacienta
+    const allLogs = InventoryService.getUsageLogs();
+    const logsById = new Map<string, number[]>();
+    const logsByName = new Map<string, number[]>();
+    allLogs.forEach((l, i) => {
+      if (l.patientId) {
+        const arr = logsById.get(l.patientId) || [];
+        arr.push(i);
+        logsById.set(l.patientId, arr);
+      }
+      const n = norm(l.patientName);
+      if (n) {
+        const arr = logsByName.get(n) || [];
+        arr.push(i);
+        logsByName.set(n, arr);
+      }
+    });
+    const usageCache = new Map<string, { totalCost: number; itemsCount: number }>();
+    const getUsage = (patientName: string, patientId?: string) => {
+      const cacheKey = `${patientId || ''}|${norm(patientName)}`;
+      const cached = usageCache.get(cacheKey);
+      if (cached) return cached;
+      const idxSet = new Set<number>([
+        ...(patientId ? logsById.get(patientId) || [] : []),
+        ...(logsByName.get(norm(patientName)) || []),
+      ]);
+      let totalCost = 0;
+      idxSet.forEach(i => {
+        const item = allLogs[i];
+        totalCost += item.costAtUsage * item.quantity;
+      });
+      const res = { totalCost, itemsCount: idxSet.size };
+      usageCache.set(cacheKey, res);
+      return res;
+    };
 
     // Prechádzame kalendárové udalosti typu operácia a ošetrenie
     events.forEach(evt => {
@@ -449,24 +508,27 @@ export class FinanceBillingService {
       if (!evt.patientName || evt.patientName === 'Personál kliniky') return;
       if (evt.id && (evt.id.startsWith('seed-') || evt.id.startsWith('demo-'))) return;
 
-      const matchedPatient = patients.find(p => 
-        (evt.patientId && p.id === evt.patientId) || 
-        p.name.toLowerCase().trim() === evt.patientName.toLowerCase().trim()
-      );
+      const pById = evt.patientId ? patientById.get(evt.patientId) : undefined;
+      const pByName = patientByName.get(norm(evt.patientName));
+      const matchedPatient = pById && pByName
+        ? (pById.idx <= pByName.idx ? pById.p : pByName.p)
+        : (pById?.p || pByName?.p);
 
-      const existing = updatedProfiles.find(p => 
-        (evt.id && p.linkedEventId === evt.id) ||
-        (p.patientName.toLowerCase() === evt.patientName.toLowerCase() && p.procedureDate === evt.date)
-      );
+      const idxLinked = evt.id ? profByLinkedId.get(evt.id) : undefined;
+      const idxNameDate = profByNameDate.get(`${evt.patientName.toLowerCase()}|${evt.date}`);
+      const existingIdx = idxLinked !== undefined && idxNameDate !== undefined
+        ? Math.min(idxLinked, idxNameDate)
+        : (idxLinked ?? idxNameDate);
+      const existing = existingIdx !== undefined ? updatedProfiles[existingIdx] : undefined;
 
-      const isPast = new Date(evt.date) < new Date();
+      const isPast = new Date(evt.date) < now;
       const status = isPast ? 'operated' : 'planned';
       const agreedPrice = evt.totalPrice || (evt.type === 'operacia' ? 3800 : 250);
       const depositReq = evt.depositAmount || (evt.type === 'operacia' ? 800 : 0);
       const depositPaid = evt.isDepositPaid ? depositReq : 0;
 
       // Zistíme reálnu spotrebu materiálu pre tohto pacienta
-      const materialUsage = this.calculateClientMaterialUsage(evt.patientName, evt.patientId);
+      const materialUsage = getUsage(evt.patientName, evt.patientId);
 
       if (!existing) {
         const newProf: PatientFinancialProfile = {
@@ -500,13 +562,17 @@ export class FinanceBillingService {
           notes: evt.notes
         };
         updatedProfiles.push(newProf);
+        indexProfile(newProf, updatedProfiles.length - 1);
       } else {
         // Aktualizujeme spotrebu materiálu a linky
         existing.materialCost = materialUsage.totalCost > 0 ? materialUsage.totalCost : existing.materialCost;
         existing.materialItemsCount = materialUsage.itemsCount > 0 ? materialUsage.itemsCount : existing.materialItemsCount;
         existing.netProcedureMargin = existing.totalAgreedPrice - existing.materialCost;
         existing.marginPercentage = existing.totalAgreedPrice > 0 ? parseFloat((((existing.totalAgreedPrice - existing.materialCost) / existing.totalAgreedPrice) * 100).toFixed(1)) : 0;
-        if (evt.id) existing.linkedEventId = evt.id;
+        if (evt.id) {
+          existing.linkedEventId = evt.id;
+          if (!profByLinkedId.has(evt.id)) profByLinkedId.set(evt.id, existingIdx!);
+        }
         if (evt.totalPrice && evt.totalPrice !== existing.totalAgreedPrice) {
           existing.totalAgreedPrice = evt.totalPrice;
           existing.balanceDue = Math.max(0, existing.totalAgreedPrice - existing.totalPaid - existing.clientCredit);

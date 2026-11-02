@@ -7,7 +7,6 @@
 // - Po operácii nad 1 000 € sa klient automaticky radí minimálne do kategórie Premium (zľava 5 %).
 
 import { RealtimeSyncService } from './realtimeSyncService';
-import { FinanceBillingService } from './financeBillingService';
 import { CalendarEvent } from '../data/calendarConfig';
 import { Patient } from '../components/PatientDatabase';
 
@@ -269,8 +268,7 @@ export class LoyaltyService {
   public static saveStoredTransactions(txs: LoyaltyTransaction[]): void {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(STORAGE_KEY_LOYALTY_TX, JSON.stringify(txs));
-      window.dispatchEvent(new CustomEvent('say_clinic_loyalty_changed', { detail: txs }));
+      this.cachedSnapshot = null;
       RealtimeSyncService.publish('loyalty_transactions', txs);
     } catch (e) {
       console.error('Chyba ukladania vernostných transakcií:', e);
@@ -322,8 +320,7 @@ export class LoyaltyService {
   public static saveOverrides(overrides: Record<string, ClientLoyaltyOverride>): void {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(STORAGE_KEY_LOYALTY_OVERRIDES, JSON.stringify(overrides));
-      window.dispatchEvent(new CustomEvent('say_clinic_loyalty_changed', { detail: overrides }));
+      this.cachedSnapshot = null;
       RealtimeSyncService.publish('loyalty_overrides', overrides);
     } catch (e) {
       console.error('Chyba ukladania vernostných nastavení:', e);
@@ -385,6 +382,362 @@ export class LoyaltyService {
   }
 
   // ============================================================================
+  // PRED-INDEXOVANÝ SNAPSHOT PRE OKAMŽITÝ O(1) VÝPOČET VERNOSTNÉHO SYSTÉMU
+  // ============================================================================
+
+  private static cachedSnapshot: {
+    rawTx: string | null;
+    rawAes: string | null;
+    rawProf: string | null;
+    rawInv: string | null;
+    rawSales: string | null;
+    rawCal: string | null;
+    rawSurg: string | null;
+    rawOverrides: string | null;
+    externalCalRef?: CalendarEvent[];
+    refDayKey: string;
+    byId: Map<string, Array<{ seq: number; tx: LoyaltyTransaction }>>;
+    byName: Map<string, Array<{ seq: number; tx: LoyaltyTransaction }>>;
+    overrides: Record<string, ClientLoyaltyOverride>;
+  } | null = null;
+
+  private static lastValidatedAt = 0;
+  private static listenersAttached = false;
+
+  // Pri akejkoľvek zmene zdrojových dát okamžite zneplatníme snapshot
+  private static ensureInvalidationListeners(): void {
+    if (this.listenersAttached || typeof window === 'undefined') return;
+    this.listenersAttached = true;
+    const invalidate = () => {
+      this.cachedSnapshot = null;
+      this.lastValidatedAt = 0;
+    };
+    [
+      'say_clinic_loyalty_changed',
+      'say_clinic_invoices_changed',
+      'say_clinic_client_profiles_changed',
+      'say_clinic_sales_changed',
+      'say_clinic_calendar_events_changed',
+      'say_clinic_aesthetic_sessions_changed',
+      'say_clinic_patient_surgeries_changed',
+      'storage'
+    ].forEach(evt => window.addEventListener(evt, invalidate));
+  }
+
+  private static getIndexedSnapshot(
+    externalCalendarEvents?: CalendarEvent[],
+    refDate: Date = new Date()
+  ) {
+    const refDayKey = `${refDate.getFullYear()}-${String(refDate.getMonth() + 1).padStart(2, '0')}-${String(refDate.getDate()).padStart(2, '0')}`;
+
+    if (typeof window === 'undefined') {
+      return {
+        byId: new Map<string, Array<{ seq: number; tx: LoyaltyTransaction }>>(),
+        byName: new Map<string, Array<{ seq: number; tx: LoyaltyTransaction }>>(),
+        overrides: {} as Record<string, ClientLoyaltyOverride>
+      };
+    }
+
+    this.ensureInvalidationListeners();
+
+    // Rýchla cesta: v rámci krátkeho okna (jeden render tabuľky) nečítame localStorage opakovane
+    const nowTs = Date.now();
+    if (
+      this.cachedSnapshot &&
+      this.cachedSnapshot.refDayKey === refDayKey &&
+      this.cachedSnapshot.externalCalRef === externalCalendarEvents &&
+      nowTs - this.lastValidatedAt < 1000
+    ) {
+      return this.cachedSnapshot;
+    }
+    this.lastValidatedAt = nowTs;
+
+    const rawTx = localStorage.getItem(STORAGE_KEY_LOYALTY_TX);
+    const rawAes = localStorage.getItem('say_clinic_aesthetic_sessions');
+    const rawProf = localStorage.getItem('say_clinic_client_financial_profiles_v1');
+    const rawInv = localStorage.getItem('say_clinic_invoices_v1');
+    const rawSales = localStorage.getItem('say_clinic_sales_v1');
+    const rawCal = externalCalendarEvents ? null : localStorage.getItem('say_clinic_calendar_events');
+    const rawSurg = localStorage.getItem('say_clinic_patient_surgeries');
+    const rawOverrides = localStorage.getItem(STORAGE_KEY_LOYALTY_OVERRIDES);
+
+    const snap = this.cachedSnapshot;
+    if (
+      snap &&
+      snap.refDayKey === refDayKey &&
+      snap.rawTx === rawTx &&
+      snap.rawAes === rawAes &&
+      snap.rawProf === rawProf &&
+      snap.rawInv === rawInv &&
+      snap.rawSales === rawSales &&
+      snap.rawCal === rawCal &&
+      snap.rawSurg === rawSurg &&
+      snap.rawOverrides === rawOverrides &&
+      snap.externalCalRef === externalCalendarEvents
+    ) {
+      return snap;
+    }
+
+    const byId = new Map<string, Array<{ seq: number; tx: LoyaltyTransaction }>>();
+    const byName = new Map<string, Array<{ seq: number; tx: LoyaltyTransaction }>>();
+    let seq = 0;
+
+    const indexTx = (tx: LoyaltyTransaction, pId?: string, pName?: string) => {
+      if (!tx || tx.amount <= 0) return;
+      const item = { seq: seq++, tx };
+      // Indexujeme iba podľa explicitne zadaných kľúčov (zachováva pôvodnú logiku párovania zdrojov)
+      const cleanId = (pId || '').trim();
+      if (cleanId) {
+        let list = byId.get(cleanId);
+        if (!list) {
+          list = [];
+          byId.set(cleanId, list);
+        }
+        list.push(item);
+      }
+      const cleanName = (pName || '').toLowerCase().trim();
+      if (cleanName) {
+        let list = byName.get(cleanName);
+        if (!list) {
+          list = [];
+          byName.set(cleanName, list);
+        }
+        list.push(item);
+      }
+    };
+
+    // 1. Explicitne uložené vernostné transakcie
+    if (rawTx) {
+      try {
+        const storedTxs = JSON.parse(rawTx);
+        if (Array.isArray(storedTxs)) {
+          storedTxs.forEach(tx => indexTx(tx, tx?.patientId, tx?.patientName));
+        }
+      } catch {}
+    }
+
+    // 2. Estetické ošetrenia zo storage (say_clinic_aesthetic_sessions) -> vždy 'treatment'
+    if (rawAes) {
+      try {
+        const allAes: Record<string, any[]> = JSON.parse(rawAes);
+        if (allAes && typeof allAes === 'object') {
+          Object.entries(allAes).forEach(([pKey, sessList]) => {
+            if (!Array.isArray(sessList)) return;
+            sessList.forEach(s => {
+              const price = Number(s?.price ?? s?.subtotal ?? 0);
+              if (price > 0) {
+                indexTx(
+                  {
+                    id: `aes-${s.id}`,
+                    sourceId: s.protocolNumber || s.id,
+                    patientId: pKey,
+                    patientName: s.patientName || '',
+                    date: s.date || s.formattedDate,
+                    category: 'treatment',
+                    title: s.title || 'Estetické ošetrenie',
+                    amount: price
+                  },
+                  pKey,
+                  undefined
+                );
+              }
+            });
+          });
+        }
+      } catch {}
+    }
+
+    // 3. Finančné profily klientov (say_clinic_client_financial_profiles_v1)
+    if (rawProf) {
+      try {
+        const profiles = JSON.parse(rawProf);
+        if (Array.isArray(profiles)) {
+          profiles.forEach(prof => {
+            if (!prof) return;
+            const procClass = this.classifyProcedureOrItem(prof.procedureName);
+            const isSurgery = prof.status === 'operated' || procClass === 'surgery';
+
+            const category: LoyaltyCategoryType = isSurgery ? 'surgery' : procClass;
+            const effectiveAmount = isSurgery
+              ? (prof.status === 'operated' ? Math.max(prof.totalAgreedPrice, prof.totalPaid) : prof.totalPaid)
+              : (prof.totalPaid > 0 ? prof.totalPaid : prof.totalAgreedPrice);
+
+            if (effectiveAmount > 0 && (prof.status === 'operated' || prof.status === 'consultation' || prof.totalPaid > 0)) {
+              indexTx(
+                {
+                  id: `prof-${prof.id}`,
+                  sourceId: prof.linkedEventId || prof.id,
+                  patientId: prof.patientId,
+                  patientName: prof.patientName,
+                  date: prof.procedureDate,
+                  category,
+                  title: prof.procedureName,
+                  amount: effectiveAmount
+                },
+                prof.patientId,
+                prof.patientName
+              );
+            }
+          });
+        }
+      } catch {}
+    }
+
+    // 4. Uhradené faktúry (say_clinic_invoices_v1)
+    if (rawInv) {
+      try {
+        const invoices = JSON.parse(rawInv);
+        if (Array.isArray(invoices)) {
+          invoices.forEach(inv => {
+            if (!inv || inv.status !== 'paid' || inv.type === 'advance') return;
+            const itemsSummary = (inv.items || []).map((i: any) => i.description).join(', ') || inv.notes || 'Faktúra';
+            const category = this.classifyProcedureOrItem(itemsSummary);
+            const amount = inv.paidAmount || inv.totalAmount;
+            if (amount > 0) {
+              indexTx(
+                {
+                  id: `inv-${inv.id}`,
+                  sourceId: inv.id,
+                  patientId: inv.patientId,
+                  patientName: inv.patientName,
+                  date: inv.paidDate || inv.issueDate,
+                  category,
+                  title: itemsSummary,
+                  amount
+                },
+                inv.patientId,
+                inv.patientName
+              );
+            }
+          });
+        }
+      } catch {}
+    }
+
+    // 5. Priame predaje z POS / Ambulancie (say_clinic_sales_v1)
+    if (rawSales) {
+      try {
+        const salesList = JSON.parse(rawSales);
+        if (Array.isArray(salesList)) {
+          salesList.forEach((sale: any) => {
+            if (!sale) return;
+            const category = this.classifyProcedureOrItem(sale.serviceType || '');
+            const amount = Number(sale.amount) || 0;
+            if (amount > 0) {
+              indexTx(
+                {
+                  id: `sale-${sale.id}`,
+                  sourceId: sale.id,
+                  patientId: sale.patientId,
+                  patientName: sale.patientName,
+                  date: sale.date,
+                  category,
+                  title: sale.serviceType || 'Predaj / Výkon',
+                  amount
+                },
+                sale.patientId,
+                sale.patientName
+              );
+            }
+          });
+        }
+      } catch {}
+    }
+
+    // 6. Kalendárové udalosti (ak boli odoperované / zrealizované v minulosti)
+    let calEvents = externalCalendarEvents;
+    if (!calEvents && rawCal) {
+      try {
+        calEvents = JSON.parse(rawCal);
+      } catch {}
+    }
+    if (Array.isArray(calEvents)) {
+      const refTime = refDate.getTime();
+      calEvents.forEach(evt => {
+        if (!evt || (evt.type !== 'operacia' && evt.type !== 'osetrenie')) return;
+        const evtDate = this.parseDate(evt.date);
+        if (!evtDate || evtDate.getTime() > refTime) return;
+
+        const category: LoyaltyCategoryType = evt.type === 'operacia' ? 'surgery' : 'treatment';
+        const price = Number(evt.totalPrice) || (evt.type === 'operacia' ? 3800 : 0);
+        if (price > 0) {
+          indexTx(
+            {
+              id: `evt-${evt.id}`,
+              sourceId: evt.id,
+              patientId: evt.patientId,
+              patientName: evt.patientName,
+              date: evt.date,
+              category,
+              title: evt.title || (evt.type === 'operacia' ? 'Operácia' : 'Ošetrenie'),
+              amount: price
+            },
+            evt.patientId,
+            evt.patientName
+          );
+        }
+      });
+    }
+
+    // 7. Záznamy operácií pacienta (say_clinic_patient_surgeries)
+    if (rawSurg) {
+      try {
+        const opsMap = JSON.parse(rawSurg);
+        if (opsMap && typeof opsMap === 'object') {
+          Object.entries(opsMap).forEach(([pId, pOps]) => {
+            if (!Array.isArray(pOps)) return;
+            pOps.forEach((op: any, idx: number) => {
+              const price = Number(op?.price || op?.totalPrice || 1500);
+              if (price > 0) {
+                indexTx(
+                  {
+                    id: `surg-rec-${pId}-${idx}`,
+                    sourceId: op.id || `surg-${pId}-${op.date}`,
+                    patientId: pId,
+                    patientName: op.patientName || '',
+                    date: op.date || refDayKey,
+                    category: 'surgery',
+                    title: op.name || op.title || 'Operačný zákrok',
+                    amount: price
+                  },
+                  pId,
+                  undefined
+                );
+              }
+            });
+          });
+        }
+      } catch {}
+    }
+
+    let overrides: Record<string, ClientLoyaltyOverride> = {};
+    if (rawOverrides) {
+      try {
+        const parsed = JSON.parse(rawOverrides);
+        if (parsed && typeof parsed === 'object') overrides = parsed;
+      } catch {}
+    }
+
+    this.cachedSnapshot = {
+      rawTx,
+      rawAes,
+      rawProf,
+      rawInv,
+      rawSales,
+      rawCal,
+      rawSurg,
+      rawOverrides,
+      externalCalRef: externalCalendarEvents,
+      refDayKey,
+      byId,
+      byName,
+      overrides
+    };
+
+    return this.cachedSnapshot;
+  }
+
+  // ============================================================================
   // HLAVNÝ VÝPOČET VERNOSTNÉHO STATUSU KLIENTA ZA 365 DNÍ
   // ============================================================================
 
@@ -408,8 +761,11 @@ export class LoyaltyService {
     }
   ): ClientLoyaltySummary {
     const refDate = extraContext?.referenceDate || new Date();
-    const patientId = patient.id || '';
+    const patientId = (patient.id || '').trim();
     const patientName = patient.name || 'Neznámy klient';
+    const normName = patientName.toLowerCase().trim();
+
+    const snapshot = this.getIndexedSnapshot(extraContext?.calendarEvents, refDate);
 
     const collectedTxs: LoyaltyTransaction[] = [];
     const seenSignatures = new Set<string>();
@@ -424,193 +780,33 @@ export class LoyaltyService {
 
       if (tx.sourceId) seenSignatures.add(`src:${tx.sourceId}`);
       seenSignatures.add(dateAmountSig);
-      collectedTxs.push({ ...tx, date: normDate });
+      collectedTxs.push({
+        ...tx,
+        patientId: tx.patientId || patientId,
+        patientName: tx.patientName || patientName,
+        date: normDate
+      });
     };
 
-    // 1. Explicitne uložené vernostné transakcie
-    const storedTxs = this.getStoredTransactions();
-    storedTxs.forEach(tx => {
-      if (this.matchesClient(patientId, patientName, tx.patientId, tx.patientName)) {
-        addUniqueTx(tx);
+    const byIdList = patientId ? snapshot.byId.get(patientId) : undefined;
+    const byNameList = normName ? snapshot.byName.get(normName) : undefined;
+
+    if (byIdList && byNameList) {
+      const merged = [...byIdList, ...byNameList].sort((a, b) => a.seq - b.seq);
+      const seenSeq = new Set<number>();
+      for (let i = 0; i < merged.length; i++) {
+        const item = merged[i];
+        if (seenSeq.has(item.seq)) continue;
+        seenSeq.add(item.seq);
+        addUniqueTx(item.tx);
       }
-    });
-
-    // 2. Estetické ošetrenia zo storage (say_clinic_aesthetic_sessions) -> vždy 'treatment'
-    if (typeof window !== 'undefined') {
-      try {
-        const rawAes = localStorage.getItem('say_clinic_aesthetic_sessions');
-        if (rawAes) {
-          const allAes: Record<string, any[]> = JSON.parse(rawAes);
-          const patientSessions = (patientId && allAes[patientId]) ? allAes[patientId] : [];
-          // Skúsime aj prejsť všetky sessions ak by sa zhodovalo meno
-          Object.entries(allAes).forEach(([pKey, sessList]) => {
-            if (!Array.isArray(sessList)) return;
-            if (pKey === patientId) {
-              sessList.forEach(s => {
-                const price = Number(s.price ?? s.subtotal ?? 0);
-                if (price > 0) {
-                  addUniqueTx({
-                    id: `aes-${s.id}`,
-                    sourceId: s.protocolNumber || s.id,
-                    patientId: patientId || pKey,
-                    patientName,
-                    date: s.date || s.formattedDate,
-                    category: 'treatment',
-                    title: s.title || 'Estetické ošetrenie',
-                    amount: price
-                  });
-                }
-              });
-            }
-          });
-        }
-      } catch {
-        // ignore
+    } else if (byIdList) {
+      for (let i = 0; i < byIdList.length; i++) {
+        addUniqueTx(byIdList[i].tx);
       }
-    }
-
-    // 3. Finančné profily klientov (say_clinic_client_financial_profiles_v1)
-    const profiles = FinanceBillingService.getClientProfiles();
-    profiles.forEach(prof => {
-      if (!this.matchesClient(patientId, patientName, prof.patientId, prof.patientName)) return;
-      // Zistíme, či ide o operáciu alebo ošetrenie
-      const isSurgery = prof.status === 'operated' ||
-        this.classifyProcedureOrItem(prof.procedureName) === 'surgery' ||
-        (prof.totalAgreedPrice > 1000 && prof.status === 'planned' && this.classifyProcedureOrItem(prof.procedureName) === 'surgery');
-
-      const category: LoyaltyCategoryType = isSurgery ? 'surgery' : this.classifyProcedureOrItem(prof.procedureName);
-      // Pri operácii berieme dohodnutú/uhradenú cenu ak už prebehla (status === 'operated' alebo uhradená)
-      const effectiveAmount = isSurgery
-        ? (prof.status === 'operated' ? Math.max(prof.totalAgreedPrice, prof.totalPaid) : prof.totalPaid)
-        : (prof.totalPaid > 0 ? prof.totalPaid : prof.totalAgreedPrice);
-
-      if (effectiveAmount > 0 && (prof.status === 'operated' || prof.status === 'consultation' || prof.totalPaid > 0)) {
-        addUniqueTx({
-          id: `prof-${prof.id}`,
-          sourceId: prof.linkedEventId || prof.id,
-          patientId: prof.patientId || patientId,
-          patientName: prof.patientName,
-          date: prof.procedureDate,
-          category,
-          title: prof.procedureName,
-          amount: effectiveAmount
-        });
-      }
-    });
-
-    // 4. Uhradené faktúry (say_clinic_invoices_v1)
-    const invoices = FinanceBillingService.getInvoices();
-    invoices.forEach(inv => {
-      if (inv.status !== 'paid' || inv.type === 'advance') return;
-      if (!this.matchesClient(patientId, patientName, inv.patientId, inv.patientName)) return;
-
-      const itemsSummary = (inv.items || []).map(i => i.description).join(', ') || inv.notes || 'Faktúra';
-      const category = this.classifyProcedureOrItem(itemsSummary);
-      const amount = inv.paidAmount || inv.totalAmount;
-      if (amount > 0) {
-        addUniqueTx({
-          id: `inv-${inv.id}`,
-          sourceId: inv.id,
-          patientId: inv.patientId || patientId,
-          patientName: inv.patientName,
-          date: inv.paidDate || inv.issueDate,
-          category,
-          title: itemsSummary,
-          amount
-        });
-      }
-    });
-
-    // 5. Priame predaje z POS / Ambulancie (say_clinic_sales_v1)
-    if (typeof window !== 'undefined') {
-      try {
-        const rawSales = localStorage.getItem('say_clinic_sales_v1');
-        if (rawSales) {
-          const salesList = JSON.parse(rawSales);
-          if (Array.isArray(salesList)) {
-            salesList.forEach((sale: any) => {
-              if (!this.matchesClient(patientId, patientName, sale.patientId, sale.patientName)) return;
-              const category = this.classifyProcedureOrItem(sale.serviceType || '');
-              const amount = Number(sale.amount) || 0;
-              if (amount > 0) {
-                addUniqueTx({
-                  id: `sale-${sale.id}`,
-                  sourceId: sale.id,
-                  patientId,
-                  patientName: sale.patientName,
-                  date: sale.date,
-                  category,
-                  title: sale.serviceType || 'Predaj / Výkon',
-                  amount
-                });
-              }
-            });
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    // 6. Kalendárové udalosti (ak boli odoperované / zrealizované v minulosti)
-    let calEvents = extraContext?.calendarEvents;
-    if (!calEvents && typeof window !== 'undefined') {
-      try {
-        const rawCal = localStorage.getItem('say_clinic_calendar_events');
-        if (rawCal) calEvents = JSON.parse(rawCal);
-      } catch {
-        // ignore
-      }
-    }
-    if (Array.isArray(calEvents)) {
-      calEvents.forEach(evt => {
-        if (evt.type !== 'operacia' && evt.type !== 'osetrenie') return;
-        if (!this.matchesClient(patientId, patientName, evt.patientId, evt.patientName)) return;
-        const evtDate = this.parseDate(evt.date);
-        if (!evtDate || evtDate.getTime() > refDate.getTime()) return; // Iba už zrealizované termíny
-
-        const category: LoyaltyCategoryType = evt.type === 'operacia' ? 'surgery' : 'treatment';
-        const price = Number(evt.totalPrice) || (evt.type === 'operacia' ? 3800 : 0);
-        if (price > 0) {
-          addUniqueTx({
-            id: `evt-${evt.id}`,
-            sourceId: evt.id,
-            patientId: evt.patientId || patientId,
-            patientName: evt.patientName,
-            date: evt.date,
-            category,
-            title: evt.title || (evt.type === 'operacia' ? 'Operácia' : 'Ošetrenie'),
-            amount: price
-          });
-        }
-      });
-    }
-
-    // 7. Záznamy operácií pacienta (say_clinic_patient_surgeries)
-    if (typeof window !== 'undefined' && patientId) {
-      try {
-        const rawSurgeries = localStorage.getItem('say_clinic_patient_surgeries');
-        if (rawSurgeries) {
-          const opsMap = JSON.parse(rawSurgeries);
-          const pOps = opsMap[patientId];
-          if (Array.isArray(pOps)) {
-            pOps.forEach((op: any, idx: number) => {
-              const price = Number(op.price || op.totalPrice || 1500);
-              addUniqueTx({
-                id: `surg-rec-${patientId}-${idx}`,
-                sourceId: op.id || `surg-${patientId}-${op.date}`,
-                patientId,
-                patientName,
-                date: op.date || new Date().toISOString().split('T')[0],
-                category: 'surgery',
-                title: op.name || op.title || 'Operačný zákrok',
-                amount: price
-              });
-            });
-          }
-        }
-      } catch {
-        // ignore
+    } else if (byNameList) {
+      for (let i = 0; i < byNameList.length; i++) {
+        addUniqueTx(byNameList[i].tx);
       }
     }
 
@@ -641,7 +837,7 @@ export class LoyaltyService {
     const eligibleSpend365d = Math.round((skincareSpend365d + treatmentsSpend365d) * 100) / 100;
 
     // Kontrola operácie nad 1 000 € (za posledných 365 dní alebo v histórii klienta / manuálnom nastavení)
-    const overrides = this.getOverrides();
+    const overrides = snapshot.overrides;
     const overrideEntry = (patientId && overrides[patientId]) || overrides[this.getClientKey(patientId, patientName)];
 
     const qualifyingSurgeryTx = transactions365d.find(tx => tx.category === 'surgery' && tx.amount > 1000) ||

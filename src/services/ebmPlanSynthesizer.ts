@@ -739,20 +739,20 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
   // ==================== 3. LASERY & PRÍSTROJOVÉ OŠETRENIA ====================
   {
     id: 'fractional_co2_laser',
-    label: 'Frakčný CO2 Laser Resurfacing (Tvár / Krk / Dekolt)',
-    shortLabel: 'Frakčný CO2 Laser',
+    label: 'Frakčný CO2 Laser Resurfacing & CoolPeel® (DEKA Tetra CO2)',
+    shortLabel: 'DEKA Tetra CO2 / CoolPeel®',
     icon: '⚡',
     group: 'laser_device',
     category: 'laser',
-    defaultPrice: 550,
+    defaultPrice: 380,
     recommendedTimingOrder: 30,
-    recommendedSeasonOrStep: 'Obdobie nízkeho UV (Október – Marec)',
-    targetArea: 'Celá tvár, očné okolie, krk alebo dekolt',
-    frequencyOrAnesthesia: 'Lokálny anestetický krém (1 – 2 sedenia)',
-    recoveryTimePatient: '5 – 7 dní (začervenanie a mikrobodky sa zlúpnu do týždňa)',
-    clinicalNotes: 'Ablačná fototermolýza stimulujúca hĺbkovú syntézu kolagénu I a III, stiahnutie pórov a vyhladenie vrások.',
-    patientExplanation: 'Laser vytvorí tisíce mikrostĺpčekov, ktoré vymenia starú pokožku za novú, vypnú póry, vrásky a zjednotia tón pleti.',
-    clinicalGuideline: 'EADV / ESLD Laser Resurfacing Guidelines & Gold et al.',
+    recommendedSeasonOrStep: 'Obdobie nízkeho UV (Október – Marec; CoolPeel® celoročne s SPF 50+)',
+    targetArea: 'Celá tvár (380 € / CoolPeel® 220 €), očné okolie (200 €), krk a dekolt (550 €)',
+    frequencyOrAnesthesia: 'Lokálny anestetický krém v cene (1 – 3 sedenia)',
+    recoveryTimePatient: 'CoolPeel® 0 – 2 dni jemné začervenanie / Deep CO2 5 – 7 dní',
+    clinicalNotes: 'DEKA Tetra CO2 s patentovaným H-pulzom CoolPeel® a hĺbkovou ablačnou fototermolýzou stimulujúcou syntézu kolagénu I a III.',
+    patientExplanation: 'Prístroj DEKA Tetra CO2 vytvorí tisíce mikrostĺpčekov, ktoré vymenia starú pokožku za novú, stiahnu póry a vyhladia vrásky (v režime CoolPeel® bez popálenia a šúpania).',
+    clinicalGuideline: 'EADV / ESLD Laser Resurfacing Guidelines & DEKA SmartXide Tetra Clinical Consensus',
     preOpSpecifics: {
       timelineInstruction: {
         timeframe: '7 dní pred laserom',
@@ -761,7 +761,7 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
       }
     },
     postOpSpecifics: {
-      earlyCare: 'Prvé dni intenzívne premasťovanie (Cicaplast B5+), termálna voda, šupinky nikdy nestrhávať.',
+      earlyCare: 'Prvé dni intenzívne premasťovanie (Cicaplast B5+ / Epidermal Repair), prípadne infúzia Exozómov ASCE+.',
       scarCare: 'Po zlúpnutí ráno antioxidant C E Ferulic + prísne SPF 50+ minimálne 3 mesiace.'
     },
     skincareImpact: {
@@ -833,23 +833,23 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
   },
   {
     id: 'rf_microneedling',
-    label: 'Rádiofrekvenčný microneedling (Morpheus8 / Scarlet)',
-    shortLabel: 'RF Microneedling',
+    label: 'Rádiofrekvenčný microneedling (IgniteRF / Frakčný RF lifting)',
+    shortLabel: 'IgniteRF Microneedling',
     icon: '⚡',
     group: 'laser_device',
     category: 'skin_care',
-    defaultPrice: 450,
+    defaultPrice: 420,
     recommendedTimingOrder: 35,
     recommendedSeasonOrStep: 'Celoročne s fotoprotekciou',
-    targetArea: 'Dolná kontúra tváre, podbradok, krk, telo',
-    frequencyOrAnesthesia: 'Lokálny anestetický krém (2 – 3 sedenia s odstupom 6 týždňov)',
+    targetArea: 'Dolná kontúra tváre, podbradok, krk, telo (tvár 420 € / tvár+krk 550 €)',
+    frequencyOrAnesthesia: 'Lokálny anestetický krém v cene (2 – 3 sedenia s odstupom 6 týždňov)',
     recoveryTimePatient: '2 – 3 dni mierny opuch a začervenanie',
-    clinicalNotes: 'Frakčná dodávka bipolárnej rádiofrekvencie cez izolované mikroihličky do hĺbky 1 – 4 mm na retrakciu väziva.',
+    clinicalNotes: 'Frakčná dodávka bipolárnej rádiofrekvencie IgniteRF cez izolované mikroihličky do hĺbky 1 – 4 mm na retrakciu väziva.',
     patientExplanation: 'Kombinácia jemných mikroihličiek a tepla v hĺbke kože naštartuje masívnu tvorbu elastínu a vypne ovisnuté kontúry.',
     clinicalGuideline: 'Fractional Radiofrequency Tissue Tightening Consensus (Dayan et al.)',
     preOpSpecifics: {},
     postOpSpecifics: {
-      earlyCare: 'Upokojujúce sérum s kyselinou hyalurónovou, 24h bez make-upu.'
+      earlyCare: 'Upokojujúce sérum s kyselinou hyalurónovou alebo Exozómy ASCE+, 24h bez make-upu.'
     }
   },
   {
@@ -875,19 +875,19 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
   // ==================== 4. INJEKČNÁ ESTETIKA & BIOSTIMULÁCIA ====================
   {
     id: 'botox_full_face',
-    label: 'Botulotoxín – Horná tretina tváre (Čelo, glabela, očné vejáriky)',
-    shortLabel: 'Botulotoxín (Tvár)',
+    label: 'Botulotoxín – Horná tretina tváre (Čelo, glabela, očné vejáriky s –10 % zľavou)',
+    shortLabel: 'Botulotoxín (Horná tretina)',
     icon: '💉',
     group: 'injectable_bio',
     category: 'injectable',
-    defaultPrice: 280,
+    defaultPrice: 324,
     recommendedTimingOrder: 40,
     recommendedSeasonOrStep: 'Priebežne každých 4 – 6 mesiacov (alebo 6 týždňov po operácii)',
-    targetArea: 'Čelo, medziobocie (glabela) a vejáriky okolo očí',
-    frequencyOrAnesthesia: 'Ambulantná aplikácia (15 minút)',
+    targetArea: 'Čelo, medziobočie (glabela) a vejáriky okolo očí (1 oblasť 120 €, 2 oblasti 216 €, 3 oblasti 324 €)',
+    frequencyOrAnesthesia: 'Ambulantná aplikácia (15 minút) + bezplatná kontrola a mikrodokorekcia do 14 dní v cene',
     recoveryTimePatient: 'Okamžitý návrat (4h si nelíhať, 48h bez ťažkého športu a sauny)',
     clinicalNotes: 'Neuromodulácia hyperaktívnych mimických svalov, prevencia fixovaných vrások a zníženie ťahu na jazvy.',
-    patientExplanation: 'Jemne zrelaxuje mimické svaly, ktoré vytvárajú vrásky pri mračení a žmúrení. Výraz zostane prirodzený a oddýchnutý.',
+    patientExplanation: 'Jemne zrelaxuje mimické svaly, ktoré vytvárajú vrásky pri mračení a žmúrení. Výraz zostane prirodzený a oddýchnutý, kontrola do 14 dní je v cene.',
     clinicalGuideline: 'Global Aesthetics Consensus Group (Sundaram et al. – Neuromodulators Guidelines)',
     preOpSpecifics: {
       medical: ['5 dní pred aplikáciou neužívať lieky riediace krv na minimalizáciu modriniek.']
@@ -959,19 +959,19 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
   },
   {
     id: 'polynucleotides_profhilo',
-    label: 'Bunková bioremodelácia Profhilo / Polynukleotidy (Plinest)',
-    shortLabel: 'Profhilo / Polynukleotidy',
+    label: 'Bunková bioremodelácia Rejuran Healer / Profhilo / Crystal Hydro PDRN',
+    shortLabel: 'Rejuran / Profhilo / Crystal Hydro',
     icon: '🧬',
     group: 'injectable_bio',
     category: 'skin_care',
-    defaultPrice: 520,
+    defaultPrice: 290,
     recommendedTimingOrder: 50,
     recommendedSeasonOrStep: 'Udržiavacia a regeneračná fáza (Jar / Jeseň)',
-    targetArea: 'Tvár (5 BAP bodov), očné okolie, krk alebo dekolt',
-    frequencyOrAnesthesia: '2 sedenia v rozstupe 4 týždňov (ambulantne)',
+    targetArea: 'Tvár (Rejuran Healer 290 € / Profhilo 290 € / Crystal Hydro 210 €), očné okolie (Rejuran I 190 €)',
+    frequencyOrAnesthesia: 'Lokálny anestetický krém v cene (1 – 2 sedenia v rozstupe 4 týždňov)',
     recoveryTimePatient: 'Minimálna (papulky vymiznú do 24 hodín)',
-    clinicalNotes: 'Aktivácia fibroblastov k syntéze kolagénu I, III a elastínu bez zmeny objemu alebo čŕt tváre.',
-    patientExplanation: 'Reštart buniek zvnútra – pleť získa pružnosť, pevnosť a hĺbkovú hydratáciu bez toho, aby zmenila tvar tváre.',
+    clinicalNotes: 'Aktivácia fibroblastov k syntéze kolagénu I, III a elastínu pomocou lososích polynukleotidov PN/PDRN a hybridnej HA.',
+    patientExplanation: 'Reštart buniek zvnútra – pleť získa pružnosť, opravu DNA a hĺbkovú hydratáciu bez toho, aby zmenila tvar tváre.',
     clinicalGuideline: 'Consensus Report on Hybrid Cooperative Complexes HA & Polynucleotides (Cavallini et al.)',
     preOpSpecifics: {},
     postOpSpecifics: {
@@ -980,8 +980,8 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
   },
   {
     id: 'collagen_stimulator',
-    label: 'Kolagénové biostimulátory (Radiesse / Sculptra)',
-    shortLabel: 'Kolagénový stimulátor (Radiesse)',
+    label: 'Kolagénové biostimulátory (Radiesse 390 € / Sculptra 450 €)',
+    shortLabel: 'Kolagénový stimulátor (Sculptra / Radiesse)',
     icon: '💉',
     group: 'injectable_bio',
     category: 'injectable',
@@ -1001,24 +1001,24 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
   },
   {
     id: 'prp_plasma_therapy',
-    label: 'Plazmaterapia (PRP / PRF bohatá na krvné doštičky a rastové faktory)',
-    shortLabel: 'Plazmaterapia (PRP / Drakuloterapia)',
-    icon: '🩸',
+    label: 'Exozómy ASCE+ / ExoCoBio – Kmeňová bunková regenerácia po laseri & mikroneedlingu',
+    shortLabel: 'Exozómy ASCE+ (Bunková regenerácia)',
+    icon: '🧬',
     group: 'injectable_bio',
     category: 'skin_care',
-    defaultPrice: 240,
+    defaultPrice: 320,
     recommendedTimingOrder: 45,
-    recommendedSeasonOrStep: 'Priebežne (2 – 3 sedenia)',
-    targetArea: 'Tvár, očné okolie, vlasová pokožka alebo pooperačné jazvy',
-    frequencyOrAnesthesia: 'Lokálny krém (odber vlastnej krvi + odstredenie)',
-    recoveryTimePatient: '1 – 2 dni jemné začervenanie',
-    clinicalNotes: 'Aplikácia autológnych trombocytov a fibrínu uvoľňujúcich PDGF, VEGF a TGF-beta na urýchlenie hojenia tkanív.',
-    patientExplanation: 'Využíva liečivú silu vašej vlastnej krvi. Rastové faktory zregenerujú unavené bunky, hoja jazvy a zlepšujú kvalitu kože.',
-    clinicalGuideline: 'International Society of Plastic Regenerative Surgery (ISPRES) PRP Guidelines',
-    preOpSpecifics: {
-      nutritional: ['Dostatočný pitný režim (2 litre vody) v deň zákroku pre kvalitnú plazmu.']
-    },
-    postOpSpecifics: {}
+    recommendedSeasonOrStep: 'Bezprostredne po CoolPeel® / CO2 laseri alebo s Dermapenom (1 – 3 sedenia)',
+    targetArea: 'Tvár, očné okolie, krk alebo pooperačné jazvy',
+    frequencyOrAnesthesia: 'Lokálny anestetický krém v cene (infúzia 5 miliárd lyofilizovaných exozómov)',
+    recoveryTimePatient: 'Skracuje dobu začervenania po laseri zo 7 dní na 48 hodín',
+    clinicalNotes: 'Aplikácia purifikovaných extracelulárnych vezikúl (exozómov) obsahujúcich rastové faktory, peptidy, koenzýmy a mRNA na protizápalovú regeneráciu.',
+    patientExplanation: 'Najmodernejšia kmeňová regenerácia: miliardy mikroskopických poslov okamžite upokoja pleť po laseri a strojnásobia tvorbu kolagénu.',
+    clinicalGuideline: 'Regenerative Aesthetics Consensus on Stem-Cell Derived Exosomes (ASCE+ Protocol)',
+    preOpSpecifics: {},
+    postOpSpecifics: {
+      earlyCare: '12 hodín neumývať tvár vodou, aby sa exozómy plne vstrebali cez mikrokanáliky.'
+    }
   },
   {
     id: 'skinbooster_mesotherapy',
@@ -1083,16 +1083,16 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
   },
   {
     id: 'lymphatic_drainage_postop',
-    label: 'Pooperačná lymfodrenáž (Manuálna & prístrojová na redukciu opuchov)',
+    label: 'Pooperačná lymfodrenáž (Manuálna & prístrojová Lymfoven po liposukciách)',
     shortLabel: 'Pooperačná lymfodrenáž',
     icon: '💆',
     group: 'skin_care_recovery',
     category: 'scar_care',
-    defaultPrice: 65,
+    defaultPrice: 50,
     recommendedTimingOrder: 22,
-    recommendedSeasonOrStep: 'Od 10. – 14. dňa po operácii (séria 5 – 10 sedení)',
-    targetArea: 'Tvár a krk (po facelifte) alebo brucho/nohy (po abdominoplastike a liposukcii)',
-    frequencyOrAnesthesia: 'Jemná manuálna fyzioterapia (45 – 60 minút)',
+    recommendedSeasonOrStep: 'Od 10. – 14. dňa po operácii (séria 5x za 225 € alebo 10x za 420 €)',
+    targetArea: 'Tvár a krk (po facelifte 35 €) alebo brucho/nohy (po abdominoplastike a liposukcii 50 €)',
+    frequencyOrAnesthesia: 'Jemná manuálna fyzioterapia (45 minút) + prístrojová presoterapia (35 €)',
     recoveryTimePatient: 'Bez obmedzenia (okamžitá úľava od pocitu tlaku a napätia)',
     clinicalNotes: 'Podpora lymfatického odtoku, rýchlejšia rezolúcia pooperačného edému a prevencia fibrotických nerovností v podkoží.',
     patientExplanation: 'Jemná masáž podľa toku lymfy, ktorá urýchli odpuchnutie o 50 %, zmäkčí tkanivá a uľaví od pocitu stiahnutia.',
@@ -1243,7 +1243,7 @@ export function resolveSelectedProcedures(
   }
 
   // Lasery & prístroje
-  if (combinedText.includes('co2') || combinedText.includes('frakč') || combinedText.includes('resurfac')) {
+  if (combinedText.includes('co2') || combinedText.includes('frakč') || combinedText.includes('resurfac') || combinedText.includes('coolpeel') || combinedText.includes('deka')) {
     const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'fractional_co2_laser');
     if (p) matched.set(p.id, p);
   }
@@ -1255,7 +1255,7 @@ export function resolveSelectedProcedures(
     const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'pigment_laser');
     if (p) matched.set(p.id, p);
   }
-  if (combinedText.includes('morpheus') || combinedText.includes('microneedl')) {
+  if (combinedText.includes('morpheus') || combinedText.includes('microneedl') || combinedText.includes('igniterf')) {
     const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'rf_microneedling');
     if (p) matched.set(p.id, p);
   }
@@ -1279,7 +1279,7 @@ export function resolveSelectedProcedures(
     const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'hyaluronic_contouring');
     if (p) matched.set(p.id, p);
   }
-  if (combinedText.includes('profhilo') || combinedText.includes('polynukleo') || combinedText.includes('plinest')) {
+  if (combinedText.includes('profhilo') || combinedText.includes('polynukleo') || combinedText.includes('plinest') || combinedText.includes('rejuran') || combinedText.includes('crystal hydro') || combinedText.includes('pdrn')) {
     const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'polynucleotides_profhilo');
     if (p) matched.set(p.id, p);
   }
@@ -1287,7 +1287,7 @@ export function resolveSelectedProcedures(
     const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'collagen_stimulator');
     if (p) matched.set(p.id, p);
   }
-  if (combinedText.includes('prp') || combinedText.includes('plazma') || combinedText.includes('drakulo')) {
+  if (combinedText.includes('exozom') || combinedText.includes('exosom') || combinedText.includes('asce') || combinedText.includes('prp') || combinedText.includes('plazma')) {
     const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'prp_plasma_therapy');
     if (p) matched.set(p.id, p);
   }
