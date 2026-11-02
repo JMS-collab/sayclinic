@@ -12,7 +12,8 @@ export type TabId =
   | 'calendar' 
   | 'inventory' 
   | 'finance' 
-  | 'projects';
+  | 'projects'
+  | 'pricelist';
 
 export type NavigationPillarId = 'home' | 'patients' | 'calendar' | 'operations' | 'management';
 
@@ -57,8 +58,8 @@ export const NAVIGATION_PILLARS: NavigationPillar[] = [
     id: 'management',
     label: 'Manažment',
     icon: '💼',
-    description: 'Finančné výsledky, P&L a operatívne úlohy',
-    tabs: ['finance', 'projects']
+    description: 'Finančné výsledky, P&L, cenník a operatívne úlohy',
+    tabs: ['finance', 'projects', 'pricelist']
   }
 ];
 
@@ -153,6 +154,13 @@ export const TABS_REGISTRY: TabMeta[] = [
     description: 'Klinické projekty, interné úlohy tímu, smernice a operatívne poverenia',
     department: 'Riadenie & Financie'
   },
+  { 
+    id: 'pricelist', 
+    label: 'Cenník služieb', 
+    icon: '🏷️', 
+    description: 'Oficiálny cenník výkonov, operácií, estetickej medicíny a kompresnej bielizne',
+    department: 'Riadenie & Financie'
+  },
 ];
 
 export const SPECIAL_PERMISSIONS_REGISTRY: { id: SpecialPermissionId; label: string; description: string; sensitive: boolean }[] = [
@@ -192,7 +200,7 @@ export const SPECIAL_PERMISSIONS_REGISTRY: { id: SpecialPermissionId; label: str
 export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig> = {
   // 1. CEO & PRIMÁR (MUDr. Ján Mráz) - Kompletný neobmedzený prístup ku všetkým oblastiam
   ceo: {
-    allowedTabs: ['home', 'patients', 'prescriptions', 'aesthetics', 'generator', 'calendar', 'cosmetics', 'inventory', 'finance', 'projects'],
+    allowedTabs: ['home', 'patients', 'prescriptions', 'aesthetics', 'generator', 'calendar', 'cosmetics', 'inventory', 'finance', 'projects', 'pricelist'],
     specialPermissions: {
       view_financial_kpis: true,
       view_clinic_pnl: true,
@@ -204,7 +212,7 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
 
   // 2. LEKÁR / CHIRURG (MUDr. Sroková, MUDr. Tran, Anesteziológ)
   doctor: {
-    allowedTabs: ['home', 'patients', 'prescriptions', 'aesthetics', 'generator', 'calendar', 'inventory'],
+    allowedTabs: ['home', 'patients', 'prescriptions', 'aesthetics', 'generator', 'calendar', 'inventory', 'pricelist'],
     specialPermissions: {
       view_financial_kpis: false,
       view_clinic_pnl: false,
@@ -216,7 +224,7 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
 
   // 3. KLINICKÝ MANAŽMENT & RECEPCIA (Ing. Mecerodová, Mgr. Solivajsová)
   manager: {
-    allowedTabs: ['home', 'patients', 'prescriptions', 'cosmetics', 'generator', 'calendar', 'inventory', 'finance', 'projects'],
+    allowedTabs: ['home', 'patients', 'prescriptions', 'cosmetics', 'generator', 'calendar', 'inventory', 'finance', 'projects', 'pricelist'],
     specialPermissions: {
       view_financial_kpis: true,
       view_clinic_pnl: false,
@@ -228,7 +236,7 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
 
   // 4. ZDRAVOTNÁ SESTRA (Ema Foltáni, Sabina Lenhartová, anest. sestra)
   nurse: {
-    allowedTabs: ['home', 'patients', 'prescriptions', 'generator', 'calendar', 'inventory'],
+    allowedTabs: ['home', 'patients', 'prescriptions', 'generator', 'calendar', 'inventory', 'pricelist'],
     specialPermissions: {
       view_financial_kpis: false,
       view_clinic_pnl: false,
@@ -240,7 +248,7 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
 
   // 5. RECEPČNÁ & KOORDINÁTORKA (Viktória Foltániová)
   receptionist: {
-    allowedTabs: ['home', 'patients', 'calendar'],
+    allowedTabs: ['home', 'patients', 'calendar', 'pricelist'],
     specialPermissions: {
       view_financial_kpis: false,
       view_clinic_pnl: false,

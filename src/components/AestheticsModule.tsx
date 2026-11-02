@@ -30,7 +30,8 @@ import {
   Tag,
   RefreshCw,
   Layers,
-  Award
+  Award,
+  Compass
 } from 'lucide-react';
 import { Patient, MedicalRecord } from './PatientDatabase';
 import { InventoryService } from '../services/inventoryService';
@@ -45,13 +46,14 @@ import {
   SculptureViewType, 
   DrawingToolType 
 } from './Sculpture2DViewer';
+import { Sculpture3DViewer } from './Sculpture3DViewer';
 
 export interface AestheticMaterial {
   id: string;
   name: string;
   type: 'botox' | 'filler' | 'meso' | 'biostimulator';
   categoryLabel: string;
-  lot: string;
+  lot?: string;
   color: string;
   defaultUnit: string;
   defaultUnits: number;
@@ -62,10 +64,9 @@ export interface AestheticMaterial {
 export const PRESET_MATERIALS: AestheticMaterial[] = [
   {
     id: 'dysport',
-    name: 'Dysport 300IU',
+    name: 'Dysport 300IU (Botox 1 oblasť)',
     type: 'botox',
     categoryLabel: 'Botulotoxín A',
-    lot: 'DYSP-4412B',
     color: '#3B82F6',
     defaultUnit: 'Speywood',
     defaultUnits: 10,
@@ -73,47 +74,76 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     recommendedTechnique: 'Intramuskulárne mikrovpichy'
   },
   {
-    id: 'alluzience',
-    name: 'Alluzience 200U',
+    id: 'botox_masseter',
+    name: 'Botox – Zúženie tváre (Masseter)',
     type: 'botox',
-    categoryLabel: 'Tekutý neurotoxín',
-    lot: 'ALL-2026-771',
+    categoryLabel: 'Botulotoxín A',
     color: '#3B82F6',
     defaultUnit: 'Speywood',
-    defaultUnits: 10,
-    defaultPrice: 140,
-    recommendedTechnique: 'Presné subkutánne/IM vpichy'
+    defaultUnits: 25,
+    defaultPrice: 300,
+    recommendedTechnique: 'Hlboké intramuskulárne bolusy do m. masseter'
+  },
+  {
+    id: 'botox_hyperhidrosis',
+    name: 'Botox – Odstránenie potenia v podpaží',
+    type: 'botox',
+    categoryLabel: 'Botulotoxín A',
+    color: '#2563EB',
+    defaultUnit: 'Speywood',
+    defaultUnits: 50,
+    defaultPrice: 400,
+    recommendedTechnique: 'Intradermálna mriežka 0.1ml na bod'
+  },
+  {
+    id: 'ha_05ml',
+    name: 'Kyselina hyalurónová (0,5ml)',
+    type: 'filler',
+    categoryLabel: 'Výplň (HA 0.5ml)',
+    color: '#F472B6',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1,
+    defaultPrice: 180,
+    recommendedTechnique: 'Jemná hydratácia pier / vrások'
   },
   {
     id: 'restylane_kysse',
-    name: 'Restylane Kysse 1ml',
+    name: 'Restylane Kysse 1ml (Pery)',
     type: 'filler',
-    categoryLabel: 'Výplň pier (HA)',
-    lot: 'RST-KYS-993A',
+    categoryLabel: 'Výplň pier (HA 1ml)',
     color: '#EC4899',
     defaultUnit: 'ml',
     defaultUnits: 0.1,
-    defaultPrice: 340,
+    defaultPrice: 290,
     recommendedTechnique: 'OBT mikrodepozity kontúry a tela pier'
   },
   {
     id: 'juvederm_voluma',
-    name: 'Juvederm Voluma 1ml',
+    name: 'Juvederm Voluma 1ml (Líca & Brada)',
     type: 'filler',
-    categoryLabel: 'Objemová výplň (HA)',
-    lot: 'JUV-VOL-8812',
-    color: '#EC4899',
+    categoryLabel: 'Objemová výplň (HA 1ml)',
+    color: '#DB2777',
     defaultUnit: 'ml',
     defaultUnits: 0.2,
-    defaultPrice: 340,
+    defaultPrice: 290,
     recommendedTechnique: 'Bolus na periost / kanyla líca a brada'
+  },
+  {
+    id: 'skinbooster',
+    name: 'Skinbooster 1ml',
+    type: 'meso',
+    categoryLabel: 'Hĺbková hydratácia',
+    color: '#06B6D4',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1,
+    defaultPrice: 300,
+    recommendedTechnique: 'Mikropapulárna aplikácia do papilárnej dermis'
   },
   {
     id: 'profhilo',
     name: 'Profhilo H+L 2ml',
     type: 'meso',
     categoryLabel: 'Bioremodelácia',
-    lot: 'PRO-2ML-881',
     color: '#10B981',
     defaultUnit: 'ml',
     defaultUnits: 0.2,
@@ -121,28 +151,59 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     recommendedTechnique: '5-bodová BAP technika (Bio Aesthetic Points)'
   },
   {
+    id: 'sculptra',
+    name: 'Sculptra',
+    type: 'biostimulator',
+    categoryLabel: 'PLLA Neokolagenéza',
+    color: '#C5A059',
+    defaultUnit: 'fľaštička',
+    defaultUnits: 1,
+    defaultPrice: 450,
+    recommendedTechnique: 'Hlboký subkutánny vejárovitý nános kanylou'
+  },
+  {
     id: 'radiesse',
     name: 'Radiesse (+) 1.5ml',
     type: 'biostimulator',
     categoryLabel: 'CaHA Vektoring',
-    lot: 'RAD-150-332',
     color: '#D97706',
     defaultUnit: 'ml',
     defaultUnits: 0.3,
     defaultPrice: 420,
-    recommendedTechnique: 'Kanylový vějířovitý vektoring'
+    recommendedTechnique: 'Kanylový vějířovitý vektoring na periost / subkutis'
   },
   {
-    id: 'sculptra',
-    name: 'Sculptra 10ml',
-    type: 'biostimulator',
-    categoryLabel: 'PLLA Neokolagenéza',
-    lot: 'SCL-2026-881A',
-    color: '#C5A059',
-    defaultUnit: 'ml',
-    defaultUnits: 0.5,
-    defaultPrice: 480,
-    recommendedTechnique: 'Hlboký subkutánny vejárovitý nános kanylou'
+    id: 'hyaluronidase',
+    name: 'Aplikácia hyaluronidázy 150UI',
+    type: 'meso',
+    categoryLabel: 'Korekcia výplní',
+    color: '#EF4444',
+    defaultUnit: 'IU',
+    defaultUnits: 150,
+    defaultPrice: 80,
+    recommendedTechnique: 'Cielené rozpustenie HA výplne mikroihlou'
+  },
+  {
+    id: 'chemical_peel',
+    name: 'Chemický peeling',
+    type: 'meso',
+    categoryLabel: 'Exfoliácia & Póry',
+    color: '#F59E0B',
+    defaultUnit: 'ošetrenie',
+    defaultUnits: 1,
+    defaultPrice: 50,
+    recommendedTechnique: 'Lekársky peeling s neutralizáciou'
+  },
+  {
+    id: 'client_material_refill',
+    name: 'Doplnenie už zakúpeného materiálu',
+    type: 'filler',
+    categoryLabel: 'Aplikácia',
+    color: '#8B5CF6',
+    defaultUnit: 'aplikácia',
+    defaultUnits: 1,
+    defaultPrice: 50,
+    recommendedTechnique: 'Aplikácia pacientom doneseného preparátu'
   }
 ];
 
@@ -151,7 +212,7 @@ export interface AestheticTemplate {
   title: string;
   category: 'botox' | 'filler' | 'meso' | 'biostimulator';
   productName: string;
-  lot: string;
+  lot?: string;
   price: number;
   type: 'point' | 'fanning' | 'threads';
   color: string;
@@ -551,6 +612,8 @@ export interface TreatmentLineItem {
   price: number;
   lot?: string;
   category?: string;
+  templateId?: string;
+  templateTitle?: string;
 }
 
 export interface AestheticSession {
@@ -595,22 +658,22 @@ const INITIAL_DEMO_SESSIONS: AestheticSession[] = [
     discountType: 'percent',
     discountValue: 0,
     lineItems: [
-      { id: 'li_d1', title: 'Dysport, m. frontalis bilat., 4 vpichy strana, celkovo 50IU', price: 120, lot: 'DYSP-4412B' },
-      { id: 'li_d2', title: 'Dysport, glabela – m. procerus a corrugator bilat.', price: 80, lot: 'DYSP-4412B' }
+      { id: 'li_d1', title: 'Dysport, m. frontalis bilat., 4 vpichy strana, celkovo 50IU', price: 120 },
+      { id: 'li_d2', title: 'Dysport, glabela – m. procerus a corrugator bilat.', price: 80 }
     ],
     recommendations: `• Neľahať si minimálne 4 hodiny po aplikácii botulotoxínu.
 • Vyhnúť sa saune, soláriu a športu na 48 hodín.
 • Chladenie suchým chladom pri drobných hematómoch.`,
     nextStep: 'Kontrola nástupu plného účinku o 14 dní. Následná aplikácia o 5 mesiacov.',
-    appliedMaterialsSummary: 'Dysport 300IU (LOT: DYSP-4412B) • 6 bodov',
+    appliedMaterialsSummary: 'Dysport 300IU • 6 bodov',
     appliedTemplatesList: ['Botox Čelo + Glabela (Kombinácia)'],
     vectors: [
-      { id: 'd1', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 260, y: 205 }, zoneName: 'Čelo Ľ (m. frontalis)', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Speywood U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'd2', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 340, y: 205 }, zoneName: 'Čelo P (m. frontalis)', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Speywood U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'd3', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 300, y: 195 }, zoneName: 'Čelo stred', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Speywood U', units: 10, unitsUnit: 'Speywood', createdAt: '10:01' },
-      { id: 'd4', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 300, y: 258 }, zoneName: 'Glabela – procerus', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '15 Speywood U', units: 15, unitsUnit: 'Speywood', createdAt: '10:02' },
-      { id: 'd5', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 278, y: 272 }, zoneName: 'Glabela – corrugator Ľ', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Speywood U', units: 10, unitsUnit: 'Speywood', createdAt: '10:02' },
-      { id: 'd6', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 322, y: 272 }, zoneName: 'Glabela – corrugator P', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Speywood U', units: 10, unitsUnit: 'Speywood', createdAt: '10:02' }
+      { id: 'd1', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 260, y: 205 }, zoneName: 'Čelo Ľ (m. frontalis)', productName: 'Dysport 300IU', details: '10 Speywood U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'd2', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 340, y: 205 }, zoneName: 'Čelo P (m. frontalis)', productName: 'Dysport 300IU', details: '10 Speywood U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'd3', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 300, y: 195 }, zoneName: 'Čelo stred', productName: 'Dysport 300IU', details: '10 Speywood U', units: 10, unitsUnit: 'Speywood', createdAt: '10:01' },
+      { id: 'd4', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 300, y: 258 }, zoneName: 'Glabela – procerus', productName: 'Dysport 300IU', details: '15 Speywood U', units: 15, unitsUnit: 'Speywood', createdAt: '10:02' },
+      { id: 'd5', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 278, y: 272 }, zoneName: 'Glabela – corrugator Ľ', productName: 'Dysport 300IU', details: '10 Speywood U', units: 10, unitsUnit: 'Speywood', createdAt: '10:02' },
+      { id: 'd6', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 322, y: 272 }, zoneName: 'Glabela – corrugator P', productName: 'Dysport 300IU', details: '10 Speywood U', units: 10, unitsUnit: 'Speywood', createdAt: '10:02' }
     ]
   }
 ];
@@ -662,6 +725,8 @@ export function AestheticsModule({
   const [activeTab, setActiveTab] = useState<'editor' | 'history' | 'report'>('editor');
 
   // SOCHA STATE
+  const [sculptureMode, setSculptureMode] = useState<'2d' | '3d'>('2d');
+  const [historySculptureMode, setHistorySculptureMode] = useState<'2d' | '3d'>('2d');
   const [activeSculptureView, setActiveSculptureView] = useState<SculptureViewType>('front');
   const [vectors, setVectors] = useState<Vector2DItem[]>([]);
   const [activeTool, setActiveTool] = useState<DrawingToolType>('point');
@@ -852,7 +917,6 @@ export function AestheticsModule({
       name: newMatName.trim(),
       type: newMatType,
       categoryLabel: newMatCategory.trim() || 'Estetický preparát',
-      lot: newMatLot.trim() || 'LOT-2026',
       color: newMatColor,
       defaultUnit: newMatUnit,
       defaultUnits: 1,
@@ -890,7 +954,6 @@ export function AestheticsModule({
       title: newTplTitle.trim(),
       category: newTplCategory,
       productName: newTplProductName,
-      lot: chosenMat.lot,
       price: Number(newTplPrice) || 0,
       type: chosenMat.type === 'biostimulator' ? 'fanning' : 'point',
       color: chosenMat.color,
@@ -909,19 +972,50 @@ export function AestheticsModule({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // ZMAZANIE ŠABLÓNY
+  // ZMAZANIE ŠABLÓNY Z KATALÓGU
   const handleDeleteTemplate = (id: string) => {
-    if (confirm('Naozaj chcete vymazať túto šablónu?')) {
+    const tpl = templatesList.find(t => t.id === id);
+    if (!tpl) return;
+    if (confirm(`Naozaj chcete vymazať šablónu "${tpl.title}" z katalógu?`)) {
       const updated = templatesList.filter(t => t.id !== id);
       saveTemplatesToStorage(updated);
+      setAppliedTemplateTitles(prev => prev.filter(t => t !== tpl.title));
+      setToastMsg(`🗑️ Šablóna "${tpl.title}" bola vymazaná.`);
+      setTimeout(() => setToastMsg(null), 3000);
     }
+  };
+
+  // ODSTRÁNENIE APLIKOVANEJ ŠABLÓNY Z AKTUÁLNEHO SEDENIA
+  const handleRemoveAppliedTemplate = (tplTitle: string) => {
+    const tpl = templatesList.find(t => t.title === tplTitle);
+    const tplId = tpl?.id;
+
+    // 1. Odober zo zoznamu aplikovaných šablón
+    setAppliedTemplateTitles(prev => prev.filter(t => t !== tplTitle));
+
+    // 2. Odober z cenníka (line items)
+    setLineItems(prev => prev.filter(li => {
+      if (tplId && li.templateId === tplId) return false;
+      if (li.templateTitle === tplTitle) return false;
+      if (li.title.toLowerCase().includes(tplTitle.toLowerCase())) return false;
+      if (tpl && li.title.includes(tpl.productName) && li.price === tpl.price) return false;
+      return true;
+    }));
+
+    // 3. Odober body nanesené touto šablónou
+    if (tplId) {
+      setVectors(prev => prev.filter(v => !v.id.includes(tplId)));
+    }
+
+    setToastMsg(`Šablóna "${tplTitle}" bola odobratá z mapy.`);
+    setTimeout(() => setToastMsg(null), 3000);
   };
 
   // APLIKÁCIA ŠABLÓNY
   const handleApplyTemplate = (tpl: AestheticTemplate, mode: 'append' | 'replace' = 'append') => {
     const freshVectors: Vector2DItem[] = tpl.vectors.map((v, i) => ({
       ...v,
-      id: `pt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}_${i}`
+      id: `pt_${tpl.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}_${i}`
     }));
 
     const lineItemTitle = tpl.description && !tpl.description.startsWith('Izolované') && !tpl.description.startsWith('Horizontálne')
@@ -929,11 +1023,12 @@ export function AestheticsModule({
       : `${tpl.productName}, ${tpl.title.replace(/Botox |Výplň |Kyselina Hyalurónová – /gi, '')}`;
 
     const newLineItem: TreatmentLineItem = {
-      id: `li_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: `li_${tpl.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       title: lineItemTitle,
       price: tpl.price,
-      lot: tpl.lot,
-      category: tpl.category
+      category: tpl.category,
+      templateId: tpl.id,
+      templateTitle: tpl.title
     };
 
     if (mode === 'replace') {
@@ -1086,19 +1181,17 @@ export function AestheticsModule({
             itemName: item.title.split(',')[0],
             category: 'estetika',
             quantity: 1,
-            lotNumber: item.lot || 'LOT-2026',
             performerName: 'MUDr. Ján Mráz',
             notes: `Cena výkonu: ${item.price} € (${sessionProtocolNo})`
           });
         });
       } else if (vectors.length > 0) {
-        const groupedProducts = new Map<string, { lot: string; count: number }>();
+        const groupedProducts = new Map<string, number>();
         vectors.forEach(v => {
           const pName = v.productName || activeMaterial.name;
-          const prev = groupedProducts.get(pName) || { lot: v.lotNumber || activeMaterial.lot, count: 0 };
-          groupedProducts.set(pName, { lot: prev.lot, count: prev.count + 1 });
+          groupedProducts.set(pName, (groupedProducts.get(pName) || 0) + 1);
         });
-        groupedProducts.forEach((val, pName) => {
+        groupedProducts.forEach((count, pName) => {
           InventoryService.logMaterialUsage({
             patientId: currentPatient.id,
             patientName: currentPatient.name,
@@ -1108,9 +1201,8 @@ export function AestheticsModule({
             itemName: pName,
             category: 'estetika',
             quantity: 1,
-            lotNumber: val.lot || 'LOT-2026',
             performerName: 'MUDr. Ján Mráz',
-            notes: `Aplikované v ${val.count} bodoch (${sessionProtocolNo})`
+            notes: `Aplikované v ${count} bodoch (${sessionProtocolNo})`
           });
         });
       }
@@ -1169,8 +1261,7 @@ ${sessionNextStep}`;
           name: li.title,
           brand: 'Estetická medicína SAY',
           price: Number(li.price) || 0,
-          quantity: 1,
-          lot: li.lot
+          quantity: 1
         })),
         subtotal,
         discountAmount,
@@ -1402,7 +1493,7 @@ ${sessionNextStep}`;
         <div className="flex items-center gap-2 self-end md:self-auto">
           {activeTab === 'editor' && (
             <>
-              {vectors.length > 0 && (
+              {(vectors.length > 0 || appliedTemplateTitles.length > 0 || lineItems.length > 0) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1508,7 +1599,7 @@ ${sessionNextStep}`;
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-[11px] font-bold transition-all cursor-pointer shadow-xs"
                 >
                   <Settings className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>Katalóg & Ceny šablón ({templatesList.length})</span>
+                  <span>Katalóg & Správa šablón ({templatesList.length})</span>
                 </button>
               </div>
             </div>
@@ -1521,13 +1612,19 @@ ${sessionNextStep}`;
                   <button
                     key={tpl.id}
                     type="button"
-                    onClick={() => handleApplyTemplate(tpl, 'append')}
+                    onClick={() => {
+                      if (isApplied) {
+                        handleRemoveAppliedTemplate(tpl.title);
+                      } else {
+                        handleApplyTemplate(tpl, 'append');
+                      }
+                    }}
                     className={`px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-2 border ${
                       isApplied
                         ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-xs ring-2 ring-[#C5A059]'
                         : 'bg-[#FAF8F5] hover:bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
                     }`}
-                    title={tpl.description}
+                    title={isApplied ? `Kliknutím odstránite šablónu "${tpl.title}" z tohto ošetrenia` : tpl.description}
                   >
                     <span style={{ backgroundColor: tpl.color }} className="w-2 h-2 rounded-full shrink-0" />
                     <span>{tpl.title}</span>
@@ -1536,6 +1633,9 @@ ${sessionNextStep}`;
                     }`}>
                       {tpl.price} €
                     </span>
+                    {isApplied && (
+                      <span className="text-[10px] text-[#C5A059] hover:text-red-400 font-bold ml-0.5">✕</span>
+                    )}
                   </button>
                 );
               })}
@@ -1549,10 +1649,31 @@ ${sessionNextStep}`;
                     Aplikované šablóny:
                   </span>
                   {appliedTemplateTitles.map((t, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded-lg bg-white border border-[#E8E2D9] font-medium text-[#2C2A29] flex items-center gap-1">
+                    <span key={idx} className="px-2.5 py-1 rounded-lg bg-white border border-[#E8E2D9] font-medium text-[#2C2A29] flex items-center gap-1.5 shadow-2xs">
                       <span>{t}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAppliedTemplate(t)}
+                        className="text-[#8C857B] hover:text-red-500 rounded-sm cursor-pointer p-0.5 hover:bg-red-50 transition-colors"
+                        title={`Odstrániť aplikovanú šablónu "${t}" z ošetrenia`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </span>
                   ))}
+                  {appliedTemplateTitles.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm('Odstrániť všetky aplikované šablóny z tohto ošetrenia?')) {
+                          appliedTemplateTitles.forEach(t => handleRemoveAppliedTemplate(t));
+                        }
+                      }}
+                      className="text-[11px] text-red-600 hover:text-red-700 font-semibold underline ml-1 cursor-pointer"
+                    >
+                      Odstrániť všetky
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1637,6 +1758,34 @@ ${sessionNextStep}`;
                 <span className="text-[#8C857B]">{activeMaterial.recommendedTechnique}</span>
               </div>
 
+              {/* 2D ⇄ 3D PREPÍNAČ REŽIMU SOCHY */}
+              <div className="flex items-center p-1 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setSculptureMode('2d')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    sculptureMode === '2d'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'text-[#8C857B] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>2D Schéma</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSculptureMode('3d')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    sculptureMode === '3d'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
+                      : 'text-[#8C857B] hover:text-[#2C2A29]'
+                  }`}
+                >
+                  <Compass className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>3D Model 360°</span>
+                </button>
+              </div>
+
               <div className="flex items-center gap-2">
                 <span className="text-[#8C857B]">Počet bodov na soche:</span>
                 <span className="font-bold text-[#2C2A29] bg-[#FAF8F5] px-2 py-0.5 rounded-lg border border-[#E8E2D9]">
@@ -1645,26 +1794,52 @@ ${sessionNextStep}`;
               </div>
             </div>
 
-            {/* Samotná 2D Socha */}
+            {/* Samotná Socha (2D alebo 3D podľa prepínača) */}
             <div className="w-full max-w-3xl flex flex-col items-center">
-              <Sculpture2DViewer
-                vectors={vectors}
-                onVectorsChange={setVectors}
-                activeTool={activeTool}
-                onSelectTool={setActiveTool}
-                activeColor={activeColor}
-                onSelectColor={setActiveColor}
-                currentProduct={{
-                  name: activeMaterial.name,
-                  lot: activeMaterial.lot,
-                  type: activeMaterial.type
-                }}
-                selectedVectorId={selectedVectorId}
-                onSelectVector={setSelectedVectorId}
-                activeView={activeSculptureView}
-                onViewChange={setActiveSculptureView}
-                readOnly={false}
-              />
+              {sculptureMode === '2d' ? (
+                <Sculpture2DViewer
+                  vectors={vectors}
+                  onVectorsChange={setVectors}
+                  activeTool={activeTool}
+                  onSelectTool={setActiveTool}
+                  activeColor={activeColor}
+                  onSelectColor={setActiveColor}
+                  currentProduct={{
+                    name: activeMaterial.name,
+                    lot: activeMaterial.lot,
+                    type: activeMaterial.type
+                  }}
+                  selectedVectorId={selectedVectorId}
+                  onSelectVector={setSelectedVectorId}
+                  activeView={activeSculptureView}
+                  onViewChange={setActiveSculptureView}
+                  readOnly={false}
+                />
+              ) : (
+                <Sculpture3DViewer
+                  vectors={vectors}
+                  onVectorsChange={setVectors}
+                  activeTool={activeTool as any}
+                  onSelectTool={setActiveTool as any}
+                  activeColor={activeColor}
+                  onSelectColor={setActiveColor}
+                  currentProduct={{
+                    name: activeMaterial.name,
+                    lot: activeMaterial.lot,
+                    type: activeMaterial.type,
+                    unit: activeMaterial.defaultUnit
+                  }}
+                  selectedVectorId={selectedVectorId}
+                  onSelectVector={setSelectedVectorId}
+                  onAddMuscleProcedure={(muscle) => {
+                    handleAddLineItem(`${muscle.latinName} (${muscle.slovakName}) - ${activeMaterial.name} [${muscle.defaultDose}]`, activeMaterial.defaultPrice);
+                  }}
+                  onAddFatPadProcedure={(pad) => {
+                    handleAddLineItem(`${pad.slovakName} (${pad.layerLabel}) - ${pad.recommendedMaterial} [${pad.defaultDose}]`, activeMaterial.defaultPrice);
+                  }}
+                  readOnly={false}
+                />
+              )}
             </div>
           </div>
 
@@ -2012,22 +2187,62 @@ ${sessionNextStep}`;
                     <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
                     <span>Zobraziť A4 report tohto dňa</span>
                   </button>
+
+                  {/* 2D ⇄ 3D PREPÍNAČ PRE HISTÓRIU */}
+                  <div className="flex items-center p-1 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setHistorySculptureMode('2d')}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        historySculptureMode === '2d'
+                          ? 'bg-[#2C2A29] text-white shadow-xs'
+                          : 'text-[#8C857B] hover:text-[#2C2A29]'
+                      }`}
+                    >
+                      <Layers className="w-3 h-3 text-[#C5A059]" />
+                      <span>2D</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHistorySculptureMode('3d')}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        historySculptureMode === '3d'
+                          ? 'bg-[#2C2A29] text-white shadow-xs'
+                          : 'text-[#8C857B] hover:text-[#2C2A29]'
+                      }`}
+                    >
+                      <Compass className="w-3 h-3 text-[#C5A059]" />
+                      <span>3D</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Socha s presne označenými bodmi */}
+              {/* Socha s presne označenými bodmi (2D / 3D) */}
               <div className="w-full max-w-3xl flex flex-col items-center">
-                <Sculpture2DViewer
-                  vectors={selectedHistorySession.vectors || []}
-                  onVectorsChange={() => {}}
-                  activeTool="select"
-                  onSelectTool={() => {}}
-                  activeColor="#C5A059"
-                  onSelectColor={() => {}}
-                  activeView={activeSculptureView}
-                  onViewChange={setActiveSculptureView}
-                  readOnly={true}
-                />
+                {historySculptureMode === '2d' ? (
+                  <Sculpture2DViewer
+                    vectors={selectedHistorySession.vectors || []}
+                    onVectorsChange={() => {}}
+                    activeTool="select"
+                    onSelectTool={() => {}}
+                    activeColor="#C5A059"
+                    onSelectColor={() => {}}
+                    activeView={activeSculptureView}
+                    onViewChange={setActiveSculptureView}
+                    readOnly={true}
+                  />
+                ) : (
+                  <Sculpture3DViewer
+                    vectors={selectedHistorySession.vectors || []}
+                    onVectorsChange={() => {}}
+                    activeTool="rotate"
+                    onSelectTool={() => {}}
+                    activeColor="#C5A059"
+                    onSelectColor={() => {}}
+                    readOnly={true}
+                  />
+                )}
               </div>
 
               {/* Jednoduchý prehľad sedenia pod sochou */}
@@ -2164,11 +2379,6 @@ ${sessionNextStep}`;
                           <div className="font-bold text-xs text-[#2C2A29] leading-snug">
                             • {item.title}
                           </div>
-                          {item.lot && (
-                            <div className="text-[10px] text-[#8C857B]">
-                              Šarža (LOT): <span className="font-mono text-[#C5A059]">{item.lot}</span>
-                            </div>
-                          )}
                         </div>
                         <div className="font-bold font-mono text-xs text-[#2C2A29] shrink-0 text-right">
                           {(Number(item.price) || 0).toFixed(2)} €
@@ -2261,7 +2471,7 @@ ${sessionNextStep}`;
                 <Bookmark className="w-5 h-5 text-[#C5A059]" />
                 <div>
                   <h3 className="text-sm font-bold text-[#2C2A29]">Katalóg & Správa estetických šablón</h3>
-                  <p className="text-[11px] text-[#8C857B]">Môžete priamo prepísať ceny šablón, pridať nové šablóny alebo ich aplikovať na sochu</p>
+                  <p className="text-[11px] text-[#8C857B]">Môžete upravovať ceny, vymazať nepotrebné šablóny (ikona koša 🗑️), pridať nové alebo ich aplikovať na tvár</p>
                 </div>
               </div>
               <button
@@ -2450,16 +2660,14 @@ ${sessionNextStep}`;
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        {tpl.isCustom && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTemplate(tpl.id)}
-                            className="p-1.5 rounded-lg text-[#8C857B] hover:text-red-500 hover:bg-red-50 cursor-pointer"
-                            title="Zmazať šablónu"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTemplate(tpl.id)}
+                          className="p-1.5 rounded-lg text-[#8C857B] hover:text-red-500 hover:bg-red-50 cursor-pointer transition-colors"
+                          title={`Vymazať šablónu "${tpl.title}" z katalógu`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleApplyTemplate(tpl, 'replace')}
@@ -2567,16 +2775,7 @@ ${sessionNextStep}`;
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Šarža (LOT):</label>
-                    <input
-                      type="text"
-                      value={newMatLot}
-                      onChange={(e) => setNewMatLot(e.target.value)}
-                      className="w-full p-2 bg-white rounded-xl border border-[#E8E2D9] text-xs font-mono"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Cena (€):</label>
                     <input
@@ -2631,7 +2830,7 @@ ${sessionNextStep}`;
             {/* Zoznam látok s okamžitou úpravou cien */}
             <div className="space-y-2 overflow-y-auto flex-1 pr-1">
               <div className="flex items-center justify-between px-1 text-[11px] font-bold text-[#8C857B]">
-                <span>Preparát & Šarža</span>
+                <span>Preparát</span>
                 <span>Základná cena (€)</span>
               </div>
 
@@ -2646,8 +2845,6 @@ ${sessionNextStep}`;
                       <div className="text-xs font-bold text-[#2C2A29] truncate">{mat.name}</div>
                       <div className="text-[10px] text-[#8C857B] flex items-center gap-2">
                         <span>{mat.categoryLabel}</span>
-                        <span>·</span>
-                        <span className="font-mono text-[#C5A059]">LOT: {mat.lot}</span>
                       </div>
                     </div>
                   </div>

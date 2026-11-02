@@ -403,30 +403,49 @@ export class DriveClientService {
                 return lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv') || f.mimeType.includes('spreadsheet') || f.mimeType.includes('excel');
               });
             }
-
-            // Alternatíva: profil_klienta.json
-            if (!matchedFile) {
-              matchedFile = files.find(f => f.name.toLowerCase() === 'profil_klienta.json');
-            }
           }
         }
       }
 
       if (matchedFile) {
-        let extracted: ExtractedPatientData;
+        let extracted: ExtractedPatientData | null = null;
 
         if (matchedFile.mimeType === 'application/vnd.google-apps.spreadsheet') {
-          // Exportujeme priamo ako CSV
-          const exportRes = await fetch(
-            `https://www.googleapis.com/drive/v3/files/${matchedFile.id}/export?mimeType=text/csv`,
-            { headers }
-          );
-          if (exportRes.ok) {
-            const csvText = await exportRes.text();
-            extracted = parsePatientSheetData(csvText, matchedFile.name, patientName);
-            if (extracted.extractedFieldsCount > 0) {
-              return { success: true, data: extracted, fileName: matchedFile.name };
+          // 1. Exportujeme cez Drive API
+          try {
+            const exportRes = await fetch(
+              `https://www.googleapis.com/drive/v3/files/${matchedFile.id}/export?mimeType=text/csv`,
+              { headers }
+            );
+            if (exportRes.ok) {
+              const csvText = await exportRes.text();
+              extracted = parsePatientSheetData(csvText, matchedFile.name, patientName);
             }
+          } catch {
+            // fallback
+          }
+
+          // 2. Fallback na priamy Google Docs export (rieši viacero prípadov zdieľania a tabov)
+          if (!extracted || extracted.extractedFieldsCount === 0) {
+            try {
+              const directRes = await fetch(
+                `https://docs.google.com/spreadsheets/d/${matchedFile.id}/export?format=csv`,
+                { headers }
+              );
+              if (directRes.ok) {
+                const csvText = await directRes.text();
+                const dExt = parsePatientSheetData(csvText, matchedFile.name, patientName);
+                if (dExt.extractedFieldsCount > 0) {
+                  extracted = dExt;
+                }
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          if (extracted && extracted.extractedFieldsCount > 0) {
+            return { success: true, data: extracted, fileName: matchedFile.name };
           }
         } else {
           // Priame stiahnutie súboru
@@ -442,7 +461,7 @@ export class DriveClientService {
               const text = await dlRes.text();
               extracted = parsePatientSheetData(text, matchedFile.name, patientName);
             }
-            if (extracted.extractedFieldsCount > 0) {
+            if (extracted && extracted.extractedFieldsCount > 0) {
               return { success: true, data: extracted, fileName: matchedFile.name };
             }
           }
@@ -496,8 +515,8 @@ export class DriveClientService {
 
     try {
       let pageToken: string | null = null;
-      // Hľadáme Google Sheety, Excel, CSV alebo profil_klienta.json
-      const q = "(mimeType = 'application/vnd.google-apps.spreadsheet' or mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or name contains '.xlsx' or name contains '.csv' or name = 'profil_klienta.json') and trashed = false";
+      // Hľadáme výhradne tabuľkové súbory (Google Sheety, Excel, CSV)
+      const q = "(mimeType = 'application/vnd.google-apps.spreadsheet' or mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or name contains '.xlsx' or name contains '.csv') and trashed = false";
 
       do {
         let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=1000&fields=nextPageToken,files(id,name,mimeType,parents,webViewLink)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
@@ -548,13 +567,36 @@ export class DriveClientService {
       let extracted: ExtractedPatientData | null = null;
 
       if (file.mimeType === 'application/vnd.google-apps.spreadsheet') {
-        const exportRes = await fetch(
-          `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text/csv`,
-          { headers }
-        );
-        if (exportRes.ok) {
-          const csvText = await exportRes.text();
-          extracted = parsePatientSheetData(csvText, file.name, patientName);
+        try {
+          const exportRes = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text/csv`,
+            { headers }
+          );
+          if (exportRes.ok) {
+            const csvText = await exportRes.text();
+            extracted = parsePatientSheetData(csvText, file.name, patientName);
+          }
+        } catch {
+          // fallback
+        }
+
+        // Priamy Docs export fallback
+        if (!extracted || extracted.extractedFieldsCount === 0) {
+          try {
+            const directRes = await fetch(
+              `https://docs.google.com/spreadsheets/d/${file.id}/export?format=csv`,
+              { headers }
+            );
+            if (directRes.ok) {
+              const dCsv = await directRes.text();
+              const dExt = parsePatientSheetData(dCsv, file.name, patientName);
+              if (dExt.extractedFieldsCount > 0) {
+                extracted = dExt;
+              }
+            }
+          } catch {
+            // ignore
+          }
         }
       } else {
         const dlRes = await fetch(

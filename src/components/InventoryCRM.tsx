@@ -661,7 +661,7 @@ export default function InventoryCRM({
           <div className="flex flex-col sm:flex-row justify-between gap-3 items-center">
             <input 
               type="text" 
-              placeholder="Vyhľadať materiál, liek, šaržu LOT, kód dodávateľa..." 
+              placeholder="Vyhľadať materiál, liek, kód dodávateľa..." 
               value={searchTerm} 
               onChange={e => setSearchTerm(e.target.value)} 
               className="border border-[#E8E2D9] p-2.5 rounded-xl text-xs bg-[#FBF9F6] w-full sm:flex-1 outline-none focus:border-[#C5A059]" 
@@ -706,7 +706,6 @@ export default function InventoryCRM({
                   <th className="p-3">Min. zásoba</th>
                   <th className="p-3 font-mono">Cena / ks</th>
                   <th className="p-3 font-mono">Hodnota</th>
-                  <th className="p-3">Šarža (LOT)</th>
                   <th className="p-3 text-right">Akcie</th>
                 </tr>
               </thead>
@@ -775,10 +774,6 @@ export default function InventoryCRM({
                         {(item.quantity * item.costPerUnit).toFixed(2)} €
                       </td>
 
-                      <td className="p-3 font-mono text-xs text-[#8C857B]">
-                        {item.lotNumber ? <span className="bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9] text-[#C5A059] font-bold">{item.lotNumber}</span> : '---'}
-                      </td>
-
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
@@ -824,7 +819,7 @@ export default function InventoryCRM({
           <div className="flex flex-col sm:flex-row justify-between gap-3 items-center">
             <input 
               type="text" 
-              placeholder="Vyhľadať pacienta, rodné číslo, výkon, materiál, šaržu LOT alebo lekára..." 
+              placeholder="Vyhľadať pacienta, rodné číslo, výkon, materiál alebo lekára..." 
               value={usageSearch} 
               onChange={e => setUsageSearch(e.target.value)} 
               className="border border-[#E8E2D9] p-2.5 rounded-xl text-xs bg-[#FBF9F6] w-full sm:flex-1 outline-none focus:border-[#C5A059]" 
@@ -864,7 +859,7 @@ export default function InventoryCRM({
                   <th className="p-3">Typ & Výkon</th>
                   <th className="p-3">Použitý materiál</th>
                   <th className="p-3 text-center">Množstvo</th>
-                  <th className="p-3">Šarža LOT / SN</th>
+                  <th className="p-3">Sériové číslo (SN)</th>
                   <th className="p-3">Ošetrujúci personál</th>
                   <th className="p-3">Poznámka</th>
                 </tr>
@@ -918,13 +913,11 @@ export default function InventoryCRM({
                       </td>
 
                       <td className="p-3 font-mono text-[11px]">
-                        {log.lotNumber && (
-                          <span className="block text-[#C5A059] font-bold">LOT: {log.lotNumber}</span>
+                        {log.serialNumber ? (
+                          <span className="block text-[#2C2A29] text-[10px] font-bold">SN: {log.serialNumber}</span>
+                        ) : (
+                          <span className="text-[#8C857B]">---</span>
                         )}
-                        {log.serialNumber && (
-                          <span className="block text-[#2C2A29] text-[10px]">SN: {log.serialNumber}</span>
-                        )}
-                        {!log.lotNumber && !log.serialNumber && <span className="text-[#8C857B]">---</span>}
                       </td>
 
                       <td className="p-3 text-[#2C2A29]">
@@ -1360,26 +1353,14 @@ export default function InventoryCRM({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Šarža (LOT)</label>
-                  <input 
-                    type="text" 
-                    placeholder="LOT-2026" 
-                    value={newItem.lotNumber} 
-                    onChange={e => setNewItem({...newItem, lotNumber: e.target.value})} 
-                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Dátum expirácie</label>
-                  <input 
-                    type="date" 
-                    value={newItem.expirationDate} 
-                    onChange={e => setNewItem({...newItem, expirationDate: e.target.value})} 
-                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white" 
-                  />
-                </div>
+              <div>
+                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Dátum expirácie</label>
+                <input 
+                  type="date" 
+                  value={newItem.expirationDate} 
+                  onChange={e => setNewItem({...newItem, expirationDate: e.target.value})} 
+                  className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white" 
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9]">
@@ -1430,16 +1411,6 @@ export default function InventoryCRM({
                 <p className="text-[10px] text-[#8C857B] mt-1">
                   Aktuálna zásoba: {selectedItemForRestock.quantity} {selectedItemForRestock.unit} → Nová zásoba bude: <strong>{selectedItemForRestock.quantity + restockQty} {selectedItemForRestock.unit}</strong>
                 </p>
-              </div>
-
-              <div>
-                <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Nová šarža (LOT)</label>
-                <input 
-                  type="text" 
-                  value={restockLot} 
-                  onChange={e => setRestockLot(e.target.value)} 
-                  className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white" 
-                />
               </div>
 
               <div>
@@ -1705,7 +1676,7 @@ export default function InventoryCRM({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Umiestnenie</label>
                   <input 
@@ -1713,15 +1684,6 @@ export default function InventoryCRM({
                     value={editingItem.location || ''} 
                     onChange={e => setEditingItem({ ...editingItem, location: e.target.value })} 
                     className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase text-[#8C857B] font-bold mb-1">Šarža (LOT)</label>
-                  <input 
-                    type="text" 
-                    value={editingItem.lotNumber || ''} 
-                    onChange={e => setEditingItem({ ...editingItem, lotNumber: e.target.value })} 
-                    className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white font-mono" 
                   />
                 </div>
                 <div>

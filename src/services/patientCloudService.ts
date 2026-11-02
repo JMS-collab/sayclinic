@@ -107,25 +107,44 @@ export class PatientCloudService {
         colRef,
         (snapshot) => {
           if (!snapshot.empty) {
+            const cachedList = this.getCachedPatients();
+            const cachedMap = new Map<string, Patient>();
+            cachedList.forEach((cp) => {
+              if (cp.id) cachedMap.set(cp.id, cp);
+              if (cp.name) cachedMap.set(cp.name.trim().toLowerCase(), cp);
+            });
+
             const list: Patient[] = [];
             snapshot.forEach((d) => {
               const data = d.data() as any;
+              const nameStr = data.name || '';
+              const cached = cachedMap.get(d.id) || cachedMap.get(nameStr.trim().toLowerCase());
+
+              const rawRC = data.birthNumber || '';
+              const rawPhone = data.phone || '';
+              const rawEmail = data.email || '';
+              const rawAddr = data.address || '';
+              const rawDob = data.dob || '';
+
+              const isDummyRC = !rawRC || rawRC === 'Importované z Drive' || rawRC === '---';
+              const cachedHasRealRC = cached?.birthNumber && cached.birthNumber !== 'Importované z Drive' && cached.birthNumber !== '---';
+
               list.push({
                 id: d.id,
-                name: data.name || '',
-                birthNumber: data.birthNumber || '',
-                phone: data.phone || '',
-                email: data.email || '',
-                address: data.address || '',
-                dob: data.dob || '',
-                insurance: data.insurance || 'Samoplatca',
-                driveFolderLink: data.driveFolderLink || undefined,
-                driveFolderId: data.driveFolderId || undefined,
-                sheetStatus: data.sheetStatus || undefined,
-                sheetCheckedAt: data.sheetCheckedAt || undefined,
-                allergies: data.allergies || [],
-                notes: data.notes || '',
-                updatedAt: data.updatedAt || undefined,
+                name: nameStr,
+                birthNumber: isDummyRC && cachedHasRealRC ? cached!.birthNumber : rawRC,
+                phone: (!rawPhone || rawPhone === '---') && cached?.phone && cached.phone !== '---' ? cached.phone : rawPhone,
+                email: (!rawEmail || rawEmail === '---') && cached?.email && cached.email !== '---' ? cached.email : rawEmail,
+                address: (!rawAddr || rawAddr === '---') && cached?.address && cached.address !== '---' ? cached.address : rawAddr,
+                dob: (!rawDob || rawDob === '---') && cached?.dob && cached.dob !== '---' ? cached.dob : rawDob,
+                insurance: data.insurance || cached?.insurance || 'Samoplatca',
+                driveFolderLink: data.driveFolderLink || cached?.driveFolderLink || undefined,
+                driveFolderId: data.driveFolderId || cached?.driveFolderId || undefined,
+                sheetStatus: data.sheetStatus || cached?.sheetStatus || undefined,
+                sheetCheckedAt: data.sheetCheckedAt || cached?.sheetCheckedAt || undefined,
+                allergies: data.allergies || cached?.allergies || [],
+                notes: data.notes || cached?.notes || '',
+                updatedAt: data.updatedAt || cached?.updatedAt || undefined,
               });
             });
 

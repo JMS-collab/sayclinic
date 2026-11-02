@@ -310,42 +310,7 @@ export default function GoogleDriveModal({ isOpen, onClose, currentUser }: Googl
                   <span>{isConnecting ? 'Pripájam Google Drive...' : 'Prihlásiť sa cez Google (SAY CLINIC)'}</span>
                 </button>
 
-                {/* ALTERNATÍVA GIS PRE VERCEL */}
-                <button
-                  type="button"
-                  onClick={handleGisSignIn}
-                  disabled={isConnecting}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-[#FAF8F5] border border-[#E8E2D9] text-[#2C2A29] text-xs font-semibold tracking-wider transition-colors cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>Priame prihlásenie cez Google Identity Services</span>
-                </button>
-              </div>
-
-              {/* NÁVOD PRE VERCEL DOMÉNU (SAYCLINIC.VERCEL.APP) */}
-              <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] space-y-2.5">
-                <div className="flex items-center justify-between text-xs font-bold text-[#2C2A29]">
-                  <span className="flex items-center gap-1.5">
-                    <Info className="w-4 h-4 text-[#C5A059]" />
-                    <span>Používate aplikáciu na doméne {currentHostname}?</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={copyDomainToClipboard}
-                    className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-white border border-[#E8E2D9] text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
-                  >
-                    {copiedDomain ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedDomain ? 'Skopírované' : 'Kopírovať doménu'}</span>
-                  </button>
-                </div>
-                <p className="text-[11px] text-[#8C857B] leading-relaxed">
-                  Aby Google prihlásenie fungovalo bezpečne na hostingu Vercel, pridajte túto doménu do zoznamu povolených domén:
-                </p>
-                <ol className="text-[11px] text-[#2C2A29] space-y-1 list-decimal list-inside bg-white p-3 rounded-xl border border-[#E8E2D9]">
-                  <li>Otvorte <strong>Firebase Console</strong> (projekt <code>gen-lang-client-0588591925</code>)</li>
-                  <li>Prejdite do <strong>Authentication → Settings → Authorized domains</strong></li>
-                  <li>Kliknite <strong>Add domain</strong> a vložte: <code className="bg-[#FAF8F5] px-1.5 py-0.5 rounded text-[#C5A059] font-bold">{currentHostname}</code></li>
-                </ol>
+                {/* ALTERNATÍVA GIS ODSTRÁNENÁ PRE ZABRÁNENIE ORIGIN_MISMATCH */}
               </div>
 
               {/* MOŽNOSŤ MANUÁLNEHO TOKENU */}

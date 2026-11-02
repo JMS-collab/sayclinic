@@ -35,7 +35,11 @@ import {
   Download,
   FolderOpen,
   FolderCheck,
-  Award
+  Award,
+  Copy,
+  UserCheck,
+  ArrowUpRight,
+  Trash2
 } from 'lucide-react';
 import { filterAndRankPatients, RankedPatient } from '../utils/fuzzySearch';
 import { googleSignIn, subscribeWorkspaceAuth, setExternalAccessToken } from '@/lib/workspaceAuth';
@@ -426,6 +430,8 @@ export default function PatientDatabase({
 
   // STAV PRE ÚPRAVU PACIENTA
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [deletingPatient, setDeletingPatient] = useState<Patient | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isExtractingSheet, setIsExtractingSheet] = useState(false);
   const [sheetExtractNotice, setSheetExtractNotice] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [batchExtractProgress, setBatchExtractProgress] = useState<{ current: number; total: number; patientName: string } | null>(null);
@@ -728,6 +734,65 @@ export default function PatientDatabase({
       if (onPatientsUpdated) onPatientsUpdated(cached);
     }
 
+    // Hydratácia centrálnych klinických údajov zo servera (clinic_data.json s reálnymi údajmi zo Sheetov)
+    fetch('/api/sync?collection=patients')
+      .then(res => res.json())
+      .then(syncRes => {
+        if (syncRes.success && Array.isArray(syncRes.data) && syncRes.data.length > 0) {
+          const freshList: Patient[] = syncRes.data;
+          const freshMap = new Map<string, Patient>();
+          freshList.forEach(p => {
+            if (p.id) freshMap.set(p.id, p);
+            if (p.name) freshMap.set(p.name.trim().toLowerCase(), p);
+          });
+
+          setPatients(prev => {
+            if (!prev || prev.length === 0) return freshList;
+            const updated = prev.map(p => {
+              const fresh = freshMap.get(p.id) || freshMap.get(p.name.trim().toLowerCase());
+              if (fresh) {
+                const hasCurrentDummy = !p.birthNumber || p.birthNumber === 'Importované z Drive' || p.phone === '---';
+                const hasFreshReal = fresh.birthNumber && fresh.birthNumber !== 'Importované z Drive' && fresh.birthNumber !== '---';
+                if (hasCurrentDummy && hasFreshReal) {
+                  return {
+                    ...p,
+                    birthNumber: fresh.birthNumber,
+                    dob: fresh.dob || p.dob,
+                    phone: fresh.phone || p.phone,
+                    email: fresh.email || p.email,
+                    address: fresh.address || p.address,
+                    insurance: fresh.insurance || p.insurance,
+                    sheetStatus: fresh.sheetStatus || p.sheetStatus,
+                    sheetCheckedAt: fresh.sheetCheckedAt || p.sheetCheckedAt,
+                  };
+                }
+              }
+              return p;
+            });
+
+            // Aktualizujeme aj lokálnu pamäť
+            try {
+              localStorage.setItem('say_clinic_patients', JSON.stringify(updated));
+            } catch {}
+
+            return updated;
+          });
+
+          // Ak je práve zobrazený vybraný pacient, osviežime aj jeho detail
+          setSelectedPatient(prev => {
+            if (!prev) return prev;
+            const fresh = freshMap.get(prev.id) || freshMap.get(prev.name.trim().toLowerCase());
+            if (fresh && fresh.birthNumber && fresh.birthNumber !== 'Importované z Drive') {
+              const merged = { ...prev, ...fresh };
+              if (JSON.stringify(merged) === JSON.stringify(prev)) return prev;
+              return merged;
+            }
+            return prev;
+          });
+        }
+      })
+      .catch(err => console.warn('Centrálna hydratácia pacientov zlyhala:', err));
+
     // Real-time synchronizácia s Firestore kolekciou 'patients'
     const unsubscribe = PatientCloudService.subscribePatients((cloudPatients) => {
       if (cloudPatients && cloudPatients.length > 0) {
@@ -739,7 +804,8 @@ export default function PatientDatabase({
         setSelectedPatient(prev => {
           if (!prev) return prev;
           const found = cloudPatients.find(p => p.id === prev.id);
-          return found || prev;
+          if (!found || JSON.stringify(found) === JSON.stringify(prev)) return prev;
+          return found;
         });
       } else if (cached.length === 0) {
         // Iba ak je Firestore aj lokálna pamäť úplne prázdna, seedujeme počiatočných
@@ -811,6 +877,59 @@ export default function PatientDatabase({
   const [loyaltyFilter, setLoyaltyFilter] = useState<'all' | LoyaltyTierId>('all');
   const [loyaltyVersion, setLoyaltyVersion] = useState<number>(0);
   const [loyaltyModalPatient, setLoyaltyModalPatient] = useState<{ id?: string; name: string } | null>(null);
+
+  // RÝCHLY VÝBER / KONTEXTOVÉ MENU NA PRAVÝ KLIK PRE KARTU PACIENTA
+  const [cardContextMenu, setCardContextMenu] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    patient: Patient | null;
+  }>({
+    isOpen: false,
+    x: 0,
+    y: 0,
+    patient: null
+  });
+
+  const handleOpenCardContextMenu = (e: React.MouseEvent, patient: Patient) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const menuWidth = 280;
+    const menuHeight = 400;
+    const x = Math.min(e.clientX, window.innerWidth - menuWidth - 12);
+    const y = Math.min(e.clientY, window.innerHeight - menuHeight - 12);
+
+    setCardContextMenu({
+      isOpen: true,
+      x: Math.max(12, x),
+      y: Math.max(12, y),
+      patient
+    });
+  };
+
+  const handleCloseCardContextMenu = () => {
+    setCardContextMenu(prev => prev.isOpen ? { ...prev, isOpen: false } : prev);
+  };
+
+  useEffect(() => {
+    if (!cardContextMenu.isOpen) return;
+
+    const handleClickOutside = () => handleCloseCardContextMenu();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleCloseCardContextMenu();
+    };
+
+    window.addEventListener('click', handleClickOutside);
+    window.addEventListener('contextmenu', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('contextmenu', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [cardContextMenu.isOpen]);
 
   useEffect(() => {
     const handleLoyaltyChange = () => setLoyaltyVersion(v => v + 1);
@@ -982,6 +1101,57 @@ export default function PatientDatabase({
     setEditingPatient(null);
   };
 
+  // TRVALÉ ODSTRÁNENIE KLIENTA Z KARTOTÉKY (FIRESTORE, LOKÁLNY STAV, REALTIME SYNC)
+  const handleConfirmDeletePatient = async () => {
+    if (!deletingPatient) return;
+    setIsDeleting(true);
+
+    const targetPatient = deletingPatient;
+    try {
+      // 1. Zmazanie z Cloud Firestore & lokálnej pamäte cez servis
+      await PatientCloudService.deletePatient(targetPatient.id);
+
+      // 2. Aktualizácia lokálneho zoznamu pacientov
+      const remainingPatients = patients.filter(p => p.id !== targetPatient.id);
+      setPatients(remainingPatients);
+      if (onPatientsUpdated) onPatientsUpdated(remainingPatients);
+
+      // 3. Ak bol zmazaný práve otvorený pacient, vrátime sa na zoznam
+      if (selectedPatient && selectedPatient.id === targetPatient.id) {
+        setSelectedPatient(null);
+      }
+      if (activePatient && activePatient.id === targetPatient.id && onSetActivePatient) {
+        onSetActivePatient(null);
+      }
+
+      // 4. Auditný záznam o vyradení/odstránení
+      AuditLogService.log({
+        category: 'PATIENT_RECORD',
+        action: 'ODSTRÁNENIE KLIENTA Z KARTOTÉKY',
+        details: `Trvalé odstránenie klienta: ${targetPatient.name} (${targetPatient.birthNumber})`,
+        patientId: targetPatient.id,
+        patientName: targetPatient.name,
+        severity: 'warning'
+      });
+
+      setDriveStatusMessage({
+        type: 'info' as any,
+        text: `Klient „${targetPatient.name}“ bol úspešne odstránený z kartotéky.`
+      });
+      setTimeout(() => setDriveStatusMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Chyba pri odstraňovaní klienta:', err);
+      setDriveStatusMessage({
+        type: 'error' as any,
+        text: 'Pri odstraňovaní klienta došlo k chybe.'
+      });
+      setTimeout(() => setDriveStatusMessage(null), 5000);
+    } finally {
+      setIsDeleting(false);
+      setDeletingPatient(null);
+    }
+  };
+
   // Callback pri aktualizácii pacienta z komponentu PatientDriveFiles
   const handlePatientUpdatedFromDrive = (updated: Patient) => {
     setPatients(prev => prev.map(p => p.id === updated.id ? updated : p));
@@ -1088,19 +1258,35 @@ export default function PatientDatabase({
           setExternalAccessToken(signRes.accessToken, signRes.user);
         }
       } catch {
-        return;
+        // Používateľ zatvoril okno, skúsime lokálnu extrakciu cez serverový endpoint
       }
     }
-    if (!token) return;
 
     setIsExtractingSheet(true);
     try {
       const folderId = targetPatient.driveFolderId || (targetPatient.driveFolderLink ? targetPatient.driveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] : undefined);
-      const res = await DriveClientService.readAndExtractPatientSheet(
-        token,
-        targetPatient.name,
-        folderId
-      );
+      let res: { success: boolean; data?: any; error?: string } = { success: false };
+
+      if (token) {
+        res = await DriveClientService.readAndExtractPatientSheet(
+          token,
+          targetPatient.name,
+          folderId
+        );
+      } else {
+        // Priame volanie nášho serverového API, ktoré podporuje priame Docs/lokálne čítanie
+        const proxyRes = await fetch('/api/drive/patient-sheet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patientName: targetPatient.name, folderId }),
+        });
+        const pData = await proxyRes.json();
+        if (pData.success && pData.extractedData) {
+          res = { success: true, data: pData.extractedData };
+        } else {
+          res = { success: false, error: pData.error || 'Pre prístup k tomuto súboru sa prihláste cez Google účet.' };
+        }
+      }
 
       if (res.success && res.data) {
         const d = res.data;
@@ -1112,6 +1298,8 @@ export default function PatientDatabase({
           address: (d.address && d.address !== '---') ? d.address : targetPatient.address,
           dob: (d.dob && d.dob !== '---') ? d.dob : targetPatient.dob,
           insurance: (d.insurance && d.insurance !== 'Drive Klient') ? d.insurance : targetPatient.insurance,
+          sheetStatus: 'synced',
+          sheetCheckedAt: new Date().toISOString(),
         };
 
         await PatientCloudService.savePatient(updated, token);
@@ -1135,9 +1323,9 @@ export default function PatientDatabase({
 
         setDriveStatusMessage({
           type: 'success',
-          text: `Údaje pacienta ${updated.name} boli úspešne načítané zo Sheetu a uložené do Cloudu.`
+          text: `Údaje pacienta ${updated.name} boli úspešne načítané zo Sheetu (RČ: ${updated.birthNumber || '---'}, Tel: ${updated.phone || '---'}).`
         });
-        setTimeout(() => setDriveStatusMessage(null), 5000);
+        setTimeout(() => setDriveStatusMessage(null), 6000);
       } else {
         setDriveStatusMessage({
           type: 'error',
@@ -1896,21 +2084,35 @@ export default function PatientDatabase({
                   </p>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4 border-t border-[#E8E2D9] mt-4">
-                  <button type="button" onClick={() => setEditingPatient(null)} className="px-4 py-2 text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] cursor-pointer">ZRUŠIŤ</button>
-                  <button type="submit" disabled={cloudSyncStatus === 'saving'} className="px-5 py-2 bg-[#C5A059] hover:bg-[#b08d4b] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer">
-                    {cloudSyncStatus === 'saving' ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Ukladám do Cloudu...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Uložiť reálne údaje</span>
-                      </>
-                    )}
+                <div className="flex justify-between items-center gap-2 pt-4 border-t border-[#E8E2D9] mt-4">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      const pToDelete = editingPatient;
+                      setEditingPatient(null);
+                      setDeletingPatient(pToDelete);
+                    }} 
+                    className="px-3 py-2 text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Odstrániť klienta</span>
                   </button>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setEditingPatient(null)} className="px-4 py-2 text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] cursor-pointer">ZRUŠIŤ</button>
+                    <button type="submit" disabled={cloudSyncStatus === 'saving'} className="px-5 py-2 bg-[#C5A059] hover:bg-[#b08d4b] text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer">
+                      {cloudSyncStatus === 'saving' ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Ukladám do Cloudu...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Uložiť reálne údaje</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -2264,15 +2466,17 @@ export default function PatientDatabase({
                   return (
                     <div 
                       key={patient.id} 
-                      className={`border p-4 rounded-xl hover:shadow-md transition-all group flex flex-col justify-between ${
+                      onContextMenu={(e) => handleOpenCardContextMenu(e, patient)}
+                      onClick={() => handlePatientSelect(patient)}
+                      className={`border p-4 rounded-2xl hover:shadow-lg transition-all group flex flex-col justify-between cursor-pointer select-none relative ${
                         isCurrentActive 
                           ? 'border-[#C5A059] bg-[#FAF8F5] ring-2 ring-[#C5A059]/30 shadow-xs' 
                           : 'border-[#E8E2D9] hover:border-[#C5A059] bg-white'
                       }`}
                     >
-                      <div onClick={() => handlePatientSelect(patient)} className="cursor-pointer">
+                      <div>
                         <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap pr-1">
                             <h3 className="font-bold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">{patient.name}</h3>
                             {isCurrentActive && (
                               <span className="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1 shadow-2xs">
@@ -2286,8 +2490,23 @@ export default function PatientDatabase({
                               </span>
                             )}
                           </div>
-                          <span className="text-[9px] bg-[#FBF9F6] px-2 py-1 rounded text-[#8C857B] font-bold border border-[#E8E2D9]">{patient.insurance}</span>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-[9px] bg-[#FBF9F6] px-2 py-1 rounded text-[#8C857B] font-bold border border-[#E8E2D9]">{patient.insurance}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenCardContextMenu(e, patient);
+                              }}
+                              className="p-1 rounded-lg text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FBF9F6] border border-transparent hover:border-[#E8E2D9] transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                              title="Možnosti a rýchle akcie (alebo kliknite pravým tlačidlom)"
+                            >
+                              <MoreHorizontal className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
+
                         <p className="text-xs text-[#8C857B]">
                           RČ: {patient.birthNumber === 'Importované z Drive' ? (
                             <span className="text-amber-800 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/80">
@@ -2305,7 +2524,7 @@ export default function PatientDatabase({
                             e.stopPropagation();
                             setLoyaltyModalPatient({ id: patient.id, name: patient.name });
                           }}
-                          className="mt-2.5 p-2 rounded-lg bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] transition-all flex items-center justify-between gap-2"
+                          className="mt-2.5 p-2 rounded-xl bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] transition-all flex items-center justify-between gap-2"
                           title="Kliknutím nastavíte vernostnú kategóriu klienta (Basic 0%, Premium 5%, VIP 10%)"
                         >
                           <div className="flex items-center gap-1.5">
@@ -2325,73 +2544,9 @@ export default function PatientDatabase({
                           </span>
                         </div>
                       </div>
-
-                    <div className="mt-3 pt-3 border-t border-[#E8E2D9] flex justify-between items-center text-[10px] gap-1">
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingPatient(patient);
-                          }}
-                          className="text-[#8C857B] hover:text-[#C5A059] font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Edit3 className="w-3 h-3 text-[#C5A059]" />
-                          <span>Upraviť</span>
-                        </button>
-
-                        {(patient.birthNumber === 'Importované z Drive' || patient.phone === '---') && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleQuickExtractPatient(patient);
-                            }}
-                            className="text-amber-700 hover:text-amber-900 font-bold uppercase tracking-wider transition-colors flex items-center gap-1 border-l border-[#E8E2D9] pl-2 cursor-pointer"
-                            title="Automaticky prečítať telefón, e-mail a RČ zo Sheetu na Drive"
-                          >
-                            <Sparkles className="w-3 h-3 text-[#C5A059]" />
-                            <span>⚡ Sheet</span>
-                          </button>
-                        )}
-
-                        {onNavigateToPrescriptions && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onNavigateToPrescriptions(patient);
-                            }}
-                            className="text-emerald-700 hover:text-emerald-800 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 border-l border-[#E8E2D9] pl-2 cursor-pointer"
-                            title="Vystaviť lekársky recept ŠEVT 14 282 2s"
-                          >
-                            <Pill className="w-3 h-3 text-emerald-600" />
-                            <span>Recept</span>
-                          </button>
-                        )}
-
-                        {onNavigateToAesthetics && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onNavigateToAesthetics(patient);
-                            }}
-                            className="text-[#C5A059] hover:text-[#9C7D2B] font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 border-l border-[#E8E2D9] pl-2 cursor-pointer"
-                          >
-                            <Syringe className="w-3 h-3 text-[#C5A059]" />
-                            <span>Výplne & Botox</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <button 
-                        onClick={() => handlePatientSelect(patient)}
-                        className="text-[#2C2A29] font-bold uppercase tracking-wider group-hover:text-[#C5A059]"
-                      >
-                        Otvoriť →
-                      </button>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -2417,6 +2572,15 @@ export default function PatientDatabase({
                   >
                     <Edit3 className="w-3.5 h-3.5 text-[#C5A059]" />
                     <span>Upraviť profil</span>
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setDeletingPatient(selectedPatient)}
+                    className="text-xs bg-white border border-[#E8E2D9] hover:border-rose-300 px-2.5 py-1 rounded-lg text-[#8C857B] hover:text-rose-600 font-bold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Odstrániť tohto klienta z kartotéky"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Odstrániť</span>
                   </button>
                   <button 
                     type="button"
@@ -4230,6 +4394,325 @@ export default function PatientDatabase({
             patientName={loyaltyModalPatient.name}
             onLoyaltyUpdated={() => setLoyaltyVersion(v => v + 1)}
           />
+        )}
+
+        {/* KONTEXTOVÉ MENU NA PRAVÝ KLIK PRE KARTU PACIENTA */}
+        {cardContextMenu.isOpen && cardContextMenu.patient && (
+          <div
+            className="fixed z-[150] w-72 bg-white/95 backdrop-blur-md border border-[#E8E2D9] rounded-2xl shadow-2xl overflow-hidden text-xs text-[#2C2A29] flex flex-col animate-fadeIn select-none"
+            style={{ top: cardContextMenu.y, left: cardContextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* HLAVIČKA KONTEXTOVÉHO MENU */}
+            <div className="px-3.5 py-3 border-b border-[#E8E2D9] bg-[#2C2A29] text-white">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="font-brand font-bold text-sm text-white truncate">
+                  {cardContextMenu.patient.name}
+                </h4>
+                <span className="text-[9px] bg-white/15 px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[#E8E2D9] shrink-0">
+                  {cardContextMenu.patient.insurance}
+                </span>
+              </div>
+              <div className="text-[10px] text-[#E8E2D9]/75 mt-0.5 flex items-center gap-2 font-mono">
+                <span>RČ: {cardContextMenu.patient.birthNumber}</span>
+                {cardContextMenu.patient.phone && cardContextMenu.patient.phone !== '---' && (
+                  <>
+                    <span>•</span>
+                    <span>{cardContextMenu.patient.phone}</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* POLOŽKY MENU */}
+            <div className="p-1.5 space-y-0.5 max-h-[70vh] overflow-y-auto">
+              {/* 1. Otvoriť 360° kartu */}
+              <button
+                type="button"
+                onClick={() => {
+                  const p = cardContextMenu.patient;
+                  handleCloseCardContextMenu();
+                  if (p) handlePatientSelect(p);
+                }}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-[#FBF9F6] hover:text-[#C5A059] font-bold transition-colors group cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <FolderOpen className="w-4 h-4 text-[#C5A059]" />
+                  <span>Otvoriť kartu (360°)</span>
+                </div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-[#8C857B] group-hover:text-[#C5A059] opacity-70" />
+              </button>
+
+              {/* 2. Nastaviť ako rozpracovaného pacienta */}
+              {onSetActivePatient && (!activePatient || activePatient.id !== cardContextMenu.patient.id) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = cardContextMenu.patient;
+                    handleCloseCardContextMenu();
+                    if (p) onSetActivePatient(p);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-emerald-50 text-emerald-800 font-bold transition-colors cursor-pointer"
+                >
+                  <UserCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Nastaviť ako rozpracovaného</span>
+                </button>
+              )}
+
+              {/* 3. Upraviť osobné údaje */}
+              <button
+                type="button"
+                onClick={() => {
+                  const p = cardContextMenu.patient;
+                  handleCloseCardContextMenu();
+                  if (p) setEditingPatient(p);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-[#FBF9F6] hover:text-[#2C2A29] font-medium transition-colors cursor-pointer"
+              >
+                <Edit3 className="w-4 h-4 text-[#8C857B]" />
+                <span>Upraviť osobné údaje</span>
+              </button>
+
+              {/* 4. Načítať zo Sheetu na Drive */}
+              <button
+                type="button"
+                onClick={() => {
+                  const p = cardContextMenu.patient;
+                  handleCloseCardContextMenu();
+                  if (p) handleQuickExtractPatient(p);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-amber-50 text-amber-900 font-semibold transition-colors cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-amber-600" />
+                <span>⚡ Načítať kontakty zo Sheetu</span>
+              </button>
+
+              <div className="border-t border-[#E8E2D9] my-1"></div>
+
+              {/* 5. Vystaviť recept */}
+              {onNavigateToPrescriptions && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = cardContextMenu.patient;
+                    handleCloseCardContextMenu();
+                    if (p) onNavigateToPrescriptions(p);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-emerald-50 text-emerald-900 font-medium transition-colors cursor-pointer"
+                >
+                  <Pill className="w-4 h-4 text-emerald-600" />
+                  <span>Vystaviť lekársky recept (Rp.)</span>
+                </button>
+              )}
+
+              {/* 6. Estetika: Výplne & Botox */}
+              {onNavigateToAesthetics && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = cardContextMenu.patient;
+                    handleCloseCardContextMenu();
+                    if (p) onNavigateToAesthetics(p);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-[#FAF6EF] text-[#8A6827] font-medium transition-colors cursor-pointer"
+                >
+                  <Syringe className="w-4 h-4 text-[#C5A059]" />
+                  <span>Estetika: Výplne & Botox</span>
+                </button>
+              )}
+
+              {/* 7. Pokladňa POS / Kozmetika */}
+              {onNavigateToCosmetics && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = cardContextMenu.patient;
+                    handleCloseCardContextMenu();
+                    if (p) onNavigateToCosmetics(p);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-purple-50 text-purple-900 font-medium transition-colors cursor-pointer"
+                >
+                  <ShoppingBag className="w-4 h-4 text-purple-600" />
+                  <span>Pokladňa POS / Predaj kozmetiky</span>
+                </button>
+              )}
+
+              {/* 8. Nový dekurz / lekárska správa */}
+              {onNavigateToGenerator && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = cardContextMenu.patient;
+                    handleCloseCardContextMenu();
+                    if (p) onNavigateToGenerator(p);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-[#FBF9F6] text-[#2C2A29] font-medium transition-colors cursor-pointer"
+                >
+                  <FileText className="w-4 h-4 text-[#8C857B]" />
+                  <span>Nový dekurz / lekárska správa</span>
+                </button>
+              )}
+
+              {/* 9. Vernostný systém */}
+              <button
+                type="button"
+                onClick={() => {
+                  const p = cardContextMenu.patient;
+                  handleCloseCardContextMenu();
+                  if (p) setLoyaltyModalPatient({ id: p.id, name: p.name });
+                }}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-[#FAF6EF] text-[#8A6827] font-semibold transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Award className="w-4 h-4 text-[#C5A059]" />
+                  <span>Vernostný profil & Zľava</span>
+                </div>
+                {(() => {
+                  const pLoy = loyaltyMap.get(cardContextMenu.patient.id);
+                  return pLoy ? (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white border border-[#E6D4B2]">
+                      {pLoy.tierDef.name} ({pLoy.tierDef.discountPercent}%)
+                    </span>
+                  ) : null;
+                })()}
+              </button>
+
+              <div className="border-t border-[#E8E2D9] my-1"></div>
+
+              {/* 10. Kopírovať RČ */}
+              {cardContextMenu.patient.birthNumber && cardContextMenu.patient.birthNumber !== 'Importované z Drive' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rc = cardContextMenu.patient?.birthNumber;
+                    handleCloseCardContextMenu();
+                    if (rc) {
+                      navigator.clipboard?.writeText(rc);
+                      setDriveStatusMessage({
+                        type: 'success' as any,
+                        text: `Rodné číslo "${rc}" bolo skopírované do schránky.`
+                      });
+                      setTimeout(() => setDriveStatusMessage(null), 3000);
+                    }
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-left hover:bg-[#FBF9F6] text-[#8C857B] hover:text-[#2C2A29] text-[11px] transition-colors cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5 text-[#8C857B]" />
+                  <span>Kopírovať rodné číslo</span>
+                </button>
+              )}
+
+              {/* 11. Kopírovať Telefón */}
+              {cardContextMenu.patient.phone && cardContextMenu.patient.phone !== '---' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tel = cardContextMenu.patient?.phone;
+                    handleCloseCardContextMenu();
+                    if (tel) {
+                      navigator.clipboard?.writeText(tel);
+                      setDriveStatusMessage({
+                        type: 'success' as any,
+                        text: `Telefónne číslo "${tel}" bolo skopírované do schránky.`
+                      });
+                      setTimeout(() => setDriveStatusMessage(null), 3000);
+                    }
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-left hover:bg-[#FBF9F6] text-[#8C857B] hover:text-[#2C2A29] text-[11px] transition-colors cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5 text-[#8C857B]" />
+                  <span>Kopírovať telefón</span>
+                </button>
+              )}
+
+              <div className="border-t border-[#E8E2D9] my-1"></div>
+
+              {/* 12. Odstrániť klienta z kartotéky */}
+              <button
+                type="button"
+                onClick={() => {
+                  const p = cardContextMenu.patient;
+                  handleCloseCardContextMenu();
+                  if (p) setDeletingPatient(p);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-rose-50 text-rose-600 hover:text-rose-700 font-bold text-xs transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 text-rose-500" />
+                <span>Odstrániť klienta z kartotéky</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL POTVRDENIA ODSTRÁNENIA KLIENTA */}
+        {deletingPatient && (
+          <div className="fixed inset-0 bg-[#2C2A29]/60 flex items-center justify-center z-[160] backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white border border-[#E8E2D9] rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-brand font-bold text-base text-[#2C2A29] uppercase tracking-wider">
+                    Odstrániť klienta?
+                  </h3>
+                  <p className="text-xs text-[#8C857B]">
+                    Vyradenie karty klienta z centrálnej kartotéky
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] space-y-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-[#8C857B] font-medium">Meno klienta:</span>
+                  <span className="font-bold text-[#2C2A29]">{deletingPatient.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[#8C857B] font-medium">Rodné číslo:</span>
+                  <span className="font-mono text-[#2C2A29]">{deletingPatient.birthNumber || '---'}</span>
+                </div>
+                {deletingPatient.phone && deletingPatient.phone !== '---' && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#8C857B] font-medium">Telefón:</span>
+                    <span className="font-mono text-[#2C2A29]">{deletingPatient.phone}</span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-[#8C857B] leading-relaxed">
+                Naozaj si želáte natrvalo odstrániť klienta <strong className="text-[#2C2A29]">„{deletingPatient.name}“</strong> z kartotéky SAY CLINIC? Táto zmena sa okamžite prejaví vo Firestore aj na všetkých pripojených zariadeniach.
+              </p>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-[#E8E2D9]">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setDeletingPatient(null)}
+                  className="px-4 py-2.5 rounded-xl border border-[#E8E2D9] hover:bg-[#FAF8F5] text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  ZRUŠIŤ
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDeletePatient}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Odstraňujem...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Áno, odstrániť klienta</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </>

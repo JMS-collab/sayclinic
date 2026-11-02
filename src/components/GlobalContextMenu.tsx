@@ -17,6 +17,9 @@ export default function GlobalContextMenu({ children }: GlobalContextMenuProps) 
 
   // Funkcia na zachytenie pravého kliknutia
   const handleContextMenu = useCallback((e: MouseEvent) => {
+    // Ak už udalosť spracovalo špecifické kontextové menu (napr. na karte pacienta), neprepíšeme ho
+    if (e.defaultPrevented) return;
+    
     e.preventDefault(); // Zrušíme štandardné menu prehliadača
     setPosition({ x: e.pageX, y: e.pageY });
     setTargetElement(e.target as HTMLElement);

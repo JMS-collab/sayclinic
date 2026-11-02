@@ -3,32 +3,63 @@ import fs from 'fs';
 import path from 'path';
 import { SSEHub } from '@/lib/sseHub';
 
-const DATA_FILE = path.join(process.cwd(), 'src', 'data', 'clinic_data.json');
+const SEED_DATA_FILE = path.join(process.cwd(), 'src', 'data', 'clinic_data.json');
+const RUNTIME_DATA_FILE = path.join(process.cwd(), '.next', 'cache', 'clinic_data_runtime.json');
+
+// In-memory stav pre Live Presence a cache dát (aby sme pri každom heartbeate/syncu neprepisovali súbor v src/ a nespúšťali Next.js Fast Refresh loop)
+const globalForSync = globalThis as unknown as {
+  __sayClinicPresenceMap?: Record<string, Record<string, any>>;
+  __sayClinicDataCache?: Record<string, any> | null;
+};
+if (!globalForSync.__sayClinicPresenceMap) {
+  globalForSync.__sayClinicPresenceMap = {};
+}
 
 // Bezpečné načítanie centrálnych klinických dát zo servera
 function readClinicData(): Record<string, any> {
+  if (globalForSync.__sayClinicDataCache) {
+    return globalForSync.__sayClinicDataCache;
+  }
   try {
-    if (fs.existsSync(DATA_FILE)) {
-      const content = fs.readFileSync(DATA_FILE, 'utf-8');
-      return JSON.parse(content);
+    let baseData: Record<string, any> = {};
+    if (fs.existsSync(SEED_DATA_FILE)) {
+      const content = fs.readFileSync(SEED_DATA_FILE, 'utf-8');
+      baseData = JSON.parse(content);
     }
+    if (fs.existsSync(RUNTIME_DATA_FILE)) {
+      try {
+        const runtimeContent = fs.readFileSync(RUNTIME_DATA_FILE, 'utf-8');
+        const runtimeData = JSON.parse(runtimeContent);
+        // Zlúčime runtime zmeny so seed dátami (so zachovaním reálnych kontaktov pacientov)
+        for (const [key, val] of Object.entries(runtimeData)) {
+          if (key === 'patients' && Array.isArray(val) && Array.isArray(baseData.patients)) {
+            baseData.patients = mergeClinicalCollection('patients', baseData.patients, val);
+          } else {
+            baseData[key] = val;
+          }
+        }
+      } catch {}
+    }
+    globalForSync.__sayClinicDataCache = baseData;
+    return baseData;
   } catch (err) {
     console.error('Chyba pri čítaní clinic_data.json na serveri:', err);
   }
   return {};
 }
 
-// Bezpečný zápis centrálnych dát na disk servera
+// Bezpečný zápis centrálnych dát mimo sledovaný src/ priečinok (do .next/cache), aby Webpack nespúšťal nekonečný reload stránky
 function writeClinicData(data: Record<string, any>): boolean {
   try {
-    const dir = path.dirname(DATA_FILE);
+    globalForSync.__sayClinicDataCache = data;
+    const dir = path.dirname(RUNTIME_DATA_FILE);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(RUNTIME_DATA_FILE, JSON.stringify(data), 'utf-8');
     return true;
   } catch (err) {
-    console.error('Chyba pri zápise do clinic_data.json na serveri:', err);
+    console.error('Chyba pri zápise do clinic_data_runtime.json na serveri:', err);
     return false;
   }
 }
@@ -148,9 +179,21 @@ function mergeClinicalCollection(collection: string, existing: any, incoming: an
         if (!old) {
           map.set(p.id, p);
         } else {
+          // Nikdy neprepíšeme reálne kontaktné údaje zo Sheetu (RČ, tel, email) prázdnymi "Importované z Drive" hodnotami
+          const oldHasRealRC = old.birthNumber && old.birthNumber !== 'Importované z Drive' && old.birthNumber !== '---';
+          const newHasDummyRC = !p.birthNumber || p.birthNumber === 'Importované z Drive' || p.birthNumber === '---';
           const oldT = new Date(old.updatedAt || 0).getTime();
           const newT = new Date(p.updatedAt || 0).getTime();
-          map.set(p.id, newT >= oldT ? p : old);
+          const base = newT >= oldT ? { ...old, ...p } : { ...p, ...old };
+          if (oldHasRealRC && newHasDummyRC) {
+            base.birthNumber = old.birthNumber;
+            base.dob = old.dob && old.dob !== '---' ? old.dob : p.dob;
+            base.phone = old.phone && old.phone !== '---' ? old.phone : p.phone;
+            base.email = old.email && old.email !== '---' ? old.email : p.email;
+            base.address = old.address && old.address !== '---' ? old.address : p.address;
+            base.sheetStatus = old.sheetStatus || p.sheetStatus;
+          }
+          map.set(p.id, base);
         }
       }
     });
@@ -174,13 +217,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const currentData = readClinicData();
     const nowIso = new Date().toISOString();
     const nowMs = Date.now();
 
-    // Špeciálne spracovanie pre Live Presence (Kto má pacienta otvoreného)
+    // Špeciálne spracovanie pre Live Presence (Kto má pacienta otvoreného) - čisto v pamäti RAM bez prepisovania disku!
     if (collection === 'patient_presence') {
-      const presenceMap: Record<string, Record<string, any>> = currentData.patient_presence || {};
+      const presenceMap: Record<string, Record<string, any>> = globalForSync.__sayClinicPresenceMap || {};
       const { action, patientId, userId, userName, userTitle, userRole, avatarUrl } = data || {};
 
       if (patientId && userId) {
@@ -213,8 +255,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      currentData.patient_presence = presenceMap;
-      writeClinicData(currentData);
+      globalForSync.__sayClinicPresenceMap = presenceMap;
 
       // Okamžitý broadcast prítomnosti
       SSEHub.broadcast({
@@ -233,30 +274,37 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const currentData = readClinicData();
+
     // Inteligentné zlúčenie klinických dát s existujúcim stavom servera
     const mergedData = mergeClinicalCollection(collection, currentData[collection], data);
 
-    // Aktualizácia kolekcie v databáze servera
-    currentData[collection] = mergedData;
-    currentData[`_${collection}_updatedAt`] = nowIso;
-    currentData[`_${collection}_updatedBy`] = sourceUserId || 'system';
+    // Zápis na disk vykonáme IBA vtedy, ak sa obsah kolekcie reálne zmenil (zabraňuje zbytočnému disk I/O a dev server reloadom)
+    const existingSerialized = JSON.stringify(currentData[collection]);
+    const mergedSerialized = JSON.stringify(mergedData);
 
-    const written = writeClinicData(currentData);
-    if (!written) {
-      return NextResponse.json(
-        { success: false, error: 'Nepodarilo sa uložiť dáta na server' },
-        { status: 500 }
-      );
+    if (existingSerialized !== mergedSerialized) {
+      currentData[collection] = mergedData;
+      currentData[`_${collection}_updatedAt`] = nowIso;
+      currentData[`_${collection}_updatedBy`] = sourceUserId || 'system';
+
+      const written = writeClinicData(currentData);
+      if (!written) {
+        return NextResponse.json(
+          { success: false, error: 'Nepodarilo sa uložiť dáta na server' },
+          { status: 500 }
+        );
+      }
+
+      // Okamžitý broadcast cez SSE do všetkých otvorených prehliadačov a počítačov kliniky!
+      SSEHub.broadcast({
+        type: 'change',
+        collection,
+        data: mergedData,
+        sourceUserId,
+        timestamp: nowIso,
+      });
     }
-
-    // Okamžitý broadcast cez SSE do všetkých otvorených prehliadačov a počítačov kliniky!
-    SSEHub.broadcast({
-      type: 'change',
-      collection,
-      data: mergedData,
-      sourceUserId,
-      timestamp: nowIso,
-    });
 
     return NextResponse.json({
       success: true,

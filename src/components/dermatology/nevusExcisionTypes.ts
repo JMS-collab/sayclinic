@@ -120,13 +120,23 @@ export const EXCISION_PRESETS: ExcisionCatalogPreset[] = [
   },
   {
     id: 'subcut_lesion',
-    name: 'Podkožný útvar (Lipóm / Ateróm)',
+    name: 'Podkožný útvar (Lipóm / Ganglion / Ateróm)',
     category: 'podkozne',
     defaultMethod: 'chirurgicka_excizia',
     defaultHistology: true,
     defaultSuture: 'Vrstvová sutúra podkožia + intradermálny steh',
     defaultPrice: 130,
     description: 'Kompletná exstirpácia tumoru s puzdrom, prevencia recidívy'
+  },
+  {
+    id: 'tumor_flap_graft',
+    name: 'Odstránenie útvaru s plastickou rekonštrukciou (lalok / štep)',
+    category: 'chirurgia',
+    defaultMethod: 'chirurgicka_excizia',
+    defaultHistology: true,
+    defaultSuture: 'Miestny lalokový posun alebo voľný kožný transplantát',
+    defaultPrice: 400,
+    description: 'Odstránenie útvaru s nutnosťou lalokovej plastiky alebo transplantátu'
   },
   {
     id: 'histo_1',

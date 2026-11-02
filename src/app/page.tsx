@@ -31,7 +31,8 @@ import {
   LogOut,
   Cloud,
   Plus,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Tag
 } from 'lucide-react';
 import { DevicePinService } from '../services/devicePinService';
 import MedicalRecordForm from '../components/MedicalRecordForm';
@@ -46,6 +47,7 @@ import InventoryCRM from '../components/InventoryCRM';
 import { AestheticsModule } from '../components/AestheticsModule';
 import { CosmeticsPOSModule } from '../components/CosmeticsPOSModule';
 import ProjectManagement from '../components/ProjectManagement';
+import ClinicPriceListManagement from '../components/ClinicPriceListManagement';
 import OperativeNotesWidget from '../components/OperativeNotesWidget';
 import RolePermissionsModal from '../components/RolePermissionsModal';
 import AutoLogoutGuard from '../components/AutoLogoutGuard';
@@ -1050,7 +1052,7 @@ export default function Home() {
               const targetTab: TabId = pillar.id === 'operations'
                 ? (['inventory', 'cosmetics'].includes(activeTab) ? activeTab : 'inventory')
                 : pillar.id === 'management'
-                ? (['finance', 'projects'].includes(activeTab) ? activeTab : 'finance')
+                ? (['finance', 'projects', 'pricelist'].includes(activeTab) ? activeTab : 'finance')
                 : pillar.id === 'patients'
                 ? (['patients', 'generator', 'aesthetics', 'prescriptions'].includes(activeTab) ? activeTab : 'patients')
                 : pillar.id === 'calendar'
@@ -2038,7 +2040,7 @@ export default function Home() {
                       setPatients(updatedList);
                       if (activePatient) {
                         const updatedActive = updatedList.find(p => p.id === activePatient.id);
-                        if (updatedActive) {
+                        if (updatedActive && JSON.stringify(updatedActive) !== JSON.stringify(activePatient)) {
                           handleSetActivePatient(updatedActive);
                         }
                       }
@@ -2188,8 +2190,8 @@ export default function Home() {
               </div>
             )}
 
-            {/* MANAŽMENT: FINANCIE & PROJEKTY */}
-            {(activeTab === 'finance' || activeTab === 'projects') && (
+            {/* MANAŽMENT: FINANCIE, PROJEKTY & CENNÍK */}
+            {(activeTab === 'finance' || activeTab === 'projects' || activeTab === 'pricelist') && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#E8E2D9]/80 pb-4">
                   <div>
@@ -2197,12 +2199,12 @@ export default function Home() {
                       Manažment & Financie
                     </h2>
                     <p className="text-xs text-[#8C857B]">
-                      Finančné riadenie kliniky, P&L výkaz, faktúry a operatívne projekty tímu
+                      Finančné riadenie kliniky, P&L výkaz, cenník služieb a operatívne projekty tímu
                     </p>
                   </div>
                   
-                  {/* PREPÍNAČ MEDZI FINANCIAMI A PROJEKTAMI (VEKTOROVÉ IKONY) */}
-                  <div className="flex items-center gap-1 p-1 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl">
+                  {/* PREPÍNAČ MEDZI FINANCIAMI, PROJEKTAMI A CENNÍKOM */}
+                  <div className="flex items-center gap-1 p-1 bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl flex-wrap">
                     {PermissionsService.canUserAccessTab(currentUser, 'finance') && (
                       <button
                         type="button"
@@ -2231,6 +2233,20 @@ export default function Home() {
                         <span>Projekty & Úlohy</span>
                       </button>
                     )}
+                    {PermissionsService.canUserAccessTab(currentUser, 'pricelist') && (
+                      <button
+                        type="button"
+                        onClick={() => changeTab('pricelist')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                          activeTab === 'pricelist'
+                            ? 'bg-[#2C2A29] text-white shadow-2xs'
+                            : 'text-[#8C857B] hover:text-[#2C2A29]'
+                        }`}
+                      >
+                        <Tag className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>Cenník služieb</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -2244,6 +2260,11 @@ export default function Home() {
                 )}
                 {activeTab === 'projects' && (
                   <ProjectManagement 
+                    currentUser={currentUser}
+                  />
+                )}
+                {activeTab === 'pricelist' && (
+                  <ClinicPriceListManagement 
                     currentUser={currentUser}
                   />
                 )}

@@ -20,11 +20,14 @@ import {
   X,
   Package,
   Palette,
-  Layers
+  Layers,
+  Activity
 } from 'lucide-react';
 
 import femaleBustFront from '../assets/images/sculpture_front_perfect_1788381191502.jpg';
 import femaleBustProfile from '../assets/images/sculpture_profile_perfect_1788381207260.jpg';
+import { FacialMusclesOverlay } from './sculpture/FacialMusclesOverlay';
+import { convert2DPointTo3D, VectorPoint3D } from '../utils/aestheticCoordinates';
 
 export type SculptureViewType = 'front' | 'profile_left' | 'profile_right';
 export type DrawingToolType = 'select' | 'move' | 'vector' | 'fanning' | 'point' | 'freehand' | 'threads';
@@ -157,11 +160,18 @@ export interface Vector2DItem {
   fanningRays?: Point2D[]; // For fanning lines
   zoneName: string;
   productName: string;
-  lotNumber: string;
+  lotNumber?: string;
   details: string;
   units?: number;
   unitsUnit?: string;
+  price?: number;
   createdAt: string;
+  // 3D coordinates for seamless 360° synchronization
+  start3D?: VectorPoint3D;
+  end3D?: VectorPoint3D;
+  points3D?: VectorPoint3D[];
+  fanningLines3D?: VectorPoint3D[];
+  rotationY?: number;
 }
 
 interface Sculpture2DViewerProps {
@@ -215,8 +225,11 @@ export function Sculpture2DViewer({
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Visual Guides toggle
+  // Visual Guides & Layers toggle
   const [showAnatomicalGuides, setShowAnatomicalGuides] = useState(false);
+  const [showMuscleLayer, setShowMuscleLayer] = useState(false);
+  const [muscleOpacity, setMuscleOpacity] = useState(0.55);
+  const [showMuscleLabels, setShowMuscleLabels] = useState(true);
 
   // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
@@ -585,6 +598,7 @@ export function Sculpture2DViewer({
         view: currentView,
         color: activeColor,
         startPoint: coords,
+        start3D: convert2DPointTo3D(coords, currentView),
         zoneName: zone,
         productName: currentProduct.name,
         lotNumber: currentProduct.lot,
@@ -745,6 +759,8 @@ export function Sculpture2DViewer({
         color: activeColor,
         startPoint: currentDrawStart,
         endPoint: currentDrawCurrent,
+        start3D: convert2DPointTo3D(currentDrawStart, currentView),
+        end3D: convert2DPointTo3D(currentDrawCurrent, currentView),
         zoneName: `Kanylový vektor (${zone})`,
         productName: currentProduct.name,
         lotNumber: currentProduct.lot,
@@ -778,6 +794,9 @@ export function Sculpture2DViewer({
         startPoint: currentDrawStart,
         endPoint: currentDrawCurrent,
         fanningRays,
+        start3D: convert2DPointTo3D(currentDrawStart, currentView),
+        end3D: convert2DPointTo3D(currentDrawCurrent, currentView),
+        fanningLines3D: fanningRays.map(r => convert2DPointTo3D(r, currentView)),
         zoneName: `Vejár / Fanning (${zone})`,
         productName: currentProduct.name,
         lotNumber: currentProduct.lot,
@@ -792,6 +811,8 @@ export function Sculpture2DViewer({
         view: currentView,
         color: activeColor,
         points: currentFreehandPoints,
+        startPoint: currentFreehandPoints[0],
+        points3D: currentFreehandPoints.map(p => convert2DPointTo3D(p, currentView)),
         zoneName: `Chirurgický nárys (${zone})`,
         productName: currentProduct.name,
         lotNumber: currentProduct.lot,
@@ -853,8 +874,54 @@ export function Sculpture2DViewer({
           })}
         </div>
 
-        {/* ANATOMICKÁ MRIEŽKA & POČET VEKTOROV */}
+        {/* SVALY TVÁRE, ANATOMICKÁ MRIEŽKA & POČET VEKTOROV */}
         <div className="flex items-center gap-2 text-xs text-[#8C857B] px-1 font-medium flex-wrap">
+          {/* Tlačidlo vrstvy svalov tváre */}
+          <button
+            type="button"
+            onClick={() => setShowMuscleLayer(!showMuscleLayer)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer shadow-2xs ${
+              showMuscleLayer 
+                ? 'bg-rose-700 text-white shadow-xs ring-2 ring-rose-400/40' 
+                : 'bg-white text-[#2C2A29] border border-[#E8E2D9] hover:border-rose-400 hover:text-rose-700'
+            }`}
+            title="Zobraziť / skryť jemne priehľadnú vrstvu svalov tváre (M. frontalis, corrugator, orbicularis, masseter...)"
+          >
+            <Activity className="w-3.5 h-3.5 text-rose-500" />
+            <span>Svaly tváre</span>
+          </button>
+
+          {/* Posuvník jemnej priehľadnosti svalovej vrstvy */}
+          {showMuscleLayer && (
+            <div className="flex items-center gap-2 bg-[#FAF8F5] px-2.5 py-1 rounded-xl border border-rose-200 shadow-2xs animate-in fade-in">
+              <span className="text-[10px] font-bold text-rose-800">Priehľadnosť:</span>
+              <input
+                type="range"
+                min="0.15"
+                max="0.90"
+                step="0.05"
+                value={muscleOpacity}
+                onChange={(e) => setMuscleOpacity(parseFloat(e.target.value))}
+                className="w-16 h-1.5 bg-rose-200 accent-rose-600 rounded-lg cursor-pointer"
+                title={`Priehľadnosť svalov: ${Math.round(muscleOpacity * 100)}%`}
+              />
+              <span className="text-[10px] font-mono font-bold text-rose-800 w-7 text-right">
+                {Math.round(muscleOpacity * 100)}%
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setShowMuscleLabels(!showMuscleLabels)}
+                className={`text-[9.5px] px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
+                  showMuscleLabels ? 'bg-rose-700 text-white' : 'bg-white text-rose-700 border border-rose-300'
+                }`}
+                title="Zapnúť / vypnúť anatomické názvy svalov"
+              >
+                Názvy
+              </button>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => setShowAnatomicalGuides(!showAnatomicalGuides)}
@@ -1171,11 +1238,6 @@ export function Sculpture2DViewer({
                     <Package className="w-3 h-3 text-[#C5A059]" />
                     <span>Produkt:</span>
                   </label>
-                  {unitsPopover.lotNumber && (
-                    <span className="text-[9.5px] font-mono text-[#8C857B] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">
-                      LOT: {unitsPopover.lotNumber}
-                    </span>
-                  )}
                 </div>
 
                 <select
@@ -1561,6 +1623,27 @@ export function Sculpture2DViewer({
               {/* Marble Atmosphere & Subtle Vignette */}
               <rect x="0" y="0" width="600" height="800" fill="url(#bustVignette)" className="pointer-events-none" />
             </g>
+
+            {/* B. SVALOVÁ ANATÓMIA TVÁRE (JEMNE PRIEHĽADNÁ VRSTVA) */}
+            {showMuscleLayer && (
+              <g clipPath="url(#bustRoundedClip)" id="facial_muscles_container">
+                {currentView === 'profile_right' ? (
+                  <g transform="translate(600, 0) scale(-1, 1)">
+                    <FacialMusclesOverlay
+                      view="profile_left"
+                      opacity={muscleOpacity}
+                      showLabels={showMuscleLabels}
+                    />
+                  </g>
+                ) : (
+                  <FacialMusclesOverlay
+                    view={currentView}
+                    opacity={muscleOpacity}
+                    showLabels={showMuscleLabels}
+                  />
+                )}
+              </g>
+            )}
 
             {/* B. ANATOMICKÁ MRIEŽKA & VODIACE LÍNIE (OVERLAY) */}
             {showAnatomicalGuides && (

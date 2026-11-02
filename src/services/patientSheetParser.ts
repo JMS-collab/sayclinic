@@ -23,6 +23,37 @@ export interface ExtractedPatientData {
   extractedFieldsCount: number;
 }
 
+export const CLINIC_EMAILS = new Set([
+  'mrazplastickachirurgia@gmail.com',
+  'mrazplasticsurgery@gmail.com',
+  'jan.mraz89@gmail.com',
+  'say@sayclinic.sk',
+  'mraz@sayclinic.sk',
+  'info@sayclinic.sk',
+]);
+
+export function isClinicEmail(email: string): boolean {
+  if (!email) return false;
+  const lower = email.trim().toLowerCase();
+  return CLINIC_EMAILS.has(lower) || lower.endsWith('@sayclinic.sk');
+}
+
+export function isFieldLabel(text: string): boolean {
+  if (!text) return false;
+  const clean = text.toLowerCase().trim().replace(/[:\s]+$/, '');
+  const labels = [
+    'meno', 'meno a priezvisko', 'pacient', 'klient', 'klientka',
+    'rodné číslo', 'rodne cislo', 'rč', 'rc', 'r.č.',
+    'telefón', 'telefon', 'telefónne číslo', 'telefonne cislo', 'tel', 'tel.', 'mobil', 'kontakt',
+    'email', 'e-mail', 'mail', 'e-mailová adresa', 'emailová adresa',
+    'bydlisko', 'adresa', 'trvalý pobyt', 'trvaly pobyt', 'adresa trvalého pobytu',
+    'dátum', 'datum', 'dátum narodenia', 'datum narodenia', 'narodený', 'narodená', 'dob',
+    'poisťovňa', 'poistovna', 'zdravotná poisťovňa', 'zp',
+    'klinika', 'klinika rudlová', 'dl -clinic', 'dl clinic', 'druh zákroku', 'zákrok', 'položky', 'cena', 'popis'
+  ];
+  return labels.includes(clean);
+}
+
 /**
  * Odvodenie dátumu narodenia a pohlavia zo slovenského rodného čísla
  */
@@ -60,9 +91,16 @@ export function deriveDobFromBirthNumber(rc: string): string | undefined {
  * Formátovanie telefónneho čísla do štandardizovaného slovenského tvaru
  */
 export function normalizePhoneNumber(raw: string): string {
+  if (!raw) return '';
+  if (raw.includes('www.') || raw.includes('.sk') || raw.includes('.com') || isFieldLabel(raw)) {
+    return '';
+  }
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length < 8) {
+    return '';
+  }
   const cleaned = raw.replace(/[^\d+]/g, '');
   if (cleaned.startsWith('+421') && cleaned.length >= 12) {
-    // +421 905 123 456
     const num = cleaned.substring(4);
     if (num.length === 9) {
       return `+421 ${num.substring(0, 3)} ${num.substring(3, 6)} ${num.substring(6)}`;
@@ -76,7 +114,15 @@ export function normalizePhoneNumber(raw: string): string {
     }
   }
   if (cleaned.startsWith('09') && cleaned.length === 10) {
-    return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7)}`;
+    const num = cleaned.substring(1);
+    return `+421 ${num.substring(0, 3)} ${num.substring(3, 6)} ${num.substring(6)}`;
+  }
+  if (cleaned.startsWith('9') && cleaned.length === 9) {
+    return `+421 ${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}`;
+  }
+  if (cleaned.startsWith('4219') && cleaned.length === 12) {
+    const num = cleaned.substring(3);
+    return `+421 ${num.substring(0, 3)} ${num.substring(3, 6)} ${num.substring(6)}`;
   }
   return raw.trim();
 }
@@ -134,43 +180,50 @@ export function parseSheetGrid(grid: any[][], patientNameHint?: string): Extract
 
       const lowerCell = cell.toLowerCase();
 
+      const cleanKey = lowerCell.replace(/[:\s]+$/, '');
+
       // Pomocná funkcia na získanie susednej hodnoty
       const getNextVal = (): string => {
         // Skúsime bunku vpravo (stĺpec c+1)
         if (c + 1 < row.length && String(row[c + 1] || '').trim()) {
-          return String(row[c + 1]).trim();
+          const cand = String(row[c + 1]).trim();
+          if (!isFieldLabel(cand)) return cand;
         }
         // Skúsime bunku pod ňou (riadok r+1, stĺpec c)
         if (r + 1 < grid.length && String(grid[r + 1][c] || '').trim()) {
-          return String(grid[r + 1][c]).trim();
+          const cand = String(grid[r + 1][c]).trim();
+          if (!isFieldLabel(cand)) return cand;
         }
         return '';
       };
 
       // TELEFÓN
       if (!result.phone && (
-        lowerCell === 'telefón' || lowerCell === 'telefon' || lowerCell === 'tel' || lowerCell === 'mobil' || 
-        lowerCell === 'telefónne číslo' || lowerCell === 'telefonne cislo' || lowerCell === 'tel.' || lowerCell.startsWith('tel:')
+        cleanKey === 'telefón' || cleanKey === 'telefon' || cleanKey === 'tel' || cleanKey === 'mobil' || 
+        cleanKey === 'telefónne číslo' || cleanKey === 'telefonne cislo' || cleanKey === 'tel.' || cleanKey === 'kontakt' || cleanKey.startsWith('tel:')
       )) {
         let val = getNextVal();
         if (!val && cell.includes(':')) {
           val = cell.split(':')[1]?.trim() || '';
         }
-        if (val) {
-          result.phone = normalizePhoneNumber(val);
-          foundFields.add('phone');
+        if (val && !isFieldLabel(val)) {
+          const norm = normalizePhoneNumber(val);
+          if (norm) {
+            result.phone = norm;
+            foundFields.add('phone');
+          }
         }
       }
 
       // EMAIL
       if (!result.email && (
-        lowerCell === 'email' || lowerCell === 'e-mail' || lowerCell === 'mail' || lowerCell.startsWith('email:') || lowerCell.startsWith('e-mail:')
+        cleanKey === 'email' || cleanKey === 'e-mail' || cleanKey === 'mail' || cleanKey === 'e-mailová adresa' || cleanKey === 'emailová adresa' || cleanKey.startsWith('email:') || cleanKey.startsWith('e-mail:')
       )) {
         let val = getNextVal();
         if (!val && cell.includes(':')) {
           val = cell.split(':')[1]?.trim() || '';
         }
-        if (val && val.includes('@')) {
+        if (val && val.includes('@') && !isClinicEmail(val)) {
           result.email = val.trim();
           foundFields.add('email');
         }
@@ -178,7 +231,7 @@ export function parseSheetGrid(grid: any[][], patientNameHint?: string): Extract
 
       // RODNÉ ČÍSLO
       if (!result.birthNumber && (
-        lowerCell === 'rodné číslo' || lowerCell === 'rodne cislo' || lowerCell === 'rč' || lowerCell === 'rc' || lowerCell === 'r.č.' || lowerCell.startsWith('rč:')
+        cleanKey === 'rodné číslo' || cleanKey === 'rodne cislo' || cleanKey === 'rč' || cleanKey === 'rc' || cleanKey === 'r.č.' || cleanKey.startsWith('rč:')
       )) {
         let val = getNextVal();
         if (!val && cell.includes(':')) {
@@ -202,13 +255,13 @@ export function parseSheetGrid(grid: any[][], patientNameHint?: string): Extract
 
       // DÁTUM NARODENIA
       if (!result.dob && (
-        lowerCell.includes('dátum narodenia') || lowerCell.includes('datum narodenia') || lowerCell === 'narodený' || lowerCell === 'narodená' || lowerCell === 'dob'
+        cleanKey === 'dátum narodenia' || cleanKey === 'datum narodenia' || cleanKey === 'narodený' || cleanKey === 'narodená' || cleanKey === 'dob' || cleanKey.startsWith('dátum narodenia:')
       )) {
         let val = getNextVal();
         if (!val && cell.includes(':')) {
           val = cell.split(':')[1]?.trim() || '';
         }
-        if (val) {
+        if (val && !isFieldLabel(val)) {
           result.dob = val.trim();
           foundFields.add('dob');
         }
@@ -216,13 +269,13 @@ export function parseSheetGrid(grid: any[][], patientNameHint?: string): Extract
 
       // ADRESA / BYDLISKO
       if (!result.address && (
-        lowerCell === 'bydlisko' || lowerCell === 'adresa' || lowerCell === 'trvalý pobyt' || lowerCell === 'trvaly pobyt' || lowerCell === 'adresa trvalého pobytu' || lowerCell.startsWith('adresa:')
+        cleanKey === 'bydlisko' || cleanKey === 'adresa' || cleanKey === 'trvalý pobyt' || cleanKey === 'trvaly pobyt' || cleanKey === 'adresa trvalého pobytu' || cleanKey.startsWith('adresa:') || cleanKey.startsWith('bydlisko:')
       )) {
         let val = getNextVal();
         if (!val && cell.includes(':')) {
           val = cell.split(':')[1]?.trim() || '';
         }
-        if (val && val.length > 3) {
+        if (val && val.length > 3 && !isFieldLabel(val) && !val.includes('@') && !val.startsWith('DL -')) {
           result.address = val.trim();
           foundFields.add('address');
         }
@@ -230,13 +283,13 @@ export function parseSheetGrid(grid: any[][], patientNameHint?: string): Extract
 
       // POISŤOVŇA
       if (!result.insurance && (
-        lowerCell === 'poisťovňa' || lowerCell === 'poistovna' || lowerCell === 'zdravotná poisťovňa' || lowerCell === 'zp' || lowerCell.startsWith('poisťovňa:')
+        cleanKey === 'poisťovňa' || cleanKey === 'poistovna' || cleanKey === 'zdravotná poisťovňa' || cleanKey === 'zp' || cleanKey.startsWith('poisťovňa:')
       )) {
         let val = getNextVal();
         if (!val && cell.includes(':')) {
           val = cell.split(':')[1]?.trim() || '';
         }
-        if (val) {
+        if (val && !isFieldLabel(val)) {
           result.insurance = normalizeInsurance(val);
           foundFields.add('insurance');
         }
@@ -244,10 +297,10 @@ export function parseSheetGrid(grid: any[][], patientNameHint?: string): Extract
 
       // MENO
       if (!result.name && (
-        lowerCell === 'meno' || lowerCell === 'meno a priezvisko' || lowerCell === 'pacient' || lowerCell === 'klient'
+        cleanKey === 'meno' || cleanKey === 'meno a priezvisko' || cleanKey === 'pacient' || cleanKey === 'klient' || cleanKey === 'klientka'
       )) {
         const val = getNextVal();
-        if (val && val.length > 3 && !val.includes('@') && !val.match(/^\+?\d/)) {
+        if (val && val.length > 3 && !val.includes('@') && !val.match(/^\+?\d/) && !isFieldLabel(val)) {
           result.name = val.trim();
           foundFields.add('name');
         }
@@ -275,8 +328,8 @@ export function parseSheetGrid(grid: any[][], patientNameHint?: string): Extract
             result.phone = normalizePhoneNumber(val);
             foundFields.add('phone');
           }
-          if (!result.email && colName.includes('mail') && val.includes('@')) {
-            result.email = val;
+          if (!result.email && colName.includes('mail') && val.includes('@') && !isClinicEmail(val)) {
+            result.email = val.trim();
             foundFields.add('email');
           }
           if (!result.birthNumber && (colName.includes('rodn') || colName === 'rč' || colName === 'rc')) {
@@ -322,7 +375,7 @@ export function parseSheetGrid(grid: any[][], patientNameHint?: string): Extract
       // Hľadanie e-mailu kdekoľvek v texte
       if (!result.email) {
         const mailMatch = cellStr.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-        if (mailMatch) {
+        if (mailMatch && !isClinicEmail(mailMatch[1])) {
           result.email = mailMatch[1];
           foundFields.add('email');
         }
@@ -425,24 +478,50 @@ export function parsePatientSheetData(
     let workbook: XLSX.WorkBook;
 
     if (typeof fileContent === 'string') {
-      // 1. Skúsime najprv či to nie je JSON (profil_klienta.json)
+      // 1. Skúsime najprv či to nie je JSON (profil_klienta.json alebo .gsheet)
       if (fileContent.trim().startsWith('{') && fileContent.trim().endsWith('}')) {
         try {
           const jsonObj = JSON.parse(fileContent);
-          if (jsonObj && (jsonObj.phone || jsonObj.email || jsonObj.birthNumber || jsonObj.name)) {
-            return {
-              name: jsonObj.name || patientNameHint,
-              birthNumber: jsonObj.birthNumber && jsonObj.birthNumber !== 'Importované z Drive' ? jsonObj.birthNumber : undefined,
-              dob: jsonObj.dob && jsonObj.dob !== '---' ? jsonObj.dob : undefined,
-              phone: jsonObj.phone && jsonObj.phone !== '---' ? normalizePhoneNumber(jsonObj.phone) : undefined,
-              email: jsonObj.email && jsonObj.email !== '---' ? jsonObj.email : undefined,
-              address: jsonObj.address && jsonObj.address !== '---' ? jsonObj.address : undefined,
-              insurance: jsonObj.insurance && jsonObj.insurance !== 'Drive Klient' ? jsonObj.insurance : undefined,
-              allergies: Array.isArray(jsonObj.allergies) ? jsonObj.allergies : undefined,
-              notes: jsonObj.notes || undefined,
-              sourceFileName: fileName || 'profil_klienta.json',
-              extractedFieldsCount: 5
-            };
+          // Ak je to .gsheet pointer súbor, NEPARSUJEME ho ako dáta pacienta!
+          if (jsonObj && jsonObj.doc_id) {
+            return { extractedFieldsCount: 0 };
+          }
+          if (jsonObj) {
+            const birthNumber = jsonObj.birthNumber && jsonObj.birthNumber !== 'Importované z Drive' && jsonObj.birthNumber !== '---' 
+              ? normalizeBirthNumber(jsonObj.birthNumber) 
+              : undefined;
+            const dob = jsonObj.dob && jsonObj.dob !== '---' 
+              ? jsonObj.dob 
+              : (birthNumber ? deriveDobFromBirthNumber(birthNumber) : undefined);
+            const phone = jsonObj.phone && jsonObj.phone !== '---' 
+              ? normalizePhoneNumber(jsonObj.phone) 
+              : undefined;
+            const emailRaw = jsonObj.email && jsonObj.email !== '---' ? jsonObj.email.trim() : undefined;
+            const email = (emailRaw && !isClinicEmail(emailRaw)) ? emailRaw : undefined;
+            const address = jsonObj.address && jsonObj.address !== '---' && !isFieldLabel(jsonObj.address) 
+              ? jsonObj.address 
+              : undefined;
+            const insurance = jsonObj.insurance && jsonObj.insurance !== 'Drive Klient' && jsonObj.insurance !== '---' 
+              ? normalizeInsurance(jsonObj.insurance) 
+              : undefined;
+
+            const validCount = [phone, birthNumber, email, address, dob, insurance].filter(Boolean).length;
+            // Prijmeme iba ak skutočne obsahuje aspoň jedno reálne kontaktné pole (nie len meno s prázdnymi hodnotami)
+            if (validCount > 0) {
+              return {
+                name: jsonObj.name || patientNameHint,
+                birthNumber,
+                dob,
+                phone,
+                email,
+                address,
+                insurance,
+                allergies: Array.isArray(jsonObj.allergies) ? jsonObj.allergies : undefined,
+                notes: jsonObj.notes || undefined,
+                sourceFileName: fileName || 'profil_klienta.json',
+                extractedFieldsCount: validCount
+              };
+            }
           }
         } catch {
           // Nie je validný JSON profil, pokračujeme ďalej

@@ -31,6 +31,8 @@ export const WORKSPACE_SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.compose',
   'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/spreadsheets.readonly',
 ];
 
 WORKSPACE_SCOPES.forEach((scope) => {
@@ -221,7 +223,12 @@ export const signInWithGIS = async (): Promise<{ user: any; accessToken: string 
             }
           },
           error_callback: (err: any) => {
-            const msg = err?.message || 'Chyba inicializácie Google prihlásenia.';
+            const rawMsg = err?.message || err?.type || 'Chyba inicializácie Google prihlásenia.';
+            let msg = rawMsg;
+            if (rawMsg.includes('origin_mismatch') || err?.type === 'origin_mismatch') {
+              const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+              msg = `Chyba 400: origin_mismatch — Google Cloud Console vyžaduje pridanie adresy "${currentOrigin}" do "Authorized JavaScript origins" (projekt gen-lang-client-0588591925).`;
+            }
             lastAuthError = msg;
             notifyListeners();
             reject(new Error(msg));
@@ -245,7 +252,7 @@ export const googleSignIn = async (): Promise<{ user: User | any; accessToken: s
     isSigningIn = true;
     lastAuthError = null;
 
-    // 1. Pokus cez Firebase Auth Popup
+    // 1. Priame volanie Firebase Auth Popup na základe gesta používateľa (bez predchádzajúcich await delayov)
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -257,6 +264,17 @@ export const googleSignIn = async (): Promise<{ user: User | any; accessToken: s
         return { user: result.user, accessToken: cachedAccessToken };
       }
     } catch (firebaseErr: any) {
+      // Špecifické ošetrenie 'missing initial state' pri storage-partitioned prehliadačoch (Safari ITP / Chrome CHIPS / Anonymné okno)
+      if (
+        firebaseErr?.code === 'auth/missing-initial-state' ||
+        firebaseErr?.message?.includes('missing initial state')
+      ) {
+        const msg =
+          'Prehliadač zablokoval odovzdanie prihlasovacej relácie (Third-Party Cookies / Storage Partitioning). Povoľte prosím cookies tretej strany alebo vyskakovacie okná v nastaveniach prehliadača (alebo otvorte aplikáciu v štandardnom okne bez prísneho blokovania).';
+        lastAuthError = msg;
+        notifyListeners();
+        return null;
+      }
       // Špecifické ošetrenie nepovolenej domény (napr. sayclinic.vercel.app)
       if (
         firebaseErr?.code === 'auth/unauthorized-domain' ||
