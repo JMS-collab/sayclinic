@@ -8,12 +8,12 @@ import {
   FinanceBillingService, 
   Invoice, 
   PatientFinancialProfile, 
-  CreditTransaction 
+  CreditTransaction,
+  PaymentMethod 
 } from '@/services/financeBillingService';
 import { InventoryService } from '@/services/inventoryService';
 import { matchesQuery, normalizeDigits } from '@/utils/fuzzySearch';
 import InvoiceDetailModal from './finance/InvoiceDetailModal';
-import CreateInvoiceModal from './finance/CreateInvoiceModal';
 import ClientFinanceDetailModal from './finance/ClientFinanceDetailModal';
 import MonthlyFinancialVisualizer from './finance/MonthlyFinancialVisualizer';
 import ClientLoyaltyModal from './ClientLoyaltyModal';
@@ -146,18 +146,57 @@ export default function FinanceCRM({
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isInvoiceDetailOpen, setIsInvoiceDetailOpen] = useState(false);
 
-  const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
-  const [createInvoicePreset, setCreateInvoicePreset] = useState<{
-    patientName: string;
-    procedureName: string;
-    amount: number;
-    type: 'advance' | 'standard';
-  }>({
-    patientName: '',
-    procedureName: '',
-    amount: 800,
-    type: 'advance'
-  });
+  // Rýchla úprava externých faktúr (ZF / DF) priamo pri riadku klienta
+  const [quickEditProfile, setQuickEditProfile] = useState<PatientFinancialProfile | null>(null);
+  const [quickAdvNum, setQuickAdvNum] = useState('');
+  const [quickAdvAmt, setQuickAdvAmt] = useState('');
+  const [quickIsAdvPaid, setQuickIsAdvPaid] = useState(false);
+  const [quickAdvDate, setQuickAdvDate] = useState('');
+  const [quickAdvMethod, setQuickAdvMethod] = useState<PaymentMethod>('bank_transfer');
+
+  const [quickFinNum, setQuickFinNum] = useState('');
+  const [quickFinAmt, setQuickFinAmt] = useState('');
+  const [quickIsFinPaid, setQuickIsFinPaid] = useState(false);
+  const [quickFinDate, setQuickFinDate] = useState('');
+  const [quickFinMethod, setQuickFinMethod] = useState<PaymentMethod>('card');
+
+  const handleOpenQuickInvoiceEdit = (p: PatientFinancialProfile, target?: 'advance' | 'final') => {
+    setQuickEditProfile(p);
+    setQuickAdvNum(p.advanceInvoiceNumber || '');
+    setQuickAdvAmt(p.advanceAmount !== undefined ? String(p.advanceAmount) : (p.depositPaid || p.depositRequired ? String(p.depositPaid || p.depositRequired) : ''));
+    setQuickIsAdvPaid(Boolean(p.isAdvancePaid));
+    setQuickAdvDate(p.advancePaidDate || '');
+    setQuickAdvMethod(p.advancePaymentMethod || 'bank_transfer');
+
+    setQuickFinNum(p.finalInvoiceNumber || '');
+    setQuickFinAmt(p.finalAmount !== undefined ? String(p.finalAmount) : (p.balanceDue ? String(p.balanceDue) : ''));
+    setQuickIsFinPaid(Boolean(p.isFinalPaid));
+    setQuickFinDate(p.finalPaidDate || '');
+    setQuickFinMethod(p.finalPaymentMethod || 'card');
+  };
+
+  const handleSaveQuickInvoiceEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickEditProfile) return;
+
+    const updated = FinanceBillingService.updateClientInvoiceTracking(quickEditProfile.id, {
+      advanceInvoiceNumber: quickAdvNum,
+      advanceAmount: quickAdvAmt ? parseFloat(quickAdvAmt) : undefined,
+      isAdvancePaid: quickIsAdvPaid,
+      advancePaidDate: quickAdvDate || (quickIsAdvPaid ? new Date().toISOString().split('T')[0] : undefined),
+      advancePaymentMethod: quickAdvMethod,
+      finalInvoiceNumber: quickFinNum,
+      finalAmount: quickFinAmt ? parseFloat(quickFinAmt) : undefined,
+      isFinalPaid: quickIsFinPaid,
+      finalPaidDate: quickFinDate || (quickIsFinPaid ? new Date().toISOString().split('T')[0] : undefined),
+      finalPaymentMethod: quickFinMethod
+    });
+
+    if (updated) {
+      setClientProfiles(prev => prev.map(item => item.id === updated.id ? updated : item));
+      setQuickEditProfile(null);
+    }
+  };
 
   const [selectedProfile, setSelectedProfile] = useState<PatientFinancialProfile | null>(null);
   const [isProfileDetailOpen, setIsProfileDetailOpen] = useState(false);
@@ -246,11 +285,22 @@ export default function FinanceCRM({
 
   // VÝPOČTY PRE FINANČNÝ PREHĽAD KLINIKY (P&L, SPOTREBA, PRÍJEM)
   const financials = useMemo(() => {
-    // 1. Tržby z uhradených faktúr a priamych predajov
-    const invoiceRevenue = invoices
+    // 1. Tržby z uhradených záloh a definitívnych faktúr klientov + priame predaje POS
+    let trackedInvoiceRevenue = 0;
+    clientProfiles.forEach(p => {
+      if (p.isAdvancePaid) {
+        trackedInvoiceRevenue += (p.advanceAmount !== undefined ? p.advanceAmount : (p.depositPaid || p.depositRequired || 0));
+      }
+      if (p.isFinalPaid) {
+        trackedInvoiceRevenue += (p.finalAmount !== undefined ? p.finalAmount : Math.max(0, p.totalAgreedPrice - (p.depositPaid || 0)));
+      }
+    });
+
+    const legacyInvoiceRevenue = invoices
       .filter(i => i.status === 'paid')
       .reduce((sum, i) => sum + i.paidAmount, 0);
 
+    const invoiceRevenue = trackedInvoiceRevenue > 0 ? trackedInvoiceRevenue : legacyInvoiceRevenue;
     const posSalesRevenue = sales.reduce((sum, s) => sum + s.amount, 0);
     const totalRevenue = invoiceRevenue + posSalesRevenue;
 
@@ -354,16 +404,77 @@ export default function FinanceCRM({
     });
   }, [clientProfiles, clientFilter, searchQuery]);
 
+  // Zoznam všetkých evidovaných externých faktúr (ZF & DF z účtovníctva) z profilov klientov
+  const trackedExternalInvoices = useMemo(() => {
+    const list: {
+      id: string;
+      profileId: string;
+      profile: PatientFinancialProfile;
+      type: 'advance' | 'standard';
+      invoiceNumber: string;
+      patientName: string;
+      patientPhone?: string;
+      procedureName: string;
+      procedureDate: string;
+      doctorName: string;
+      amount: number;
+      isPaid: boolean;
+      paidDate?: string;
+      paymentMethod?: PaymentMethod;
+    }[] = [];
+
+    clientProfiles.forEach(p => {
+      if (p.advanceInvoiceNumber) {
+        list.push({
+          id: `zf-${p.id}`,
+          profileId: p.id,
+          profile: p,
+          type: 'advance',
+          invoiceNumber: p.advanceInvoiceNumber,
+          patientName: p.patientName,
+          patientPhone: p.patientPhone,
+          procedureName: p.procedureName,
+          procedureDate: p.procedureDate,
+          doctorName: p.doctorName,
+          amount: p.advanceAmount !== undefined ? p.advanceAmount : (p.depositPaid || p.depositRequired || 0),
+          isPaid: Boolean(p.isAdvancePaid),
+          paidDate: p.advancePaidDate,
+          paymentMethod: p.advancePaymentMethod || 'bank_transfer'
+        });
+      }
+      if (p.finalInvoiceNumber) {
+        list.push({
+          id: `df-${p.id}`,
+          profileId: p.id,
+          profile: p,
+          type: 'standard',
+          invoiceNumber: p.finalInvoiceNumber,
+          patientName: p.patientName,
+          patientPhone: p.patientPhone,
+          procedureName: p.procedureName,
+          procedureDate: p.procedureDate,
+          doctorName: p.doctorName,
+          amount: p.finalAmount !== undefined ? p.finalAmount : Math.max(0, p.totalAgreedPrice - (p.depositPaid || 0)),
+          isPaid: Boolean(p.isFinalPaid),
+          paidDate: p.finalPaidDate,
+          paymentMethod: p.finalPaymentMethod || 'card'
+        });
+      }
+    });
+
+    return list;
+  }, [clientProfiles]);
+
   // FILTROVANIE FAKTÚR
   const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
+    return trackedExternalInvoices.filter(inv => {
       if (invoiceTypeFilter === 'advance' && inv.type !== 'advance') return false;
       if (invoiceTypeFilter === 'standard' && inv.type !== 'standard') return false;
-      if (invoiceStatusFilter === 'paid' && inv.status !== 'paid') return false;
-      if (invoiceStatusFilter === 'unpaid' && inv.status !== 'unpaid') return false;
+      if (invoiceStatusFilter === 'paid' && !inv.isPaid) return false;
+      if (invoiceStatusFilter === 'unpaid' && inv.isPaid) return false;
       return true;
     });
-  }, [invoices, invoiceTypeFilter, invoiceStatusFilter]);
+  }, [trackedExternalInvoices, invoiceTypeFilter, invoiceStatusFilter]);
 
   // VÝPOČET VERNOSTNÉHO SYSTÉMU PRE VŠETKÝCH KLIENTOV KLINIKY (365 DNÍ)
   const allClientsLoyalty = useMemo(() => {
@@ -479,12 +590,6 @@ export default function FinanceCRM({
     }
   };
 
-  // Otvorenie modálu pre vystavenie faktúry s predvyplnenými hodnotami
-  const handleTriggerCreateInvoice = (patientName: string, procedureName: string, amount: number, type: 'advance' | 'standard') => {
-    setCreateInvoicePreset({ patientName, procedureName, amount, type });
-    setIsCreateInvoiceOpen(true);
-  };
-
   // Otvorenie detailu klienta
   const handleOpenClientDetail = (profile: PatientFinancialProfile) => {
     setSelectedProfile(profile);
@@ -493,14 +598,32 @@ export default function FinanceCRM({
 
   // Export do CSV
   const handleExportCSV = () => {
-    const headers = ['Meno klienta', 'Stav', 'Zákrok', 'Dátum', 'Celková cena (€)', 'Zaplatená záloha (€)', 'Kredit (€)', 'Zostáva doplatiť (€)', 'Spotreba materiálu (€)', 'Čistá marža (€)', 'Maržovosť (%)'];
+    const headers = [
+      'Meno klienta', 
+      'Stav', 
+      'Zákrok', 
+      'Dátum', 
+      'Celková cena (€)', 
+      'Číslo ZF',
+      'Úhrada ZF',
+      'Číslo DF',
+      'Úhrada DF',
+      'Kredit (€)', 
+      'Zostáva doplatiť (€)', 
+      'Spotreba materiálu (€)', 
+      'Čistá marža (€)', 
+      'Maržovosť (%)'
+    ];
     const rows = clientProfiles.map(p => [
       `"${p.patientName}"`,
       `"${p.status === 'planned' ? 'Plánovaný' : 'Odoperovaný'}"`,
       `"${p.procedureName}"`,
       `"${p.procedureDate}"`,
       p.totalAgreedPrice.toFixed(2),
-      p.depositPaid.toFixed(2),
+      `"${p.advanceInvoiceNumber || ''}"`,
+      `"${p.isAdvancePaid ? `Uhradená (${p.advancePaidDate || ''})` : 'Neuhradená'}"`,
+      `"${p.finalInvoiceNumber || ''}"`,
+      `"${p.isFinalPaid ? `Uhradená (${p.finalPaidDate || ''})` : 'Neuhradená'}"`,
       p.clientCredit.toFixed(2),
       p.balanceDue.toFixed(2),
       p.materialCost.toFixed(2),
@@ -632,9 +755,9 @@ export default function FinanceCRM({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Kniha faktúr & Zálohy</span>
+            <span>Evidencia faktúr (ZF & DF)</span>
             <span className="ml-1 px-1.5 py-0.2 text-[10px] rounded-full bg-white/20">
-              {invoices.length}
+              {trackedExternalInvoices.length}
             </span>
           </button>
 
@@ -869,20 +992,11 @@ export default function FinanceCRM({
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#FBF9F6] hover:bg-[#E8E2D9]/60 border border-[#E8E2D9] text-xs font-bold text-[#2C2A29] transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#FBF9F6] hover:bg-[#E8E2D9]/60 border border-[#E8E2D9] text-xs font-bold text-[#2C2A29] transition-colors cursor-pointer"
                   title="Export do CSV"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">CSV Export</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTriggerCreateInvoice('', '', 800, 'advance')}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-colors shadow-xs"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Vystaviť doklad</span>
                 </button>
               </div>
             </div>
@@ -892,7 +1006,7 @@ export default function FinanceCRM({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-[#FBF9F6] border-b border-[#E8E2D9] text-[10px] uppercase text-[#8C857B] font-bold tracking-wider">
-                    <th className="py-3 px-3">Klient & Výkon</th>
+                    <th className="py-3 px-3">Klient & Výkon (ZF & DF)</th>
                     <th className="py-3 px-3">Dátum & Operatér</th>
                     <th className="py-3 px-3 text-center">Stav</th>
                     <th className="py-3 px-3 text-right">Celková cena</th>
@@ -921,13 +1035,13 @@ export default function FinanceCRM({
                       return (
                         <tr key={p.id} className="hover:bg-[#FBF9F6]/70 transition-colors">
                           
-                          {/* KLIENT A VÝKON */}
+                          {/* KLIENT A VÝKON S EVIDENCIOU EXTERNÝCH FAKTÚR (ZF & DF) */}
                           <td className="py-3 px-3">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <button
                                 type="button"
                                 onClick={() => handleOpenClientDetail(p)}
-                                className="text-left group"
+                                className="text-left group cursor-pointer"
                               >
                                 <p className="font-bold text-sm text-[#2C2A29] group-hover:text-[#C5A059] transition-colors flex items-center gap-1">
                                   {p.patientName}
@@ -951,6 +1065,49 @@ export default function FinanceCRM({
                               </button>
                             </div>
                             <p className="text-[11px] text-[#8C857B] line-clamp-1">{p.procedureName}</p>
+
+                            {/* EVIDENCIA EXTERNÝCH FAKTÚR (ZF & DF) */}
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              {/* ZF BADGE */}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenQuickInvoiceEdit(p, 'advance')}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold transition-all border cursor-pointer ${
+                                  p.advanceInvoiceNumber
+                                    ? p.isAdvancePaid
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                                      : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                                    : 'bg-[#FBF9F6] text-[#8C857B] border-dashed border-[#D5CEC4] hover:border-[#C5A059] hover:text-[#2C2A29]'
+                                }`}
+                                title={p.advanceInvoiceNumber ? `Zálohová faktúra: ${p.advanceInvoiceNumber} (${p.isAdvancePaid ? `Uhradená ${p.advancePaidDate || ''}` : 'Čaká na úhradu'}). Kliknutím upravíte.` : 'Priradiť číslo vystavenej zálohovej faktúry (ZF)'}
+                              >
+                                <span className="font-sans font-semibold text-[9px] uppercase tracking-wider text-[#8C857B]">ZF:</span>
+                                <span>{p.advanceInvoiceNumber || '+ ZF'}</span>
+                                {p.advanceInvoiceNumber && (
+                                  p.isAdvancePaid ? <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" /> : <Clock className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                                )}
+                              </button>
+
+                              {/* DF BADGE */}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenQuickInvoiceEdit(p, 'final')}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold transition-all border cursor-pointer ${
+                                  p.finalInvoiceNumber
+                                    ? p.isFinalPaid
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                                      : 'bg-purple-50 text-purple-900 border-purple-300 hover:bg-purple-100'
+                                    : 'bg-[#FBF9F6] text-[#8C857B] border-dashed border-[#D5CEC4] hover:border-[#C5A059] hover:text-[#2C2A29]'
+                                }`}
+                                title={p.finalInvoiceNumber ? `Definitívna faktúra: ${p.finalInvoiceNumber} (${p.isFinalPaid ? `Uhradená ${p.finalPaidDate || ''}` : 'Čaká na úhradu'}). Kliknutím upravíte.` : 'Priradiť číslo vystavenej definitívnej faktúry (DF)'}
+                              >
+                                <span className="font-sans font-semibold text-[9px] uppercase tracking-wider text-[#8C857B]">DF:</span>
+                                <span>{p.finalInvoiceNumber || '+ DF'}</span>
+                                {p.finalInvoiceNumber && (
+                                  p.isFinalPaid ? <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" /> : <Clock className="w-2.5 h-2.5 text-purple-600 shrink-0" />
+                                )}
+                              </button>
+                            </div>
                           </td>
 
                           {/* DÁTUM A OPERATÉR */}
@@ -979,11 +1136,11 @@ export default function FinanceCRM({
                           {/* ZÁLOHA */}
                           <td className="py-3 px-3 text-center font-mono">
                             <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-bold ${
-                              p.isDepositPaid 
+                              p.isDepositPaid || p.isAdvancePaid
                                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
                                 : 'bg-rose-50 text-rose-800 border border-rose-200'
                             }`}>
-                              {p.depositPaid} / {p.depositRequired} €
+                              {p.advanceAmount !== undefined ? p.advanceAmount : p.depositPaid} / {p.depositRequired} €
                             </span>
                           </td>
 
@@ -1028,19 +1185,11 @@ export default function FinanceCRM({
                               <button
                                 type="button"
                                 onClick={() => handleOpenClientDetail(p)}
-                                className="p-1.5 rounded-lg bg-[#FBF9F6] hover:bg-[#E8E2D9] text-[#2C2A29] transition-colors"
-                                title="Detail klienta, platby a spotrebovaný materiál"
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#FBF9F6] hover:bg-[#E8E2D9] text-[#2C2A29] text-xs font-bold transition-colors cursor-pointer"
+                                title="Detail klienta, faktúry a spotrebovaný materiál"
                               >
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleTriggerCreateInvoice(p.patientName, p.procedureName, p.balanceDue || p.totalAgreedPrice, 'standard')}
-                                className="p-1.5 rounded-lg bg-[#2C2A29] hover:bg-[#C5A059] text-white transition-colors"
-                                title="Vystaviť faktúru"
-                              >
-                                <FileText className="w-4 h-4" />
+                                <span>Detail</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </td>
@@ -1404,9 +1553,6 @@ export default function FinanceCRM({
               setIsInvoiceDetailOpen(true);
             }
           }}
-          onTriggerCreateInvoice={(patientName, procedureName, amount, type) => {
-            handleTriggerCreateInvoice(patientName, procedureName, amount, type);
-          }}
           onOpenClientDetail={(profile) => {
             setSelectedProfile(profile);
             setIsProfileDetailOpen(true);
@@ -1707,58 +1853,58 @@ export default function FinanceCRM({
       )}
 
       {/* ========================================================================= */}
-      {/* 3. SUB-TAB: KNIHA FAKTÚR & ZÁLOHOVÉ FAKTÚRY (INVOICING HUB)              */}
+      {/* 3. SUB-TAB: EVIDENCIA EXTERNÝCH FAKTÚR (ZF & DF Z ÚČTOVNÍCTVA)            */}
       {/* ========================================================================= */}
       {activeSubTab === 'invoices' && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl p-5 border border-[#E8E2D9] shadow-xs space-y-4">
             
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="font-brand font-bold text-base text-[#2C2A29] uppercase tracking-wide">
+                  Prehľad faktúr kliniky (ZF & DF)
+                </h3>
+                <p className="text-xs text-[#8C857B]">
+                  Evidencia čísel vystavených v externom účtovnom programe a stav ich úhrad.
+                </p>
+              </div>
+
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold text-[#8C857B] uppercase tracking-wider mr-1">Typ:</span>
+                <span className="text-xs font-bold text-[#8C857B] uppercase tracking-wider mr-1">Filter:</span>
                 <button
                   type="button"
                   onClick={() => setInvoiceTypeFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     invoiceTypeFilter === 'all'
-                      ? 'bg-[#2C2A29] text-white'
+                      ? 'bg-[#2C2A29] text-white shadow-xs'
                       : 'bg-[#FBF9F6] text-[#8C857B] hover:text-[#2C2A29] border border-[#E8E2D9]'
                   }`}
                 >
-                  Všetky ({invoices.length})
+                  Všetky ({trackedExternalInvoices.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setInvoiceTypeFilter('advance')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     invoiceTypeFilter === 'advance'
-                      ? 'bg-amber-600 text-white'
+                      ? 'bg-amber-600 text-white shadow-xs'
                       : 'bg-amber-50 text-amber-900 border border-amber-200'
                   }`}
                 >
-                  📄 Zálohové faktúry ({invoices.filter(i => i.type === 'advance').length})
+                  📄 Zálohové (ZF) ({trackedExternalInvoices.filter(i => i.type === 'advance').length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setInvoiceTypeFilter('standard')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     invoiceTypeFilter === 'standard'
-                      ? 'bg-purple-700 text-white'
+                      ? 'bg-purple-700 text-white shadow-xs'
                       : 'bg-purple-50 text-purple-900 border border-purple-200'
                   }`}
                 >
-                  🧾 Vyúčtovacie faktúry ({invoices.filter(i => i.type === 'standard').length})
+                  🧾 Definitívne (DF) ({trackedExternalInvoices.filter(i => i.type === 'standard').length})
                 </button>
               </div>
-
-              <button
-                type="button"
-                onClick={() => handleTriggerCreateInvoice('', '', 800, 'advance')}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-xs"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Vystaviť novú faktúru</span>
-              </button>
             </div>
 
             {/* TABUĽKA FAKTÚR */}
@@ -1769,73 +1915,77 @@ export default function FinanceCRM({
                     <th className="py-3 px-3">Číslo dokladu</th>
                     <th className="py-3 px-3">Typ</th>
                     <th className="py-3 px-3">Klient / Pacient</th>
-                    <th className="py-3 px-3">Vystavenie / Splatnosť</th>
-                    <th className="py-3 px-3">Var. symbol</th>
+                    <th className="py-3 px-3">Zákrok & Termín</th>
                     <th className="py-3 px-3">Platba</th>
-                    <th className="py-3 px-3 text-right">Celková suma</th>
-                    <th className="py-3 px-3 text-center">Stav</th>
+                    <th className="py-3 px-3 text-right">Suma dokladu</th>
+                    <th className="py-3 px-3 text-center">Stav úhrady</th>
                     <th className="py-3 px-3 text-center">Akcie</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8E2D9] bg-white">
-                  {filteredInvoices.map((inv) => {
-                    const isAdvance = inv.type === 'advance';
-                    const isPaid = inv.status === 'paid';
+                  {filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-[#8C857B]">
+                        Zatiaľ nie sú zaevidované žiadne faktúry podľa zvoleného filtra. Číslo ZF a DF môžete zadať priamo pri mene klienta v záložke Klienti.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInvoices.map((inv) => {
+                      const isAdvance = inv.type === 'advance';
 
-                    return (
-                      <tr key={inv.id} className="hover:bg-[#FBF9F6]/70 transition-colors">
-                        <td className="py-3 px-3 font-mono font-bold text-sm text-[#2C2A29]">
-                          {inv.invoiceNumber}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                            isAdvance 
-                              ? 'bg-amber-100 text-amber-900 border border-amber-300' 
-                              : 'bg-purple-100 text-purple-900 border border-purple-300'
-                          }`}>
-                            {isAdvance ? 'Zálohová (ZF)' : 'Vyúčtovacia (FA)'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 font-semibold text-[#2C2A29]">
-                          {inv.patientName}
-                          {inv.patientPhone && <span className="block text-[10px] text-[#8C857B] font-normal">{inv.patientPhone}</span>}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-[11px]">
-                          <div>{inv.issueDate}</div>
-                          <div className={!isPaid ? 'text-rose-700 font-bold' : 'text-[#8C857B]'}>spl. {inv.dueDate}</div>
-                        </td>
-                        <td className="py-3 px-3 font-mono text-[#8C857B]">
-                          {inv.variableSymbol}
-                        </td>
-                        <td className="py-3 px-3 capitalize text-[#8C857B]">
-                          {inv.paymentMethod === 'bank_transfer' ? 'Prevod' : inv.paymentMethod === 'card' ? 'Karta' : 'Hotovosť'}
-                        </td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-sm text-[#2C2A29]">
-                          {inv.totalAmount.toFixed(2)} €
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                            isPaid 
-                              ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' 
-                              : 'bg-rose-100 text-rose-900 border border-rose-200'
-                          }`}>
-                            {isPaid ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                            {isPaid ? 'Uhradená' : 'Čaká na úhradu'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenInvoiceModal(inv)}
-                            className="flex items-center gap-1 mx-auto px-2.5 py-1 rounded-lg bg-[#FBF9F6] hover:bg-[#2C2A29] text-[#2C2A29] hover:text-white text-xs font-bold transition-all border border-[#E8E2D9]"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                            <span>Tlač dokladu</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      return (
+                        <tr key={inv.id} className="hover:bg-[#FBF9F6]/70 transition-colors">
+                          <td className="py-3 px-3 font-mono font-bold text-sm text-[#2C2A29]">
+                            {inv.invoiceNumber}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              isAdvance 
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                                : 'bg-purple-100 text-purple-900 border border-purple-300'
+                            }`}>
+                              {isAdvance ? 'Zálohová (ZF)' : 'Definitívna (DF)'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 font-semibold text-[#2C2A29]">
+                            {inv.patientName}
+                            {inv.patientPhone && <span className="block text-[10px] text-[#8C857B] font-normal">{inv.patientPhone}</span>}
+                          </td>
+                          <td className="py-3 px-3 text-[#2C2A29]">
+                            <div className="font-medium line-clamp-1">{inv.procedureName}</div>
+                            <div className="font-mono text-[10px] text-[#8C857B]">{inv.procedureDate} • {inv.doctorName}</div>
+                          </td>
+                          <td className="py-3 px-3 capitalize text-[#8C857B]">
+                            {inv.paymentMethod === 'bank_transfer' ? 'Prevod' : inv.paymentMethod === 'card' ? 'Karta' : 'Hotovosť'}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-bold text-sm text-[#2C2A29]">
+                            {inv.amount.toFixed(2)} €
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                              inv.isPaid 
+                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' 
+                                : 'bg-rose-100 text-rose-900 border border-rose-200'
+                            }`}>
+                              {inv.isPaid ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <Clock className="w-3 h-3 text-rose-600" />}
+                              {inv.isPaid ? `Uhradená ${inv.paidDate ? `(${inv.paidDate})` : ''}` : 'Čaká na úhradu'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenClientDetail(inv.profile)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#FBF9F6] hover:bg-[#2C2A29] text-[#2C2A29] hover:text-white text-xs font-bold transition-all border border-[#E8E2D9] cursor-pointer"
+                              title="Upraviť faktúry a detaily klienta"
+                            >
+                              <span>Upraviť</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1984,22 +2134,6 @@ export default function FinanceCRM({
         }}
       />
 
-      {/* MODAL: VYSTAVENIE NOVEJ FAKTÚRY / ZÁLOHOVEJ FAKTÚRY */}
-      <CreateInvoiceModal
-        isOpen={isCreateInvoiceOpen}
-        onClose={() => setIsCreateInvoiceOpen(false)}
-        onInvoiceCreated={(newInv) => {
-          refreshData();
-          setSelectedInvoice(newInv);
-          setIsInvoiceDetailOpen(true);
-        }}
-        patients={patients}
-        initialPatientName={createInvoicePreset.patientName}
-        initialProcedureName={createInvoicePreset.procedureName}
-        initialAmount={createInvoicePreset.amount}
-        initialType={createInvoicePreset.type}
-      />
-
       {/* MODAL: DETAIL FINANCIÍ KLIENTA & REÁLNA SPOTREBA */}
       <ClientFinanceDetailModal
         profile={selectedProfile}
@@ -2010,15 +2144,199 @@ export default function FinanceCRM({
           refreshData();
         }}
         onOpenInvoiceDetail={handleOpenInvoiceByNumber}
-        onCreateInvoiceForClient={(patName, procName, amt, type) => {
-          setIsProfileDetailOpen(false);
-          handleTriggerCreateInvoice(patName, procName, amt, type);
-        }}
         onOpenLoyaltyModal={(patientId, patientName) => {
           setIsProfileDetailOpen(false);
           setLoyaltyModalPatient({ id: patientId, name: patientName });
         }}
       />
+
+      {/* MODAL: RÝCHLA ÚPRAVA EXTERNÝCH FAKTÚR (ZF & DF) PRIAMO Z RIADKU KLIENTA */}
+      {quickEditProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-[#E8E2D9] shadow-2xl space-y-5">
+            <div className="flex justify-between items-center pb-3 border-b border-[#E8E2D9]">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#C5A059] tracking-wider">Účtovníctvo & Faktúry</span>
+                <h3 className="text-base font-brand font-bold text-[#2C2A29]">{quickEditProfile.patientName}</h3>
+                <p className="text-[11px] text-[#8C857B]">{quickEditProfile.procedureName}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickEditProfile(null)}
+                className="text-[#8C857B] hover:text-[#2C2A29] p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQuickInvoiceEdit} className="space-y-4">
+              {/* ZF */}
+              <div className="p-3.5 bg-[#FBF9F6] rounded-2xl border border-[#E8E2D9] space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-amber-900 uppercase flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Zálohová faktúra (ZF)
+                  </span>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={quickIsAdvPaid}
+                      onChange={(e) => {
+                        setQuickIsAdvPaid(e.target.checked);
+                        if (e.target.checked && !quickAdvDate) {
+                          setQuickAdvDate(new Date().toISOString().split('T')[0]);
+                        }
+                      }}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                    />
+                    <span className={quickIsAdvPaid ? 'text-emerald-700 font-bold' : 'text-[#8C857B]'}>
+                      {quickIsAdvPaid ? '✓ Uhradená' : 'Neuhradená'}
+                    </span>
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-0.5">Číslo ZF</label>
+                    <input
+                      type="text"
+                      value={quickAdvNum}
+                      onChange={(e) => setQuickAdvNum(e.target.value)}
+                      placeholder="napr. 20260012"
+                      className="w-full bg-white border border-[#E8E2D9] p-2 rounded-lg text-xs font-mono font-bold text-[#2C2A29]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-0.5">Suma zálohy (€)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={quickAdvAmt}
+                      onChange={(e) => setQuickAdvAmt(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full bg-white border border-[#E8E2D9] p-2 rounded-lg text-xs font-mono font-bold text-[#2C2A29]"
+                    />
+                  </div>
+                </div>
+                {quickIsAdvPaid && (
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#E8E2D9]">
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-0.5">Dátum úhrady</label>
+                      <input
+                        type="date"
+                        value={quickAdvDate}
+                        onChange={(e) => setQuickAdvDate(e.target.value)}
+                        className="w-full bg-white border border-[#E8E2D9] p-1.5 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-0.5">Spôsob platby</label>
+                      <select
+                        value={quickAdvMethod}
+                        onChange={(e) => setQuickAdvMethod(e.target.value as PaymentMethod)}
+                        className="w-full bg-white border border-[#E8E2D9] p-1.5 rounded-lg text-xs"
+                      >
+                        <option value="bank_transfer">Prevod</option>
+                        <option value="card">Karta</option>
+                        <option value="cash">Hotovosť</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* DF */}
+              <div className="p-3.5 bg-[#FBF9F6] rounded-2xl border border-[#E8E2D9] space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-purple-900 uppercase flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                    Definitívna faktúra (DF)
+                  </span>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={quickIsFinPaid}
+                      onChange={(e) => {
+                        setQuickIsFinPaid(e.target.checked);
+                        if (e.target.checked && !quickFinDate) {
+                          setQuickFinDate(new Date().toISOString().split('T')[0]);
+                        }
+                      }}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                    />
+                    <span className={quickIsFinPaid ? 'text-emerald-700 font-bold' : 'text-[#8C857B]'}>
+                      {quickIsFinPaid ? '✓ Uhradená' : 'Neuhradená'}
+                    </span>
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-0.5">Číslo DF</label>
+                    <input
+                      type="text"
+                      value={quickFinNum}
+                      onChange={(e) => setQuickFinNum(e.target.value)}
+                      placeholder="napr. 20260145"
+                      className="w-full bg-white border border-[#E8E2D9] p-2 rounded-lg text-xs font-mono font-bold text-[#2C2A29]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-0.5">Suma DF (€)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={quickFinAmt}
+                      onChange={(e) => setQuickFinAmt(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full bg-white border border-[#E8E2D9] p-2 rounded-lg text-xs font-mono font-bold text-[#2C2A29]"
+                    />
+                  </div>
+                </div>
+                {quickIsFinPaid && (
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#E8E2D9]">
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-0.5">Dátum úhrady</label>
+                      <input
+                        type="date"
+                        value={quickFinDate}
+                        onChange={(e) => setQuickFinDate(e.target.value)}
+                        className="w-full bg-white border border-[#E8E2D9] p-1.5 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-0.5">Spôsob platby</label>
+                      <select
+                        value={quickFinMethod}
+                        onChange={(e) => setQuickFinMethod(e.target.value as PaymentMethod)}
+                        className="w-full bg-white border border-[#E8E2D9] p-1.5 rounded-lg text-xs"
+                      >
+                        <option value="card">Karta</option>
+                        <option value="bank_transfer">Prevod</option>
+                        <option value="cash">Hotovosť</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickEditProfile(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-[#E8E2D9] text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
+                >
+                  Zrušiť
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-colors shadow-xs cursor-pointer"
+                >
+                  Uložiť faktúry
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: VERNOSTNÝ SYSTÉM KLIENTA (365 DNÍ) */}
       <ClientLoyaltyModal

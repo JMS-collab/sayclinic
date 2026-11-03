@@ -63,7 +63,7 @@ interface MonthlyFinancialVisualizerProps {
   expenses?: any[];
   onOpenInvoiceModal: (inv: Invoice) => void;
   onOpenInvoiceByNumber: (invNum: string) => void;
-  onTriggerCreateInvoice: (patientName: string, procedureName: string, amount: number, type: 'advance' | 'standard') => void;
+  onTriggerCreateInvoice?: (patientName: string, procedureName: string, amount: number, type: 'advance' | 'standard') => void;
   onOpenClientDetail: (profile: PatientFinancialProfile) => void;
 }
 
@@ -127,7 +127,27 @@ export default function MonthlyFinancialVisualizer({
       let rentCost = 0;
       let otherExp = 0;
 
-      // 1. Tržby z uhradených faktúr
+      // 1. Tržby z uhradených záloh a definitívnych faktúr klientov
+      clientProfiles.forEach(prof => {
+        if (prof.isAdvancePaid) {
+          const advMonth = prof.advancePaidDate?.slice(0, 7) || prof.procedureDate?.slice(0, 7);
+          if (advMonth === m.key) {
+            const amt = prof.advanceAmount !== undefined ? prof.advanceAmount : (prof.depositPaid || prof.depositRequired || 0);
+            revenue += amt;
+            depositRev += amt;
+          }
+        }
+        if (prof.isFinalPaid) {
+          const finMonth = prof.finalPaidDate?.slice(0, 7) || prof.procedureDate?.slice(0, 7);
+          if (finMonth === m.key) {
+            const amt = prof.finalAmount !== undefined ? prof.finalAmount : Math.max(0, prof.totalAgreedPrice - (prof.depositPaid || 0));
+            revenue += amt;
+            surgeryRev += amt;
+          }
+        }
+      });
+
+      // Doplnkovo prípadné uhradené faktúry z knihy faktúr
       invoices.forEach(inv => {
         const invMonth = inv.paidDate?.slice(0, 7) || inv.issueDate?.slice(0, 7);
         if (invMonth === m.key && (inv.status === 'paid' || (inv.paidAmount && inv.paidAmount > 0))) {
@@ -338,27 +358,6 @@ export default function MonthlyFinancialVisualizer({
           invoiceType: 'standard'
         });
       }
-
-      // 3. Odoperovaný pacient s chýbajúcou konečnou faktúrou
-      if (prof.status === 'operated' && (!prof.invoices || prof.invoices.length === 0)) {
-        reqs.push({
-          id: `req-inv-${prof.id}`,
-          patientId: prof.patientId || matchedPatient?.id,
-          patientName: prof.patientName,
-          patientPhone: phone,
-          patientEmail: email,
-          procedureName: prof.procedureName,
-          doctorName: prof.doctorName,
-          type: 'missing_invoice',
-          typeLabel: 'Chýba konečná faktúra',
-          amount: prof.totalAgreedPrice,
-          dueDate: prof.procedureDate,
-          daysRemaining: days,
-          urgency: 'medium',
-          description: `Výkon bol úspešne zrealizovaný ${prof.procedureDate}, čaká na vystavenie vyúčtovacej faktúry pre účtovníctvo kliniky.`,
-          invoiceType: 'standard'
-        });
-      }
     });
 
     // Doplnenie prípadných nadchádzajúcich operácií priamo z kalendára
@@ -370,9 +369,9 @@ export default function MonthlyFinancialVisualizer({
 
       const days = getDaysDiff(evt.date);
       const matchedPatient = patients.find(p => p.name.toLowerCase() === evt.patientName.toLowerCase());
-      const deposit = evt.depositAmount || 800;
+      const deposit = Math.max(0, Number(evt.depositAmount) || 0);
 
-      if (!evt.isDepositPaid) {
+      if (!evt.isDepositPaid && deposit > 0) {
         reqs.push({
           id: `req-cal-dep-${evt.id}`,
           patientName: evt.patientName,
@@ -1153,20 +1152,20 @@ export default function MonthlyFinancialVisualizer({
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      {/* Akcia 1: Vystaviť faktúru */}
+                      {/* Akcia 1: Detail klienta a evidencia faktúr/úhrad */}
                       <button
                         type="button"
-                        onClick={() => onTriggerCreateInvoice(
-                          req.patientName, 
-                          req.procedureName, 
-                          req.amount, 
-                          req.invoiceType === 'advance' ? 'advance' : 'standard'
-                        )}
-                        className="px-3 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1"
-                        title="Vystaviť faktúru"
+                        onClick={() => {
+                          const matchedProfile = clientProfiles.find(p => p.patientName.toLowerCase() === req.patientName.toLowerCase());
+                          if (matchedProfile) {
+                            onOpenClientDetail(matchedProfile);
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                        title="Zobraziť detail klienta a evidovať úhrady"
                       >
                         <FileText className="w-3.5 h-3.5" />
-                        <span>Vystaviť FA</span>
+                        <span>Detail & Úhrady</span>
                       </button>
 
                       {/* Akcia 2: Ak má prepojenú faktúru, náhľad */}
@@ -1205,11 +1204,9 @@ export default function MonthlyFinancialVisualizer({
                           const matchedProfile = clientProfiles.find(p => p.patientName.toLowerCase() === req.patientName.toLowerCase());
                           if (matchedProfile) {
                             onOpenClientDetail(matchedProfile);
-                          } else {
-                            onTriggerCreateInvoice(req.patientName, req.procedureName, req.amount, 'standard');
                           }
                         }}
-                        className="p-1.5 rounded-xl bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] text-xs transition-colors"
+                        className="p-1.5 rounded-xl bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] text-xs transition-colors cursor-pointer"
                         title="Detail klienta a platby"
                       >
                         <ChevronRight className="w-4 h-4" />

@@ -73,6 +73,19 @@ export interface PatientFinancialProfile {
   totalPaid: number;        // Celková uhradená suma
   balanceDue: number;       // Zostáva doplatiť: totalAgreedPrice - totalPaid - clientCredit
   
+  // Evidencia externých faktúr (z účtovného programu kliniky)
+  advanceInvoiceNumber?: string;       // Číslo vystavenej zálohovej faktúry (napr. ZF-2026-0012)
+  advanceAmount?: number;              // Suma zálohy v €
+  isAdvancePaid?: boolean;             // Stav úhrady zálohy (true = uhradená)
+  advancePaidDate?: string;            // Dátum úhrady zálohy (YYYY-MM-DD)
+  advancePaymentMethod?: PaymentMethod;// Spôsob úhrady zálohy (bankový prevod, karta, hotovosť)
+
+  finalInvoiceNumber?: string;         // Číslo definitívnej / vyúčtovacej faktúry (napr. 20260145)
+  finalAmount?: number;                // Konečná suma faktúry v €
+  isFinalPaid?: boolean;               // Stav úhrady definitívnej faktúry (true = uhradená)
+  finalPaidDate?: string;              // Dátum úhrady konečnej faktúry (YYYY-MM-DD)
+  finalPaymentMethod?: PaymentMethod;  // Spôsob úhrady konečnej faktúry
+
   // Reálna spotreba materiálu zo skladu
   materialCost: number;     // Súčet nákupných cien použitého materiálu
   materialItemsCount: number;
@@ -82,7 +95,7 @@ export interface PatientFinancialProfile {
   // Prepojenia
   linkedEventId?: string;
   linkedRecordId?: string;
-  invoices: string[]; // Zoznam ID faktúr
+  invoices: string[]; // Zoznam čísel faktúr (ZF & DF)
   notes?: string;
 }
 
@@ -143,18 +156,42 @@ export class FinanceBillingService {
   private static STORAGE_KEY_CLIENT_PROFILES = 'say_clinic_client_financial_profiles_v1';
   private static STORAGE_KEY_CREDIT_LOGS = 'say_clinic_credit_logs_v1';
   private static STORAGE_KEY_PENDING_POS = 'say_clinic_pending_pos_checkouts_v1';
-  private static STORAGE_KEY_CLEAN_INIT = 'say_clinic_finance_clean_v3';
+  private static STORAGE_KEY_CLEAN_INIT = 'say_clinic_finance_clean_v5';
 
   // Overenie a vyčistenie starých demo dát pri prvom spustení ostrej verzie
   public static checkAndMigrateCleanState(): void {
     if (typeof window === 'undefined') return;
     try {
       if (localStorage.getItem(this.STORAGE_KEY_CLEAN_INIT) !== 'true') {
+        // Vyčistenie starých fiktívnych interných faktúr
         localStorage.setItem(this.STORAGE_KEY_INVOICES, JSON.stringify([]));
-        localStorage.setItem(this.STORAGE_KEY_CLIENT_PROFILES, JSON.stringify([]));
-        localStorage.setItem(this.STORAGE_KEY_CREDIT_LOGS, JSON.stringify([]));
-        localStorage.setItem('say_clinic_expenses_v1', JSON.stringify([]));
-        localStorage.setItem('say_clinic_sales_v1', JSON.stringify([]));
+        
+        // Očistenie starých profilov od fiktívnych cien 3 800 € a 800 €
+        const existingProf = localStorage.getItem(this.STORAGE_KEY_CLIENT_PROFILES);
+        if (existingProf) {
+          try {
+            const parsed = JSON.parse(existingProf);
+            if (Array.isArray(parsed)) {
+              const cleaned = parsed.map((p: PatientFinancialProfile) => {
+                if (p.totalAgreedPrice === 3800 && !p.advanceInvoiceNumber && !p.finalInvoiceNumber) {
+                  return {
+                    ...p,
+                    totalAgreedPrice: 0,
+                    depositRequired: 0,
+                    depositPaid: 0,
+                    totalPaid: 0,
+                    balanceDue: 0,
+                    netProcedureMargin: 0 - (p.materialCost || 0),
+                    marginPercentage: 0
+                  };
+                }
+                return p;
+              });
+              localStorage.setItem(this.STORAGE_KEY_CLIENT_PROFILES, JSON.stringify(cleaned));
+            }
+          } catch {}
+        }
+
         localStorage.setItem(this.STORAGE_KEY_CLEAN_INIT, 'true');
       }
     } catch (e) {
@@ -305,10 +342,92 @@ export class FinanceBillingService {
     }
     
     // Zostáva doplatiť
-    profile.balanceDue = Math.max(0, profile.totalAgreedPrice - profile.totalPaid - profile.clientCredit);
+    profile.balanceDue = Math.max(0, profile.totalAgreedPrice - profile.totalPaid - (profile.clientCredit || 0));
     
     const paymentRecordNote = `Platba ${amount} € (${paymentMethod})${note ? `: ${note}` : ''}`;
     profile.notes = profile.notes ? `${profile.notes} | ${paymentRecordNote}` : paymentRecordNote;
+
+    this.saveClientProfiles(all);
+    return profile;
+  }
+
+  /**
+   * Evidencia a aktualizácia externých faktúr klienta (ZF & DF vystavených v účtovnom softvéri kliniky)
+   */
+  public static updateClientInvoiceTracking(
+    profileId: string,
+    data: {
+      advanceInvoiceNumber?: string;
+      advanceAmount?: number;
+      isAdvancePaid?: boolean;
+      advancePaidDate?: string;
+      advancePaymentMethod?: PaymentMethod;
+      finalInvoiceNumber?: string;
+      finalAmount?: number;
+      isFinalPaid?: boolean;
+      finalPaidDate?: string;
+      finalPaymentMethod?: PaymentMethod;
+      totalAgreedPrice?: number;
+    }
+  ): PatientFinancialProfile | null {
+    const all = this.getClientProfiles();
+    const profile = all.find(p => p.id === profileId);
+    if (!profile) return null;
+
+    if (data.advanceInvoiceNumber !== undefined) profile.advanceInvoiceNumber = data.advanceInvoiceNumber.trim();
+    if (data.advanceAmount !== undefined) profile.advanceAmount = data.advanceAmount;
+    if (data.isAdvancePaid !== undefined) {
+      profile.isAdvancePaid = data.isAdvancePaid;
+      if (data.isAdvancePaid) {
+        profile.depositPaid = profile.advanceAmount !== undefined ? profile.advanceAmount : profile.depositRequired || profile.depositPaid;
+        profile.isDepositPaid = true;
+        if (!profile.advancePaidDate) {
+          profile.advancePaidDate = new Date().toISOString().split('T')[0];
+        }
+      } else {
+        profile.isDepositPaid = false;
+      }
+    }
+    if (data.advancePaidDate !== undefined) profile.advancePaidDate = data.advancePaidDate;
+    if (data.advancePaymentMethod !== undefined) profile.advancePaymentMethod = data.advancePaymentMethod;
+
+    if (data.finalInvoiceNumber !== undefined) profile.finalInvoiceNumber = data.finalInvoiceNumber.trim();
+    if (data.finalAmount !== undefined) profile.finalAmount = data.finalAmount;
+    if (data.isFinalPaid !== undefined) {
+      profile.isFinalPaid = data.isFinalPaid;
+      if (data.isFinalPaid && !profile.finalPaidDate) {
+        profile.finalPaidDate = new Date().toISOString().split('T')[0];
+      }
+    }
+    if (data.finalPaidDate !== undefined) profile.finalPaidDate = data.finalPaidDate;
+    if (data.finalPaymentMethod !== undefined) profile.finalPaymentMethod = data.finalPaymentMethod;
+
+    if (data.totalAgreedPrice !== undefined && data.totalAgreedPrice >= 0) {
+      profile.totalAgreedPrice = data.totalAgreedPrice;
+    }
+
+    // Prepočet celkovej uhradenej sumy z evidovaných úhrad
+    let calculatedPaid = 0;
+    if (profile.isAdvancePaid) {
+      calculatedPaid += (profile.advanceAmount !== undefined ? profile.advanceAmount : profile.depositPaid);
+    }
+    if (profile.isFinalPaid) {
+      calculatedPaid += (profile.finalAmount !== undefined ? profile.finalAmount : Math.max(0, profile.totalAgreedPrice - calculatedPaid));
+    }
+    if (calculatedPaid > 0) {
+      profile.totalPaid = calculatedPaid;
+    }
+    profile.balanceDue = Math.max(0, profile.totalAgreedPrice - profile.totalPaid - (profile.clientCredit || 0));
+    profile.netProcedureMargin = profile.totalAgreedPrice - (profile.materialCost || 0);
+    profile.marginPercentage = profile.totalAgreedPrice > 0
+      ? parseFloat(((profile.netProcedureMargin / profile.totalAgreedPrice) * 100).toFixed(1))
+      : 0;
+
+    // Pridanie čísel faktúr do zoznamu
+    const invList = new Set<string>(profile.invoices || []);
+    if (profile.advanceInvoiceNumber) invList.add(profile.advanceInvoiceNumber);
+    if (profile.finalInvoiceNumber) invList.add(profile.finalInvoiceNumber);
+    profile.invoices = Array.from(invList);
 
     this.saveClientProfiles(all);
     return profile;
@@ -523,9 +642,10 @@ export class FinanceBillingService {
 
       const isPast = new Date(evt.date) < now;
       const status = isPast ? 'operated' : 'planned';
-      const agreedPrice = evt.totalPrice || (evt.type === 'operacia' ? 3800 : 250);
-      const depositReq = evt.depositAmount || (evt.type === 'operacia' ? 800 : 0);
-      const depositPaid = evt.isDepositPaid ? depositReq : 0;
+      // Skutočná dohodnutá cena a záloha z kalendára (žiadne vymyslené sumy 3 800 € ani 800 €)
+      const agreedPrice = Math.max(0, Number(evt.totalPrice) || 0);
+      const depositReq = Math.max(0, Number(evt.depositAmount) || 0);
+      const depositPaid = evt.isDepositPaid ? (depositReq > 0 ? depositReq : 0) : 0;
 
       // Zistíme reálnu spotrebu materiálu pre tohto pacienta
       const materialUsage = getUsage(evt.patientName, evt.patientId);
@@ -567,15 +687,24 @@ export class FinanceBillingService {
         // Aktualizujeme spotrebu materiálu a linky
         existing.materialCost = materialUsage.totalCost > 0 ? materialUsage.totalCost : existing.materialCost;
         existing.materialItemsCount = materialUsage.itemsCount > 0 ? materialUsage.itemsCount : existing.materialItemsCount;
+        
+        // Ak v kalendári bola cena a zmenila sa
+        if (evt.totalPrice && evt.totalPrice !== existing.totalAgreedPrice) {
+          existing.totalAgreedPrice = evt.totalPrice;
+        } else if (!evt.totalPrice && existing.totalAgreedPrice === 3800 && (!existing.advanceInvoiceNumber && !existing.finalInvoiceNumber)) {
+          // Očistenie starých fiktívnych 3 800 €
+          existing.totalAgreedPrice = 0;
+          existing.depositRequired = 0;
+          if (existing.depositPaid === 800) existing.depositPaid = 0;
+          if (existing.totalPaid === 800) existing.totalPaid = 0;
+        }
+
+        existing.balanceDue = Math.max(0, existing.totalAgreedPrice - (existing.totalPaid || 0) - (existing.clientCredit || 0));
         existing.netProcedureMargin = existing.totalAgreedPrice - existing.materialCost;
         existing.marginPercentage = existing.totalAgreedPrice > 0 ? parseFloat((((existing.totalAgreedPrice - existing.materialCost) / existing.totalAgreedPrice) * 100).toFixed(1)) : 0;
         if (evt.id) {
           existing.linkedEventId = evt.id;
           if (!profByLinkedId.has(evt.id)) profByLinkedId.set(evt.id, existingIdx!);
-        }
-        if (evt.totalPrice && evt.totalPrice !== existing.totalAgreedPrice) {
-          existing.totalAgreedPrice = evt.totalPrice;
-          existing.balanceDue = Math.max(0, existing.totalAgreedPrice - existing.totalPaid - existing.clientCredit);
         }
       }
     });
@@ -705,65 +834,8 @@ export class FinanceBillingService {
       allProfiles.unshift(profile);
     }
 
-    // 3. Vytvorenie čakajúcej faktúry pre evidenciu vo Financiách (ak je suma > 0)
-    let createdInvoice: Invoice | undefined;
-    if (agreedPrice > 0) {
-      const invNum = this.generateNextInvoiceNumber('standard');
-      const lineItems: InvoiceLineItem[] = (entry.items && entry.items.length > 0)
-        ? entry.items.map((it, idx) => ({
-            id: `li-${Date.now()}-${idx}`,
-            description: `${it.name}${it.lot ? ` (Šarža: ${it.lot})` : ''}`,
-            quantity: it.quantity || 1,
-            unit: 'výkon',
-            unitPrice: it.price,
-            vatRate: 0,
-            total: it.price * (it.quantity || 1)
-          }))
-        : [{
-            id: `li-${Date.now()}-0`,
-            description: entry.procedureTitle,
-            quantity: 1,
-            unit: 'výkon',
-            unitPrice: agreedPrice,
-            vatRate: 0,
-            total: agreedPrice
-          }];
-
-      createdInvoice = {
-        id: invNum,
-        invoiceNumber: invNum,
-        type: 'standard',
-        patientId: entry.patientId,
-        patientName: entry.patientName,
-        patientBirthNumber: entry.patientBirthNumber,
-        patientAddress: entry.patientAddress,
-        patientEmail: entry.patientEmail,
-        patientPhone: entry.patientPhone,
-        issueDate: todayStr,
-        dueDate: todayStr,
-        deliveryDate: todayStr,
-        status: depPaid >= agreedPrice ? 'paid' : 'unpaid',
-        paymentMethod: 'card',
-        variableSymbol: invNum.replace(/\D/g, ''),
-        items: lineItems,
-        subtotal: entry.subtotal || agreedPrice,
-        vatAmount: 0,
-        totalAmount: agreedPrice,
-        paidAmount: depPaid,
-        remainingAmount: Math.max(0, agreedPrice - depPaid),
-        appliedCredit: 0,
-        notes: entry.notes || `Výkon v ambulancii (${entry.doctorName})`,
-        createdBy: entry.doctorName
-      };
-
-      if (!profile.invoices.includes(invNum)) {
-        profile.invoices.push(invNum);
-      }
-      this.saveClientProfiles(allProfiles);
-      this.saveInvoice(createdInvoice);
-    } else {
-      this.saveClientProfiles(allProfiles);
-    }
+    // 3. Uloženie profilu klienta vo Financiách (faktúry vystavuje účtovný program)
+    this.saveClientProfiles(allProfiles);
 
     // 4. Vytvorenie čakajúceho účtu v Pokladni POS pre recepciu
     const pendingCheckout: PendingPOSCheckout = {
@@ -789,14 +861,14 @@ export class FinanceBillingService {
       discountAmount: entry.discountAmount || 0,
       totalAmount: Math.max(0, agreedPrice - depPaid),
       status: depPaid >= agreedPrice && agreedPrice > 0 ? 'paid' : 'pending',
-      linkedInvoiceId: createdInvoice?.id,
+      linkedInvoiceId: undefined,
       linkedProfileId: profile.id
     };
 
     const currentPending = this.getPendingPOSCheckouts();
     this.savePendingPOSCheckouts([pendingCheckout, ...currentPending]);
 
-    return { pendingCheckout, profile, invoice: createdInvoice };
+    return { pendingCheckout, profile, invoice: undefined };
   }
 
   /**

@@ -1,4 +1,5 @@
 // Centrálna služba pre real-time synchronizáciu všetkých klinických dát naprieč počítačmi v SAY CLINIC
+import { compactCalendarEvents } from '@/utils/safeStorage';
 
 export type SyncCollection = 
   | 'patients'
@@ -218,7 +219,8 @@ export const RealtimeSyncService = {
 
     try {
       const currentRaw = localStorage.getItem(mapping.storageKey);
-      const incomingRaw = JSON.stringify(data);
+      const toStore = collection === 'calendar_events' && Array.isArray(data) ? compactCalendarEvents(data) : data;
+      const incomingRaw = JSON.stringify(toStore);
 
       // Ak je obsah identický, nevysielame zbytočné re-rendery
       if (currentRaw === incomingRaw) return;
@@ -248,7 +250,8 @@ export const RealtimeSyncService = {
     // 1. Optimistic lokálny zápis a dispatch (iba ak sa obsah reálne zmenil)
     try {
       const currentRaw = localStorage.getItem(mapping.storageKey);
-      const incomingRaw = JSON.stringify(data);
+      const toStore = collection === 'calendar_events' && Array.isArray(data) ? compactCalendarEvents(data) : data;
+      const incomingRaw = JSON.stringify(toStore);
       if (currentRaw === incomingRaw) {
         return;
       }
@@ -297,8 +300,14 @@ export const RealtimeSyncService = {
 
         if (sVal !== undefined && sVal !== null) {
           // Server má dáta -> aktualizujeme lokálny cache ak je odlišný
-          if (localRaw !== JSON.stringify(sVal)) {
-            localStorage.setItem(mapping.storageKey, JSON.stringify(sVal));
+          const toStore = col === 'calendar_events' && Array.isArray(sVal) ? compactCalendarEvents(sVal) : sVal;
+          const toStoreStr = JSON.stringify(toStore);
+          if (localRaw !== toStoreStr) {
+            try {
+              localStorage.setItem(mapping.storageKey, toStoreStr);
+            } catch (err) {
+              console.warn(`[RealtimeSync] Nepodarilo sa uložiť cache pre ${col}:`, err);
+            }
             window.dispatchEvent(new CustomEvent(mapping.eventName, { detail: sVal }));
           }
         } else if (localRaw) {

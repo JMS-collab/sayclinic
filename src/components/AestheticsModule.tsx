@@ -1806,7 +1806,7 @@ ${sessionNextStep}`;
                   onSelectColor={setActiveColor}
                   currentProduct={{
                     name: activeMaterial.name,
-                    lot: activeMaterial.lot,
+                    lot: activeMaterial.lot || '',
                     type: activeMaterial.type
                   }}
                   selectedVectorId={selectedVectorId}

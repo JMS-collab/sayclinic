@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
+import { compactCalendarEvents } from '../utils/safeStorage';
 
 import { 
   CalendarEvent,
@@ -226,7 +227,7 @@ export default function Calendar({
       if (result) {
         setCalendarEvents(prev => {
           const merged = mergeCalendarEvents(prev, result.events, result.successfulCalendarIds);
-          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(merged));
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(compactCalendarEvents(merged)));
           return merged;
         });
 
@@ -278,7 +279,7 @@ export default function Calendar({
             type: (e.type || detectEventType(e.title)) as EventType
           }));
           setCalendarEvents(formatted);
-          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(formatted));
+          localStorage.setItem('say_clinic_calendar_events', JSON.stringify(compactCalendarEvents(formatted)));
         } else {
           setCalendarEvents([]);
           localStorage.setItem('say_clinic_calendar_events', JSON.stringify([]));

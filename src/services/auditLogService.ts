@@ -28,7 +28,7 @@ export interface AuditLogEntry {
 }
 
 const AUDIT_STORAGE_KEY = 'say_clinic_audit_logs_v1';
-const MAX_LOGS_COUNT = 1500;
+const MAX_LOGS_COUNT = 150;
 
 export const AuditLogService = {
   // Získať všetky auditné záznamy

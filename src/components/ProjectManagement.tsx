@@ -556,6 +556,13 @@ export default function ProjectManagement({ currentUser }: ProjectManagementProp
     if (!selectedProject || !e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
 
+    // Ochrana proti preplneniu lokálneho úložiska (max 500 KB na lokálnu prílohu)
+    if (file.size > 500 * 1024) {
+      alert(`Súbor "${file.name}" je príliš veľký (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximálna veľkosť priamej lokálnej prílohy je 500 KB. Pre väčšie súbory prosím použite tlačidlo "Pridať odkaz" (Google Drive / OneDrive / Cloud link).`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;

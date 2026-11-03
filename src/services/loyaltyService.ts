@@ -659,7 +659,7 @@ export class LoyaltyService {
         if (!evtDate || evtDate.getTime() > refTime) return;
 
         const category: LoyaltyCategoryType = evt.type === 'operacia' ? 'surgery' : 'treatment';
-        const price = Number(evt.totalPrice) || (evt.type === 'operacia' ? 3800 : 0);
+        const price = Number(evt.totalPrice) || 0;
         if (price > 0) {
           indexTx(
             {

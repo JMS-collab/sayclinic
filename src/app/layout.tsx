@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "@/utils/safeStorage";
 import NextAuthProvider from "../components/NextAuthProvider";
 import GlobalContextMenu from "../components/GlobalContextMenu";
 

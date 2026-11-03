@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   PatientFinancialProfile, 
   FinanceBillingService, 
@@ -12,7 +12,11 @@ import {
   FileText, 
   AlertCircle, 
   Package,
-  Award
+  Award,
+  CheckCircle2,
+  Clock,
+  Save,
+  Check
 } from 'lucide-react';
 import { LoyaltyService } from '@/services/loyaltyService';
 
@@ -21,8 +25,8 @@ interface ClientFinanceDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProfileUpdated: (updated: PatientFinancialProfile) => void;
-  onOpenInvoiceDetail: (invoiceNumber: string) => void;
-  onCreateInvoiceForClient: (clientName: string, procedureName: string, amount: number, type: 'advance' | 'standard') => void;
+  onOpenInvoiceDetail?: (invoiceNumber: string) => void;
+  onCreateInvoiceForClient?: (clientName: string, procedureName: string, amount: number, type: 'advance' | 'standard') => void;
   onOpenLoyaltyModal?: (patientId: string | undefined, patientName: string) => void;
 }
 
@@ -32,7 +36,6 @@ export default function ClientFinanceDetailModal({
   onClose,
   onProfileUpdated,
   onOpenInvoiceDetail,
-  onCreateInvoiceForClient,
   onOpenLoyaltyModal
 }: ClientFinanceDetailModalProps) {
   // Stav pre zaevidovanie platby
@@ -48,6 +51,39 @@ export default function ClientFinanceDetailModal({
   const [creditType, setCreditType] = useState<'deposit_topup' | 'gift_voucher' | 'refund'>('deposit_topup');
   const [creditNote, setCreditNote] = useState('');
 
+  // Stavy pre evidenciu externých faktúr z účtovného programu kliniky
+  const [advanceNumber, setAdvanceNumber] = useState('');
+  const [advanceAmt, setAdvanceAmt] = useState('');
+  const [isAdvPaid, setIsAdvPaid] = useState(false);
+  const [advDate, setAdvDate] = useState('');
+  const [advMethod, setAdvMethod] = useState<PaymentMethod>('bank_transfer');
+
+  const [finalNumber, setFinalNumber] = useState('');
+  const [finalAmt, setFinalAmt] = useState('');
+  const [isFinPaid, setIsFinPaid] = useState(false);
+  const [finDate, setFinDate] = useState('');
+  const [finMethod, setFinMethod] = useState<PaymentMethod>('card');
+
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Synchronizácia stavov pri otvorení alebo zmene profilu
+  useEffect(() => {
+    if (profile) {
+      setAdvanceNumber(profile.advanceInvoiceNumber || '');
+      setAdvanceAmt(profile.advanceAmount !== undefined ? String(profile.advanceAmount) : (profile.depositPaid ? String(profile.depositPaid) : (profile.depositRequired ? String(profile.depositRequired) : '')));
+      setIsAdvPaid(Boolean(profile.isAdvancePaid));
+      setAdvDate(profile.advancePaidDate || '');
+      setAdvMethod(profile.advancePaymentMethod || 'bank_transfer');
+
+      setFinalNumber(profile.finalInvoiceNumber || '');
+      setFinalAmt(profile.finalAmount !== undefined ? String(profile.finalAmount) : (profile.balanceDue ? String(profile.balanceDue) : ''));
+      setIsFinPaid(Boolean(profile.isFinalPaid));
+      setFinDate(profile.finalPaidDate || '');
+      setFinMethod(profile.finalPaymentMethod || 'card');
+      setSaveSuccess(false);
+    }
+  }, [profile?.id, profile?.advanceInvoiceNumber, profile?.finalInvoiceNumber, profile?.isAdvancePaid, profile?.isFinalPaid]);
+
   if (!isOpen || !profile) return null;
 
   const isPlanned = profile.status === 'planned';
@@ -55,6 +91,30 @@ export default function ClientFinanceDetailModal({
     id: profile.patientId,
     name: profile.patientName
   });
+
+  // Uloženie údajov externých faktúr (ZF & DF)
+  const handleSaveInvoices = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated = FinanceBillingService.updateClientInvoiceTracking(profile.id, {
+      advanceInvoiceNumber: advanceNumber,
+      advanceAmount: advanceAmt ? parseFloat(advanceAmt) : undefined,
+      isAdvancePaid: isAdvPaid,
+      advancePaidDate: advDate || (isAdvPaid ? new Date().toISOString().split('T')[0] : undefined),
+      advancePaymentMethod: advMethod,
+
+      finalInvoiceNumber: finalNumber,
+      finalAmount: finalAmt ? parseFloat(finalAmt) : undefined,
+      isFinalPaid: isFinPaid,
+      finalPaidDate: finDate || (isFinPaid ? new Date().toISOString().split('T')[0] : undefined),
+      finalPaymentMethod: finMethod
+    });
+
+    if (updated) {
+      onProfileUpdated(updated);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }
+  };
 
   // Načítanie spotrebovaného materiálu zo skladu
   const materialUsage = FinanceBillingService.calculateClientMaterialUsage(profile.patientName, profile.patientId);
@@ -453,62 +513,185 @@ export default function ClientFinanceDetailModal({
               </div>
             </div>
 
-            {/* PREPOJENÉ FAKTÚRY & AKCIE (5 STĹPCOV) */}
+            {/* EVIDENCIA EXTERNÝCH FAKTÚR (ZF & DF) Z ÚČTOVNÉHO PROGRAMU (5 STĹPCOV) */}
             <div className="lg:col-span-5 space-y-4">
-              <div className="bg-[#FBF9F6] p-5 rounded-2xl border border-[#E8E2D9] space-y-4">
+              <div className="bg-[#FBF9F6] p-5 rounded-2xl border border-[#E8E2D9] space-y-4 shadow-2xs">
                 <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-3">
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-[#2C2A29]" />
+                    <FileText className="w-4 h-4 text-[#C5A059]" />
                     <h4 className="font-bold text-xs uppercase text-[#2C2A29] tracking-wider">
-                      Vystavené faktúry & Zálohy
+                      Faktúry z účtovného programu
                     </h4>
                   </div>
+                  {saveSuccess && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 animate-fadeIn">
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      Uložené
+                    </span>
+                  )}
                 </div>
 
-                {profile.invoices.length === 0 ? (
-                  <p className="text-xs text-[#8C857B] py-2">
-                    Pre tohto klienta zatiaľ nie je vystavená žiadna faktúra.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {profile.invoices.map((invNum) => (
-                      <div 
-                        key={invNum}
-                        onClick={() => onOpenInvoiceDetail(invNum)}
-                        className="flex justify-between items-center p-2.5 bg-white rounded-xl border border-[#E8E2D9] hover:border-[#C5A059] cursor-pointer transition-all group"
-                      >
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-[#C5A059]" />
-                          <span className="font-mono font-bold text-xs text-[#2C2A29] group-hover:text-[#C5A059]">
-                            {invNum}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-[#8C857B] font-bold group-hover:underline">
-                          Náhľad a tlač ➔
+                <form onSubmit={handleSaveInvoices} className="space-y-4">
+                  {/* 1. BLOK: ZÁLOHOVÁ FAKTÚRA (ZF) */}
+                  <div className="bg-white p-3.5 rounded-xl border border-[#E8E2D9] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        Zálohová faktúra (ZF)
+                      </span>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-[#2C2A29]">
+                        <input
+                          type="checkbox"
+                          checked={isAdvPaid}
+                          onChange={(e) => {
+                            setIsAdvPaid(e.target.checked);
+                            if (e.target.checked && !advDate) {
+                              setAdvDate(new Date().toISOString().split('T')[0]);
+                            }
+                          }}
+                          className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                        />
+                        <span className={isAdvPaid ? 'text-emerald-700 font-bold' : 'text-[#8C857B]'}>
+                          {isAdvPaid ? '✓ Uhradená' : 'Neuhradená'}
                         </span>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Číslo ZF</label>
+                        <input
+                          type="text"
+                          value={advanceNumber}
+                          onChange={(e) => setAdvanceNumber(e.target.value)}
+                          placeholder="napr. 20260012"
+                          className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs font-mono font-bold text-[#2C2A29] bg-[#FBF9F6] focus:bg-white focus:outline-none focus:border-[#C5A059]"
+                        />
                       </div>
-                    ))}
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Suma zálohy (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={advanceAmt}
+                          onChange={(e) => setAdvanceAmt(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs font-mono font-bold text-[#2C2A29] bg-[#FBF9F6] focus:bg-white focus:outline-none focus:border-[#C5A059]"
+                        />
+                      </div>
+                    </div>
+
+                    {isAdvPaid && (
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#F0ECE1]">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Dátum úhrady</label>
+                          <input
+                            type="date"
+                            value={advDate}
+                            onChange={(e) => setAdvDate(e.target.value)}
+                            className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-[11px] font-mono text-[#2C2A29] bg-[#FBF9F6]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Spôsob úhrady</label>
+                          <select
+                            value={advMethod}
+                            onChange={(e) => setAdvMethod(e.target.value as PaymentMethod)}
+                            className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-[11px] text-[#2C2A29] bg-[#FBF9F6]"
+                          >
+                            <option value="bank_transfer">Bankový prevod</option>
+                            <option value="card">Platobná karta</option>
+                            <option value="cash">Hotovosť</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
 
-                {/* TLAČIDLÁ PRE VYSTAVENIE FAKTÚR */}
-                <div className="space-y-2 pt-2 border-t border-[#E8E2D9]">
-                  <button
-                    type="button"
-                    onClick={() => onCreateInvoiceForClient(profile.patientName, profile.procedureName, profile.depositRequired || 800, 'advance')}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 text-xs font-bold transition-colors border border-amber-300"
-                  >
-                    <span>📄 Vystaviť zálohovú faktúru (ZF)</span>
-                  </button>
+                  {/* 2. BLOK: DEFINITÍVNA FAKTÚRA (DF) */}
+                  <div className="bg-white p-3.5 rounded-xl border border-[#E8E2D9] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                        Definitívna faktúra (DF)
+                      </span>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-[#2C2A29]">
+                        <input
+                          type="checkbox"
+                          checked={isFinPaid}
+                          onChange={(e) => {
+                            setIsFinPaid(e.target.checked);
+                            if (e.target.checked && !finDate) {
+                              setFinDate(new Date().toISOString().split('T')[0]);
+                            }
+                          }}
+                          className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                        />
+                        <span className={isFinPaid ? 'text-emerald-700 font-bold' : 'text-[#8C857B]'}>
+                          {isFinPaid ? '✓ Uhradená' : 'Neuhradená'}
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Číslo DF</label>
+                        <input
+                          type="text"
+                          value={finalNumber}
+                          onChange={(e) => setFinalNumber(e.target.value)}
+                          placeholder="napr. 20260145"
+                          className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs font-mono font-bold text-[#2C2A29] bg-[#FBF9F6] focus:bg-white focus:outline-none focus:border-[#C5A059]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Suma DF (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={finalAmt}
+                          onChange={(e) => setFinalAmt(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full border border-[#E8E2D9] p-2 rounded-lg text-xs font-mono font-bold text-[#2C2A29] bg-[#FBF9F6] focus:bg-white focus:outline-none focus:border-[#C5A059]"
+                        />
+                      </div>
+                    </div>
+
+                    {isFinPaid && (
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#F0ECE1]">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Dátum úhrady</label>
+                          <input
+                            type="date"
+                            value={finDate}
+                            onChange={(e) => setFinDate(e.target.value)}
+                            className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-[11px] font-mono text-[#2C2A29] bg-[#FBF9F6]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-[#8C857B] mb-1">Spôsob úhrady</label>
+                          <select
+                            value={finMethod}
+                            onChange={(e) => setFinMethod(e.target.value as PaymentMethod)}
+                            className="w-full border border-[#E8E2D9] p-1.5 rounded-lg text-[11px] text-[#2C2A29] bg-[#FBF9F6]"
+                          >
+                            <option value="card">Platobná karta</option>
+                            <option value="bank_transfer">Bankový prevod</option>
+                            <option value="cash">Hotovosť</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   <button
-                    type="button"
-                    onClick={() => onCreateInvoiceForClient(profile.patientName, profile.procedureName, profile.balanceDue || profile.totalAgreedPrice, 'standard')}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-colors shadow-xs"
+                    type="submit"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-xs cursor-pointer"
                   >
-                    <span>🧾 Vystaviť konečnú faktúru (FA)</span>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Uložiť fakturačné údaje</span>
                   </button>
-                </div>
+                </form>
               </div>
             </div>
 

@@ -158,7 +158,11 @@ export class PatientCloudService {
 
             // Uložíme do lokálnej pamäte pre offline prístup
             if (typeof window !== 'undefined') {
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+              } catch (storageErr) {
+                console.warn('[patientCloudService] Nepodarilo sa uložiť cache pacientov do localStorage:', storageErr);
+              }
             }
             onUpdate(list);
           } else {
