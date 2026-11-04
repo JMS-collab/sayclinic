@@ -3598,8 +3598,15 @@ export default function PatientDatabase({
                   {activeFolder === 'meicet' && (
                     <div className="space-y-6">
                       <MeicetModule
+                        patient={selectedPatient}
                         selectedPatient={selectedPatient}
+                        onScheduleTreatment={handleScheduleTreatmentFromPlan}
+                        onTransferToCosmeticsPOS={!isRudlovaOnly ? ((items) => onNavigateToCosmetics?.(selectedPatient, items)) : undefined}
                         onOpenInCosmeticsPOS={!isRudlovaOnly ? ((items) => onNavigateToCosmetics?.(selectedPatient, items)) : undefined}
+                        onSaveToPatientPlans={(plan) => {
+                          handleSaveNewPlan(plan);
+                          setActiveFolder('plany');
+                        }}
                         onNavigateToRoadmap={(plan) => {
                           handleSaveNewPlan(plan);
                           setActiveFolder('plany');

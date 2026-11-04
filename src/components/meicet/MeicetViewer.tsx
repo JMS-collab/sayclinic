@@ -91,7 +91,125 @@ export function MeicetViewer({
 
   const pdfReportRef = useRef<HTMLDivElement>(null);
 
-  const { metrics, anamnesis, clinicalSynthesis, annualSchedule, skincareRoutine } = report;
+  const rawMetrics: any = report.metrics || {};
+  const overallSkinScore = rawMetrics.overallSkinScore ?? rawMetrics.skinScoreOverall ?? 75;
+  const fitzpatrickType = rawMetrics.fitzpatrickType ?? rawMetrics.fitzpatrickPhototype ?? 'II';
+  const chronologicalAge = rawMetrics.chronologicalAge ?? rawMetrics.actualAge ?? 35;
+  const skinAge = rawMetrics.skinAge ?? chronologicalAge;
+  const skinType = rawMetrics.skinType ?? 'zmiešaná';
+
+  const hydrationAndSebum = rawMetrics.hydrationAndSebum || {
+    label: 'Hydratácia a kožný maz (TEWL)',
+    lightMode: 'Krížovo polarizované svetlo',
+    score: rawMetrics.hydration?.score ?? 50,
+    percentile: rawMetrics.hydration?.percentile ?? 50,
+    level: (rawMetrics.hydration?.score ?? 50) < 50 ? 'critical' : 'moderate',
+    description: rawMetrics.hydration?.description || 'Hydratácia pleti'
+  };
+  const poresAndTexture = rawMetrics.poresAndTexture || {
+    label: 'Póry a reliéf pleti',
+    lightMode: 'Paralelne polarizované svetlo',
+    score: rawMetrics.pores?.score ?? 60,
+    percentile: rawMetrics.pores?.percentile ?? 55,
+    level: (rawMetrics.pores?.score ?? 60) < 50 ? 'critical' : 'mild',
+    description: rawMetrics.pores?.description || 'Textúra a póry'
+  };
+  const wrinklesAndElasticity = rawMetrics.wrinklesAndElasticity || {
+    label: 'Vrásky a elasticita pleti',
+    lightMode: 'Štandardné biele svetlo RGB',
+    score: rawMetrics.wrinkles?.score ?? 55,
+    percentile: rawMetrics.wrinkles?.percentile ?? 50,
+    level: (rawMetrics.wrinkles?.score ?? 55) < 50 ? 'critical' : 'mild',
+    description: rawMetrics.wrinkles?.description || 'Mimické vrásky'
+  };
+  const surfacePigmentation = rawMetrics.surfacePigmentation || {
+    label: 'Povrchová pigmentácia a škvrny',
+    lightMode: 'Paralelne polarizované svetlo',
+    score: rawMetrics.brownSpots?.score ?? 65,
+    percentile: rawMetrics.brownSpots?.percentile ?? 60,
+    level: (rawMetrics.brownSpots?.score ?? 65) < 50 ? 'critical' : 'mild',
+    description: rawMetrics.brownSpots?.description || 'Povrchové pigmentácie'
+  };
+  const uvDeepSpots = rawMetrics.uvDeepSpots || {
+    label: 'Hĺbkové UV fotopoškodenie',
+    lightMode: 'UV spektrum (365 nm)',
+    score: rawMetrics.uvDamage?.score ?? 50,
+    percentile: rawMetrics.uvDamage?.percentile ?? 45,
+    level: (rawMetrics.uvDamage?.score ?? 50) < 50 ? 'critical' : 'moderate',
+    description: rawMetrics.uvDamage?.description || 'UV poškodenie'
+  };
+  const vascularityAndRedness = rawMetrics.vascularityAndRedness || {
+    label: 'Cievny erytém a začervenanie',
+    lightMode: 'Krížovo polarizované svetlo (Red spectrum)',
+    score: rawMetrics.redAreas?.score ?? 55,
+    percentile: rawMetrics.redAreas?.percentile ?? 50,
+    level: (rawMetrics.redAreas?.score ?? 55) < 50 ? 'critical' : 'mild',
+    description: rawMetrics.redAreas?.description || 'Cievny erytém'
+  };
+  const porphyrinsAndAcne = rawMetrics.porphyrinsAndAcne || {
+    label: 'Porfyríny a bakteriálna aktivita',
+    lightMode: 'Fluorescenčné Woodovo svetlo',
+    score: rawMetrics.sebumAndPorphyrins?.score ?? 70,
+    percentile: rawMetrics.sebumAndPorphyrins?.percentile ?? 70,
+    level: 'optimal',
+    description: rawMetrics.sebumAndPorphyrins?.description || 'Mikrobiálna aktivita'
+  };
+  const sensitivityAndBarrier = rawMetrics.sensitivityAndBarrier || {
+    label: 'Citlivosť a reaktivita bariéry',
+    lightMode: 'Kombinované spektrum',
+    score: rawMetrics.hydration?.score ?? 52,
+    percentile: rawMetrics.hydration?.percentile ?? 50,
+    level: (rawMetrics.hydration?.score ?? 52) < 50 ? 'critical' : 'mild',
+    description: 'Bariérová funkcia stratum corneum'
+  };
+
+  const metrics = {
+    ...rawMetrics,
+    overallSkinScore,
+    fitzpatrickType,
+    chronologicalAge,
+    skinAge,
+    skinType,
+    hydrationAndSebum,
+    poresAndTexture,
+    wrinklesAndElasticity,
+    surfacePigmentation,
+    uvDeepSpots,
+    vascularityAndRedness,
+    porphyrinsAndAcne,
+    sensitivityAndBarrier
+  };
+
+  const rawSynthesis: any = report.clinicalSynthesis || {};
+  const clinicalSynthesis = {
+    ...rawSynthesis,
+    executiveSummary: rawSynthesis.executiveSummary || rawSynthesis.summary || 'Klinická syntéza stavu pleti na základe spektrálnej analýzy.',
+    primaryConcerns: rawSynthesis.primaryConcerns || rawSynthesis.keyFindings || ['Hydratácia', 'Vrásky'],
+    contraindicationsAndAlerts: rawSynthesis.contraindicationsAndAlerts || rawSynthesis.riskAlerts || report.anamnesis?.contraindications || []
+  };
+
+  let annualSchedule: any = report.annualSchedule;
+  if (Array.isArray(report.annualSchedule)) {
+    const q1 = (report.annualSchedule.find((s: any) => s.season === 'jar' || s.quarter?.includes('Q1')) as any)?.treatments || [];
+    const q2 = (report.annualSchedule.find((s: any) => s.season === 'leto' || s.quarter?.includes('Q2')) as any)?.treatments || [];
+    const q3 = (report.annualSchedule.find((s: any) => s.season === 'jesen' || s.quarter?.includes('Q3')) as any)?.treatments || [];
+    const q4 = (report.annualSchedule.find((s: any) => s.season === 'zima' || s.quarter?.includes('Q4')) as any)?.treatments || [];
+    annualSchedule = {
+      q1_spring: q1,
+      q2_summer: q2,
+      q3_autumn: q3,
+      q4_winter: q4,
+    };
+  } else if (!annualSchedule) {
+    annualSchedule = {
+      q1_spring: [],
+      q2_summer: [],
+      q3_autumn: [],
+      q4_winter: [],
+    };
+  }
+
+  const { anamnesis, skincareRoutine } = report;
 
   // Zoznam povolených pleťových ošetrení z živého cenníka (bez IPL, bez HydraFacial, bez AHA peelingu)
   const availableSkinTreatments: ClinicPriceItem[] = React.useMemo(() => {
@@ -134,7 +252,7 @@ export function MeicetViewer({
     ...(annualSchedule?.q3_autumn || []),
     ...(annualSchedule?.q4_winter || []),
   ];
-  const totalAnnualProceduresPrice = allAnnualProcedures.reduce((sum, item) => sum + (item.price || 0), 0);
+  const totalAnnualProceduresPrice = allAnnualProcedures.reduce((sum, item: any) => sum + (item.price ?? item.estimatedPrice ?? 0), 0);
 
   const handleSelectTier = (tier: SkincareTier) => {
     setSelectedTier(tier);
@@ -924,7 +1042,11 @@ export function MeicetViewer({
                 Čomu sa prísne vyhnúť (Kontraindikované zložky)
               </h4>
               <ul className="space-y-1.5 text-xs text-rose-950">
-                {skincareRoutine.ingredientsToAvoid.map((avoid, idx) => (
+                {(skincareRoutine?.ingredientsToAvoid || [
+                  'Agresívne mechanické abrazívne peelingy s ostrými čiastočkami',
+                  'Vysokopercentný denaturovaný alkohol',
+                  'Kyseliny a retinoidy 7 dní pred laserom'
+                ]).map((avoid, idx) => (
                   <li key={idx} className="flex items-start gap-2">
                     <span className="text-rose-600 font-bold">✕</span>
                     <span>{avoid}</span>
@@ -1032,7 +1154,7 @@ export function MeicetViewer({
                     <p className="text-[11px] text-white/85 mt-0.5">{season.subtitle}</p>
                   </div>
                   <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white text-xs font-bold">
-                    {(season.items || []).reduce((sum, i) => sum + (i.price || 0), 0)} €
+                    {(season.items || []).reduce((sum, i: any) => sum + (i.price ?? i.estimatedPrice ?? 0), 0)} €
                   </span>
                 </div>
 
@@ -1058,10 +1180,10 @@ export function MeicetViewer({
                             <div className="flex items-center gap-2 shrink-0">
                               <div className="text-right">
                                 <span className="text-base font-serif font-bold text-[#8C6D2D] block">
-                                  {item.price} €
+                                  {(item as any).price ?? (item as any).estimatedPrice ?? 0} €
                                 </span>
                                 <span className="text-[10px] text-[#8C837A]">
-                                  Rekonvalescencia: {item.downtime}
+                                  Rekonvalescencia: {(item as any).downtime || (item as any).recovery || 'Bez obmedzenia'}
                                 </span>
                               </div>
                               {onUpdateReport && (

@@ -18,20 +18,30 @@ import { PatientPlan } from '@/data/patientPlanConfig';
 import { QUICK_SKIN_CONCERN_PRESETS, createDemoMeicetResult } from '@/data/meicetDemoData';
 
 interface MeicetModuleProps {
-  patient: Patient;
+  patient?: Patient;
+  selectedPatient?: Patient;
   patientRecords?: MedicalRecord[];
   onSaveToPatientPlans?: (plan: PatientPlan) => void;
+  onNavigateToRoadmap?: (plan: PatientPlan) => void;
   onScheduleTreatment?: (event: Partial<CalendarEvent>) => void;
   onTransferToCosmeticsPOS?: (products: any[]) => void;
+  onOpenInCosmeticsPOS?: (products: any[]) => void;
 }
 
 export function MeicetModule({
-  patient,
+  patient: propPatient,
+  selectedPatient,
   patientRecords = [],
   onSaveToPatientPlans,
+  onNavigateToRoadmap,
   onScheduleTreatment,
-  onTransferToCosmeticsPOS
+  onTransferToCosmeticsPOS,
+  onOpenInCosmeticsPOS
 }: MeicetModuleProps) {
+  const patient = propPatient || selectedPatient;
+  const handleSavePlan = onSaveToPatientPlans || onNavigateToRoadmap;
+  const handlePOS = onTransferToCosmeticsPOS || onOpenInCosmeticsPOS;
+
   const [reports, setReports] = useState<MeicetAnalysisResult[]>([]);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -71,6 +81,7 @@ export function MeicetModule({
   };
 
   const handleQuickGenerateWithoutPdf = () => {
+    if (!patient) return;
     const generated = createDemoMeicetResult(
       patient.id,
       patient.name,
@@ -89,6 +100,7 @@ export function MeicetModule({
   };
 
   const handleDeleteReport = (reportId: string) => {
+    if (!patient) return;
     if (!confirm('Naozaj chcete vymazať tento plán pleti a Meicet analýzu?')) return;
     MeicetService.deleteReport(patient.id, reportId);
     const remaining = reports.filter(r => r.id !== reportId);
@@ -97,6 +109,14 @@ export function MeicetModule({
       setSelectedReportId(remaining[0]?.id || null);
     }
   };
+
+  if (!patient) {
+    return (
+      <div className="p-8 text-center text-xs text-[#8C857B] bg-[#FAF8F5] rounded-2xl border border-[#E8E2D9]">
+        Vyberte pacienta pre zobrazenie a vytvorenie plánu pleti.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -177,7 +197,7 @@ export function MeicetModule({
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E8E2D9] pb-4">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059] block">
-                Vytvorenie plánu pleti pre: {patient.name}
+                Vytvorenie plánu pleti pre: {patient?.name || 'Klient'}
               </span>
               <h4 className="font-serif text-lg font-bold text-[#2C2A29]">
                 Vyberte spôsob diagnostiky pleti (Meicet PDF alebo Rýchle naklikanie problémov)
@@ -272,9 +292,9 @@ export function MeicetModule({
         <MeicetViewer
           report={activeReport}
           onUpdateReport={handleUpdateActiveReport}
-          onSaveToPatientPlans={onSaveToPatientPlans}
+          onSaveToPatientPlans={handleSavePlan}
           onScheduleTreatment={onScheduleTreatment}
-          onTransferToCosmeticsPOS={onTransferToCosmeticsPOS}
+          onTransferToCosmeticsPOS={handlePOS}
           onNewScanRequested={() => setIsUploadModalOpen(true)}
         />
       ) : null}
