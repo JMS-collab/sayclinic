@@ -20,11 +20,25 @@ export class MeicetService {
   }
 
   /**
-   * Získa Meicet analýzy pre konkrétneho pacienta
+   * Získa Meicet analýzy pre konkrétneho pacienta (s fallbackom na rodné číslo a meno)
    */
-  static getReportsForPatient(patientId: string): MeicetAnalysisResult[] {
+  static getReportsForPatient(patientId: string, birthNumber?: string, patientName?: string): MeicetAnalysisResult[] {
     const all = this.getAllReports();
-    return all[patientId] || [];
+    const direct = all[patientId] || [];
+    if (direct.length > 0) return direct;
+
+    if (birthNumber || patientName) {
+      for (const [key, reports] of Object.entries(all)) {
+        if (Array.isArray(reports)) {
+          const matched = reports.filter(r => 
+            (birthNumber && r.patientBirthNumber && r.patientBirthNumber === birthNumber) ||
+            (patientName && r.patientName && r.patientName.trim().toLowerCase() === patientName.trim().toLowerCase())
+          );
+          if (matched.length > 0) return matched;
+        }
+      }
+    }
+    return [];
   }
 
   /**

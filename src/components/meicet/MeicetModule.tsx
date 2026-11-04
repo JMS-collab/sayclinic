@@ -11,6 +11,7 @@ import {
 import { Patient, MedicalRecord } from '../PatientDatabase';
 import { MeicetAnalysisResult } from '@/types/meicet';
 import { MeicetService } from '@/services/meicetService';
+import { RealtimeSyncService } from '@/services/realtimeSyncService';
 import { MeicetUploadModal } from './MeicetUploadModal';
 import { MeicetViewer } from './MeicetViewer';
 import { CalendarEvent } from '@/data/calendarConfig';
@@ -21,6 +22,7 @@ interface MeicetModuleProps {
   patient?: Patient;
   selectedPatient?: Patient;
   patientRecords?: MedicalRecord[];
+  onSaveToDriveAndRecords?: (report: MeicetAnalysisResult, pdfBase64?: string) => Promise<{ success: boolean; driveWebViewLink?: string }> | void;
   onSaveToPatientPlans?: (plan: PatientPlan) => void;
   onNavigateToRoadmap?: (plan: PatientPlan) => void;
   onScheduleTreatment?: (event: Partial<CalendarEvent>) => void;
@@ -32,6 +34,7 @@ export function MeicetModule({
   patient: propPatient,
   selectedPatient,
   patientRecords = [],
+  onSaveToDriveAndRecords,
   onSaveToPatientPlans,
   onNavigateToRoadmap,
   onScheduleTreatment,
@@ -55,16 +58,24 @@ export function MeicetModule({
 
   const loadReports = () => {
     if (!patient?.id) return;
-    const patientReports = MeicetService.getReportsForPatient(patient.id);
+    const patientReports = MeicetService.getReportsForPatient(patient.id, patient.birthNumber, patient.name);
     setReports(patientReports);
-    if (patientReports.length > 0 && !selectedReportId) {
-      setSelectedReportId(patientReports[0].id);
+    if (patientReports.length > 0) {
+      if (!selectedReportId || !patientReports.some(r => r.id === selectedReportId)) {
+        setSelectedReportId(patientReports[0].id);
+      }
     }
   };
 
   useEffect(() => {
     loadReports();
-  }, [patient?.id]);
+    const unsub = RealtimeSyncService.subscribe('meicet_reports', (updated) => {
+      if (updated && patient?.id) {
+        loadReports();
+      }
+    });
+    return () => unsub();
+  }, [patient?.id, patient?.birthNumber, patient?.name]);
 
   const activeReport = reports.find(r => r.id === selectedReportId) || reports[0] || null;
 
@@ -292,6 +303,7 @@ export function MeicetModule({
         <MeicetViewer
           report={activeReport}
           onUpdateReport={handleUpdateActiveReport}
+          onSaveToDriveAndRecords={onSaveToDriveAndRecords}
           onSaveToPatientPlans={handleSavePlan}
           onScheduleTreatment={onScheduleTreatment}
           onTransferToCosmeticsPOS={handlePOS}

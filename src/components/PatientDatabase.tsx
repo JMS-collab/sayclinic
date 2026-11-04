@@ -52,6 +52,8 @@ import { PatientPlan, PRESET_PATIENT_PLANS, ScheduledTreatment } from '../data/p
 import PatientPlanViewer from './patient/PatientPlanViewer';
 import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
 import { MeicetModule } from './meicet/MeicetModule';
+import { MeicetAnalysisResult } from '@/types/meicet';
+import { MeicetService } from '@/services/meicetService';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
@@ -376,7 +378,85 @@ export default function PatientDatabase({
     RealtimeSyncService.publish('patient_plans', newAll);
   };
 
-  // STAV PRE PLÁNOVANIE TERMÍNOV PRIAMO Z KARTY PACIENTA
+  // ULOŽENIE MEICET ANALÝZY NA GOOGLE DRIVE & MEDZI ZDRAVOTNÉ ZÁZNAMY PACIENTA
+  const handleSaveMeicetToDriveAndRecords = async (
+    report: MeicetAnalysisResult,
+    pdfBase64?: string
+  ): Promise<{ success: boolean; driveWebViewLink?: string }> => {
+    if (!selectedPatient) return { success: false };
+
+    try {
+      const recordTitle = `3D Spektrálna analýza pleti & Ročný plán (Meicet Pro-A)`;
+      const summaryLines = [
+        `MEICET PRO-A 3D SPEKTRÁLNA DIAGNOSTIKA PLETI & DERMATOLOGICKÝ ROČNÝ PLÁN`,
+        `Dátum vyšetrenia: ${report.scanDate}`,
+        `Vek pacienta: ${report.metrics.actualAge} rokov | Odhadovaný vek pleti: ${report.metrics.skinAge} rokov`,
+        `Celkové skóre zdravia pleti: ${report.metrics.skinScoreOverall}/100`,
+        `Typ pleti: ${report.metrics.skinType.toUpperCase()} (Fitzpatrick ${report.metrics.fitzpatrickPhototype})`,
+        ``,
+        `KLINICKÉ ZHODNOTENIE:`,
+        `${report.clinicalSynthesis.summary}`,
+        ``,
+        `KĽÚČOVÉ NÁLEZY:`,
+        ...report.clinicalSynthesis.keyFindings.map(f => `• ${f}`),
+        ``,
+        `KONTRAINDIKÁCIE & BEZPEČNOSTNÉ UPOZORNENIA:`,
+        ...report.clinicalSynthesis.riskAlerts.map(r => `⚠️ ${r}`),
+        ``,
+        `ROČNÝ SEZÓNNY HARMONOGRAM PROCEDÚR:`,
+        ...report.annualSchedule.map(s => `${s.quarter}: ${s.title}\n${s.treatments.map(t => `  - ${t.name} (${t.seasonOrMonth}) [${t.priority}] - ${t.estimatedPrice} €`).join('\n')}`),
+        ``,
+        `DOMÁCA DERMOKOZMETICKÁ SKINCARE RUTINA:`,
+        `Ranná rutina:`,
+        ...(report.skincareRoutine.morning || []).map(m => `  ${m.step}. ${m.productName} (${m.brand}) - Účinná látka: ${m.keyActiveIngredient || m.activeIngredients}\n     Prečo: ${m.whyItMatters || m.meicetJustification}\n     Aplikácia: ${m.frequencySchedule || m.usage}`),
+        `Večerná rutina:`,
+        ...(report.skincareRoutine.evening || []).map(e => `  ${e.step}. ${e.productName} (${e.brand}) - Účinná látka: ${e.keyActiveIngredient || e.activeIngredients}\n     Prečo: ${e.whyItMatters || e.meicetJustification}\n     Aplikácia: ${e.frequencySchedule || e.usage}${e.titrationNotes ? `\n     Titrácia: ${e.titrationNotes}` : ''}`)
+      ];
+
+      const cloudRes = await CloudRecordService.saveRecordToCloud(
+        {
+          id: selectedPatient.id,
+          name: selectedPatient.name,
+          birthNumber: selectedPatient.birthNumber
+        },
+        {
+          type: 'Meicet Pro-A (Analýza pleti)',
+          typeColor: 'bg-amber-600',
+          title: recordTitle,
+          doctor: report.doctorName || 'MUDr. Ján Mráz',
+          diagnosis: 'L98.9 Diagnostika pleti a porúch kožnej bariéry (Meicet 3D)',
+          date: report.scanDate || new Date().toISOString().split('T')[0],
+          content: summaryLines.join('\n')
+        },
+        pdfBase64,
+        workspaceToken || undefined
+      );
+
+      if (cloudRes.success && cloudRes.record) {
+        setPatientRecords(prev => {
+          const existing = prev[selectedPatient.id] || [];
+          const updated = [cloudRes.record as any, ...existing.filter(r => r.id !== cloudRes.record.id)];
+          if (typeof window !== 'undefined') {
+            const allRecs = { ...prev, [selectedPatient.id]: updated };
+            localStorage.setItem('say_clinic_patient_records', JSON.stringify(allRecs));
+            RealtimeSyncService.publish('patient_records', allRecs);
+          }
+          return { ...prev, [selectedPatient.id]: updated };
+        });
+      }
+
+      // Uložiť aj do MeicetService histórie
+      MeicetService.saveReport(report);
+
+      return {
+        success: true,
+        driveWebViewLink: cloudRes.driveFile?.webViewLink || cloudRes.record?.driveWebViewLink
+      };
+    } catch (err) {
+      console.error('Chyba pri ukladaní Meicet analýzy na Drive a do záznamov:', err);
+      return { success: false };
+    }
+  };
   const [isSchedulingEvent, setIsSchedulingEvent] = useState(false);
   const [schedulingSourceRecord, setSchedulingSourceRecord] = useState<MedicalRecord | null>(null);
   const [schedulingInitialDetails, setSchedulingInitialDetails] = useState<{
@@ -3661,6 +3741,7 @@ export default function PatientDatabase({
                         onScheduleTreatment={handleScheduleTreatmentFromPlan}
                         onTransferToCosmeticsPOS={!isRudlovaOnly ? ((items) => onNavigateToCosmetics?.(selectedPatient, items)) : undefined}
                         onOpenInCosmeticsPOS={!isRudlovaOnly ? ((items) => onNavigateToCosmetics?.(selectedPatient, items)) : undefined}
+                        onSaveToDriveAndRecords={handleSaveMeicetToDriveAndRecords}
                         onSaveToPatientPlans={(plan) => {
                           handleSaveNewPlan(plan);
                           setActiveFolder('plany');

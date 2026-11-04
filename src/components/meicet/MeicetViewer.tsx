@@ -26,19 +26,21 @@ import {
   Trash2,
   X,
   FlaskConical,
-  Lightbulb
+  Lightbulb,
+  HardDrive
 } from 'lucide-react';
 import { MeicetAnalysisResult, MeicetTreatmentPlanItem, SkincareTier } from '@/types/meicet';
 import { MeicetService } from '@/services/meicetService';
 import { MeicetReportPdfDocument } from './MeicetReportPdfDocument';
 import { CalendarEvent } from '@/data/calendarConfig';
-import { generatePdfFilename, exportElementToPdf } from '@/lib/pdfGenerator';
+import { generatePdfFilename, exportElementToPdf, generatePdfBase64 } from '@/lib/pdfGenerator';
 import { getLiveClinicPriceList, ClinicPriceItem } from '@/data/clinicPriceList';
 
 interface MeicetViewerProps {
   report: MeicetAnalysisResult;
   onClose?: () => void;
   onUpdateReport?: (report: MeicetAnalysisResult) => void;
+  onSaveToDriveAndRecords?: (report: MeicetAnalysisResult, pdfBase64?: string) => Promise<{ success: boolean; driveWebViewLink?: string }> | void;
   onSaveToPatientPlans?: (plan: any) => void;
   onScheduleTreatment?: (event: Partial<CalendarEvent>) => void;
   onTransferToCosmeticsPOS?: (products: any[]) => void;
@@ -83,6 +85,7 @@ export function MeicetViewer({
   report,
   onClose,
   onUpdateReport,
+  onSaveToDriveAndRecords,
   onSaveToPatientPlans,
   onScheduleTreatment,
   onTransferToCosmeticsPOS,
@@ -90,6 +93,8 @@ export function MeicetViewer({
 }: MeicetViewerProps) {
   const [activeTab, setActiveTab] = useState<'metrics' | 'skincare' | 'annual_plan'>('metrics');
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedDriveLink, setSavedDriveLink] = useState<string | null>(null);
   const [bookedTreatments, setBookedTreatments] = useState<Record<string, boolean>>({});
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -101,6 +106,7 @@ export function MeicetViewer({
   const [selectedNewTreatmentId, setSelectedNewTreatmentId] = useState<string>('biorepeel_face');
 
   const pdfReportRef = useRef<HTMLDivElement>(null);
+  const hiddenPdfRef = useRef<HTMLDivElement>(null);
 
   const rawMetrics: any = report.metrics || {};
   const overallSkinScore = rawMetrics.overallSkinScore ?? rawMetrics.skinScoreOverall ?? 75;
@@ -363,27 +369,60 @@ export function MeicetViewer({
     }
   };
 
-  // Uloženie do karty pacienta (rešpektuje vybraný tier)
-  const handleSavePlan = () => {
-    const updatedReport: MeicetAnalysisResult = {
-      ...report,
-      skincareRoutine: {
-        ...report.skincareRoutine,
-        selectedTier,
-        morning: currentMorning,
-        evening: currentEvening,
-        weeklyCare: currentWeeklyCare
+  // Uloženie Meicet analýzy: do histórie Meicet, do zdravotných záznamov a na Google Drive (s PDF)
+  const handleSavePlan = async () => {
+    setIsSaving(true);
+    try {
+      const updatedReport: MeicetAnalysisResult = {
+        ...report,
+        skincareRoutine: {
+          ...report.skincareRoutine,
+          selectedTier,
+          morning: currentMorning,
+          evening: currentEvening,
+          weeklyCare: currentWeeklyCare
+        }
+      };
+
+      if (onUpdateReport) {
+        onUpdateReport(updatedReport);
       }
-    };
-    if (onUpdateReport) {
-      onUpdateReport(updatedReport);
+
+      // 1. Uložiť do histórie MeicetService (uchováva celú históriu skenov pacienta)
+      MeicetService.saveReport(updatedReport);
+
+      // 2. Vygenerovať Base64 PDF z A4 dokumentu pre nahranie na Google Drive
+      let pdfBase64: string | undefined = undefined;
+      const targetElement = hiddenPdfRef.current || pdfReportRef.current;
+      if (targetElement) {
+        try {
+          pdfBase64 = await generatePdfBase64(targetElement, {
+            format: 'a4',
+            headerTitle: 'Meicet Pro-A 3D Analýza & Ročný plán pleti',
+            patientName: report.patientName
+          });
+        } catch (pdfErr) {
+          console.warn('Nepodarilo sa vygenerovať PDF base64:', pdfErr);
+        }
+      }
+
+      // 3. Uložiť cez CloudRecordService do Záznamov & Dokumentácie a na Google Drive
+      let driveLink: string | undefined = undefined;
+      if (onSaveToDriveAndRecords) {
+        const res = await onSaveToDriveAndRecords(updatedReport, pdfBase64);
+        if (res && res.driveWebViewLink) {
+          driveLink = res.driveWebViewLink;
+        }
+      }
+
+      setIsSaved(true);
+      setSavedDriveLink(driveLink || null);
+      setTimeout(() => setIsSaved(false), 6000);
+    } catch (err) {
+      console.error('Chyba pri ukladaní plánu pleti:', err);
+    } finally {
+      setIsSaving(false);
     }
-    const patientPlan = MeicetService.convertToPatientPlan(updatedReport);
-    if (onSaveToPatientPlans) {
-      onSaveToPatientPlans(patientPlan);
-    }
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
   };
 
   // Naplánovanie ošetrenia do kalendára kliniky
@@ -543,28 +582,62 @@ export function MeicetViewer({
             </button>
           )}
 
-          {/* ULOŽIŤ DO KARTY PACIENTA */}
+          {/* ULOŽIŤ NA DISK, DO ZÁZNAMOV A HISTÓRIE MEICET */}
           <button
             type="button"
             onClick={handleSavePlan}
+            disabled={isSaving}
             className={`px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-md ${
               isSaved 
                 ? 'bg-emerald-600 text-white' 
+                : isSaving
+                ? 'bg-amber-700 text-white opacity-85 cursor-wait'
                 : 'bg-gradient-to-r from-[#C5A059] to-[#8C6D2D] hover:from-[#d8b167] hover:to-[#9f7d37] text-white'
             }`}
           >
             {isSaved ? (
               <>
                 <Check className="w-4 h-4" />
-                <span>Uložené v karte!</span>
+                <span>Uložené na Disku & v histórii!</span>
+              </>
+            ) : isSaving ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Ukladám na Drive & do záznamov...</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4" />
-                <span>Uložiť plán pleti</span>
+                <HardDrive className="w-4 h-4" />
+                <span>Uložiť na Disk & do záznamov</span>
               </>
             )}
           </button>
+
+          {/* VOLITEĽNÉ: KOPÍROVAŤ PROCEDÚRY DO CHIRURGICKÉHO PLÁNU */}
+          {onSaveToPatientPlans && (
+            <button
+              type="button"
+              onClick={() => {
+                const updatedReport: MeicetAnalysisResult = {
+                  ...report,
+                  skincareRoutine: {
+                    ...report.skincareRoutine,
+                    selectedTier,
+                    morning: currentMorning,
+                    evening: currentEvening,
+                    weeklyCare: currentWeeklyCare
+                  }
+                };
+                const patientPlan = MeicetService.convertToPatientPlan(updatedReport);
+                onSaveToPatientPlans(patientPlan);
+              }}
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-[#E8E2D9] font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Voliteľné: Preniesť procedúry pleti do kombinovaného Chirurgického plánu (Pre-Op/Post-Op)"
+            >
+              <span>🏥</span>
+              <span>Preniesť do chirurgického plánu</span>
+            </button>
+          )}
 
           {/* NOVÝ SKEN / ZMENA PROBLÉMU PLETI */}
           {onNewScanRequested && (
@@ -578,6 +651,34 @@ export function MeicetViewer({
           )}
         </div>
       </div>
+
+      {/* NOTIFIKÁCIA O ULOŽENÍ NA DISK A DO HISTÓRIE */}
+      {isSaved && (
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-emerald-900 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5 text-xs">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <p className="font-bold text-emerald-950">
+                Plán pleti bol úspešne uložený do histórie Meicet a nahraný na Google Drive!
+              </p>
+              <p className="text-[11px] text-emerald-700 font-normal mt-0.5">
+                PDF report s analýzou a ročným plánom procedúr bol zaradený medzi záznamy pacienta (kategória Dokumentácia) a uložený na Google Drive.
+              </p>
+            </div>
+          </div>
+          {savedDriveLink && (
+            <a
+              href={savedDriveLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer ml-3"
+            >
+              <span>📂</span>
+              <span>Otvoriť PDF na Disku ↗</span>
+            </a>
+          )}
+        </div>
+      )}
 
       {/* NOTIFIKÁCIA O PRENOSE DO POS */}
       {posTransferNotice && (
@@ -1509,6 +1610,23 @@ export function MeicetViewer({
           </div>
         </div>
       )}
+      {/* Skrytý A4 DOM kontajner pre spoľahlivé generovanie Base64 PDF na Google Drive */}
+      <div style={{ position: 'fixed', left: -9999, top: 0, width: '210mm', opacity: 0, pointerEvents: 'none' }} aria-hidden="true">
+        <div ref={hiddenPdfRef} className="bg-white p-2">
+          <MeicetReportPdfDocument
+            report={{
+              ...report,
+              skincareRoutine: {
+                ...report.skincareRoutine,
+                selectedTier,
+                morning: currentMorning,
+                evening: currentEvening,
+                weeklyCare: currentWeeklyCare
+              }
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
