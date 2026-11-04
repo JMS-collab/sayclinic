@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { MeicetAnalysisResult } from '@/types/meicet';
 import { createDemoMeicetResult } from '@/data/meicetDemoData';
+import { getEffectiveGeminiApiKey } from '@/lib/geminiKey';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
       skinType = 'citliva_sucha'
     } = body;
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getEffectiveGeminiApiKey();
 
     if (!apiKey) {
       console.warn('GEMINI_API_KEY not configured, using clinical fallback engine');
@@ -288,19 +289,43 @@ Extrahuj skutočné hodnoty z reportu alebo snímky spektier a vygeneruj fináln
     }
 
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: contentsPayload,
-        config: {
-          systemInstruction: systemPrompt,
-          temperature: 0.2,
-          responseMimeType: 'application/json'
-        }
-      });
+      const modelsToTry = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+      let responseText: string | null = null;
+      let successfulModel = 'gemini-3.5-flash';
+      let lastError: any = null;
 
-      const responseText = response.text;
+      for (const model of modelsToTry) {
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const response = await ai.models.generateContent({
+              model,
+              contents: contentsPayload,
+              config: {
+                systemInstruction: systemPrompt,
+                temperature: 0.2,
+                responseMimeType: 'application/json'
+              }
+            });
+            if (response.text) {
+              responseText = response.text;
+              successfulModel = model;
+              break;
+            }
+          } catch (mErr: any) {
+            lastError = mErr;
+            console.warn(`Model ${model} pokus ${attempt} zlyhal (${mErr.message || mErr.status})...`);
+            if ((mErr.status === 503 || (mErr.message && mErr.message.includes('503'))) && attempt === 1) {
+              await new Promise(r => setTimeout(r, 1200));
+              continue;
+            }
+            break;
+          }
+        }
+        if (responseText) break;
+      }
+
       if (!responseText) {
-        throw new Error('Prázdna odpoveď z Gemini API');
+        throw lastError || new Error('Prázdna odpoveď zo všetkých Gemini modelov');
       }
 
       const parsed: MeicetAnalysisResult = JSON.parse(cleanJsonString(responseText));
@@ -314,7 +339,7 @@ Extrahuj skutočné hodnoty z reportu alebo snímky spektier a vygeneruj fináln
       return NextResponse.json({
         success: true,
         data: parsed,
-        source: 'gemini-3.8-flash'
+        source: successfulModel
       });
     } catch (aiError: any) {
       console.error('Chyba volania Gemini API pri Meicet analýze:', aiError);

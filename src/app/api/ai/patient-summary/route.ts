@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { getEffectiveGeminiApiKey } from '@/lib/geminiKey';
 
 export interface AIPatientSummary {
   patientId: string;
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(cached.summary);
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getEffectiveGeminiApiKey();
 
     if (apiKey) {
       const ai = new GoogleGenAI({

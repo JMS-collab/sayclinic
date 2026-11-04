@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { getEffectiveGeminiApiKey } from '@/lib/geminiKey';
 import { PatientPlan } from '@/data/patientPlanConfig';
 import { synthesizeEbmPatientPlan, resolveSelectedProcedures } from '@/services/ebmPlanSynthesizer';
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getEffectiveGeminiApiKey();
 
     // 2. Ak je dostupný GEMINI_API_KEY, obohatíme plán cez Gemini AI so striktným EBM a pacientsky zrozumiteľným protokolom
     if (apiKey) {

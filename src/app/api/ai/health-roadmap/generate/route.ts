@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { getEffectiveGeminiApiKey } from '@/lib/geminiKey';
 import { AIHealthRoadmap, RoadmapMonth, RoadmapIntervention, SkincareStep } from '@/data/healthRoadmapTypes';
 
 const SLOVAK_MONTHS = [
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getEffectiveGeminiApiKey();
     const now = new Date();
     const currentMonthIdx = now.getMonth(); // 0-11
     const currentYear = now.getFullYear();
