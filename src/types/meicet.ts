@@ -92,11 +92,11 @@ export interface MeicetSeasonalSchedule {
   treatments: MeicetTreatmentPlanItem[];
 }
 
-export type SkincareTier = 'high_end' | 'mid_end' | 'expert';
+export type SkincareTier = 'high_end' | 'mid_end' | 'advanced' | 'expert';
 
 export interface MeicetSkincareTierRoutine {
   tier: SkincareTier;
-  tierLabel: string; // 'High-End (SkinCeuticals)' | 'Mid-End (La Roche-Posay, CeraVe, Vichy)' | 'Clinical Optimum (Expert EBM)'
+  tierLabel: string; // 'High-End (SkinCeuticals)' | 'Mid-End (La Roche-Posay, CeraVe, Vichy)' | 'Advanced (SkinCeuticals & Essential)' | 'Clinical Optimum (Expert EBM)'
   brandDescription: string;
   totalEstimatedPrice?: number;
   clinicEstimatedPrice?: number; // Časť sumy za produkty na sklade kliniky
@@ -110,6 +110,7 @@ export interface MeicetSkincareRoutine {
   selectedTier?: SkincareTier;
   highEnd?: MeicetSkincareTierRoutine;
   midEnd?: MeicetSkincareTierRoutine;
+  advanced?: MeicetSkincareTierRoutine; // ⭐ ADVANCED (SkinCeuticals aktívne látky + Essential báza – 100% sklad kliniky)
   expert?: MeicetSkincareTierRoutine; // ⭐ CLINICAL OPTIMUM / EXPERT (To najlepšie bez ohľadu na značku a sklad)
   morning: MeicetSkincareProduct[];
   evening: MeicetSkincareProduct[];

@@ -739,6 +739,11 @@ export function createDemoMeicetResult(
     anamnesis
   } as any);
 
+  const advancedRoutine = MeicetClinicalEducationService.generateAdvancedRoutine({
+    metrics: dynamicMetrics,
+    anamnesis
+  } as any);
+
   return {
     id: `meicet-${Date.now()}`,
     patientId,
@@ -1119,6 +1124,8 @@ export function createDemoMeicetResult(
         tierLabel: 'Premium (SkinCeuticals)',
         brandDescription: 'Medical-Grade kozmeceutika z cenníka SAY CLINIC – patentované antioxidanty, retinoidy a fyziologické lipidy 2:4:2',
         totalEstimatedPrice: highEndTotal,
+        clinicEstimatedPrice: highEndTotal,
+        externalEstimatedPrice: 0,
         morning: highEndMorning,
         evening: highEndEvening,
         weeklyCare: [
@@ -1127,11 +1134,14 @@ export function createDemoMeicetResult(
           'Každé ráno celoročne aplikovať SPF 50+ (aj počas zamračených dní).'
         ]
       },
+      advanced: advancedRoutine,
       midEnd: {
         tier: 'mid_end',
-        tierLabel: 'Basic (La Roche-Posay, CeraVe, Vichy)',
+        tierLabel: 'Essential (La Roche-Posay, CeraVe, Vichy)',
         brandDescription: 'Overená lekárenská dermokozmetika z cenníka SAY CLINIC – šetrné čistenie, ceramidy, vitamín B5 a UVMune 400 SPF 50+',
         totalEstimatedPrice: midEndTotal,
+        clinicEstimatedPrice: midEndTotal,
+        externalEstimatedPrice: 0,
         morning: midEndMorning,
         evening: midEndEvening,
         weeklyCare: [
@@ -1140,13 +1150,27 @@ export function createDemoMeicetResult(
         ]
       },
       expert: expertRoutine,
-      morning: preferredTier === 'mid_end' ? midEndMorning : preferredTier === 'expert' ? expertRoutine.morning : highEndMorning,
-      evening: preferredTier === 'mid_end' ? midEndEvening : preferredTier === 'expert' ? expertRoutine.evening : highEndEvening,
+      morning: preferredTier === 'mid_end'
+        ? midEndMorning
+        : preferredTier === 'advanced'
+        ? advancedRoutine.morning
+        : preferredTier === 'expert'
+        ? expertRoutine.morning
+        : highEndMorning,
+      evening: preferredTier === 'mid_end'
+        ? midEndEvening
+        : preferredTier === 'advanced'
+        ? advancedRoutine.evening
+        : preferredTier === 'expert'
+        ? expertRoutine.evening
+        : highEndEvening,
       weeklyCare: preferredTier === 'mid_end'
         ? [
             'Po každom estetickom ošetrení aplikovať La Roche-Posay Cicaplast Baume B5+ na rýchlu obnovu bariéry.',
             'Každé ráno aplikovať Anthelios UVMune 400 SPF 50+.'
           ]
+        : preferredTier === 'advanced'
+        ? advancedRoutine.weeklyCare
         : preferredTier === 'expert'
         ? expertRoutine.weeklyCare
         : [
@@ -1155,6 +1179,8 @@ export function createDemoMeicetResult(
           ],
       seasonalTips: preferredTier === 'mid_end'
         ? 'V lete používajte ľahký Vichy Minéral 89 + La Roche-Posay Anthelios UVMune 400 SPF 50+. V zime pridajte výživný CeraVe Hydratačný krém a Cicaplast Baume B5+.'
+        : preferredTier === 'advanced'
+        ? 'V lete chráňte pleť kľúčovým antioxidantom SkinCeuticals a fluidom Anthelios UVMune 400. Na jeseň a v zime zaraďte večerný Retinol 0.3 a CeraVe / Cicaplast.'
         : preferredTier === 'expert'
         ? 'V lete chráňte pleť Duke antioxidačným vzorcom (C E Ferulic) a ľahkými textúrami. Na jeseň a v zime zaraďte večerný Medik8 Crystal Retinal a bariérové lipidy.'
         : 'V lete chráňte pleť kombináciou C E Ferulic + Advanced Brightening SPF 50+. Na jeseň a v zime zaraďte večerný Retinol 0.3 a Triple Lipid Restore 2:4:2.'
@@ -1163,7 +1189,7 @@ export function createDemoMeicetResult(
       hasScars: false,
       scarSummary: 'Tento modul je zameraný na diagnostiku pleti a nechirurgickú estetiku. Protokol starostlivosti o pooperačné chirurgické jazvy sa nachádza v samostatnom Chirurgickom Pre-Op & Post-Op Pláne.',
       dailyRoutine: {
-        cleansing: 'Šetrné čistenie pleti podľa zvolenej Basic alebo Premium rutiny.',
+        cleansing: 'Šetrné čistenie pleti podľa zvolenej Essential, Advanced alebo Premium rutiny.',
         siliconeTherapy: 'Pri atrofických jazvičkách po akné je indikovaný Rejuran S (190 €) a Frakčný CO2 laser.',
         pressureMassage: '',
         sunProtection: 'Celoročná ochrana SPF 50+.'
@@ -1211,7 +1237,7 @@ export function createDemoMeicetResult(
       }
     ],
     doctorNotes:
-      'Plán pleti a domácej starostlivosti (Basic / Premium) je zostavený na mieru podľa 3D diagnostiky Meicet Pro-A a oficiálneho cenníka SAY CLINIC.',
+      'Plán pleti a domácej starostlivosti (Essential / Advanced / Premium / Clinical Optimum) je zostavený na mieru podľa 3D diagnostiky Meicet Pro-A a cenníka SAY CLINIC.',
     doctorName: 'MUDr. Ján Mráz',
     createdAt: new Date().toISOString()
   };

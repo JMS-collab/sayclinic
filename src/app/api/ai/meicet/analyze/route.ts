@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         patientId,
         patientName,
         patientBirthNumber,
-        preferredTier === 'mid_end' ? 'mid_end' : preferredTier === 'expert' ? 'expert' : 'high_end',
+        preferredTier === 'mid_end' ? 'mid_end' : preferredTier === 'advanced' ? 'advanced' : preferredTier === 'expert' ? 'expert' : 'high_end',
         undefined,
         skinType
       );
@@ -181,7 +181,7 @@ VÝSTUP MUSÍ BYŤ VÝHRADNE ČISTÝ JSON V ŠTRUKTÚRE MeicetAnalysisResult:
     }
   ],
   "skincareRoutine": {
-    "selectedTier": "high_end" | "mid_end" | "expert",
+    "selectedTier": "high_end" | "advanced" | "mid_end" | "expert",
     "highEnd": {
       "tier": "high_end",
       "tierLabel": "High-End (SkinCeuticals)",
@@ -348,10 +348,18 @@ Extrahuj skutočné hodnoty z reportu alebo snímky spektier a vygeneruj fináln
       parsed.createdAt = new Date().toISOString();
       parsed.clinicalEducation = parsed.clinicalEducation || MeicetClinicalEducationService.synthesizeClinicalEducation(parsed);
       if (parsed.skincareRoutine) {
+        if (!parsed.skincareRoutine.advanced) {
+          parsed.skincareRoutine.advanced = MeicetClinicalEducationService.generateAdvancedRoutine(parsed);
+        }
         if (!parsed.skincareRoutine.expert) {
           parsed.skincareRoutine.expert = MeicetClinicalEducationService.generateExpertOptimalRoutine(parsed);
         }
-        if (preferredTier === 'expert' && parsed.skincareRoutine.expert) {
+        if (preferredTier === 'advanced' && parsed.skincareRoutine.advanced) {
+          parsed.skincareRoutine.selectedTier = 'advanced';
+          parsed.skincareRoutine.morning = parsed.skincareRoutine.advanced.morning;
+          parsed.skincareRoutine.evening = parsed.skincareRoutine.advanced.evening;
+          parsed.skincareRoutine.weeklyCare = parsed.skincareRoutine.advanced.weeklyCare;
+        } else if (preferredTier === 'expert' && parsed.skincareRoutine.expert) {
           parsed.skincareRoutine.selectedTier = 'expert';
           parsed.skincareRoutine.morning = parsed.skincareRoutine.expert.morning;
           parsed.skincareRoutine.evening = parsed.skincareRoutine.expert.evening;
@@ -371,7 +379,7 @@ Extrahuj skutočné hodnoty z reportu alebo snímky spektier a vygeneruj fináln
         patientId,
         patientName,
         patientBirthNumber,
-        preferredTier === 'mid_end' ? 'mid_end' : preferredTier === 'expert' ? 'expert' : 'high_end',
+        preferredTier === 'mid_end' ? 'mid_end' : preferredTier === 'advanced' ? 'advanced' : preferredTier === 'expert' ? 'expert' : 'high_end',
         undefined,
         skinType
       );

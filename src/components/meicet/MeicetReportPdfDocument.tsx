@@ -14,21 +14,26 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
 
   const clinicalEdu = MeicetClinicalEducationService.getClinicalEducation(report);
   const expertRoutine = skincareRoutine.expert || MeicetClinicalEducationService.generateExpertOptimalRoutine(report);
+  const advancedRoutine = skincareRoutine.advanced || MeicetClinicalEducationService.generateAdvancedRoutine(report);
 
   const activeTier = selectedTier || skincareRoutine.selectedTier || 'high_end';
   const routineData = activeTier === 'expert'
     ? expertRoutine
-    : activeTier === 'mid_end' && skincareRoutine.midEnd
-      ? skincareRoutine.midEnd
-      : (skincareRoutine.highEnd || skincareRoutine);
+    : activeTier === 'advanced'
+      ? advancedRoutine
+      : activeTier === 'mid_end' && skincareRoutine.midEnd
+        ? skincareRoutine.midEnd
+        : (skincareRoutine.highEnd || skincareRoutine);
 
   const morningProducts = routineData.morning || skincareRoutine.morning;
   const eveningProducts = routineData.evening || skincareRoutine.evening;
   const tierTitle = activeTier === 'expert'
     ? 'Clinical Optimum (Expertný EBM výber)'
-    : activeTier === 'mid_end'
-      ? 'Basic (La Roche-Posay, CeraVe, Vichy)'
-      : 'Premium (SkinCeuticals)';
+    : activeTier === 'advanced'
+      ? 'Advanced (SkinCeuticals & Essential)'
+      : activeTier === 'mid_end'
+        ? 'Essential (La Roche-Posay, CeraVe, Vichy)'
+        : 'Premium (SkinCeuticals)';
 
   const formatDate = (isoStr?: string) => {
     if (!isoStr) return new Date().toLocaleDateString('sk-SK');
@@ -347,7 +352,7 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
         </div>
 
         <p className="text-[9px] text-[#8C857B] italic mt-2 border-t border-gray-100 pt-1">
-          * Protokol SAY CLINIC poskytuje 3 línie: Basic (La Roche-Posay, CeraVe, Vichy), Premium (SkinCeuticals) a Clinical Optimum (expertný výber najlepších molekúl na trhu).
+          * Protokol SAY CLINIC poskytuje 4 línie: Essential (La Roche-Posay, CeraVe, Vichy), Advanced (SkinCeuticals & Essential), Premium (SkinCeuticals) a Clinical Optimum (expertný výber najlepších molekúl na trhu).
         </p>
       </div>
 

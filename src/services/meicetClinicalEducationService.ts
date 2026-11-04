@@ -339,6 +339,228 @@ export class MeicetClinicalEducationService {
     };
   }
 
+  /**
+   * Zostaví hybridný balík ADVANCED:
+   * Kľúčové patentované aktívne látky sú SkinCeuticals, doplnené o šetrný lekárenský základ (CeraVe, LRP, Vichy).
+   * 100% položiek je na sklade kliniky SAY CLINIC (cena medzi Essential a Premium).
+   */
+  public static generateAdvancedRoutine(report: MeicetAnalysisResult): MeicetSkincareTierRoutine {
+    const { metrics, anamnesis } = report;
+
+    const morning: MeicetSkincareProduct[] = [];
+    const evening: MeicetSkincareProduct[] = [];
+
+    const isDehydrated = (metrics.hydration?.score || 50) < 55 || metrics.hydration?.tewlLevel === 'vysoká';
+    const hasVascularIssue = (metrics.redAreas?.score || 0) > 40 || metrics.redAreas?.rosaceaRisk;
+    const hasPhotoaging = (metrics.uvDamage?.score || 0) > 35 || (metrics.wrinkles?.score || 0) > 40;
+
+    // AM 1: Šetrné čistenie (Essential báza - CeraVe)
+    morning.push({
+      step: 1,
+      category: 'Jemné bariérové čistenie',
+      brand: 'CeraVe',
+      productName: 'Hydratačná čistiaca emulzia (236 ml)',
+      activeIngredients: '3 esenciálne ceramidy + Kyselina hyalurónová + Glycerín',
+      keyActiveIngredient: 'Bio-identické ceramidy (1, 3, 6-II) s fyziologickým pH',
+      whyItMatters: 'Jemne očistí pleť od nočného kožného mazu bez narušenia lipidovej bariéry a bez pocitu pnutia.',
+      frequencySchedule: 'Každé ráno',
+      usage: '1–2 pumpičky vmasírovať do navlhčenej tváre a opláchnuť vlažnou vodou.',
+      purpose: 'Šetrná očista pred nanesením aktívnych látok.',
+      price: 14,
+      galenicForm: 'cream',
+      meicetJustification: 'Zachováva hydrolipidový plášť pri zistenom TEWL.',
+      isExternal: false
+    });
+
+    // AM 2: KĽÚČOVÝ AKTÍVNY KROK (SkinCeuticals - Sklad kliniky)
+    if (hasVascularIssue) {
+      morning.push({
+        step: 2,
+        category: 'Kľúčové cievne & upokojujúce sérum',
+        brand: 'SkinCeuticals',
+        productName: 'Phyto Corrective Gel (30 ml)',
+        activeIngredients: 'Botanické extrakty (uhorka, tymián), kyselina hyalurónová',
+        keyActiveIngredient: 'Botanické glykozidy tymiánu a uhorky + Kyselina hyalurónová',
+        whyItMatters: 'Patentovaný chladivý gél okamžite tlmí erytém, upokojuje rozšírené kapiláry a znižuje cievnu reaktivitu.',
+        frequencySchedule: 'Každé ráno: 3–4 kvapky',
+        titrationNotes: 'Aplikovať jemným vtlačením do tváre pred hydratačným sérom.',
+        usage: '3–4 kvapky jemne vtlačiť do líc a citlivých zón.',
+        purpose: 'Cievna stabilizácia a redukcia difúzneho začervenania.',
+        price: 78,
+        galenicForm: 'gel',
+        meicetJustification: 'Cielené tlmenie cievneho erytému zisteného na Meicet (skóre ' + (metrics.redAreas?.score || 40) + '/100).',
+        isExternal: false
+      });
+    } else {
+      morning.push({
+        step: 2,
+        category: 'Kľúčové antioxidačné sérum (Zlatý štandard)',
+        brand: 'SkinCeuticals',
+        productName: 'C E Ferulic (30 ml)',
+        activeIngredients: '15% L-askorbová kyselina + 1% alfa-tokoferol + 0.5% kyselina ferulová',
+        keyActiveIngredient: 'Duke Formula: 15% Čistý Vitamín C + 0.5% Kyselina ferulová (pH 2.5–3.0)',
+        whyItMatters: 'Svetový medicínsky etalón antioxidantov: poskytuje 8-násobnú ochranu pred UV a oxidačným stresom a rozjasňuje fotopoškodenie.',
+        frequencySchedule: 'Každé ráno: 4–5 kvapiek',
+        titrationNotes: 'Aplikovať priamo na vyčistenú suchú tvár a nechať 1 minútu vstrebať.',
+        usage: '4–5 kvapiek ráno na tvár, krk a dekolt pred hydratáciou.',
+        purpose: '8-násobná fotoprotekcia a stimulácia syntézy kolagénu.',
+        price: 175,
+        galenicForm: 'serum',
+        meicetJustification: 'Kompenzácia UV fotopoškodenia a ochrana dermis.',
+        isExternal: false
+      });
+    }
+
+    // AM 3: Hydratačný booster (Essential báza - Vichy)
+    morning.push({
+      step: 3,
+      category: 'Posilňujúci hydratačný booster',
+      brand: 'Vichy',
+      productName: 'Minéral 89 Hyaluron Booster (50 ml)',
+      activeIngredients: '89% Termálna vulkanická voda Vichy + Kyselina hyalurónová',
+      keyActiveIngredient: 'Vulkanická voda bohatá na 15 minerálov + Kyselina hyalurónová',
+      whyItMatters: 'Vypĺňa dehydratačné linky, posilňuje dermálnu bariéru a uzatvára vlhkosť pred vonkajšími vplyvmi.',
+      frequencySchedule: 'Každé ráno: 2 pumpy',
+      usage: 'Aplikovať jemným vklepaním na celú tvár a očné okolie.',
+      purpose: 'Bariérová hydratácia a pružnosť pokožky.',
+      price: 26,
+      galenicForm: 'fluid',
+      meicetJustification: 'Hĺbková rehydratácia epidermy pri TEWL.',
+      isExternal: false
+    });
+
+    // AM 4: Širokospektrálna fotoprotekcia (Essential báza - La Roche-Posay)
+    morning.push({
+      step: 4,
+      category: 'Bunková fotoprotekcia SPF 50+',
+      brand: 'La Roche-Posay',
+      productName: 'Anthelios UVMune 400 SPF 50+ Invisible Fluid (50 ml)',
+      activeIngredients: 'Patentovaný filter Mexoryl 400, glycerín, vitamín E',
+      keyActiveIngredient: 'Mexoryl 400 (ochrana pred ultra-dlhým UVA žiarením 380–400 nm)',
+      whyItMatters: 'Maximálna ochrana pred fotostarnutím a pigmentáciou v ultra-ľahkej textúre bez zaťaženia pleti.',
+      frequencySchedule: 'Každé ráno ako finálny krok',
+      titrationNotes: 'Pred použitím pretrepať. Naniesť 15 minút pred odchodom z domu.',
+      usage: 'Naniesť rovnomerne na tvár, uši a krk.',
+      purpose: 'Širokospektrálna ochrana pred UVB/UVA a prevencia fotostarnutia.',
+      price: 22,
+      galenicForm: 'fluid',
+      meicetJustification: 'Prevencia aktivácie podpovrchového melanínu.',
+      isExternal: false
+    });
+
+    // PM 1: Večerné šetrné čistenie (Essential báza - La Roche-Posay)
+    evening.push({
+      step: 1,
+      category: 'Upokojujúce odličovacie mlieko',
+      brand: 'La Roche-Posay',
+      productName: 'Toleriane Dermo-Cleanser (200 ml)',
+      activeIngredients: 'Termálna voda La Roche-Posay, glycerín',
+      keyActiveIngredient: 'Fyziologický čistiaci základ bez parfumácie a mydla',
+      whyItMatters: 'Spoľahlivo rozpustí minerálny SPF a nečistoty bez trenia a bez narušenia pH kože.',
+      frequencySchedule: 'Každý večer',
+      usage: 'Aplikovať končekmi prstov jemnými krúživými pohybmi, zotrieť vatovým tampónom.',
+      purpose: 'Čistá a upokojená pleť pripravená na nočnú regeneráciu.',
+      price: 18,
+      galenicForm: 'cream',
+      meicetJustification: 'Vhodné pre reaktívnu pokožku s cievnym erytémom.',
+      isExternal: false
+    });
+
+    // PM 2: KĽÚČOVÝ AKTÍVNY KROK (SkinCeuticals - Sklad kliniky)
+    if (isDehydrated && !hasPhotoaging) {
+      evening.push({
+        step: 2,
+        category: 'Kľúčová lamelárna rekonštrukcia lipidov',
+        brand: 'SkinCeuticals',
+        productName: 'Triple Lipid Restore 2:4:2 (48 ml)',
+        activeIngredients: '2% čisté ceramidy, 4% prírodný cholesterol, 2% mastné kyseliny',
+        keyActiveIngredient: 'Fyziologický pomer 2:4:2 (Ceramidy : Cholesterol : Mastné kyseliny)',
+        whyItMatters: 'Patentovaná obnova lipidovej matrice stratum corneum. Okamžite znižuje TEWL a eliminuje pocit suchosti.',
+        frequencySchedule: 'Každý večer po čistení',
+        titrationNotes: 'Zahriať malé množstvo medzi prstami a vmasírovať do tváre.',
+        usage: 'Aplikovať večer na tvár a krk.',
+        purpose: 'Hermetická obnova kožnej bariéry a redukcia pnutia.',
+        price: 155,
+        galenicForm: 'cream',
+        meicetJustification: 'Kľúčové pri vysokom TEWL a oslabenej bariére.',
+        isExternal: false
+      });
+    } else {
+      evening.push({
+        step: 2,
+        category: 'Kľúčová nočná bunková obnova (Retinol)',
+        brand: 'SkinCeuticals',
+        productName: 'Retinol 0.3 (30 ml)',
+        activeIngredients: '0.3% čistý enkapsulovaný retinol, bisabolol, boswellia',
+        keyActiveIngredient: '0.3% Čistý enkapsulovaný retinol s bisabololom',
+        whyItMatters: 'Klinický štandard novotvorby kolagénu a bunkového obratu. Zjemňuje textúru pórov a vyhladzuje jemné vrásky.',
+        frequencySchedule: '2–3x týždenne večer (vynechať 5–7 dní pred laserom)',
+        titrationNotes: 'Začať 1-2x týždenne sendvičovou metódou. Aplikovať výlučne na suchú pokožku.',
+        usage: 'Veľkosť hrášku večer na suchú tvár.',
+        purpose: 'Bunková obnova, zjemnenie reliéfu pleti a redukcia vrások.',
+        price: 98,
+        galenicForm: 'cream',
+        meicetJustification: 'Stimulácia kolagénu a vyhladenie textúry podľa Meicet.',
+        isExternal: false
+      });
+    }
+
+    // PM 3: Bariérový hydratačný krém (Essential báza - CeraVe)
+    evening.push({
+      step: 3,
+      category: 'Hĺbková ceramidová hydratácia',
+      brand: 'CeraVe',
+      productName: 'Hydratačný krém (177 ml)',
+      activeIngredients: '3 esenciálne ceramidy (1, 3, 6-II), kyselina hyalurónová, MVE technológia',
+      keyActiveIngredient: 'Ceramidy 1, 3, 6-II + MVE postupné uvoľňovanie hydratácie',
+      whyItMatters: 'Zabezpečuje 24-hodinovú hydratáciu počas nočnej regenerácie a chráni pokožku pred vysúšaním.',
+      frequencySchedule: 'Každý večer',
+      usage: 'Vmasírovať na tvár a krk.',
+      purpose: 'Uzamknutie vlhkosti v epiderme.',
+      price: 17,
+      galenicForm: 'cream',
+      meicetJustification: 'Obnova lipidového filmu počas spánku.',
+      isExternal: false
+    });
+
+    // PM 4: SOS regeneračný balzam (Essential báza - La Roche-Posay)
+    evening.push({
+      step: 4,
+      category: 'Upokojujúci bariérový balzam',
+      brand: 'La Roche-Posay',
+      productName: 'Cicaplast Baume B5+ (100 ml)',
+      activeIngredients: '5% pantenol, madecassoside, prebiotický komplex Tribioma, zinok',
+      keyActiveIngredient: '5% Pantenol + Madecassoside + Zinok a mangán',
+      whyItMatters: 'Okamžitý SOS obklad pri podráždení, začervenaní alebo po estetických zákrokoch.',
+      frequencySchedule: 'Podľa potreby alebo lokálne na citlivé miesta',
+      titrationNotes: 'Možno použiť ako nočnú regeneračnú masku 1–2x týždenne.',
+      usage: 'Naniesť tenkú vrstvu na začervenané alebo podráždené zóny.',
+      purpose: 'Urýchlenie regenerácie epidermy a upokojenie erytému.',
+      price: 18,
+      galenicForm: 'balm',
+      meicetJustification: 'SOS ochrana citlivých a reaktívnych kapilár.',
+      isExternal: false
+    });
+
+    const totalEstimatedPrice = [...morning, ...evening].reduce((sum, p) => sum + (p.price || 0), 0);
+
+    return {
+      tier: 'advanced',
+      tierLabel: 'Advanced (SkinCeuticals & Essential)',
+      brandDescription: 'Inteligentná hybridná starostlivosť – kľúčové patentované molekuly SkinCeuticals doplnené o šetrný lekárenský základ (100% sklad kliniky)',
+      totalEstimatedPrice,
+      clinicEstimatedPrice: totalEstimatedPrice,
+      externalEstimatedPrice: 0,
+      morning,
+      evening,
+      weeklyCare: [
+        'V dňoch s aplikáciou aktívneho séra SkinCeuticals ráno dôsledne aplikovať Anthelios UVMune 400 SPF 50+.',
+        'Pri začervenaní alebo po ošetrení aplikovať La Roche-Posay Cicaplast Baume B5+ ako nočnú regeneračnú masku.',
+        'Pred plánovaným laserovým ošetrením (CoolPeel CO2 / Cievny laser) vysadiť večerný Retinol 0.3 na 5–7 dní.'
+      ]
+    };
+  }
+
   public static synthesizeClinicalEducation(report: MeicetAnalysisResult): MeicetClinicalEducation {
     const { metrics, anamnesis } = report;
     const issues: MeicetPathophysiologyIssue[] = [];
