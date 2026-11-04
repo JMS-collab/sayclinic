@@ -566,7 +566,7 @@ export function MeicetViewer({
       )}
 
       {/* SÚHRNNÉ KARTY SKÓRE PLETI & SKINCARE */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
         
         {/* CELKOVÉ SKÓRE PLETI */}
         <div className="bg-white rounded-2xl border border-[#E8E2D9] p-5 shadow-xs flex items-center justify-between">
@@ -655,26 +655,30 @@ export function MeicetViewer({
       </div>
 
       {/* SYNTÉZA A KONTRAINDIKÁCIE PLETI */}
-      <div className="bg-white rounded-2xl border border-[#E8E2D9] p-5 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#E8E2D9]">
-          <div>
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#C5A059]" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#2C2A29]">
-                Klinická syntéza pleti & Primárne ciele ošetrenia
-              </h3>
-            </div>
-            <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
-              {clinicalSynthesis.executiveSummary}
-            </p>
+      <div className="bg-white rounded-2xl border border-[#E8E2D9] p-5 shadow-xs space-y-4">
+        <div className="border-b border-[#E8E2D9] pb-4 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[#C5A059]" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#2C2A29]">
+              Klinická syntéza pleti & Primárne ciele ošetrenia
+            </h3>
           </div>
-          <div className="flex flex-wrap gap-1.5 shrink-0">
-            {clinicalSynthesis.primaryConcerns.map((concern, idx) => (
-              <span key={idx} className="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-bold">
-                🎯 {concern}
+          <p className="text-xs text-[#5A524C] leading-relaxed">
+            {clinicalSynthesis.executiveSummary}
+          </p>
+          {clinicalSynthesis.primaryConcerns && clinicalSynthesis.primaryConcerns.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#F0EBE1]">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B] mr-1">
+                Kľúčové ciele:
               </span>
-            ))}
-          </div>
+              {clinicalSynthesis.primaryConcerns.map((concern: string, idx: number) => (
+                <span key={idx} className="px-3 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
+                  <span className="text-rose-600 font-bold">🎯</span>
+                  <span>{concern}</span>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4">
