@@ -790,8 +790,50 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
     }
   },
   {
+    id: 'septoplasty',
+    label: 'Septoplastika (Funkčná korekcia nosovej priehradky)',
+    shortLabel: 'Septoplastika',
+    icon: '👃',
+    group: 'face_surgery',
+    category: 'surgery',
+    defaultPrice: 1800,
+    recommendedTimingOrder: 13,
+    recommendedSeasonOrStep: 'Súčasť operácie nosa alebo samostatne',
+    targetArea: 'Nosová priehradka (septum nasi)',
+    frequencyOrAnesthesia: 'Celková anestézia',
+    recoveryTimePatient: '7 – 10 dní',
+    clinicalNotes: 'Chirurgické vyrovnanie deviovanej nosovej priehradky na obnovenie plného nosového dýchania (v kombinácii s Rhinoplastikou zvýhodnený príplatok +500 €).',
+    patientExplanation: 'Uvoľní upchatý nos a narovná vybočenú nosovú priehradku pre voľné dýchanie.',
+    clinicalGuideline: 'AAO-HNS Clinical Consensus Statement: Septoplasty',
+    preOpSpecifics: {},
+    postOpSpecifics: {
+      earlyCare: 'Preplach nosa morskou vodou, zákaz smrkania 2 týždne.'
+    }
+  },
+  {
+    id: 'diastasis_recti',
+    label: 'Plastika diastázy priamych brušných svalov (Zošitie rozostupu)',
+    shortLabel: 'Plastika diastázy',
+    icon: '🩺',
+    group: 'body_surgery',
+    category: 'surgery',
+    defaultPrice: 1500,
+    recommendedTimingOrder: 11,
+    recommendedSeasonOrStep: 'Súčasť abdominoplastiky (+300 €) alebo samostatne',
+    targetArea: 'Priame brušné svaly (mm. recti abdominis)',
+    frequencyOrAnesthesia: 'Celková anestézia',
+    recoveryTimePatient: '14 dní kľud (6 týždňov brušný pás)',
+    clinicalNotes: 'Pevná dvojvrstvová sutura (plikácia) rozostúpenej linea alba (v kombinácii s Abdominoplastikou zvýhodnený príplatok +300 €).',
+    patientExplanation: 'Zošije rozostúpené brušné svaly po pôrode do pevného plochého korzetu.',
+    clinicalGuideline: 'EHS Guidelines on Management of Rectus Diastasis',
+    preOpSpecifics: {},
+    postOpSpecifics: {
+      earlyCare: 'Nosenie brušného pásu 6 týždňov, vstávanie cez bok pomocou nôh.'
+    }
+  },
+  {
     id: 'vascular_scar_laser',
-    label: 'Cievny laser (Vascular / IPL) – Začervenanie, cievky a čerstvé jazvy',
+    label: 'Cievny laser – Začervenanie, cievky a čerstvé pooperačné jazvy',
     shortLabel: 'Cievny laser (Cievky & Jazvy)',
     icon: '🩹',
     group: 'laser_device',
@@ -1043,43 +1085,24 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
   // ==================== 5. OŠETRENIA PLETI, JAZVY & REKONVALESCENCIA ====================
   {
     id: 'chemical_peel_medical',
-    label: 'Lekársky chemický peeling (TCA / Kyselina glykolová / Salicylová)',
-    shortLabel: 'Lekársky chemický peeling',
+    label: 'Lekársky TCA peeling / BioRePeelCl3 (Korekcia pórov, pigmentu a textúry)',
+    shortLabel: 'Lekársky TCA / BioRePeel',
     icon: '✨',
     group: 'skin_care_recovery',
     category: 'skin_care',
-    defaultPrice: 50,
+    defaultPrice: 110,
     recommendedTimingOrder: 52,
     recommendedSeasonOrStep: 'Jeseň / Zima (obdobie nízkeho UV)',
-    targetArea: 'Tvár, krk a dekolt',
+    targetArea: 'Tvár, krk a dekolt (BioRePeel 90 € / TCA peeling 110 €)',
     frequencyOrAnesthesia: 'Ambulantne (20 minút, séria 3 sedení)',
     recoveryTimePatient: '3 – 5 dní (jemné kontrolované ošupovanie pokožky)',
-    clinicalNotes: 'Kontrolovaná chemická exfoliácia epidermis a stimulácia regenerácie bazálnej vrstvy keratinocytov.',
+    clinicalNotes: 'Kontrolovaná lekárska TCA exfoliácia a biorevitalizácia epidermis a stimulácia regenerácie bazálnej vrstvy keratinocytov.',
     patientExplanation: 'Odstráni odumreté zrohovatené vrstvy buniek, stiahne póry a zjednotí tón pleti.',
     clinicalGuideline: 'International Peeling Society (IPS) Guidelines',
     preOpSpecifics: {},
     postOpSpecifics: {
       earlyCare: 'Striktná ochrana pred slnkom SPF 50+, nešúpať kožu prstami.'
     }
-  },
-  {
-    id: 'hydrafacial_deep_clean',
-    label: 'Hĺbkové prístrojové čistenie & hydratačná infúzia (HydraFacial)',
-    shortLabel: 'HydraFacial čistenie',
-    icon: '💧',
-    group: 'skin_care_recovery',
-    category: 'skin_care',
-    defaultPrice: 140,
-    recommendedTimingOrder: 55,
-    recommendedSeasonOrStep: 'Celoročne (pred operáciou alebo udržiavacie)',
-    targetArea: 'Tvár, krk a dekolt',
-    frequencyOrAnesthesia: 'Príjemné neinvazívne ošetrenie (45 minút)',
-    recoveryTimePatient: '0 dní (okamžitý „glow“ efekt na spoločenskú udalosť)',
-    clinicalNotes: 'Vortexová hydrodermabrázia, bezbolestná extrakcia mazu a infúzia peptidov a antioxidantov.',
-    patientExplanation: 'Dôkladne vyčistí póry bez vytláčania a napustí pokožku hydratačnými sérami. Pleť je okamžite svieža a žiarivá.',
-    clinicalGuideline: 'Clinical Evaluation of Vortex-Fusion Hydrodermabrasion (Freedman et al.)',
-    preOpSpecifics: {},
-    postOpSpecifics: {}
   },
   {
     id: 'lymphatic_drainage_postop',
@@ -1297,12 +1320,16 @@ export function resolveSelectedProcedures(
   }
 
   // Ošetrenia pleti & jaziev
-  if (combinedText.includes('peeling')) {
+  if (combinedText.includes('peeling') || combinedText.includes('biorepeel') || combinedText.includes('tca')) {
     const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'chemical_peel_medical');
     if (p) matched.set(p.id, p);
   }
-  if (combinedText.includes('hydrafacial')) {
-    const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'hydrafacial_deep_clean');
+  if (combinedText.includes('septoplast') || combinedText.includes('priehrad')) {
+    const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'septoplasty');
+    if (p) matched.set(p.id, p);
+  }
+  if (combinedText.includes('diastáz') || combinedText.includes('diastaz')) {
+    const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'diastasis_recti');
     if (p) matched.set(p.id, p);
   }
   if (combinedText.includes('lymfodren')) {
@@ -1314,9 +1341,9 @@ export function resolveSelectedProcedures(
     if (p) matched.set(p.id, p);
   }
 
-  // Ak nič nebolo špecifikované, predvolíme harmonickú kombináciu starostlivosti o tvár a pleť
+  // Ak nič nebolo špecifikované, predvolíme harmonickú kombináciu chirurgie tváre a pooperačnej starostlivosti o jazvy
   if (matched.size === 0) {
-    ['blepharoplasty_upper_lower', 'fractional_co2_laser', 'botulinum_hyaluronic', 'polynucleotides_profhilo'].forEach(id => {
+    ['blepharoplasty_upper_lower', 'vascular_scar_laser', 'fractional_co2_laser'].forEach(id => {
       const p = EBM_PROCEDURE_CATALOG.find(x => x.id === id);
       if (p) matched.set(p.id, p);
     });
@@ -1325,6 +1352,37 @@ export function resolveSelectedProcedures(
   // Zoradíme podľa medicínsky bezpečnej postupnosti (recommendedTimingOrder)
   return Array.from(matched.values()).sort((a, b) => a.recommendedTimingOrder - b.recommendedTimingOrder);
 }
+
+/**
+ * Pravidlá automatického zvýhodnenia kombinovaných operácií v jednej anestézii (1. Krok)
+ */
+const SURGICAL_COMBO_PRICING: Record<
+  string,
+  Record<string, { addonPrice: number; standalonePrice: number; addonLabel: string }>
+> = {
+  deep_plane_facelift: {
+    necklift: { addonPrice: 1000, standalonePrice: 2500, addonLabel: 'Doplnok Necklift k Faceliftu v 1 anestézii (bežne 2 500 €, úspora 1 500 €)' },
+    blepharoplasty_upper: { addonPrice: 600, standalonePrice: 1000, addonLabel: 'Doplnok Horné viečka k Faceliftu v 1 anestézii (bežne 1 000 €, úspora 400 €)' },
+    blepharoplasty_lower: { addonPrice: 600, standalonePrice: 1100, addonLabel: 'Doplnok Dolné viečka k Faceliftu v 1 anestézii (bežne 1 100 €, úspora 500 €)' },
+    blepharoplasty_upper_lower: { addonPrice: 1200, standalonePrice: 1850, addonLabel: 'Doplnok Horné + Dolné viečka k Faceliftu v 1 anestézii (bežne 1 850 €, úspora 650 €)' },
+    lipofilling_fat_transfer: { addonPrice: 800, standalonePrice: 1300, addonLabel: 'Doplnok Lipotransfer do tváre k Faceliftu v 1 anestézii (bežne 1 300 €, úspora 500 €)' },
+    lip_lift: { addonPrice: 600, standalonePrice: 900, addonLabel: 'Doplnok Subnazálny Lip Lift k Faceliftu v 1 anestézii (bežne 900 €, úspora 300 €)' },
+    brow_lift: { addonPrice: 1500, standalonePrice: 2500, addonLabel: 'Doplnok Browlift k Faceliftu v 1 anestézii (bežne 2 500 €, úspora 1 000 €)' },
+  },
+  abdominoplasty: {
+    liposuction_vaser_pal: { addonPrice: 600, standalonePrice: 2500, addonLabel: 'Doplnok Liposukcia bokov k Abdominoplastike v 1 anestézii (zvýhodnený príplatok +600 €)' },
+    diastasis_recti: { addonPrice: 300, standalonePrice: 1500, addonLabel: 'Doplnok Zošitie diastázy pri Abdominoplastike v 1 anestézii (bežne 1 500 €, úspora 1 200 €)' },
+  },
+  rhinoplasty: {
+    septoplasty: { addonPrice: 500, standalonePrice: 1800, addonLabel: 'Doplnok Septoplastika k Rhinoplastike v 1 anestézii (bežne 1 800 €, úspora 1 300 €)' },
+  },
+  breast_augmentation: {
+    lipofilling_fat_transfer: { addonPrice: 800, standalonePrice: 1300, addonLabel: 'Doplnok Lipotransfer k Augmentácii prsníkov v 1 anestézii (bežne 1 300 €, úspora 500 €)' },
+  },
+  breast_mastopexy: {
+    lipofilling_fat_transfer: { addonPrice: 800, standalonePrice: 1300, addonLabel: 'Doplnok Lipotransfer k Modelácii prsníkov v 1 anestézii (bežne 1 300 €, úspora 500 €)' },
+  },
+};
 
 /**
  * Zostaví kompletne harmonizovaný, medicínsky overený (EBM) a pre pacienta zrozumiteľný plán
@@ -1369,45 +1427,76 @@ export function synthesizeEbmPatientPlan(params: {
 
   const procNamesShort = finalProcs.map(p => p.shortLabel).join(' ➔ ');
   const surgeryProcs = finalProcs.filter(p => p.category === 'surgery');
+  const primarySurgery = surgeryProcs[0];
   const mainSurgeryLabel = surgeryProcs.length > 0
-    ? surgeryProcs.map(s => s.shortLabel).join(' & ')
+    ? surgeryProcs.map(s => s.shortLabel).join(' + ')
     : finalProcs.map(p => p.shortLabel).join(' & ');
 
-  // 1. ZOSTAVENIE ROČNÉHO PLÁNU (SEKVENCIA KROKOV S VYSVETLENÍM PRE PACIENTA A EBM GUIDELINOM)
+  // 1. ZOSTAVENIE ROČNÉHO PLÁNU (KOMBINÁCIA OPERÁCIÍ V 1. KROKU + POSTUPNÁ STAROSTLIVOSŤ O JAZVY)
+  let nonSurgeryStepCounter = surgeryProcs.length > 0 ? 1 : 0;
+
   const synthesizedTreatments: ScheduledTreatment[] = finalProcs.map((proc, idx) => {
-    const stepNumber = idx + 1;
-    let stepTiming = `${stepNumber}. Krok • ${proc.recommendedSeasonOrStep}`;
-    if (stepNumber === 1 && proc.category === 'surgery') {
-      stepTiming = `1. Krok (Hlavná fáza – Operácia)`;
-    } else if (stepNumber > 1 && proc.category === 'surgery') {
-      stepTiming = `${stepNumber}. Krok (Odstup +6 až 8 týždňov po 1. kroku)`;
-    } else if (proc.category === 'scar_care') {
-      stepTiming = `${stepNumber}. Krok (3 – 6 týždňov po operácii – Fáza zrenia jazvy)`;
-    } else if (proc.category === 'laser') {
-      stepTiming = hasSurgery
-        ? `${stepNumber}. Krok (6 – 12 týždňov po operácii v období nízkeho UV)`
-        : `${stepNumber}. Krok (Jeseň / Zima – Obdobie nízkeho UV)`;
-    } else if (proc.category === 'injectable') {
-      stepTiming = hasSurgery
-        ? `${stepNumber}. Krok (Po úplnom ústupe opuchov, +6 až 8 týždňov)`
-        : `${stepNumber}. Krok (Harmonizácia mimiky a kontúr)`;
+    const isPrimarySurgery = primarySurgery && proc.id === primarySurgery.id;
+    const isAddonSurgery = proc.category === 'surgery' && !isPrimarySurgery;
+
+    // Skontrolujeme, či ide o zvýhodnený chirurgický doplnok v rámci tej istej operácie (1. Krok)
+    const comboRule = primarySurgery && isAddonSurgery
+      ? SURGICAL_COMBO_PRICING[primarySurgery.id]?.[proc.id]
+      : undefined;
+
+    let stepNumber = 1;
+    let stepTiming = `1. Krok (Hlavná operácia)`;
+    let effectivePrice = proc.defaultPrice;
+    let effectiveName = proc.label;
+    let effectiveNotes = proc.clinicalNotes;
+
+    if (proc.category === 'surgery') {
+      stepNumber = 1;
+      if (isPrimarySurgery) {
+        stepTiming = surgeryProcs.length > 1
+          ? `1. Krok (Hlavný výkon – Kombinovaná operácia v 1 anestézii)`
+          : `1. Krok (Hlavná fáza – Operácia)`;
+      } else if (comboRule) {
+        stepTiming = `1. Krok (Súčasť operácie – Zvýhodnený chirurgický doplnok v 1 anestézii)`;
+        effectivePrice = comboRule.addonPrice;
+        effectiveName = `${proc.label} [Doplnok v 1 operácii]`;
+        effectiveNotes = `${comboRule.addonLabel}. ${proc.clinicalNotes}`;
+      } else {
+        stepTiming = `1. Krok (Kombinovaný chirurgický výkon v jednej operácii)`;
+      }
     } else {
-      stepTiming = `${stepNumber}. Krok (Priebežná bunková regenerácia)`;
+      nonSurgeryStepCounter += 1;
+      stepNumber = nonSurgeryStepCounter;
+      if (proc.category === 'scar_care') {
+        stepTiming = `${stepNumber}. Krok (3 – 6 týždňov po operácii – Fáza zrenia jazvy)`;
+      } else if (proc.category === 'laser') {
+        stepTiming = hasSurgery
+          ? `${stepNumber}. Krok (6 – 12 týždňov po operácii v období nízkeho UV)`
+          : `${stepNumber}. Krok (Jeseň / Zima – Obdobie nízkeho UV)`;
+      } else if (proc.category === 'injectable') {
+        stepTiming = hasSurgery
+          ? `${stepNumber}. Krok (Po úplnom ústupe opuchov, +6 až 8 týždňov)`
+          : `${stepNumber}. Krok (Harmonizácia mimiky a kontúr)`;
+      } else {
+        stepTiming = `${stepNumber}. Krok (Pooperačná rekonvalescencia & hojenie)`;
+      }
     }
 
     return {
       id: `trt-ebm-${Date.now()}-${idx}`,
       stepOrder: stepNumber,
-      name: proc.label,
+      name: effectiveName,
       category: proc.category,
       isSkinTreatment: proc.category === 'laser' || proc.category === 'skin_care' || proc.category === 'scar_care',
       seasonOrMonth: stepTiming,
       targetArea: proc.targetArea,
-      frequencyOrSessions: proc.frequencyOrAnesthesia,
-      estimatedPrice: proc.defaultPrice,
+      frequencyOrSessions: comboRule
+        ? `V jednej anestézii s hlavnou operáciou (bežná cena samostatne ${comboRule.standalonePrice} €)`
+        : proc.frequencyOrAnesthesia,
+      estimatedPrice: effectivePrice,
       priority: proc.category === 'surgery' || proc.category === 'laser' ? 'high' : 'recommended',
       status: 'planned',
-      notes: proc.clinicalNotes,
+      notes: effectiveNotes,
       patientExplanation: proc.patientExplanation,
       clinicalGuideline: proc.clinicalGuideline,
       recoveryTime: proc.recoveryTimePatient

@@ -51,6 +51,7 @@ import SchedulePatientEventModal from './patient/SchedulePatientEventModal';
 import { PatientPlan, PRESET_PATIENT_PLANS, ScheduledTreatment } from '../data/patientPlanConfig';
 import PatientPlanViewer from './patient/PatientPlanViewer';
 import CreatePatientPlanModal from './patient/CreatePatientPlanModal';
+import { MeicetModule } from './meicet/MeicetModule';
 import { AuditLogService } from '../services/auditLogService';
 import { RealtimeSyncService } from '../services/realtimeSyncService';
 import { CloudRecordService, CloudMedicalRecord } from '../services/cloudRecordService';
@@ -131,7 +132,7 @@ interface PatientDatabaseProps {
   currentUser?: any;
 }
 
-export type MainPatientFolder = 'zaznamy' | 'plany' | 'diagnostika' | 'terminy';
+export type MainPatientFolder = 'zaznamy' | 'meicet' | 'plany' | 'diagnostika' | 'terminy';
 export type ZaznamySubTab = 'dekurzy' | 'vysetrenia' | 'materialy' | 'drive';
 export type PlanySubTab = 'roadmap' | 'protokoly';
 export type DiagnostikaSubTab = 'meicet' | 'foto';
@@ -167,26 +168,25 @@ export default function PatientDatabase({
       case 'odpis':
       case 'spotreba':
       case 'materialy':
-        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'materialy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'materialy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
+      case 'meicet':
+        return { main: 'meicet' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'protokoly' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
       case 'roadmap':
       case 'plany':
-      case 'meicet':
         return { main: 'plany' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'protokoly' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
       case 'fotodokumentacia':
       case 'diagnostika':
         return { main: 'diagnostika' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'protokoly' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
       case 'predoperacne':
-        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'vysetrenia' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
-      case 'materialy':
-        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'materialy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'vysetrenia' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
       case 'drive':
-        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'drive' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'drive' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
       case 'terminy':
-        return { main: 'terminy' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+        return { main: 'terminy' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
       case 'zaznamy':
       case 'dokumenty':
       default:
-        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'meicet' as DiagnostikaSubTab };
+        return { main: 'zaznamy' as MainPatientFolder, zaznamySub: 'dekurzy' as ZaznamySubTab, planySub: 'roadmap' as PlanySubTab, diagSub: 'foto' as DiagnostikaSubTab };
     }
   };
 
@@ -2896,48 +2896,64 @@ export default function PatientDatabase({
                   </div>
                 </div>
 
-                {/* 2. SKUPINA: ESTETIKA & DIAGNOSTIKA */}
+                {/* 2. SKUPINA: ESTETIKA, MEICET & CHIRURGICKÝ PLÁN (3 ČISTÉ MODULY) */}
                 <div className="bg-white rounded-xl border border-[#E8E2D9] p-2.5 flex flex-col justify-between gap-2 shadow-2xs hover:border-[#C5A059]/40 transition-colors">
                   <div className="flex items-center justify-between pb-1.5 border-b border-[#F5F2EB]">
                     <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#2C2A29] uppercase tracking-wider font-brand">
                       <span className="w-2 h-2 rounded-full bg-[#C5A059]"></span>
-                      <span>Estetika & Diagnostika</span>
+                      <span>Plány & Estetika</span>
                     </div>
-                    <span className="text-[9px] uppercase font-semibold text-[#8C857B] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">2 akcie</span>
+                    <span className="text-[9px] uppercase font-semibold text-[#8C857B] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">3 moduly</span>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    {/* Výplne & Botox (Face Mapping) */}
-                    {onNavigateToAesthetics && (
-                      <button
-                        type="button"
-                        onClick={() => onNavigateToAesthetics(selectedPatient)}
-                        className="w-full px-3 py-2 rounded-lg bg-white hover:bg-[#FAF8F5] border border-[#C5A059] text-[#2C2A29] text-xs font-bold transition-all shadow-2xs flex items-center justify-between cursor-pointer group"
-                        title="Aplikovať botulotoxín alebo dermálnu výplň v interaktívnej 3D mape tváre"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Syringe className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
-                          <span>Výplne & Botox</span>
-                        </span>
-                        <span className="text-[9px] text-[#C5A059] font-mono tracking-wider">3D Face</span>
-                      </button>
-                    )}
+                    {/* MODUL 1: Meicet AI & Plán pleti */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveFolder('meicet');
+                      }}
+                      className="w-full px-3 py-1.5 rounded-lg bg-[#FAF8F5] hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] text-xs font-semibold transition-all shadow-2xs flex items-center justify-between cursor-pointer group"
+                      title="Modul 1: Meicet 3D Analýza pleti, Domáca Skincare (Basic / Premium) & Ročný plán pleťových procedúr"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="w-3.5 h-3.5 text-[#C5A059] group-hover:scale-110 transition-transform shrink-0" />
+                        <span>Meicet AI & Plán pleti</span>
+                      </span>
+                      <span className="text-[9px] text-[#8C857B] group-hover:text-[#C5A059] font-mono">Skincare</span>
+                    </button>
 
-                    {/* Plán terapie (3-v-1: SAY Skincare, Ročný plán & SAY Care) */}
+                    {/* MODUL 3: Chirurgický Pre-Op & Post-Op Plán (SAY Care) */}
                     <button
                       type="button"
                       onClick={() => {
                         setActiveFolder('plany');
                       }}
-                      className="w-full px-3 py-2 rounded-lg bg-[#FAF8F5] hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] text-xs font-semibold transition-all shadow-2xs flex items-center justify-between cursor-pointer group"
-                      title="Plán terapie: 1. SAY Skincare & Meicet • 2. Ročný plán • 3. SAY Care"
+                      className="w-full px-3 py-1.5 rounded-lg bg-[#FAF8F5] hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] text-xs font-semibold transition-all shadow-2xs flex items-center justify-between cursor-pointer group"
+                      title="Modul 3: Chirurgický Pre-Op & Post-Op Plán, Operačné kombo zľavy & Protokol jaziev"
                     >
                       <span className="flex items-center gap-2">
-                        <Sparkles className="w-3.5 h-3.5 text-[#C5A059] group-hover:scale-110 transition-transform shrink-0" />
-                        <span>Plán terapie</span>
+                        <Stethoscope className="w-3.5 h-3.5 text-[#C5A059] group-hover:scale-110 transition-transform shrink-0" />
+                        <span>Chirurgický Plán & SAY Care</span>
                       </span>
-                      <span className="text-[9px] text-[#8C857B] group-hover:text-[#C5A059] font-mono">3-v-1</span>
+                      <span className="text-[9px] text-[#8C857B] group-hover:text-[#C5A059] font-mono">Pre/Post-Op</span>
                     </button>
+
+                    {/* MODUL 2: Výplne & Botox (Face Mapping) */}
+                    {onNavigateToAesthetics && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigateToAesthetics(selectedPatient)}
+                        className="w-full px-3 py-1.5 rounded-lg bg-white hover:bg-[#FAF8F5] border border-[#C5A059] text-[#2C2A29] text-xs font-bold transition-all shadow-2xs flex items-center justify-between cursor-pointer group"
+                        title="Modul 2: Aplikovať botulotoxín, kyselinu hyalurónovú alebo PDRN/polynukleotidy v 2D/3D mape tváre"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Syringe className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
+                          <span>Výplne & Botox (Mapa)</span>
+                        </span>
+                        <span className="text-[9px] text-[#C5A059] font-mono tracking-wider">3D Face</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -3051,7 +3067,23 @@ export default function PatientDatabase({
                         )}
                       </button>
 
-                      {/* 2. PLÁNY & STAROSTLIVOSŤ (3-V-1: SAY SKINCARE • ROČNÝ PLÁN • SAY CARE) */}
+                      {/* 2. MODUL 1: MEICET AI & PLÁN PLETI (SKINCARE + ROČNÝ PLEŤOVÝ PLÁN) */}
+                      <button 
+                        onClick={() => { setActiveFolder('meicet'); setActivePhotoCategory(null); }} 
+                        className={`px-4 py-2.5 text-xs font-bold tracking-wider rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${ 
+                          activeFolder === 'meicet' 
+                            ? 'bg-white border-t-2 border-x border-[#E8E2D9] border-t-[#C5A059] text-[#2C2A29] shadow-2xs' 
+                            : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]' 
+                        }`}
+                      >
+                        <Sparkles className={`w-4 h-4 ${activeFolder === 'meicet' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
+                        <span>Meicet AI & Plán pleti</span>
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'meicet' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/15 text-[#9C7D2B]'}`}>
+                          Skincare & Pleť
+                        </span>
+                      </button>
+
+                      {/* 3. MODUL 3: CHIRURGICKÝ PLÁN & SAY CARE (PRE-OP • POST-OP • JAZVY) */}
                       <button 
                         onClick={() => { setActiveFolder('plany'); setActivePhotoCategory(null); }} 
                         className={`px-4 py-2.5 text-xs font-bold tracking-wider rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${ 
@@ -3060,10 +3092,10 @@ export default function PatientDatabase({
                             : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]' 
                         }`}
                       >
-                        <Sparkles className={`w-4 h-4 ${activeFolder === 'plany' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
-                        <span>Plán & Starostlivosť (3-v-1)</span>
-                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'plany' ? 'bg-[#C5A059] text-white' : 'bg-[#C5A059]/15 text-[#9C7D2B]'}`}>
-                          Skincare • Ročný • Care
+                        <Stethoscope className={`w-4 h-4 ${activeFolder === 'plany' ? 'text-[#C5A059]' : 'text-[#8C857B]'}`} />
+                        <span>Chirurgický Plán & SAY Care</span>
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeFolder === 'plany' ? 'bg-[#2C2A29] text-white' : 'bg-stone-100 text-stone-700'}`}>
+                          Pre-Op • Post-Op
                         </span>
                       </button>
 
@@ -3561,9 +3593,23 @@ export default function PatientDatabase({
                   )}
 
                   {/* ============================================================ */}
-                  {/* SEKCIA 2: PLÁNY & STAROSTLIVOSŤ                              */}
+                  {/* SEKCIA 2A: MODUL 1 - MEICET AI & PLÁN PLETI (SKINCARE)       */}
                   {/* ============================================================ */}
-                  {/* SEKCIA 2: PLÁN & STAROSTLIVOSŤ (3-V-1: SAY SKINCARE • ROČNÝ PLÁN • SAY CARE) */}
+                  {activeFolder === 'meicet' && (
+                    <div className="space-y-6">
+                      <MeicetModule
+                        selectedPatient={selectedPatient}
+                        onOpenInCosmeticsPOS={!isRudlovaOnly ? ((items) => onNavigateToCosmetics?.(selectedPatient, items)) : undefined}
+                        onNavigateToRoadmap={(plan) => {
+                          handleSaveNewPlan(plan);
+                          setActiveFolder('plany');
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* ============================================================ */}
+                  {/* SEKCIA 2B: MODUL 3 - CHIRURGICKÝ PLÁN & SAY CARE             */}
                   {/* ============================================================ */}
                   {activeFolder === 'plany' && (
                     <div className="space-y-6">
@@ -3578,8 +3624,8 @@ export default function PatientDatabase({
                           createdAt: new Date().toISOString(),
                           updatedAt: new Date().toISOString(),
                           doctorName: 'MUDr. Ján Mráz',
-                          planType: 'combined',
-                          title: 'Ročný plán pacienta (3-v-1)',
+                          planType: 'pre_post_op',
+                          title: 'Chirurgický Pre-Op & Post-Op Plán (SAY Care)',
                           diagnosisOrGoal: '',
                           analysisSummary: defaultPreset.analysisSummary,
                           cosmeticsRoutine: defaultPreset.cosmeticsRoutine!,
@@ -3600,12 +3646,12 @@ export default function PatientDatabase({
 
                         return (
                           <div className="space-y-5">
-                            {/* HORNÁ LIŠTA: PREPÍNAČ MEDZI ULOŽENÝMI PLÁNMI + VYTVORENIE NOVÉHO / MEICET PDF */}
+                            {/* HORNÁ LIŠTA: PREPÍNAČ MEDZI ULOŽENÝMI CHIRURGICKÝMI PLÁNMI + VYTVORENIE NOVÉHO */}
                             <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#E8E2D9]">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs font-bold uppercase tracking-wider text-[#2C2A29] mr-1 flex items-center gap-1.5">
-                                  <span>💎</span>
-                                  <span>Zjednotený 3-v-1 Plán ({patientPlans.length > 0 ? `${patientPlans.length} uložené` : 'Aktívna šablóna'}):</span>
+                                  <span>🏥</span>
+                                  <span>Chirurgický Pre-Op & Post-Op Plán ({patientPlans.length > 0 ? `${patientPlans.length} uložené` : 'Aktívna šablóna'}):</span>
                                 </span>
                                 {patientPlans.map((pl) => {
                                   const isSel = currentActivePlan && currentActivePlan.id === pl.id;
@@ -3619,7 +3665,7 @@ export default function PatientDatabase({
                                           : 'bg-white border border-[#E8E2D9] text-[#6B6357] hover:border-[#C5A059]'
                                       }`}
                                     >
-                                      <span>{pl.planType === 'pre_post_op' ? '🏥' : '✨'}</span>
+                                      <span>🏥</span>
                                       <span className="truncate max-w-[220px]">{pl.title}</span>
                                       <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${
                                         isSel ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
@@ -3636,13 +3682,13 @@ export default function PatientDatabase({
                                   onClick={() => setIsCreatingPlan(true)}
                                   className="px-3.5 py-1.5 bg-[#C5A059] hover:bg-[#B38F46] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
                                 >
-                                  <span>✨</span>
-                                  <span>+ Nový plán / Šablóna / Meicet PDF</span>
+                                  <span>🏥</span>
+                                  <span>+ Nový chirurgický plán / Kombinácia výkonov</span>
                                 </button>
                               </div>
                             </div>
 
-                            {/* UNIFIKOVANÝ PREHLIADAČ PLÁNU: 1. SAY SKINCARE • 2. ROČNÝ PLÁN • 3. SAY CARE */}
+                            {/* CHIRURGICKÝ PREHLIADAČ PLÁNU: 1. OPERAČNÁ KALKULÁCIA • 2. SAY PRE-OP CARE • 3. SAY POST-OP CARE & JAZVY */}
                             <PatientPlanViewer
                               plan={currentActivePlan}
                               patient={selectedPatient}

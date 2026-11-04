@@ -4,16 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   Upload, 
-  FileText, 
-  Plus, 
-  Calendar as CalendarIcon, 
-  Activity, 
   CheckCircle2, 
-  Trash2, 
-  ChevronRight,
-  ShieldCheck,
-  Flame,
-  Award
+  Trash2,
+  Wand2
 } from 'lucide-react';
 import { Patient, MedicalRecord } from '../PatientDatabase';
 import { MeicetAnalysisResult } from '@/types/meicet';
@@ -22,6 +15,7 @@ import { MeicetUploadModal } from './MeicetUploadModal';
 import { MeicetViewer } from './MeicetViewer';
 import { CalendarEvent } from '@/data/calendarConfig';
 import { PatientPlan } from '@/data/patientPlanConfig';
+import { QUICK_SKIN_CONCERN_PRESETS, createDemoMeicetResult } from '@/data/meicetDemoData';
 
 interface MeicetModuleProps {
   patient: Patient;
@@ -41,8 +35,14 @@ export function MeicetModule({
   const [reports, setReports] = useState<MeicetAnalysisResult[]>([]);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [selectedConcerns, setSelectedConcerns] = useState<string[]>([
+    'dehydration_barrier',
+    'redness_rosacea',
+    'wrinkles_mimics'
+  ]);
+  const [quickTier, setQuickTier] = useState<'high_end' | 'mid_end'>('high_end');
+  const [showQuickBuilder, setShowQuickBuilder] = useState(false);
 
-  // Načítanie reportov pre tohto pacienta
   const loadReports = () => {
     if (!patient?.id) return;
     const patientReports = MeicetService.getReportsForPatient(patient.id);
@@ -59,64 +59,105 @@ export function MeicetModule({
   const activeReport = reports.find(r => r.id === selectedReportId) || reports[0] || null;
 
   const handleAnalysisComplete = (newReport: MeicetAnalysisResult) => {
+    MeicetService.saveReport(newReport);
     setReports(prev => [newReport, ...prev.filter(r => r.id !== newReport.id)]);
     setSelectedReportId(newReport.id);
-    
-    // Automaticky prepojiť s PatientPlans v karte pacienta
-    if (onSaveToPatientPlans) {
-      const plan = MeicetService.convertToPatientPlan(newReport);
-      onSaveToPatientPlans(plan);
-    }
+    setShowQuickBuilder(false);
+  };
+
+  const handleUpdateActiveReport = (updatedReport: MeicetAnalysisResult) => {
+    MeicetService.saveReport(updatedReport);
+    setReports(prev => prev.map(r => (r.id === updatedReport.id ? updatedReport : r)));
+  };
+
+  const handleQuickGenerateWithoutPdf = () => {
+    const generated = createDemoMeicetResult(
+      patient.id,
+      patient.name,
+      patient.birthNumber || '',
+      quickTier,
+      selectedConcerns
+    );
+    generated.pdfSourceFilename = 'Rychla_AI_Diagnostika_Pleti_SAY.pdf';
+    handleAnalysisComplete(generated);
+  };
+
+  const toggleConcern = (id: string) => {
+    setSelectedConcerns(prev =>
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
   };
 
   const handleDeleteReport = (reportId: string) => {
-    if (!confirm('Naozaj chcete vymazať túto Meicet analýzu?')) return;
+    if (!confirm('Naozaj chcete vymazať tento plán pleti a Meicet analýzu?')) return;
     MeicetService.deleteReport(patient.id, reportId);
-    setReports(prev => prev.filter(r => r.id !== reportId));
+    const remaining = reports.filter(r => r.id !== reportId);
+    setReports(remaining);
     if (selectedReportId === reportId) {
-      setSelectedReportId(reports.find(r => r.id !== reportId)?.id || null);
+      setSelectedReportId(remaining[0]?.id || null);
     }
   };
 
-
   return (
     <div className="space-y-5">
-      
-      {/* HORNÝ PREPÍNAČ MEDZI HISTÓRIOU SKENOV A NOVÝM SKENOM */}
+      {/* HORNÁ LIŠTA: PREPÍNAČ SKENOV A RÝCHLE AKCIE */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-[#FAF8F5] border border-[#E8E2D9] rounded-2xl">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#2C2A29] text-[#C5A059] flex items-center justify-center font-bold text-sm">
+          <div className="w-9 h-9 rounded-xl bg-[#2C2A29] text-[#C5A059] flex items-center justify-center font-bold text-base shadow-xs">
             🔬
           </div>
           <div>
             <h3 className="font-serif text-sm font-bold text-[#2C2A29]">
-              Meicet Pro-A Skin Diagnostic Hub
+              Meicet AI & Plán pleti (Stav pleti • Domáca Skincare • Ročný plán procedúr)
             </h3>
-            <p className="text-[10px] text-[#8C857B]">
-              Evidencia 3D spektrálnych meraní pleti, posúdenie s anamnézou a ročné plány ošetrení
+            <p className="text-[11px] text-[#8C857B]">
+              Čisto pleťový a nechirurgický modul: diagnostika pleti, Basic/Premium Skincare a sezónne ošetrenia
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {reports.length > 0 && (
             <div className="flex items-center gap-1.5 bg-white border border-[#E8E2D9] rounded-xl p-1 text-xs">
-              <span className="text-[10px] uppercase font-bold text-[#8C857B] px-2">Sken:</span>
-              {reports.map((r, idx) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setSelectedReportId(r.id)}
-                  className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors cursor-pointer ${
-                    r.id === activeReport?.id
-                      ? 'bg-[#2C2A29] text-white'
-                      : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]'
-                  }`}
-                >
-                  {r.scanDate} (Skóre {r.metrics.skinScoreOverall})
-                </button>
+              <span className="text-[10px] uppercase font-bold text-[#8C857B] px-2">História:</span>
+              {reports.map((r) => (
+                <div key={r.id} className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedReportId(r.id);
+                      setShowQuickBuilder(false);
+                    }}
+                    className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors cursor-pointer ${
+                      r.id === activeReport?.id && !showQuickBuilder
+                        ? 'bg-[#2C2A29] text-white'
+                        : 'text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5]'
+                    }`}
+                  >
+                    {r.scanDate} (Skóre {r.metrics.skinScoreOverall})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteReport(r.id)}
+                    className="p-1 text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
+                    title="Vymazať tento záznam"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
               ))}
             </div>
+          )}
+
+          {reports.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowQuickBuilder(prev => !prev)}
+              className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#C5A059] font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Wand2 className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>{showQuickBuilder ? 'Späť na aktívny plán' : '+ Rýchly plán pleti bez PDF'}</span>
+            </button>
           )}
 
           <button
@@ -125,62 +166,112 @@ export function MeicetModule({
             className="px-4 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold text-xs uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Nahrať PDF Meicet Pro-A</span>
+            <span>Nahrať Meicet PDF</span>
           </button>
         </div>
       </div>
 
-      {/* AK EŠTE NIE JE ŽIADNY REPORT */}
-      {reports.length === 0 ? (
-        <div className="border-2 border-dashed border-[#E8E2D9] rounded-2xl p-10 bg-white text-center space-y-5">
-          <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#FAF8F5] to-white border border-[#C5A059] text-[#C5A059] mx-auto flex items-center justify-center text-3xl shadow-sm">
-            🔬
-          </div>
-
-          <div className="max-w-xl mx-auto space-y-2">
-            <h3 className="font-serif text-xl font-bold text-[#2C2A29]">
-              Pre pacienta {patient.name} zatiaľ nebol nahratý report Meicet Pro-A
-            </h3>
-            <p className="text-xs text-[#8C857B] leading-relaxed">
-              Analyzátor pleti <strong>Meicet Pro-A</strong> vyhotovuje pokročilý multispektrálny AI report (RGB svetlo, UV žiarenie, krížová polarizácia). Nahrajte PDF export priamo do systému — AI v súčinnosti s chirurgickou a dermatologickou anamnézou pacienta vytvorí komplexný <strong>12-mesačný plán ošetrení, personalizovanú skincare rutinu a protokol starostlivosti o jazvy</strong>.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+      {/* AK EŠTE NIE JE REPORT ALEBO JE OTVORENÝ RÝCHLY KONFIGURÁTOR */}
+      {reports.length === 0 || showQuickBuilder ? (
+        <div className="bg-white border border-[#E8E2D9] rounded-2xl p-6 shadow-xs space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E8E2D9] pb-4">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059] block">
+                Vytvorenie plánu pleti pre: {patient.name}
+              </span>
+              <h4 className="font-serif text-lg font-bold text-[#2C2A29]">
+                Vyberte spôsob diagnostiky pleti (Meicet PDF alebo Rýchle naklikanie problémov)
+              </h4>
+            </div>
             <button
               type="button"
               onClick={() => setIsUploadModalOpen(true)}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#2C2A29] via-[#3A3836] to-[#2C2A29] hover:from-[#C5A059] hover:to-[#8C6D2D] text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-[#FAF8F5] hover:bg-[#2C2A29] text-[#2C2A29] hover:text-white border border-[#C5A059] font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer"
             >
               <Upload className="w-4 h-4 text-[#C5A059]" />
-              <span>Nahrať Meicet Pro-A PDF report</span>
+              <span>Mám PDF zo skenera Meicet Pro-A</span>
             </button>
           </div>
 
-          {/* PREHĽAD ČO SYSTÉM AUTOMATICKY ZHODNOTÍ */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left max-w-3xl mx-auto pt-6 border-t border-[#E8E2D9]">
-            <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9]">
-              <span className="text-lg block mb-1">📊</span>
-              <strong className="text-xs font-bold text-[#2C2A29] block">8 Multispektrálnych spektier</strong>
-              <p className="text-[10px] text-[#8C857B]">Hydratácia (TEWL), póry, vrásky, UV fotopoškodenie, erytém, kožný maz a biologický vek.</p>
+          {/* KROK 1: NAKLIKANIE HLAVNÝCH PROBLÉMOV PLETI */}
+          <div className="space-y-3">
+            <label className="text-xs font-bold uppercase tracking-wider text-[#2C2A29] block">
+              1. Hlavné problémy pleti pacienta (rýchla diagnostika bez PDF):
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {QUICK_SKIN_CONCERN_PRESETS.map(preset => {
+                const isSelected = selectedConcerns.includes(preset.id);
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => toggleConcern(preset.id)}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                      isSelected
+                        ? 'bg-[#2C2A29] text-white border-[#C5A059] shadow-sm'
+                        : 'bg-[#FAF8F5] hover:bg-white text-[#2C2A29] border-[#E8E2D9]'
+                    }`}
+                  >
+                    <span className="text-xl shrink-0">{preset.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <strong className="text-xs font-bold block">{preset.label}</strong>
+                        {isSelected && <CheckCircle2 className="w-4 h-4 text-[#C5A059] shrink-0" />}
+                      </div>
+                      <p className={`text-[10px] mt-1 leading-snug ${isSelected ? 'text-[#E8E2D9]' : 'text-[#8C857B]'}`}>
+                        {preset.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* KROK 2: VOĽBA PREFEROVANEJ SKINCARE LÍNIE */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-[#E8E2D9]">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#2C2A29]">
+                2. Domáca Skincare rutina:
+              </span>
+              <button
+                type="button"
+                onClick={() => setQuickTier('mid_end')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  quickTier === 'mid_end'
+                    ? 'bg-sky-900 text-white border-sky-900 shadow-xs'
+                    : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-sky-700'
+                }`}
+              >
+                🧴 Basic (La Roche-Posay / CeraVe / Vichy)
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickTier('high_end')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  quickTier === 'high_end'
+                    ? 'bg-[#2C2A29] text-[#C5A059] border-[#C5A059] shadow-xs'
+                    : 'bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                }`}
+              >
+                💎 Premium (SkinCeuticals Medical-Grade)
+              </button>
             </div>
 
-            <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9]">
-              <span className="text-lg block mb-1">🩹</span>
-              <strong className="text-xs font-bold text-[#2C2A29] block">Protokol starostlivosti o jazvy</strong>
-              <p className="text-[10px] text-[#8C857B]">Posúdenie zrenia jaziev po blefaroplastike/operáciách, silikónový gél, tlakové masáže, SPF 50+.</p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9]">
-              <span className="text-lg block mb-1">🗓️</span>
-              <strong className="text-xs font-bold text-[#2C2A29] block">12-Mesačný plán ošetrení</strong>
-              <p className="text-[10px] text-[#8C857B]">Sezónne rozdelenie (Q1-Q4) s rešpektovaním letného zákazu laserov a kontrolnými re-skenmi.</p>
-            </div>
+            <button
+              type="button"
+              onClick={handleQuickGenerateWithoutPdf}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#C5A059] to-[#8C6D2D] hover:from-[#d4b068] hover:to-[#9e7c36] text-white font-bold text-xs uppercase tracking-wider shadow-md flex items-center gap-2 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Vygenerovať AI Plán pleti & Skincare</span>
+            </button>
           </div>
         </div>
       ) : activeReport ? (
         <MeicetViewer
           report={activeReport}
+          onUpdateReport={handleUpdateActiveReport}
           onSaveToPatientPlans={onSaveToPatientPlans}
           onScheduleTreatment={onScheduleTreatment}
           onTransferToCosmeticsPOS={onTransferToCosmeticsPOS}
@@ -198,7 +289,6 @@ export function MeicetModule({
           onAnalysisComplete={handleAnalysisComplete}
         />
       )}
-
     </div>
   );
 }

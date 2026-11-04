@@ -1051,15 +1051,6 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
     description: 'Stredne hlboký peeling na melazmu, pigmentácie a fotostarnutie'
   },
   {
-    id: 'chemical_peel_basic',
-    name: 'Základný AHA / ovocný chemický peeling',
-    price: 50,
-    currency: '€',
-    category: 'injectables_aesthetics',
-    categoryLabel: 'Injekčná estetika 💉',
-    description: 'Jemný exfoliačný peeling na rozjasnenie a zjemnenie pleti'
-  },
-  {
     id: 'dermapen_microneedling',
     name: 'Dermapen 4 / Lekársky microneedling s mezo-sérom',
     price: 140,
@@ -1869,22 +1860,123 @@ export function calculateLoyaltyPrice(
 }
 
 /**
- * Nájde položku z cenníka podľa názvu alebo ID
+ * Vráti živý cenník (zohľadňuje úpravy uložené v Manažmente cenníka v localStorage)
+ */
+export function getLiveClinicPriceList(): ClinicPriceItem[] {
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = window.localStorage.getItem('say_clinic_pricelist_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter(
+            (item: ClinicPriceItem) =>
+              item.id !== 'chemical_peel_basic' &&
+              !item.id.startsWith('ipl_') &&
+              !item.name.toLowerCase().includes('hydrafacial')
+          );
+        }
+      }
+    } catch {
+      // Fallback na statický cenník
+    }
+  }
+  return CLINIC_PRICE_LIST;
+}
+
+/**
+ * Nájde položku z cenníka podľa názvu alebo ID (zo živého cenníka)
  */
 export function getClinicPriceItem(search: string): ClinicPriceItem | undefined {
   const normalized = search.toLowerCase().trim();
-  return CLINIC_PRICE_LIST.find(
-    item => item.id.toLowerCase() === normalized || item.name.toLowerCase().includes(normalized)
+  const list = getLiveClinicPriceList();
+  return (
+    list.find(item => item.id.toLowerCase() === normalized) ||
+    list.find(item => item.name.toLowerCase().includes(normalized)) ||
+    CLINIC_PRICE_LIST.find(
+      item => item.id.toLowerCase() === normalized || item.name.toLowerCase().includes(normalized)
+    )
   );
 }
 
 /**
- * Získa cenu podľa názvu položky
+ * Získa cenu podľa názvu alebo ID položky (zo živého cenníka)
  */
 export function getClinicPrice(nameOrId: string, fallback: number = 0): number {
   const item = getClinicPriceItem(nameOrId);
   return item ? item.price : fallback;
 }
+
+/**
+ * Pravidlá pre kombinované chirurgické operácie v jednej anestézii (Add-on zľavy)
+ */
+export interface SurgicalAddonRule {
+  primaryIds: string[];
+  secondaryIds: string[];
+  addonPriceId: string;
+  addonFallbackPrice: number;
+  standaloneFallbackPrice: number;
+  addonLabel: string;
+}
+
+export const SURGICAL_ADDON_RULES: SurgicalAddonRule[] = [
+  {
+    primaryIds: ['deep_plane_facelift', 'smas_macs_facelift', 'endoscopic_brow_midface_lift'],
+    secondaryIds: ['necklift', 'necklift_standalone', 'facelift_necklift_addon'],
+    addonPriceId: 'facelift_necklift_addon',
+    addonFallbackPrice: 1000,
+    standaloneFallbackPrice: 2500,
+    addonLabel: 'Facelift – lifting krku (v kombinácii v jednej anestézii)'
+  },
+  {
+    primaryIds: ['deep_plane_facelift', 'smas_macs_facelift', 'endoscopic_brow_midface_lift', 'necklift', 'necklift_standalone'],
+    secondaryIds: ['blepharoplasty_upper', 'blepharoplasty_lower', 'blepharoplasty_combined', 'facelift_bleph_addon'],
+    addonPriceId: 'facelift_bleph_addon',
+    addonFallbackPrice: 600,
+    standaloneFallbackPrice: 1000,
+    addonLabel: 'Facelift – blefaroplastika viečok (v kombinácii v jednej anestézii)'
+  },
+  {
+    primaryIds: ['deep_plane_facelift', 'smas_macs_facelift', 'endoscopic_brow_midface_lift'],
+    secondaryIds: ['facial_lipofilling', 'fat_transfer_face', 'facelift_fat_transfer_addon'],
+    addonPriceId: 'facelift_fat_transfer_addon',
+    addonFallbackPrice: 800,
+    standaloneFallbackPrice: 1300,
+    addonLabel: 'Facelift – transplantácia tuku do tváre (v kombinácii)'
+  },
+  {
+    primaryIds: ['deep_plane_facelift', 'smas_macs_facelift', 'endoscopic_brow_midface_lift'],
+    secondaryIds: ['lip_lift', 'facelift_liplift_addon'],
+    addonPriceId: 'facelift_liplift_addon',
+    addonFallbackPrice: 600,
+    standaloneFallbackPrice: 900,
+    addonLabel: 'Facelift – Lip Lift (v kombinácii)'
+  },
+  {
+    primaryIds: ['deep_plane_facelift', 'smas_macs_facelift'],
+    secondaryIds: ['endoscopic_brow_lift', 'facelift_browlift_addon'],
+    addonPriceId: 'facelift_browlift_addon',
+    addonFallbackPrice: 1000,
+    standaloneFallbackPrice: 2500,
+    addonLabel: 'Facelift – lifting obočia (v kombinácii)'
+  },
+  {
+    primaryIds: ['rhinoplasty_complete', 'rhinoplasty'],
+    secondaryIds: ['septoplasty_turbinoplasty', 'rhinoplasty_septoplasty_addon'],
+    addonPriceId: 'rhinoplasty_septoplasty_addon',
+    addonFallbackPrice: 500,
+    standaloneFallbackPrice: 2500,
+    addonLabel: 'Rhinoplastika – septoplastika / turbinoplastika (v kombinácii)'
+  },
+  {
+    primaryIds: ['abdominoplasty_full', 'abdominoplasty', 'miniabdominoplasty'],
+    secondaryIds: ['liposuction_abdomen_flanks', 'liposuction_360', 'abdominoplasty_lipo_flanks'],
+    addonPriceId: 'abdominoplasty_lipo_flanks',
+    addonFallbackPrice: 600,
+    standaloneFallbackPrice: 2500,
+    addonLabel: 'Abdominoplastika – liposukcia brucha a bokov (v kombinácii)'
+  }
+];
 
 /**
  * Nájde balík podľa ID

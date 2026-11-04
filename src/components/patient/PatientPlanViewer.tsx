@@ -70,76 +70,136 @@ const QUICK_SEQUENTIAL_PROCEDURES: Array<{
   notes: string;
 }> = [
   {
-    label: 'Facelift (Deep Plane)',
+    label: 'Deep Plane Facelift (5 500 €)',
     icon: '🏥',
-    name: 'Deep Plane Facelift & Necklift (SMAS lifting)',
+    name: 'Deep Plane Facelift (SMAS lifting tváre)',
     category: 'surgery',
-    seasonOrMonth: '1. Krok (Jeseň / Zima)',
-    targetArea: 'Stredná a dolná tretina tváre, krk',
+    seasonOrMonth: '1. Krok (Hlavná operácia)',
+    targetArea: 'Stredná a dolná tretina tváre, kontúra sánky',
     frequencyOrSessions: 'Operácia v celkovej anestézii',
-    estimatedPrice: 4800,
+    estimatedPrice: 5500,
     priority: 'high',
-    notes: 'Chirurgická repozícia hlbokých štruktúr SMAS a platyzmy.'
+    notes: 'Chirurgická repozícia hlbokých štruktúr SMAS.'
   },
   {
-    label: 'Blefaroplastika viečok',
+    label: '+ Doplnok Necklift v 1 anestézii (1 000 €)',
+    icon: '➕',
+    name: 'Necklift – Lifting krku [Doplnok k Faceliftu v 1 anestézii]',
+    category: 'surgery',
+    seasonOrMonth: '1. Krok (Súčasť operácie – Zvýhodnený doplnok)',
+    targetArea: 'Krk, podbradok a platysma',
+    frequencyOrSessions: 'V jednej anestézii s Faceliftom (bežne 2 500 €, úspora 1 500 €)',
+    estimatedPrice: 1000,
+    priority: 'high',
+    notes: 'Zvýhodnený chirurgický doplnok v rámci jedného operačného výkonu.'
+  },
+  {
+    label: '+ Doplnok Horné viečka v 1 anestézii (600 €)',
     icon: '👁️',
-    name: 'Horná a dolná blefaroplastika (Korekcia viečok)',
+    name: 'Blefaroplastika horných viečok [Doplnok k Faceliftu v 1 anestézii]',
     category: 'surgery',
-    seasonOrMonth: '2. Krok (+2-3 mesiace)',
-    targetArea: 'Horné a dolné očné viečka',
-    frequencyOrSessions: 'Operácia v lokálnej anestézii',
-    estimatedPrice: 1650,
+    seasonOrMonth: '1. Krok (Súčasť operácie – Zvýhodnený doplnok)',
+    targetArea: 'Horné očné viečka',
+    frequencyOrSessions: 'V jednej anestézii s Faceliftom (bežne 1 000 €, úspora 400 €)',
+    estimatedPrice: 600,
     priority: 'high',
-    notes: 'Odstránenie nadbytku kože a tukových prolapsov v periorbitálnej zóne.'
+    notes: 'Zvýhodnený chirurgický doplnok v rámci jedného operačného výkonu.'
   },
   {
-    label: 'Frakčný CO2 Laser',
-    icon: '⚡',
-    name: 'Frakčný CO2 Laser Resurfacing & Laserová korekcia jaziev',
-    category: 'laser',
-    seasonOrMonth: '3. Krok (Zima / Jar)',
-    targetArea: 'Celá tvár, periorálna zóna & jazvy',
-    frequencyOrSessions: '1-2 sedenia',
-    estimatedPrice: 550,
-    priority: 'high',
-    notes: 'Zjednotenie textúry pleti, stiahnutie pórov a vyhladenie pooperačných jaziev.'
-  },
-  {
-    label: 'Botulotoxín & Výplň',
-    icon: '💉',
-    name: 'Aplikácia Botulotoxínu (Dysport) & Kyselina Hyalurónová',
-    category: 'injectable',
-    seasonOrMonth: '4. Krok (Jar / Leto)',
-    targetArea: 'Horná tretina tváre (čelo, glabela, vějířky) + kontúry',
-    frequencyOrSessions: '1 aplikácia (kontrola o 14 dní)',
-    estimatedPrice: 420,
-    priority: 'medium',
-    notes: 'Dynamická relaxácia mimických svalov a jemné doplnenie objemu.'
-  },
-  {
-    label: 'Polynukleotidy & Skinbooster',
-    icon: '🧬',
-    name: 'Bioremodelácia Profhilo / Polynukleotidy (Plinest)',
-    category: 'skin_care',
-    seasonOrMonth: 'Priebežne (Leto / Jeseň)',
-    targetArea: 'Tvár, očné okolie, krk a dekolt',
-    frequencyOrSessions: '2 sedenia v rozstupe 4 týždňov',
-    estimatedPrice: 520,
-    priority: 'recommended',
-    notes: 'Bunková biostimulácia fibroblastov a hĺbková hydratácia dermis.',
-  },
-  {
-    label: 'Augmentácia / Mammaplastika',
+    label: 'Abdominoplastika (4 000 €)',
     icon: '🏥',
-    name: 'Augmentácia prsníkov / Modelácia (Mastopexia)',
+    name: 'Abdominoplastika (Plastika brušnej steny)',
     category: 'surgery',
-    seasonOrMonth: 'Hlavný operačný krok',
-    targetArea: 'Prsníky (obojstranne)',
-    frequencyOrSessions: 'Operácia v celkovej anestézii (1 noc na klinike)',
-    estimatedPrice: 4300,
+    seasonOrMonth: '1. Krok (Hlavná operácia)',
+    targetArea: 'Predná brušná stena a pupok',
+    frequencyOrSessions: 'Operácia v celkovej anestézii',
+    estimatedPrice: 4000,
+    priority: 'high',
+    notes: 'Kompletná abdominoplastika s transpozíciou pupka.'
+  },
+  {
+    label: '+ Doplnok Liposukcia bokov (600 €)',
+    icon: '➕',
+    name: 'Liposukcia bokov [Doplnok k Abdominoplastike v 1 anestézii]',
+    category: 'surgery',
+    seasonOrMonth: '1. Krok (Súčasť operácie – Zvýhodnený doplnok)',
+    targetArea: 'Boky a driek',
+    frequencyOrSessions: 'V jednej anestézii s Abdominoplastikou (bežne 1 400 €, úspora 800 €)',
+    estimatedPrice: 600,
+    priority: 'high',
+    notes: 'Zvýhodnené odsatie bokov v jednom sedení s plastikou brucha.'
+  },
+  {
+    label: 'Augmentácia prsníkov (4 100 €)',
+    icon: '👙',
+    name: 'Augmentácia prsníkov silikónovými implantátmi',
+    category: 'surgery',
+    seasonOrMonth: '1. Krok (Hlavná operácia)',
+    targetArea: 'Prsníky obojstranne (Dual Plane)',
+    frequencyOrSessions: 'Operácia v celkovej anestézii',
+    estimatedPrice: 4100,
     priority: 'high',
     notes: 'Vrátane 6-týždňového kompresívneho režimu a pooperačného SAY Care protokolu.'
+  },
+  {
+    label: 'Celková anestézia 1. hod (400 €)',
+    icon: '💤',
+    name: 'Celková anestézia (1. hodina)',
+    category: 'surgery',
+    seasonOrMonth: '1. Krok (Sálová položka)',
+    targetArea: 'Anestéziologický tím',
+    frequencyOrSessions: '1. hodina (každá ďalšia začatá hodina 200 €)',
+    estimatedPrice: 400,
+    priority: 'high',
+    notes: 'Kompletné anestéziologické vedenie operácie.'
+  },
+  {
+    label: 'Hospitalizácia 1 noc (200 €)',
+    icon: '🛏️',
+    name: 'Hospitalizácia – 1 noc na klinike + pooperačná starostlivosť',
+    category: 'surgery',
+    seasonOrMonth: '1. Krok (Pooperačné lôžko)',
+    targetArea: 'Lôžkové oddelenie SAY CLINIC',
+    frequencyOrSessions: '1 noc s nepretržitým sesterským dohľadom',
+    estimatedPrice: 200,
+    priority: 'high',
+    notes: 'Monitorovanie vitálnych funkcií, infúzna analgézia a strava.'
+  },
+  {
+    label: 'Balík: Post-Op Tvár & Viečka (160 €)',
+    icon: '🩹',
+    name: 'Balík: Post-Op Tvár & Viečka (Hojenie & Jazvy)',
+    category: 'scar_care',
+    seasonOrMonth: '2. Krok (Pooperačná rekonvalescencia)',
+    targetArea: 'Pooperačné jazvy a opuch tváre',
+    frequencyOrSessions: '3x manuálna lymfodrenáž tváre + 3x biostimulačné LED + silikónový gél',
+    estimatedPrice: 160,
+    priority: 'recommended',
+    notes: 'Urýchlenie vstrebávania opuchov a modrín po operáciách tváre a viečok.'
+  },
+  {
+    label: 'Balík: Lipo & Telo Recovery 5x (225 €)',
+    icon: '💆',
+    name: 'Balík: Lipo & Telo Recovery (5x Lymfodrenáž)',
+    category: 'scar_care',
+    seasonOrMonth: '2. Krok (Od 10. dňa po operácii)',
+    targetArea: 'Brucho, boky, stehná alebo paže',
+    frequencyOrSessions: '5x kombinovaná pooperačná lymfodrenáž (manuálna + Lymfoven)',
+    estimatedPrice: 225,
+    priority: 'recommended',
+    notes: 'Prevencia fibróz a opuchov po liposukcii a abdominoplastike.'
+  },
+  {
+    label: 'NPWT PICO Terapia rán (890 €)',
+    icon: '🛡️',
+    name: 'Balík: Prémiové hojenie rán NPWT (PICO)',
+    category: 'scar_care',
+    seasonOrMonth: '1. – 2. Krok (Bezprostredne po operácii)',
+    targetArea: 'Rozsiahle operačné rany (Abdominoplastika / Mastopexia)',
+    frequencyOrSessions: 'Prístroj PICO + preväzy + silikónová starostlivosť + 2x kontrola',
+    estimatedPrice: 890,
+    priority: 'recommended',
+    notes: 'Podtlaková terapia rán znižujúca riziko dehiscencie a serómu.'
   }
 ];
 
@@ -150,7 +210,7 @@ export default function PatientPlanViewer({
   onScheduleTreatment,
   onOpenInCosmeticsPOS
 }: PatientPlanViewerProps) {
-  const [activeSection, setActiveSection] = useState<'all' | 'say_skincare' | 'rocny_plan' | 'say_care'>('all');
+  const [activeSection, setActiveSection] = useState<'all' | 'say_skincare' | 'rocny_plan' | 'say_preop' | 'say_care'>('all');
   const [selectedTierFilter, setSelectedTierFilter] = useState<'both' | 'standard' | 'premium'>('both');
   const [showMeicetModal, setShowMeicetModal] = useState(false);
 
@@ -954,16 +1014,16 @@ export default function PatientPlanViewer({
         </div>
       )}
 
-      {/* HLAVIČKA PLÁNU & 3 PILIERE NAVIGÁCIA */}
+      {/* HLAVIČKA PLÁNU & 3 CHIRURGICKÉ SEKCE NAVIGÁCIA */}
       <div className="bg-gradient-to-r from-[#2C2A29] via-[#3a3735] to-[#2C2A29] text-white p-6 rounded-2xl shadow-lg border border-[#C5A059]/30">
         <div className="flex flex-wrap justify-between items-start gap-4">
           <div className="space-y-2 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
               <span className="bg-[#C5A059] text-[#2C2A29] text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full shadow-xs">
-                SAY CLINIC 3-V-1 PROTOKOL
+                CHIRURGICKÝ PLÁN & SAY CARE
               </span>
               <span className="bg-white/10 text-amber-200 border border-[#C5A059]/40 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                1. SAY Skincare • 2. Ročný Plán • 3. SAY Care
+                1. Operačná kalkulácia • 2. SAY Pre-Op Care • 3. SAY Post-Op Care & Jazvy
               </span>
               <span className="text-xs text-stone-400">
                 Vytvorené: {new Date(plan.createdAt).toLocaleDateString('sk-SK')}
@@ -972,9 +1032,10 @@ export default function PatientPlanViewer({
 
             {(() => {
               const cleanTitle = (plan.title || '')
-                .replace(/Komplexný sekvenčný plán:\s*Facelift\s*➔\s*Viečka\s*➔\s*Frakčný Laser\s*\(3-v-1\)/gi, 'Ročný plán pacienta (3-v-1)')
-                .replace(/Facelift\s*➔\s*Viečka\s*➔\s*Frakčný Laser\s*\(3-v-1\)/gi, 'Ročný plán (3-v-1)')
-                .trim() || 'Plán starostlivosti & liečby';
+                .replace(/Komplexný sekvenčný plán:\s*Facelift\s*➔\s*Viečka\s*➔\s*Frakčný Laser\s*\(3-v-1\)/gi, 'Chirurgický Pre-Op & Post-Op Plán')
+                .replace(/Facelift\s*➔\s*Viečka\s*➔\s*Frakčný Laser\s*\(3-v-1\)/gi, 'Chirurgický Plán & SAY Care')
+                .replace(/Ročný plán starostlivosti:/gi, 'Chirurgický plán:')
+                .trim() || 'Chirurgický Pre-Op & Post-Op Plán';
 
               const isAutoFaceliftDiagnosis = plan.diagnosisOrGoal?.toLowerCase().includes('kompletná etapovitá chirurgická a laserová rejuvenácia tváre');
               const cleanDiagnosis = isAutoFaceliftDiagnosis ? '' : (plan.diagnosisOrGoal || '').trim();
@@ -994,40 +1055,22 @@ export default function PatientPlanViewer({
               );
             })()}
 
-            {plan.analysisSummary && (
-              <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-stone-300">
-                {plan.analysisSummary.skinType && (
-                  <span className="bg-white/10 px-2 py-0.5 rounded border border-white/10">
-                    Typ pleti: <strong className="text-white">{plan.analysisSummary.skinType}</strong>
-                  </span>
-                )}
-                {plan.analysisSummary.skinTonePhototype && (
-                  <span className="bg-white/10 px-2 py-0.5 rounded border border-white/10">
-                    Fototyp: <strong className="text-white">{plan.analysisSummary.skinTonePhototype}</strong>
-                  </span>
-                )}
-                <span className="bg-white/10 px-2 py-0.5 rounded border border-white/10">
-                  Lekár: <strong className="text-white">{plan.doctorName}</strong>
-                </span>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-stone-300">
+              <span className="bg-white/10 px-2 py-0.5 rounded border border-white/10">
+                Operatér / Lekár: <strong className="text-white">{plan.doctorName}</strong>
+              </span>
+              <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-semibold">
+                ✓ Automatické zľavy na chirurgické doplnky v 1 anestézii
+              </span>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 print:hidden">
             <button
-              type="button"
-              onClick={() => setShowMeicetModal(true)}
-              className="bg-white/10 hover:bg-white/20 text-white border border-[#C5A059]/60 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-              title="Nahrať alebo aktualizovať 3D spektrálny PDF report z prístroja Meicet Pro-A"
-            >
-              <Activity className="w-3.5 h-3.5 text-[#C5A059]" />
-              <span>🔬 Meicet 3D PDF</span>
-            </button>
-            <button
               onClick={handleDownloadPdf}
               disabled={generatingPdf}
               className="bg-gradient-to-r from-[#C5A059] to-[#d6b26b] hover:from-[#b08d4b] hover:to-[#c5a059] text-[#2C2A29] px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50 active:scale-95"
-              title="Stiahnuť plán starostlivosti v čistom A4 PDF formáte s hlavičkou kliniky"
+              title="Stiahnuť chirurgický plán v čistom A4 PDF formáte s hlavičkou kliniky"
             >
               {generatingPdf ? (
                 <>
@@ -1061,7 +1104,7 @@ export default function PatientPlanViewer({
           </div>
         </div>
 
-        {/* NAVIGÁCIA MEDZI 3 KLINICKÝMI PILIERMI */}
+        {/* NAVIGÁCIA MEDZI 3 CHIRURGICKÝMI SEKCIAMI */}
         <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-white/10 print:hidden">
           <button
             onClick={() => setActiveSection('all')}
@@ -1071,20 +1114,7 @@ export default function PatientPlanViewer({
                 : 'bg-white/5 text-stone-300 hover:bg-white/10'
             }`}
           >
-            📋 Kompletný prehľad (3-v-1)
-          </button>
-          <button
-            onClick={() => setActiveSection('say_skincare')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activeSection === 'say_skincare'
-                ? 'bg-[#C5A059] text-[#2C2A29] shadow-md'
-                : 'bg-white/5 text-stone-300 hover:bg-white/10'
-            }`}
-          >
-            <span>1. SAY Skincare</span>
-            <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full">
-              Meicet 3D + Rutina + Pleť
-            </span>
+            📋 Kompletný chirurgický plán
           </button>
           <button
             onClick={() => setActiveSection('rocny_plan')}
@@ -1094,9 +1124,22 @@ export default function PatientPlanViewer({
                 : 'bg-white/5 text-stone-300 hover:bg-white/10'
             }`}
           >
-            <span>2. Ročný Plán</span>
+            <span>1. Operačná kalkulácia & Sálové balíky</span>
             <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full">
-              {plan.annualTreatments?.length || 0} zákrokov v sekvencii
+              {plan.annualTreatments?.length || 0} položiek
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveSection('say_preop')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeSection === 'say_preop'
+                ? 'bg-[#C5A059] text-[#2C2A29] shadow-md'
+                : 'bg-white/5 text-stone-300 hover:bg-white/10'
+            }`}
+          >
+            <span>2. SAY Pre-Op Care</span>
+            <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full">
+              Príprava & ERAS® Prehabilitácia
             </span>
           </button>
           <button
@@ -1107,9 +1150,9 @@ export default function PatientPlanViewer({
                 : 'bg-white/5 text-stone-300 hover:bg-white/10'
             }`}
           >
-            <span>3. SAY Care</span>
+            <span>3. SAY Post-Op Care & Jazvy</span>
             <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full">
-              Prehabilitácia & Pooperačný protokol
+              Rekonvalescencia & Protokol jaziev
             </span>
           </button>
         </div>
@@ -1133,7 +1176,7 @@ export default function PatientPlanViewer({
       )}
 
       {/* ===================================================================== */}
-      {/* AI & EBM KLINICKÝ NAVIGÁTOR: ÚPRAVA CELÉHO PLÁNU PODĽA VÝKONOV         */}
+      {/* AI & EBM CHIRURGICKÝ NAVIGÁTOR: VÝBER OPERÁCIÍ A KOMBINÁCIÍ V 1 KROKU  */}
       {/* ===================================================================== */}
       <div className="bg-gradient-to-br from-[#FAF8F5] via-white to-[#FAF8F5] border-2 border-[#C5A059]/50 rounded-2xl p-5 shadow-xs space-y-4 print:hidden">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E8E2D9] pb-3.5">
@@ -1141,14 +1184,14 @@ export default function PatientPlanViewer({
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-md bg-[#2C2A29] text-[#C5A059] text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
-                <span>AI & EBM KLINICKÝ PROTOKOL</span>
+                <span>KOMBINÁCIA OPERÁCIÍ V 1 ANESTÉZII & SAY CARE</span>
               </span>
               <h3 className="text-sm md:text-base font-bold text-[#2C2A29]">
-                Dynamická úprava celého ročného plánu podľa vybratých operácií a výkonov
+                Výber primárnej operácie a zvýhodnených chirurgických doplnkov
               </h3>
             </div>
             <p className="text-xs text-[#6B6357]">
-              Vyklikajte operácie a ošetrenia pacienta. AI okamžite upraví a zosúladí <strong>1. SAY Skincare</strong>, <strong>2. Ročný plán výkonov</strong> aj <strong>3. SAY Care pred/pooperačný protokol</strong> podľa najnovších svetových guidelinov (ERAS®, ASPS, EADV, International Scar Consensus) a vysvetlí ich zrozumiteľne pre pacienta.
+              Vyberte hlavnú operáciu a doplnkové výkony (napr. <strong>Facelift + Necklift za +1 000 € + Viečka za +600 €</strong> alebo <strong>Abdominoplastika + Liposukcia bokov za +600 € + Diastáza za +300 €</strong>). Systém ich automaticky spojí do <strong>1. Kroku (jedna operácia)</strong>, uplatní kombinované zľavy a vygeneruje predoperačný (Pre-Op) a pooperačný (Post-Op & Jazvy) protokol.
             </p>
           </div>
 
@@ -1158,17 +1201,17 @@ export default function PatientPlanViewer({
               disabled={isRecalculatingAI}
               onClick={() => handleRecalculateEntirePlanWithAI(false)}
               className="px-4 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              title="Prepočítať a obohatiť celý 3-pilierový plán cez AI podľa zvolených operácií a výkonov"
+              title="Prepočítať chirurgickú kalkuláciu, Pre-Op a Post-Op protokol"
             >
               {isRecalculatingAI ? (
                 <>
                   <RotateCw className="w-3.5 h-3.5 text-[#C5A059] animate-spin" />
-                  <span>AI prepočítava celý plán...</span>
+                  <span>Prepočítavam plán...</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>✨ AI Prepočítať celý plán podľa výkonov</span>
+                  <span>✨ Prepočítať chirurgický plán & SAY Care</span>
                 </>
               )}
             </button>
@@ -1180,7 +1223,7 @@ export default function PatientPlanViewer({
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="text-[10px] font-extrabold uppercase tracking-wider text-[#8C857B] flex items-center gap-1.5">
-                <span>Vyberte operácie alebo výkony z ponuky kliniky (Dropdown):</span>
+                <span>Vyberte operácie, doplnky v 1 anestézii alebo pooperačnú terapiu jaziev (Dropdown):</span>
               </label>
               <span className="text-[10px] font-bold text-[#C5A059] bg-[#2C2A29] px-2.5 py-0.5 rounded-full">
                 Katalóg kliniky: {EBM_PROCEDURE_CATALOG.length} výkonov
@@ -1200,7 +1243,7 @@ export default function PatientPlanViewer({
                   className="w-full bg-white border-2 border-[#C5A059]/80 focus:border-[#C5A059] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#2C2A29] shadow-xs cursor-pointer appearance-none pr-9 hover:border-[#C5A059]"
                 >
                   <option value="" disabled>
-                    ➕ Kliknite sem a zvoľte výkon (Plastická chirurgia, Lasery, Injekcie, Pleť)...
+                    ➕ Kliknite sem a zvoľte výkon (Plastická chirurgia Tvár / Telo, Laser na jazvy, Lymfodrenáž)...
                   </option>
                   {EBM_PROCEDURE_GROUPS.map(group => {
                     const groupProcs = EBM_PROCEDURE_CATALOG.filter(p => p.group === group.key);
@@ -1259,7 +1302,7 @@ export default function PatientPlanViewer({
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#2C2A29] flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-                <span>Zvolené výkony pre plán pacienta ({selectedAiProcedureIds.length}):</span>
+                <span>Zvolené výkony v chirurgickom pláne ({selectedAiProcedureIds.length}):</span>
               </span>
               <span className="text-[10px] text-[#8C857B]">
                 Kliknutím na ✕ výkon odoberiete
@@ -1268,7 +1311,7 @@ export default function PatientPlanViewer({
 
             {selectedAiProcedureIds.length === 0 ? (
               <div className="p-3.5 text-center rounded-lg border border-dashed border-[#E8E2D9] bg-white text-xs text-[#8C857B]">
-                Zatiaľ nie je zvolený žiadny výkon. Vyberte operácie alebo procedúry z <strong>dropdownu vyššie</strong> a celý ročný plán sa okamžite prispôsobí.
+                Zatiaľ nie je zvolený žiadny výkon. Vyberte operácie z <strong>dropdownu vyššie</strong> a chirurgický plán sa okamžite prispôsobí.
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -1303,9 +1346,9 @@ export default function PatientPlanViewer({
       </div>
 
       {/* ===================================================================== */}
-      {/* 1. PILIER: SAY SKINCARE (MEICET 3D + SKINCARE RUTINA + OŠETRENIA PLETI) */}
+      {/* 1. PILIER: SAY SKINCARE (PRESUNUTÉ DO SAMOSTATNÉHO MODULU MEICET)     */}
       {/* ===================================================================== */}
-      {(activeSection === 'all' || activeSection === 'say_skincare') && (
+      {activeSection === 'say_skincare' && (
         <div className="bg-white border border-[#E8E2D9] rounded-2xl p-6 shadow-xs space-y-6">
           {/* Hlavička 1. piliera */}
           <div className="flex flex-wrap justify-between items-center gap-3 border-b border-[#E8E2D9] pb-4">
@@ -2083,7 +2126,7 @@ export default function PatientPlanViewer({
       )}
 
       {/* ===================================================================== */}
-      {/* 2. PILIER: ROČNÝ PLÁN (VOĽNE ZOSTAVITEĽNÁ SEKVENCIA ZÁKROKOV)          */}
+      {/* 1. SEKCIA: OPERAČNÁ KALKULÁCIA & SÁLOVÉ BALÍKY                         */}
       {/* ===================================================================== */}
       {(activeSection === 'all' || activeSection === 'rocny_plan') && (
         <div className="bg-white border border-[#E8E2D9] rounded-2xl p-6 shadow-xs space-y-6">
@@ -2091,29 +2134,29 @@ export default function PatientPlanViewer({
             <div>
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-md bg-[#2C2A29] text-[#C5A059] text-xs font-black uppercase tracking-wider">
-                  2. PILIER
+                  1. SEKCIA
                 </span>
                 <h3 className="text-base md:text-lg font-bold text-[#2C2A29]">
-                  Ročný Plán (Voľná sekvencia zákrokov na mieru)
+                  Operačná kalkulácia, Kombinované výkony & Sálové balíky
                 </h3>
               </div>
               <p className="text-xs text-[#8C857B] mt-1">
-                Krok za krokom naplánovaná postupnosť operačných výkonov, laserov a estetických ošetrení s možnosťou ľubovoľnej úpravy poradia.
+                Rozpis hlavnej operácie, zvýhodnených chirurgických doplnkov v jednej anestézii, sálových položiek a pooperačných balíkov hojenia.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-xs font-mono font-bold text-[#2C2A29] bg-[#FAF8F5] px-3 py-1.5 rounded-xl border border-[#E8E2D9]">
-                Celkový rozpočet krokov: {plan.annualTreatments?.reduce((sum, t) => sum + (t.estimatedPrice || 0), 0)} €
+                Celková kalkulácia: {plan.annualTreatments?.reduce((sum, t) => sum + (t.estimatedPrice || 0), 0)} €
               </span>
               <button
                 type="button"
                 disabled={isRecalculatingAI}
                 onClick={() => handleRecalculateEntirePlanWithAI(true)}
                 className="px-3.5 py-1.5 rounded-xl bg-amber-100 hover:bg-[#C5A059] text-amber-950 hover:text-[#2C2A29] border border-[#C5A059] text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer print:hidden shadow-2xs"
-                title="Zosúladiť 1. SAY Skincare a 3. SAY Care (Prehabilitáciu + Jazvy) s týmito krokmi podľa najnovších EBM guidelinov"
+                title="Zosúladiť SAY Pre-Op Care a SAY Post-Op Care s týmito operačnými krokmi podľa EBM guidelinov"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>{isRecalculatingAI ? 'AI prepočítava...' : '✨ AI zosúladiť celý plán s týmito krokmi'}</span>
+                <span>{isRecalculatingAI ? 'Prepočítavam...' : '✨ Zosúladiť Pre-Op & Post-Op s kalkuláciou'}</span>
               </button>
               <button
                 type="button"
@@ -2121,15 +2164,15 @@ export default function PatientPlanViewer({
                 className="px-3.5 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer print:hidden"
               >
                 <Plus className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>+ Pridať vlastný krok</span>
+                <span>+ Pridať vlastnú položku</span>
               </button>
             </div>
           </div>
 
-          {/* RÝCHLE PRIDANIE KROKU DO SEKVENCIE (1-KLIK CHIPY) */}
+          {/* RÝCHLE PRIDANIE KROKU DO KALKULÁCIE (1-KLIK CHIPY) */}
           <div className="bg-[#FAF8F5] border border-[#E8E2D9] rounded-xl p-3.5 space-y-2 print:hidden">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B] block">
-              ⚡ Rýchlo pridať ďalší krok do sekvencie Ročného plánu (1-klikom):
+              ⚡ Rýchlo pridať operáciu, zvýhodnený doplnok v 1 anestézii alebo pooperačný balík (1-klikom):
             </span>
             <div className="flex flex-wrap gap-2">
               {QUICK_SEQUENTIAL_PROCEDURES.map((proc, idx) => (
@@ -2471,21 +2514,21 @@ export default function PatientPlanViewer({
       )}
 
       {/* ===================================================================== */}
-      {/* 3. PILIER: SAY CARE (PREDOPERAČNÝ & POOPERAČNÝ PROTOKOL)              */}
+      {/* 2. SEKCIA: SAY PRE-OP CARE (PREDOPERAČNÁ PRÍPRAVA & PREHABILITÁCIA)    */}
       {/* ===================================================================== */}
-      {(activeSection === 'all' || activeSection === 'say_care') && (
+      {(activeSection === 'all' || activeSection === 'say_preop') && (
         <div className="space-y-6">
-          {/* 3A: PREDOPERAČNÝ PROTOKOL & 4 PILIERE PREHABILITÁCIE */}
+          {/* 2: PREDOPERAČNÝ PROTOKOL & 4 PILIERE PREHABILITÁCIE */}
           <div className="bg-white border border-amber-200 rounded-2xl p-6 shadow-xs space-y-6">
             <div className="flex flex-wrap justify-between items-center gap-3 border-b border-amber-100 pb-4">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded-md bg-[#2C2A29] text-[#C5A059] text-xs font-black uppercase tracking-wider">
-                    3. PILIER • ČASŤ A
+                    2. SEKCIA • SAY PRE-OP CARE
                   </span>
                   <ShieldAlert className="w-5 h-5 text-amber-600" />
                   <h3 className="text-base md:text-lg font-bold text-[#2C2A29]">
-                    SAY Care – Predoperačný protokol ({effectivePreOp.procedureName})
+                    SAY Pre-Op Care – Predoperačná príprava ({effectivePreOp.procedureName})
                   </h3>
                 </div>
                 <p className="text-xs text-[#8C857B] mt-1">
@@ -2629,18 +2672,25 @@ export default function PatientPlanViewer({
               })}
             </div>
           </div>
+        </div>
+      )}
 
-          {/* 3B: POOPERAČNÝ PROTOKOL (JAZVY, LYMFODRENÁŽ, LASER & REKONVALESCENCIA) */}
+      {/* ===================================================================== */}
+      {/* 3. SEKCIA: SAY POST-OP CARE & STAROSTLIVOSŤ O JAZVY                    */}
+      {/* ===================================================================== */}
+      {(activeSection === 'all' || activeSection === 'say_care') && (
+        <div className="space-y-6">
+          {/* 3: POOPERAČNÝ PROTOKOL (JAZVY, LYMFODRENÁŽ, LASER & REKONVALESCENCIA) */}
           <div className="bg-white border border-[#E8E2D9] rounded-2xl p-6 shadow-xs space-y-6">
             <div className="flex flex-wrap justify-between items-center gap-3 border-b border-[#E8E2D9] pb-4">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded-md bg-[#2C2A29] text-[#C5A059] text-xs font-black uppercase tracking-wider">
-                    3. PILIER • ČASŤ B
+                    3. SEKCIA • SAY POST-OP CARE & JAZVY
                   </span>
                   <HeartHandshake className="w-5 h-5 text-[#C5A059]" />
                   <h3 className="text-base md:text-lg font-bold text-[#2C2A29]">
-                    SAY Care – Pooperačný protokol (Jazvy, Lymfodrenáž, Laser & Rekonvalescencia)
+                    SAY Post-Op Care – Pooperačný protokol & Starostlivosť o jazvy
                   </h3>
                 </div>
                 <p className="text-xs text-[#8C857B] mt-1">

@@ -1,4 +1,58 @@
 import { MeicetAnalysisResult, MeicetSkinMetrics, MeicetAnamnesisContext } from '@/types/meicet';
+import { getClinicPrice } from '@/data/clinicPriceList';
+
+export interface QuickSkinConcernPreset {
+  id: string;
+  label: string;
+  icon: string;
+  description: string;
+  metricAdjustments: Partial<Record<keyof MeicetSkinMetrics, number>>;
+}
+
+export const QUICK_SKIN_CONCERN_PRESETS: QuickSkinConcernPreset[] = [
+  {
+    id: 'dehydration_barrier',
+    label: 'Dehydratácia & oslabená bariéra',
+    icon: '💧',
+    description: 'Zvýšená strata vody (TEWL), pnutie pleti, jemné dehydratačné linky',
+    metricAdjustments: { hydration: 42 }
+  },
+  {
+    id: 'redness_rosacea',
+    label: 'Cievky, začervenanie & Rosacea',
+    icon: '🩸',
+    description: 'Rozšírené kapiláry na nose a lícach, difúzny erytém a reaktívna pleť',
+    metricAdjustments: { redAreas: 45 }
+  },
+  {
+    id: 'wrinkles_mimics',
+    label: 'Mimické vrásky & strata elasticity',
+    icon: '✨',
+    description: 'Dynamické vrásky čela, glabely, očných vejárikov a pokles kontúr',
+    metricAdjustments: { wrinkles: 48 }
+  },
+  {
+    id: 'pores_texture',
+    label: 'Rozšírené póry, textúra & jazvičky po akné',
+    icon: '🔬',
+    description: 'Nerovnomerný reliéf pleti, rozšírené póry v T-zóne a atrofické stopy',
+    metricAdjustments: { pores: 50, texture: 52 }
+  },
+  {
+    id: 'pigmentation_uv',
+    label: 'Pigmentové škvrny, melazma & fotopoškodenie',
+    icon: '☀️',
+    description: 'Solárne lentigá, nerovnomerný tón a skryté UV poškodenie',
+    metricAdjustments: { uvDamage: 46, brownSpots: 50 }
+  },
+  {
+    id: 'collagen_laxity',
+    label: 'Úbytok kolagénu & ochabnutie kontúr',
+    icon: '💎',
+    description: 'Strata hutnosti dermis, unavený vzhľad a oslabenie strednej tretiny tváre',
+    metricAdjustments: { wrinkles: 50, texture: 55 }
+  }
+];
 
 export const SAMPLE_MEICET_METRICS: MeicetSkinMetrics = {
   skinScoreOverall: 68,
@@ -20,7 +74,7 @@ export const SAMPLE_MEICET_METRICS: MeicetSkinMetrics = {
     percentile: 52,
     status: 'mierne zhoršený',
     description: 'Zväčšený priemer pórov a nahromadený zoxidovaný maz v centrálnom reliéfe.',
-    clinicalSignificance: 'Vyžaduje cielené zjemnenie stratum corneum a reguláciu keratinizácie infundíbula.',
+    clinicalSignificance: 'Vyžaduje cielené zjemnenie stratum corneum (BioRePeel / CoolPeel CO2) a reguláciu keratinizácie.',
     poreCountEstimate: 1420,
     predominantZone: 'Nos, mediálne líca a oblasť brady (T-zóna)'
   },
@@ -39,7 +93,7 @@ export const SAMPLE_MEICET_METRICS: MeicetSkinMetrics = {
     percentile: 60,
     status: 'dobrý',
     description: 'Mierne zhrubnutý kožný reliéf s mikrošupinkami v dehydratovaných zónach.',
-    clinicalSignificance: 'Indikácia pre jemnú chemickú exfoliáciu polyhydroxykyselinami (PHA/LHA) a hydratačný skinbooster.',
+    clinicalSignificance: 'Indikácia pre lekársky biorevitalizačný peeling (BioRePeel / PRX-T33), polynukleotidy a skinbooster.',
     roughnessIndex: 34,
     keratinizationState: 'Subklinická hyperkeratóza v zóne T'
   },
@@ -57,7 +111,7 @@ export const SAMPLE_MEICET_METRICS: MeicetSkinMetrics = {
     percentile: 68,
     status: 'dobrý',
     description: 'Ohraničené povrchové pehy a mierne solárne lentigá v oblasti nosa a líc.',
-    clinicalSignificance: 'Vyžaduje inhibítory tyrozinázy (kyselina tranexamová, vitamín C, arbutín) a celoročné SPF 50+.',
+    clinicalSignificance: 'Vyžaduje antioxidanty (15% vitamín C, kyselina tranexamová) a celoročné SPF 50+.',
     melasmaTendency: false,
     pigmentDepth: 'epidermálny'
   },
@@ -66,7 +120,7 @@ export const SAMPLE_MEICET_METRICS: MeicetSkinMetrics = {
     percentile: 46,
     status: 'mierne zhoršený',
     description: 'Difúzny erytém v krídlach nosa a na lícach s viditeľnou vaskularizáciou v krížovo-polarizovanom svetle.',
-    clinicalSignificance: 'Reaktívna cievna stena, predispozícia na kuperózu / počínajúcu rosaceu.',
+    clinicalSignificance: 'Reaktívna cievna stena, predispozícia na kuperózu / počínajúcu rosaceu – indikovaný Cievny laser.',
     erythemaLevel: 'mierne reaktívna',
     rosaceaRisk: true,
     telangiectasiaZones: ['Alar base nosa', 'Malárne líca obojstranne']
@@ -86,39 +140,268 @@ export function createDemoMeicetResult(
   patientId: string = 'P1',
   patientName: string = 'Mária Kováčová',
   birthNumber: string = '885512/6789',
-  preferredTier: 'high_end' | 'mid_end' = 'high_end'
+  preferredTier: 'high_end' | 'mid_end' = 'high_end',
+  selectedConcernIds?: string[]
 ): MeicetAnalysisResult {
+  const priceVascularFace = getClinicPrice('vascular_laser_face', 160);
+  const priceCoolpeelFace = getClinicPrice('coolpeel_face', 220);
+  const priceBotox2Areas = getClinicPrice('botox_2_areas', 216);
+  const priceProfhilo = getClinicPrice('profhilo_2ml', 290);
+  const priceRejuranHealer = getClinicPrice('rejuran_healer_2ml', 290);
+  const priceRejuranEye = getClinicPrice('rejuran_i_eye_1ml', 190);
+  const priceBioRePeel = getClinicPrice('biorepeel_prx_t33', 90);
+  const priceTcaPeel = getClinicPrice('tca_peel_medical', 110);
+  const priceDermapen = getClinicPrice('dermapen_microneedling', 140);
+  const priceSculptra = getClinicPrice('sculptra', 450);
+
+  // Ceny kozmetiky zo živého cenníka
+  const priceScCleanser = getClinicPrice('sc_soothing_cleanser', 46);
+  const priceScCeFerulic = getClinicPrice('sc_ce_ferulic', 175);
+  const priceScHaIntensifier = getClinicPrice('sc_ha_intensifier', 118);
+  const priceScTripleLipid = getClinicPrice('sc_triple_lipid_restore', 155);
+  const priceScSpf = getClinicPrice('sc_advanced_brightening_spf50', 46);
+  const priceScEpidermal = getClinicPrice('sc_epidermal_repair', 85);
+  const priceScRetinol = getClinicPrice('sc_retinol_03', 98);
+
+  const priceCeraveCleanser = getClinicPrice('cerave_hydrating_cleanser', 14);
+  const priceVichyMineral89 = getClinicPrice('vichy_mineral_89', 26);
+  const priceLrpHyaluB5 = getClinicPrice('lrp_hyalu_b5_serum', 42);
+  const priceCeraveCream = getClinicPrice('cerave_moisturising_cream', 17);
+  const priceLrpSpf = getClinicPrice('lrp_anthelios_uvmune_spf50', 22);
+  const priceLrpCleanser = getClinicPrice('lrp_toleriane_cleanser_200ml', 18);
+  const priceVichyCollagen = getClinicPrice('vichy_liftactiv_collagen', 44);
+  const priceLrpCicaplast = getClinicPrice('lrp_cicaplast_b5_100ml', 18);
+
   const anamnesis: MeicetAnamnesisContext = {
-    pastSurgeries: [
-      'Blefaroplastika horných viečok (pred 6 mesiacmi, SAY CLINIC - MUDr. Ján Mráz)',
-      'Excízia pigmentového névu v oblasti ramena (histológia benígna)'
-    ],
-    allergies: ['Penicilín (kožný exantém)', 'Nikel (kontaktná dermatitída)'],
+    pastSurgeries: [],
+    allergies: [],
     aestheticTreatments: [
-      'Aplikácia botulotoxínu do glabelly a čela (pred 5 mesiacmi - efekt doznieva)',
-      'Mezoterapia NCTF 135HA (pred rokom)'
+      'Aplikácia botulotoxínu do glabelly a čela (pred 5 mesiacmi – efekt doznieva)',
+      'Biorevitalizácia pleti (pred rokom)'
     ],
-    scarHistory: [
-      {
-        location: 'Horné viečka obojstranne (v sulcus palpebralis superior)',
-        origin: 'Pooperačná jazva po blefaroplastike (6 mesiacov)',
-        maturityMonths: 6,
-        appearance: 'čerstvá erytematózna',
-        currentCare: 'Aplikácia silikónového gélu Strataderm nepravidelne, chýba dôsledná tlaková masáž.'
-      }
-    ],
-    clientConcerns: [
-      'Pretrvávajúce jemné ružovkasté zafarbenie jaziev po operácii viečok',
-      'Pocit pnutia a suchej pleti po umytí',
-      'Zvýraznené vrásky okolo očí a na čele',
-      'Obavy z pigmentácií počas letných mesiacov'
-    ],
+    scarHistory: [],
+    clientConcerns: selectedConcernIds && selectedConcernIds.length > 0
+      ? QUICK_SKIN_CONCERN_PRESETS.filter(p => selectedConcernIds.includes(p.id)).map(p => p.label)
+      : [
+          'Pocit pnutia a dehydratovanej pleti',
+          'Rozšírené cievky a začervenanie na lícach a nose',
+          'Jemné vrásky okolo očí a na čele',
+          'Rozšírené póry a strata jasu pleti'
+        ],
     contraindications: [
-      'Alergia na penicilín',
-      'Zákaz ablatívneho lasera v letnom období kvôli fototypu II a riziku PIH'
+      'Zákaz ablatívneho CO2 lasera a hlbokého TCA peelingu v letnom období (jún – august) kvôli riziku PIH'
     ],
-    lifestyleNotes: 'Práca v klimatizovanej kancelárii pri PC (modré svetlo), príležitostný šport v prírode.'
+    lifestyleNotes: 'Práca v klimatizovanej kancelárii, mestský environmentálny stres.'
   };
+
+  const highEndMorning = [
+    {
+      step: 1,
+      category: 'Šetrné ranné čistenie',
+      productName: 'SkinCeuticals Soothing Cleanser (150 ml)',
+      brand: 'SkinCeuticals',
+      activeIngredients: 'Sorbitol, glycerín, extrakt z orchidey a uhorky',
+      usage: '1 pumpičku peny ráno jemne vmasírovať do vlhkej pleti, opláchnuť vlažnou vodou.',
+      purpose: 'Šetrné odstránenie mazu bez narušenia kožnej bariéry a príprava na antioxidant.',
+      price: priceScCleanser,
+      meicetJustification: 'Zvýšené TEWL vyžaduje šetrný čistič s fyziologickým pH bez sulfátov.'
+    },
+    {
+      step: 2,
+      category: 'Antioxidačné sérum (Vitamín C)',
+      productName: 'SkinCeuticals C E Ferulic (30 ml)',
+      brand: 'SkinCeuticals',
+      activeIngredients: '15% čistá kyselina L-askorbová, 1% alfa-tokoferol, 0.5% kyselina ferulová',
+      usage: '4–5 kvapiek ráno na suchú tvár, krk a dekolt.',
+      purpose: '8-násobná antioxidačná ochrana, zosvetlenie UV škvŕn a stimulácia syntézy kolagénu.',
+      price: priceScCeFerulic,
+      meicetJustification: 'Kompenzácia fotopoškodenia v UV spektre Meicet (skóre 48/100).'
+    },
+    {
+      step: 3,
+      category: 'Hĺbkové hyalurónové sérum',
+      productName: 'SkinCeuticals H.A. Intensifier (30 ml)',
+      brand: 'SkinCeuticals',
+      activeIngredients: 'Kyselina hyalurónová, 10% Proxylane™, extrakt zo sladkého drievka',
+      usage: '4–6 kvapiek vklepať do líc, čela a očného okolia.',
+      purpose: 'Zvýšenie vlastnej hladiny kyseliny hyalurónovej v pleti o +30 % a vyplnenie jemných vrások.',
+      price: priceScHaIntensifier,
+      meicetJustification: 'Riešenie epidermálnej dehydratácie zistenej na Meicet (skóre 44%).'
+    },
+    {
+      step: 4,
+      category: 'Širokospektrálna fotoprotekcia SPF 50+',
+      productName: 'SkinCeuticals Advanced Brightening UV Defense SPF 50+ (40 ml)',
+      brand: 'SkinCeuticals',
+      activeIngredients: 'Širokospektrálne UV filtre, 1% kyselina tranexamová, 2% niacínamid',
+      usage: 'Aplikovať každé ráno ako posledný krok pred odchodom z domu.',
+      purpose: 'Ochrana pred UVA/UVB žiarením a blokáda tvorby pigmentových škvŕn.',
+      price: priceScSpf,
+      meicetJustification: 'Prevencia aktivácie podpovrchového melanínu zisteného v UV spektre.'
+    }
+  ];
+
+  const highEndEvening = [
+    {
+      step: 1,
+      category: 'Večerné odlíčenie a čistenie',
+      productName: 'SkinCeuticals Soothing Cleanser (150 ml)',
+      brand: 'SkinCeuticals',
+      activeIngredients: 'Sorbitol, glycerín, botanické extrakty',
+      usage: 'Večer zmyť SPF a nečistoty vlažnou vodou.',
+      purpose: 'Dokonale čistá pleť pripravená na nočnú bunkovú obnovu.',
+      price: priceScCleanser,
+      meicetJustification: 'Čistí rozšírené póry v T-zóne bez vysušenia líc.'
+    },
+    {
+      step: 2,
+      category: 'Nočná bunková obnova (Retinol)',
+      productName: 'SkinCeuticals Retinol 0.3 (30 ml)',
+      brand: 'SkinCeuticals',
+      activeIngredients: '0.3% čistý enkapsulovaný retinol, bisabolol, boswellia',
+      usage: 'Veľkosť hrášku 2–3x týždenne večer na suchú pleť (vysadiť 7 dní pred laserom).',
+      purpose: 'Stimulácia novotvorby kolagénu, stiahnutie pórov a vyhladenie jemných vrások.',
+      price: priceScRetinol,
+      meicetJustification: 'Zamerané na zníženie biologického veku pleti a vyhladenie textúry.'
+    },
+    {
+      step: 3,
+      category: 'Rekonštrukcia kožnej bariéry 2:4:2',
+      productName: 'SkinCeuticals Triple Lipid Restore 2:4:2 (48 ml)',
+      brand: 'SkinCeuticals',
+      activeIngredients: '2% čisté ceramidy, 4% prírodný cholesterol, 2% mastné kyseliny',
+      usage: 'Každý večer jemne zahriať medzi prstami a vmasírovať do tváre a krku.',
+      purpose: 'Obnova lipidového plášťa, zníženie TEWL a upokojenie pleti po retinole a zákrokoch.',
+      price: priceScTripleLipid,
+      meicetJustification: 'Uzamknutie vlhkosti v derme a obnova ceramidovej bariéry.'
+    },
+    {
+      step: 4,
+      category: 'SOS regenerácia po ošetrení',
+      productName: 'SkinCeuticals Epidermal Repair (40 ml)',
+      brand: 'SkinCeuticals',
+      activeIngredients: 'Beta-glukán, Centella Asiatica ( Gotu Kola ), pantenol',
+      usage: 'Aplikovať na začervenané zóny alebo prvých 5–7 dní po laseri / microneedlingu.',
+      purpose: 'Okamžité upokojenie erytému a urýchlenie epitelizácie.',
+      price: priceScEpidermal,
+      meicetJustification: 'Cielené upokojenie reaktívnych cievnych zón (skóre 52/100).'
+    }
+  ];
+
+  const midEndMorning = [
+    {
+      step: 1,
+      category: 'Šetrné čistenie s ceramidmi',
+      productName: 'CeraVe Hydratačná čistiaca emulzia (236 ml)',
+      brand: 'CeraVe',
+      activeIngredients: '3 esenciálne ceramidy, kyselina hyalurónová, MVE technológia',
+      usage: 'Ráno vmasírovať do navlhčenej pleti a opláchnuť vlažnou vodou.',
+      purpose: 'Čistí a hydratuje bez narušenia ochrannej kožnej bariéry.',
+      price: priceCeraveCleanser,
+      meicetJustification: 'Šetrné čistenie bez penidiel a sulfátov pri zníženej hydratácii (44%).'
+    },
+    {
+      step: 2,
+      category: 'Posilňujúci hyalurónový booster',
+      productName: 'Vichy Minéral 89 Hyaluron Booster (50 ml)',
+      brand: 'Vichy',
+      activeIngredients: '89% vulkanická voda Vichy, prírodná kyselina hyalurónová',
+      usage: '2 pumpičky ráno vklepať do čistej pleti tváre a okolo očí.',
+      purpose: 'Posilnenie obranyschopnosti kože a okamžitá hydratácia.',
+      price: priceVichyMineral89,
+      meicetJustification: 'Zvýšenie povrchovej hydratácie a zníženie reaktivity cievnych zón.'
+    },
+    {
+      step: 3,
+      category: 'Regeneračné sérum proti vráskam',
+      productName: 'La Roche-Posay Hyalu B5 Sérum (30 ml)',
+      brand: 'La Roche-Posay',
+      activeIngredients: 'Duálna kyselina hyalurónová, 5% vitamín B5, madecassoside',
+      usage: '3–4 kvapky ráno na tvár a krk.',
+      purpose: 'Obnova pružnosti pleti, vyplnenie jemných liniek a podpora hojenia.',
+      price: priceLrpHyaluB5,
+      meicetJustification: 'Kompenzácia dehydratačných liniek a obnova kožnej bariéry.'
+    },
+    {
+      step: 4,
+      category: 'Maximálna UVA/UVB ochrana SPF 50+',
+      productName: 'La Roche-Posay Anthelios UVMune 400 SPF 50+ (50 ml)',
+      brand: 'La Roche-Posay',
+      activeIngredients: 'Filter Mexoryl 400 (ochrana pred ultra-dlhým UVA 380–400 nm)',
+      usage: 'Pretrepať a aplikovať každé ráno ako posledný krok.',
+      purpose: 'Ochrana pred fotostarnutím a vznikom pigmentových škvŕn.',
+      price: priceLrpSpf,
+      meicetJustification: 'Nevyhnutná ochrana pri zistenom UV fotopoškodení (skóre 48/100).'
+    }
+  ];
+
+  const midEndEvening = [
+    {
+      step: 1,
+      category: 'Hypoalergénne večerné odlíčenie',
+      productName: 'La Roche-Posay Toleriane Dermo-Cleanser (200 ml)',
+      brand: 'La Roche-Posay',
+      activeIngredients: 'Termálna voda La Roche-Posay, glycerín',
+      usage: 'Večer jemne odlíčiť a vyčistiť pleť od SPF filtrov.',
+      purpose: 'Upokojujúce čistenie pre citlivú a cievne reaktívnu pleť.',
+      price: priceLrpCleanser,
+      meicetJustification: 'Minimalizuje mechanické dráždenie kapilár na lícach.'
+    },
+    {
+      step: 2,
+      category: 'Pro-kolagénová obnova pevnosti',
+      productName: 'Vichy Liftactiv Collagen Specialist (50 ml)',
+      brand: 'Vichy',
+      activeIngredients: 'Pro-kolagénové peptidy, vitamín Cg, resveratrol',
+      usage: 'Večer aplikovať na vyčistenú pleť tváre a krku.',
+      purpose: 'Stimulácia tvorby kolagénu, spevnenie kontúr a zjednotenie tónu pleti.',
+      price: priceVichyCollagen,
+      meicetJustification: 'Korekcia začínajúcich vrások a úbytku kolagénu (skóre 54/100).'
+    },
+    {
+      step: 3,
+      category: 'Hĺbková ceramidová hydratácia',
+      productName: 'CeraVe Hydratačný krém (177 ml)',
+      brand: 'CeraVe',
+      activeIngredients: '3 esenciálne ceramidy (1, 3, 6-II), kyselina hyalurónová',
+      usage: 'Naniesť večer na suchšie partie tváre a krku.',
+      purpose: 'Postupné 24-hodinové uvoľňovanie hydratácie a obnova bariéry.',
+      price: priceCeraveCream,
+      meicetJustification: 'Zníženie transepidermálnej straty vody (TEWL) počas spánku.'
+    },
+    {
+      step: 4,
+      category: 'Upokojujúci bariérový balzam',
+      productName: 'La Roche-Posay Cicaplast Baume B5+ (100 ml)',
+      brand: 'La Roche-Posay',
+      activeIngredients: '5% pantenol, madecassoside, Tribioma, zinok a mangán',
+      usage: 'Aplikovať na citlivé/začervenané miesta a po každom estetickom zákroku.',
+      purpose: 'Intenzívna regenerácia pokožky a upokojenie začervenania.',
+      price: priceLrpCicaplast,
+      meicetJustification: 'Ochranný balzam pre cievne reaktívne zóny a rýchle hojenie po ošetreniach.'
+    }
+  ];
+
+  const highEndTotal = [
+    priceScCleanser,
+    priceScCeFerulic,
+    priceScHaIntensifier,
+    priceScSpf,
+    priceScRetinol,
+    priceScTripleLipid,
+    priceScEpidermal
+  ].reduce((a, b) => a + b, 0);
+
+  const midEndTotal = [
+    priceCeraveCleanser,
+    priceVichyMineral89,
+    priceLrpHyaluB5,
+    priceLrpSpf,
+    priceLrpCleanser,
+    priceVichyCollagen,
+    priceCeraveCream,
+    priceLrpCicaplast
+  ].reduce((a, b) => a + b, 0);
 
   return {
     id: `meicet-${Date.now()}`,
@@ -127,111 +410,112 @@ export function createDemoMeicetResult(
     patientBirthNumber: birthNumber,
     scanDate: new Date().toISOString().split('T')[0],
     deviceModel: 'Meicet Pro-A (ISEMECO 3D Spectral Facial Diagnostic System)',
-    pdfSourceFilename: 'Meicet_ProA_Report_Kovacova_2026.pdf',
+    pdfSourceFilename: 'Meicet_ProA_Diagnostika_Pleti.pdf',
     metrics: SAMPLE_MEICET_METRICS,
     anamnesis,
     clinicalSynthesis: {
-      summary: 'Objektívna 3D analýza Meicet Pro-A preukázala nesúlad medzi chronologickým vekom (38 r.) a vekom pleti (41 r.), spôsobený predovšetkým hĺbkovou dehydratáciou (skóre 44/100), subklinickým fotopoškodením v UV spektre a reaktívnym cievnym erytémom na lícach a viečkach. V kontexte anamnézy je kľúčová prebiehajúca maturácia pooperačných jaziev po blefaroplastike horných viečok (6. mesiac), ktoré vykazujú cievnu neovaskularizáciu a vyžadujú cielený vaskulárny laser a fotoprotekciu pred začiatkom leta.',
+      summary:
+        '3D spektrálna analýza Meicet Pro-A poukazuje na epidermálnu dehydratáciu so zvýšeným TEWL (skóre 44/100), reaktívny cievny erytém na lícach a krídlach nosa (skóre 52/100) a podpovrchové UV fotopoškodenie (skóre 48/100). Navrhnutý plán kombinuje cielenú bariérovú a antioxidačnú domácu starostlivosť (Basic alebo Premium) so sezónne načasovanými klinickými výkonmi SAY CLINIC: Cievny laser a CoolPeel® CO2 laser v období nízkeho UV, nasledované polynukleotidmi (Rejuran), bioremodeláciou (Profhilo) a botulotoxínom.',
       keyFindings: [
-        'Vysoká transepidermálna strata vody (TEWL) oslabuje kožnú bariéru a akcentuje mimické vrásky.',
-        'Jazva po blefaroplastike horných viečok je v aktívnej fáze zrenia s prítomným cievnym erytémom – indikovaný vaskulárny laser.',
-        'Skryté UV fotopoškodenie v strednej tretine tváre vyžaduje prevenciu melazmy a striktnú širokospektrálnu fotoprotekciu SPF 50+ s ochranou proti HEV (modrému svetlu).',
-        'Doznievajúci efekt botulotoxínu v glabele a na čele – odporúčaná re-aplikácia pred nástupom intenzívneho letného slnka.'
+        'Zvýšená transepidermálna strata vody (TEWL) oslabuje kožnú bariéru a zvýrazňuje jemné linky.',
+        'Reaktívne kapiláry a difúzny erytém v strednej tretine tváre – indikovaný Cievny laser.',
+        'Rozšírené póry v T-zóne a zhrubnutá textúra – indikovaný CoolPeel® CO2 laser alebo lekársky peeling BioRePeel / TCA.',
+        'Úbytok dermálnej pružnosti a mimické vrásky – indikované polynukleotidy Rejuran Healer, Profhilo a botulotoxín.'
       ],
       riskAlerts: [
-        'Riziko pozápalovej hyperpigmentácie (PIH) pooperačnej jazvy pri expozícii slnečnému žiareniu bez minerálneho SPF 50+.',
-        'Kontraindikácia ablatívneho frakčného CO2 lasera počas letného obdobia (jún – august).'
+        'Počas letných mesiacov (jún – august) nevykonávať ablatívny CO2 laser ani hlboký TCA peeling kvôli riziku pigmentácií (PIH).',
+        'Nutná celoročná ranná fotoprotekcia SPF 50+.'
       ],
-      synergyWithSurgeries: 'Stav po blefaroplastike (6 mesiacov): Jazva v záhybe viečka je pevná, bez hypertrofie, no vykazuje v spektre krížovej polarizácie reziduálny cievny erytém. Cielená starostlivosť silikónovými preparátmi a vaskulárnym laserom zamedzí neskoršej pigmentácii.'
+      synergyWithSurgeries:
+        'Pravidelná biostimulácia polynukleotidmi a udržiavanie zdravej kožnej bariéry výrazne zlepšuje kvalitu a elasticitu dermis.'
     },
     annualSchedule: [
       {
         quarter: 'Q1 (Zima / Jar)',
         season: 'jar',
-        title: 'Bariérová obnova, cievne upokojenie & refresh mimiky',
-        focus: 'Obnova hydratácie, cievny laser na jazvy a líca, aplikácia botulotoxínu pred sezónou žmúrenia.',
-        seasonalConsideration: 'Ideálny čas pred nástupom silného slnečného žiarenia. Príprava pleti na slnko.',
+        title: 'Cievne zjednotenie pleti, obnova textúry & relaxácia mimiky',
+        focus: 'Cievny laser na začervenanie, lekársky peeling / microneedling a aplikácia botulotoxínu pred slnečnou sezónou.',
+        seasonalConsideration: 'Nízky UV index na začiatku jari je ideálny na laserové zjednotenie cievok a textúry pleti.',
         treatments: [
           {
             id: 'trt-q1-1',
-            name: 'Vaskulárny laser KTP / Excel V (oblasť viečok & nos)',
+            name: 'Cievny laser - celá tvár (rosacea / difúzny erytém)',
             category: 'laser',
-            targetArea: 'Jazvy po blefaroplastike + alárne cievky nosa',
+            targetArea: 'Líca, krídla nosa a cievne zóny tváre',
             seasonOrMonth: 'Marec',
             frequency: '1 sedenie',
             priority: 'vysoká',
-            estimatedPrice: 180,
-            reasoning: 'Zatvorenie reziduálnych dilatovaných kapilár v jazve a prevencia trvalého začervenania.',
+            estimatedPrice: priceVascularFace,
+            reasoning: 'Uzavretie rozšírených kapilár a redukcia difúzneho začervenania zisteného v krížovo-polarizovanom svetle Meicet.',
             status: 'planned'
           },
           {
             id: 'trt-q1-2',
-            name: 'Aplikácia botulotoxínu (Allergan / Bocouture)',
+            name: 'Botox - 2 oblasti (–10 % kombinačná zľava)',
             category: 'injectable',
-            targetArea: 'Glabela + čelo + periokulárne vejáriky',
+            targetArea: 'Glabela (vráska hnevu) + čelo / očné vejáriky',
             seasonOrMonth: 'Apríl',
-            frequency: '1 sedenie (cca 35-40 BJ)',
+            frequency: '1 sedenie (kontrola do 14 dní v cene)',
             priority: 'vysoká',
-            estimatedPrice: 240,
-            reasoning: 'Relaxácia mimiky pred letnými mesiacmi, prevencia prehlbovania vrások pri žmúrení na slnku.',
+            estimatedPrice: priceBotox2Areas,
+            reasoning: 'Uvoľnenie mimickej hyperaktivity pred letným žmúrením na slnku.',
             status: 'planned'
           },
           {
             id: 'trt-q1-3',
-            name: 'Biorevitalizačný Skinbooster (Profhilo / Restylane Vital)',
+            name: 'Profhilo (bioremodelácia 2 ml - 5 BAP bodov)',
             category: 'injectable',
-            targetArea: 'Stredná a dolná tretina tváre, krk',
+            targetArea: 'Stredná a dolná tretina tváre',
             seasonOrMonth: 'Máj',
-            frequency: '2 sedenia s odstupom 4 týždňov',
+            frequency: '1 sedenie',
             priority: 'odporúčaná',
-            estimatedPrice: 320,
-            reasoning: 'Okamžité navýšenie dermálnej hydratácie zistené Meicetom na 44% a zníženie TEWL.',
+            estimatedPrice: priceProfhilo,
+            reasoning: 'Okamžité navýšenie hĺbkovej hydratácie (z 44 % na >70 %) a stimulácia 4 typov kolagénu.',
             status: 'planned'
           }
         ]
       },
       {
-        quarter: 'Q2 (Letné obdobie)',
+        quarter: 'Q2 (Leto)',
         season: 'leto',
-        title: 'Intenzívna fotoprotekcia, antioxidačný štít & neinvazívna hydratácia',
-        focus: 'Zákaz ablatívnych laserov! Maximálna ochrana pred UV poškodením a dehydratáciou.',
-        seasonalConsideration: 'Striktná ochrana jaziev viečok pred UV. Žiadne fotosenzibilizujúce kyseliny ani frakčné lasery.',
+        title: 'Bunková fotoprotekcia, Polynukleotidy & Biorevitalizácia bez fotosenzitivity',
+        focus: 'Zákaz ablatívnych laserov! Oprava DNA buniek polynukleotidmi Rejuran a šetrná biorevitalizácia.',
+        seasonalConsideration: 'Bezpečné letné procedúry bez narušenia epidermy a bez rizika pigmentových škvŕn.',
         treatments: [
           {
             id: 'trt-q2-1',
-            name: 'Meicet Pro-A Kontrolné premeranie pleti (3. mesiac)',
-            category: 'skin_care',
+            name: 'Rejuran Healer (Polynukleotidy PN 2 ml - celá tvár)',
+            category: 'injectable',
             targetArea: 'Celá tvár',
-            seasonOrMonth: 'Jún',
-            frequency: '1 kontrola',
+            seasonOrMonth: 'Jún / Júl',
+            frequency: '1 sedenie',
             priority: 'vysoká',
-            estimatedPrice: 45,
-            reasoning: 'Objektívne porovnanie parametrov hydratácie po skinboosteri a zhodnotenie cievneho erytému po laseri.',
-            status: 'planned',
-            isMeicetScan: true
+            estimatedPrice: priceRejuranHealer,
+            reasoning: 'Bunková oprava DNA poškodenej UV žiarením, stiahnutie pórov a posilnenie dermálnej matrix.',
+            status: 'planned'
           },
           {
             id: 'trt-q2-2',
-            name: 'HydraFacial Deluxe + infúzia kyseliny hyalurónovej a peptidov',
-            category: 'skin_care',
-            targetArea: 'Tvár a dekolt',
-            seasonOrMonth: 'Júl',
-            frequency: '1 sedenie mesačne',
-            priority: 'udržiavacia',
-            estimatedPrice: 130,
-            reasoning: 'Hĺbkové bezpečné prečistenie zväčšených pórov a hydratácia bez rizika fotoreaktivity.',
+            name: 'Rejuran I - Očné okolie (Polynukleotidy PN 1 ml)',
+            category: 'injectable',
+            targetArea: 'Očné viečka, kruhy pod očami a jemné vejáriky',
+            seasonOrMonth: 'August',
+            frequency: '1 sedenie',
+            priority: 'odporúčaná',
+            estimatedPrice: priceRejuranEye,
+            reasoning: 'Spevnenie tenkej pokožky očného okolia bez rizika opuchu.',
             status: 'planned'
           },
           {
             id: 'trt-q2-3',
-            name: 'Mezoterapia polynukleotidmi (Plenhyage / PhilArt)',
-            category: 'injectable',
-            targetArea: 'Periorbitálne okolie a oblasť viečok',
+            name: 'Medicínsky peeling BioRePeel / PRX-T33',
+            category: 'skin_care',
+            targetArea: 'Celá tvár a T-zóna',
             seasonOrMonth: 'August',
             frequency: '1 sedenie',
-            priority: 'odporúčaná',
-            estimatedPrice: 210,
-            reasoning: 'Biostimulácia fibroblastov v tenkej koži viečok a regenerácia tkaniva okolo jazvy bez fotosenzitivity.',
+            priority: 'udržiavacia',
+            estimatedPrice: priceBioRePeel,
+            reasoning: 'Celoročný biorevitalizačný peeling bez olupovania a bez fotosenzitivity na zjemnenie pórov.',
             status: 'planned'
           }
         ]
@@ -239,45 +523,32 @@ export function createDemoMeicetResult(
       {
         quarter: 'Q3 (Jeseň)',
         season: 'jesen',
-        title: 'Cievny laser, cielená vaskulárna fototermolýza & pigmentový detox',
-        focus: 'Kľúčová sezóna cievneho lasera SAY CLINIC: ošetrenie erytému, cievok a vaskularizovaných jaziev po lete.',
-        seasonalConsideration: 'Klesajúci UV index vytvára ideálne podmienky na ošetrenie cievnym laserom bez rizika pozápalovej hyperpigmentácie.',
+        title: 'Laserový resurfacing CoolPeel® CO2 & Depigmentácia po lete',
+        focus: 'Hlavná laserová sezóna: stiahnutie pórov, zjednotenie textúry a odstránenie pigmentácií.',
+        seasonalConsideration: 'Nízky jesenný UV index umožňuje bezpečné ošetrenie frakčným CO2 laserom a TCA peelingom.',
         treatments: [
           {
             id: 'trt-q3-1',
-            name: 'Meicet Pro-A Kontrolné premeranie pleti (6. mesiac)',
-            category: 'skin_care',
-            targetArea: 'Celá tvár',
-            seasonOrMonth: 'September',
-            frequency: '1 kontrola',
-            priority: 'vysoká',
-            estimatedPrice: 45,
-            reasoning: 'Detekcia nového solárneho pigmentu po letnej sezóne na plánovanie laserových parametrov.',
-            status: 'planned',
-            isMeicetScan: true
-          },
-          {
-            id: 'trt-q3-2',
-            name: 'Cievny laser (ošetrenie cievneho erytému, teleangiektázií a vaskularizovaných jaziev)',
+            name: 'CoolPeel® (DEKA Tetra CO2) - celá tvár',
             category: 'laser',
-            targetArea: 'Jazvy horných viečok + lícne oblasti + nos',
+            targetArea: 'Celá tvár (póry, jemné vrásky a textúra)',
             seasonOrMonth: 'Október',
             frequency: '1 sedenie',
             priority: 'vysoká',
-            estimatedPrice: 180,
-            reasoning: 'Cielená vaskulárna fototermolýza na uzavretie dilatovaných kapilár a redukciu erytému po blefaroplastike.',
+            estimatedPrice: priceCoolpeelFace,
+            reasoning: 'Subablatívny CO2 laserový resurfacing na stiahnutie rozšírených pórov a obnovu kolagénu s minimálnou rekonvalescenciou.',
             status: 'planned'
           },
           {
-            id: 'trt-q3-3',
-            name: 'Medicínsky depigmentačný peeling (Mandelic + Tranexamic)',
+            id: 'trt-q3-2',
+            name: 'Lekársky chemický peeling TCA',
             category: 'skin_care',
-            targetArea: 'Celá tvár',
+            targetArea: 'Celá tvár (solárne pigmentácie a melazma)',
             seasonOrMonth: 'November',
-            frequency: '2 sedenia po 3 týždňoch',
+            frequency: '1 sedenie',
             priority: 'odporúčaná',
-            estimatedPrice: 120,
-            reasoning: 'Zosvetlenie hlbokých UV škvŕn odhalených analyzátorom Meicet.',
+            estimatedPrice: priceTcaPeel,
+            reasoning: 'Cielená eliminácia podpovrchových UV pigmentácií zistených skenerom Meicet.',
             status: 'planned'
           }
         ]
@@ -285,46 +556,33 @@ export function createDemoMeicetResult(
       {
         quarter: 'Q4 (Zima)',
         season: 'zima',
-        title: 'Objemová harmonizácia, biostimulácia & ročný audit pleti',
-        focus: 'Kyselina hyalurónová do malárnej zóny, botox refresh a kompletné záverečné porovnanie Meicet.',
-        seasonalConsideration: 'Stabilné zimné obdobie, ideálne na hojenie a prípravu na ďalší cyklus.',
+        title: 'Hĺbková kolagenéza, Dermapen & Zimná regenerácia',
+        focus: 'Dlhodobá novotvorba kolagénu (Sculptra / Dermapen) a udržiavací refresh botulotoxínu.',
+        seasonalConsideration: 'Zimné obdobie je ideálne na hĺbkovú prestavbu kolagénu a prípravu pleti na nový rok.',
         treatments: [
           {
             id: 'trt-q4-1',
-            name: 'Refresh botulotoxínu (Glabela & čelo)',
+            name: 'Dermapen 4 / Lekársky microneedling s mezo-sérom',
             category: 'injectable',
-            targetArea: 'Horná tretina tváre',
+            targetArea: 'Celá tvár a krk',
             seasonOrMonth: 'December',
             frequency: '1 sedenie',
             priority: 'odporúčaná',
-            estimatedPrice: 200,
-            reasoning: 'Udržanie hladkej textúry a prevencia mimického lámania dermis.',
+            estimatedPrice: priceDermapen,
+            reasoning: 'Mikroihličková indukcia kolagénu na zjemnenie textúry a pórov.',
             status: 'planned'
           },
           {
             id: 'trt-q4-2',
-            name: 'Kyselina hyalurónová – malárna oblasť & nazolabiálna opora',
+            name: 'Sculptra (kyselina poly-L-mliečna PLLA)',
             category: 'injectable',
-            targetArea: 'Lícne kosti a nazolabiálne ryhy (1.5 ml Juvederm Voluma)',
+            targetArea: 'Vektorový lifting líc a dolnej tretiny tváre',
             seasonOrMonth: 'Január',
-            frequency: '1 sedenie',
+            frequency: '1 ampulka',
             priority: 'odporúčaná',
-            estimatedPrice: 360,
-            reasoning: 'Obnova mladistvého objemu a podpora oporných vektorov tváre.',
+            estimatedPrice: priceSculptra,
+            reasoning: 'Najsilnejšia biostimulácia vlastného kolagénu typu I a III s efektom na 24 mesiacov.',
             status: 'planned'
-          },
-          {
-            id: 'trt-q4-3',
-            name: 'Ročný finálny audit pleti na Meicet Pro-A (12. mesiac)',
-            category: 'skin_care',
-            targetArea: 'Celá tvár (všetky spektrá)',
-            seasonOrMonth: 'Február',
-            frequency: '1 audit',
-            priority: 'vysoká',
-            estimatedPrice: 0,
-            reasoning: 'Kompletné 3D vyhodnotenie posunu veku pleti z 41 r. na cieľových ≤36 r. a zhodnotenie stavu jaziev.',
-            status: 'planned',
-            isMeicetScan: true
           }
         ]
       }
@@ -333,508 +591,97 @@ export function createDemoMeicetResult(
       selectedTier: preferredTier,
       highEnd: {
         tier: 'high_end',
-        tierLabel: 'High-End (SkinCeuticals)',
-        brandDescription: 'Klinický luxus z cenníka – patentované zloženia s maximálnou koncentráciou antioxidantov a lipidov',
-        totalEstimatedPrice: 538,
-        morning: [
-          {
-            step: 1,
-            category: 'Jemné čistenie pórov',
-            productName: 'SkinCeuticals Simply Clean Gél',
-            brand: 'SkinCeuticals',
-            activeIngredients: 'Aminokyseliny, ovocné kyseliny, harmanček a aloe vera',
-            usage: 'Vytvoriť jemnú penu s vlažnou vodou, jemne masírovať 45 sekúnd, opláchnuť. Netrieť viečka!',
-            purpose: 'Šetrné odstránenie mazu bez vysušenia kožnej bariéry a príprava na antioxidant.',
-            price: 48,
-            meicetJustification: 'Znížené skóre TEWL vyžaduje šetrný čistič s fyziologickým pH bez sulfátov.'
-          },
-          {
-            step: 2,
-            category: 'Klinický antioxidačný etalón',
-            productName: 'SkinCeuticals C E Ferulic Sérum',
-            brand: 'SkinCeuticals',
-            activeIngredients: '15% čistá kyselina L-askorbová, 1% alfa-tokoferol, 0.5% kyselina ferulová',
-            usage: '4-5 kvapiek ráno na suchú tvár a krk pred nanesením krému.',
-            purpose: '8-násobná fotoprotekcia, neutralizácia voľných radikálov, zosvetlenie UV škvŕn a stimulácia kolagénu.',
-            price: 175,
-            meicetJustification: 'Kompenzácia zisteného skrytého fotopoškodenia v UV spektre Meicet (skóre 48/100).'
-          },
-          {
-            step: 3,
-            category: 'Hĺbkové hyalurónové sérum',
-            productName: 'SkinCeuticals H.A. Intensifier',
-            brand: 'SkinCeuticals',
-            activeIngredients: 'Kyselina hyalurónová, 10% Proxylane™, extrakt z koreňa sladkého drievka a fialovej ryže',
-            usage: '4-6 kvapiek vklepať do líc, čela a krku.',
-            purpose: 'Zvýšenie hladiny kyseliny hyalurónovej v pleti o 30% a vyplnenie jemných vrások.',
-            price: 118,
-            meicetJustification: 'Riešenie kritickej dehydratácie zistenej na Meicet (skóre 44%) a podpora elasticity.'
-          },
-          {
-            step: 4,
-            category: 'Klinický lipidový krém 2:4:2',
-            productName: 'SkinCeuticals Triple Lipid Restore 2:4:2',
-            brand: 'SkinCeuticals',
-            activeIngredients: '2% čisté ceramidy, 4% prírodný cholesterol, 2% mastné kyseliny',
-            usage: 'Veľkosť hrášku jemne zahriať medzi prstami a vtlačiť do pleti tváre a dekoltu.',
-            purpose: 'Patentovaný pomer na obnovu poškodenej kožnej bariéry a redukciu transepidermálnej straty vody.',
-            price: 155,
-            meicetJustification: 'Uzatvorenie vlhkosti v pokožke a redukcia TEWL (transepidermálnej straty vody).'
-          },
-          {
-            step: 5,
-            category: 'Širokospektrálna fotoprotekcia SPF 50+',
-            productName: 'SkinCeuticals Ultra Facial Defense SPF 50+',
-            brand: 'SkinCeuticals',
-            activeIngredients: 'Mexoryl SX & XL fotostabilné filtre, vitamín E',
-            usage: 'Aplikovať každé ráno 15 minút pred odchodom. Dôkladne prekryť oblasť jaziev viečok!',
-            purpose: 'Komplexná ochrana pred UVA/UVB lúčmi, prevencia nových pigmentácií a stmavnutia jaziev.',
-            price: 42,
-            meicetJustification: 'Kritická ochrana pooperačnej jazvy pred stmavnutím a prevencia solárnych lentíg.'
-          }
-        ],
-        evening: [
-          {
-            step: 1,
-            category: 'Večerné čistenie pleti',
-            productName: 'SkinCeuticals Simply Clean Gél',
-            brand: 'SkinCeuticals',
-            activeIngredients: 'Aminokyseliny, glycerín a jemné botanické zložky',
-            usage: 'Odstrániť denný SPF a nečistoty, opláchnuť vlažnou vodou a osušiť prikladaním uteráka.',
-            purpose: 'Dokonale čistá pleť pripravená na nočnú regeneráciu.',
-            price: 48,
-            meicetJustification: 'Efektívne uvoľnenie pórov v T-zóne bez narušenia kožného filmu.'
-          },
-          {
-            step: 2,
-            category: 'Upokojujúce sérum na cievny erytém',
-            productName: 'SkinCeuticals Phyto Corrective Gel',
-            brand: 'SkinCeuticals',
-            activeIngredients: 'Kyselina hyalurónová, botanické extrakty (uhorka, tymián, olivový list), morušovník',
-            usage: '3-4 kvapky vklepať do začervenaných zón a líc.',
-            purpose: 'Upokojenie reaktívnych cievnych zón, zmiernenie začervenania a zjednotenie tónu pleti.',
-            price: 85,
-            meicetJustification: 'Cielené riešenie reaktívneho cievneho erytému zisteného v spektre krížovej polarizácie.'
-          },
-          {
-            step: 3,
-            category: 'Bunková obnova & Retinoid',
-            productName: 'SkinCeuticals Retinol 0.3 Obnovujúci nočný krém',
-            brand: 'SkinCeuticals',
-            activeIngredients: '0.3% čistý enkapsulovaný retinol, bisabolol, extrakt z boswellie',
-            usage: 'Veľkosť hrášku 2-3x týždenne večer na suchú pleť. Vyhnúť sa jazve horných viečok!',
-            purpose: 'Stimulácia kolagénovej syntézy, vyhladenie jemných vrások a zmenšenie priemeru pórov.',
-            price: 98,
-            meicetJustification: 'Zamerané na omladenie biologického veku pleti (41 r.) a normalizáciu keratinizácie.'
-          },
-          {
-            step: 4,
-            category: 'Intenzívny nočný regeneračný krém',
-            productName: 'SkinCeuticals Triple Lipid Restore 2:4:2',
-            brand: 'SkinCeuticals',
-            activeIngredients: '2% ceramidy, 4% cholesterol, 2% mastné kyseliny',
-            usage: 'Naniesť na celú tvár a krk ako záverečný nočný krok.',
-            purpose: 'Hĺbková nočná obnova lipidového plášťa a kompenzácia účinku retinolu.',
-            price: 155,
-            meicetJustification: 'Maximálna regenerácia epidermy a zníženie citlivosti po aktívnych látkach.'
-          }
-        ],
+        tierLabel: 'Premium (SkinCeuticals)',
+        brandDescription: 'Medical-Grade kozmeceutika z cenníka SAY CLINIC – patentované antioxidanty, retinoidy a fyziologické lipidy 2:4:2',
+        totalEstimatedPrice: highEndTotal,
+        morning: highEndMorning,
+        evening: highEndEvening,
         weeklyCare: [
-          '1x týždenne: Šetrná enzymatická exfoliácia a upokojujúca gélová kúra SkinCeuticals Phyto Corrective Masque.',
-          '1x týždenne: Intenzívny nočný zábal Triple Lipid Restore 2:4:2 na dehydratované zóny líc.',
-          'Každý víkend: Kontrola vyzrievania pooperačnej jazvy viečok (tlaková masáž).'
+          '7 dní pred laserom (CoolPeel CO2 / Cievny laser) alebo TCA peelingom vysadiť večerný Retinol 0.3.',
+          'Prvých 5 dní po laseri alebo microneedlingu aplikovať SkinCeuticals Epidermal Repair 2–3x denne.',
+          'Každé ráno celoročne aplikovať SPF 50+ (aj počas zamračených dní).'
         ]
       },
       midEnd: {
         tier: 'mid_end',
-        tierLabel: 'Mid-End (La Roche-Posay, CeraVe, Vichy)',
-        brandDescription: 'Dostupná lekárenská starostlivosť z nášho cenníka – overená dermatologická tolerancia a obnova bariéry',
-        totalEstimatedPrice: 216,
-        morning: [
-          {
-            step: 1,
-            category: 'Jemné čistenie s ceramidmi',
-            productName: 'CeraVe Hydratačný čistiaci gél (Hydrating Cleanser)',
-            brand: 'CeraVe',
-            activeIngredients: '3 esenciálne ceramidy (1, 3, 6-II), kyselina hyalurónová, MVE technológia',
-            usage: 'Naniesť na navlhčenú pleť, jemne premasírovať 30 sekúnd a opláchnuť vlažnou vodou.',
-            purpose: 'Šetrne čistí a hydratuje bez narušenia ochrannej kožnej bariéry.',
-            price: 14.5,
-            meicetJustification: 'Kritické skóre hydratácie 44% vyžaduje čistenie bez penidiel a sulfátov.'
-          },
-          {
-            step: 2,
-            category: 'Antioxidačné sérum s vitamínom C',
-            productName: 'Vichy Liftactiv Vitamín C 15% Sérum',
-            brand: 'Vichy',
-            activeIngredients: '15% čistý vitamín C, vitamín E, pyknogenol z borovicovej kôry, vulkanická voda Vichy',
-            usage: '4-5 kvapiek ráno na suchú tvár a krk pred nanesením hydratačného krému.',
-            purpose: 'Antioxidačný štít proti voľným radikálom a rozjasnenie UV pigmentácií.',
-            price: 38,
-            meicetJustification: 'Zosvetlenie podpovrchových solárnych pigmentácií zistených v UV spektre Meicet.'
-          },
-          {
-            step: 3,
-            category: 'Denný hyalurónový posilňovač bariéry',
-            productName: 'Vichy Minéral 89 Hyaluron Booster',
-            brand: 'Vichy',
-            activeIngredients: '89% termálna vulkanická voda Vichy s 15 minerálmi, prírodná kyselina hyalurónová',
-            usage: '2 pumpičky vklepať do pleti tváre a okolo očí.',
-            purpose: 'Posilnenie kožnej bariéry, hĺbková hydratácia a pružnosť.',
-            price: 24.5,
-            meicetJustification: 'Riešenie nízkej hydratácie pleti a ochrana pred vonkajšími vplyvmi.'
-          },
-          {
-            step: 4,
-            category: 'Upokojujúci bariérový krém',
-            productName: 'La Roche-Posay Toleriane Dermallergo Krém',
-            brand: 'La Roche-Posay',
-            activeIngredients: 'Sphingobioma, Neurosensine, termálna voda La Roche-Posay',
-            usage: 'Aplikovať ráno na tvár, krk a očné okolie.',
-            purpose: 'Okamžité upokojenie začervenania, zníženie reaktivity a hydratácia po dobu 48h.',
-            price: 23,
-            meicetJustification: 'Upokojenie reaktívnych cievnych zón zistených v spektre krížovej polarizácie.'
-          },
-          {
-            step: 5,
-            category: 'Najvyššia UVA fotoprotekcia SPF 50+',
-            productName: 'La Roche-Posay Anthelios UVMune 400 Invisible Fluid SPF 50+',
-            brand: 'La Roche-Posay',
-            activeIngredients: 'Mexoryl 400 (chráni pred ultra-dlhým UVA až do 400nm), Netlock technológia',
-            usage: 'Pretrepať a aplikovať ráno 15 minút pred odchodom. Prekryť oblasť jazvy viečka.',
-            purpose: 'Maximálna ochrana pred bunkovým poškodením a ochrana jazvy pred pigmentáciou.',
-            price: 21.5,
-            meicetJustification: 'Kritická ochrana pooperačnej jazvy pred stmavnutím a prevencia solárnych lentíg.'
-          }
-        ],
-        evening: [
-          {
-            step: 1,
-            category: 'Večerné čistiace penenie',
-            productName: 'CeraVe Čistiaci penivý gél (Foaming Cleanser)',
-            brand: 'CeraVe',
-            activeIngredients: '3 ceramidy, niacínamid, kyselina hyalurónová',
-            usage: 'Vytvoriť penu, jemne umyť tvár od denného SPF a opláchnuť.',
-            purpose: 'Dôkladné večerné odstránenie nečistôt a mazu bez pocitu pnutia.',
-            price: 14.5,
-            meicetJustification: 'Uvoľnenie pórov v T-zóne bez narušenia prirodzeného lipidového plášťa.'
-          },
-          {
-            step: 2,
-            category: 'Sérum proti pigmentovým škvrnám',
-            productName: 'La Roche-Posay Mela B3 Sérum proti pigmentácii',
-            brand: 'La Roche-Posay',
-            activeIngredients: 'Melasyl™ (patentovaná molekula proti pigmentu), 10% niacínamid, LHA',
-            usage: '3-4 kvapky večer na celú tvár pred aplikáciou krému.',
-            purpose: 'Zachytenie prekurzorov melanínu a redukcia solárnych škvŕn a pozápalových stôp.',
-            price: 44.5,
-            meicetJustification: 'Cielené pôsobenie na subklinické UV pigmentácie zistené analyzátorom Meicet.'
-          },
-          {
-            step: 3,
-            category: 'Obnovujúce sérum s retinolom',
-            productName: 'CeraVe Retinolové obnovujúce sérum (Resurfacing Retinol)',
-            brand: 'CeraVe',
-            activeIngredients: 'Enkapsulovaný retinol, extrakt z koreňa sladkého drievka, 3 ceramidy, niacínamid',
-            usage: 'Aplikovať večer 2-3x týždenne. Vyhnúť sa priamej aplikácii na jazvu viečka!',
-            purpose: 'Podpora bunkovej obnovy, zjemnenie pórov a zlepšenie hladkosti pleti.',
-            price: 18.5,
-            meicetJustification: 'Zamerané na omladenie zisteného biologického veku pleti (41 r.) a zjemnenie textúry.'
-          },
-          {
-            step: 4,
-            category: 'Intenzívny nočný regeneračný balzam',
-            productName: 'La Roche-Posay Cicaplast Baume B5+ Obnovujúci balzam',
-            brand: 'La Roche-Posay',
-            activeIngredients: 'Madecassoside, 5% panthenol, Tribioma prebiotický komplex, meď, zinok',
-            usage: 'Naniesť na celú tvár, hrubšia vrstva na oblasť jazvy viečka.',
-            purpose: 'Urýchlenie obnovy kožnej bariéry, upokojenie erytému a optimálne zrenie jazvy.',
-            price: 17.5,
-            meicetJustification: 'Podpora epitelizácie a upokojenie citlivých cievnych zón zistených na Meicet.'
-          }
-        ],
+        tierLabel: 'Basic (La Roche-Posay, CeraVe, Vichy)',
+        brandDescription: 'Overená lekárenská dermokozmetika z cenníka SAY CLINIC – šetrné čistenie, ceramidy, vitamín B5 a UVMune 400 SPF 50+',
+        totalEstimatedPrice: midEndTotal,
+        morning: midEndMorning,
+        evening: midEndEvening,
         weeklyCare: [
-          '1x týždenne: CeraVe SA Zjemňujúci čistiaci gél s kyselinou salicylovou na šetrné uvoľnenie pórov v T-zóne.',
-          '1x týždenne: Chladivý obklad s termálnou vodou La Roche-Posay na zmiernenie cievneho erytému.',
-          'Každý víkend: Kontrola jazvy po blefaroplastike a jemná tlaková ischemická masáž.'
+          'Po každom estetickom ošetrení (laser, peeling, Dermapen) aplikovať La Roche-Posay Cicaplast Baume B5+ niekoľkokrát denne.',
+          'Každé ráno dôsledne chrániť pleť fluidom Anthelios UVMune 400 SPF 50+.'
         ]
       },
-      // Predvolená ranná a večerná rutina rešpektuje zvolený preferovaný tier (high_end alebo mid_end)
-      morning: preferredTier === 'mid_end' ? [
-        {
-          step: 1,
-          category: 'Jemné čistenie s ceramidmi',
-          productName: 'CeraVe Hydratačný čistiaci gél (Hydrating Cleanser)',
-          brand: 'CeraVe',
-          activeIngredients: '3 esenciálne ceramidy (1, 3, 6-II), kyselina hyalurónová, MVE technológia',
-          usage: 'Naniesť na navlhčenú pleť, jemne premasírovať 30 sekúnd a opláchnuť vlažnou vodou.',
-          purpose: 'Šetrne čistí a hydratuje bez narušenia ochrannej kožnej bariéry.',
-          price: 14.5,
-          meicetJustification: 'Kritické skóre hydratácie 44% vyžaduje čistenie bez penidiel a sulfátov.'
-        },
-        {
-          step: 2,
-          category: 'Antioxidačné sérum s vitamínom C',
-          productName: 'Vichy Liftactiv Vitamín C 15% Sérum',
-          brand: 'Vichy',
-          activeIngredients: '15% čistý vitamín C, vitamín E, pyknogenol z borovicovej kôry, vulkanická voda Vichy',
-          usage: '4-5 kvapiek ráno na suchú tvár a krk pred nanesením hydratačného krému.',
-          purpose: 'Antioxidačný štít proti voľným radikálom a rozjasnenie UV pigmentácií.',
-          price: 38,
-          meicetJustification: 'Zosvetlenie podpovrchových solárnych pigmentácií zistených v UV spektre Meicet.'
-        },
-        {
-          step: 3,
-          category: 'Denný hyalurónový posilňovač bariéry',
-          productName: 'Vichy Minéral 89 Hyaluron Booster',
-          brand: 'Vichy',
-          activeIngredients: '89% termálna vulkanická voda Vichy s 15 minerálmi, prírodná kyselina hyalurónová',
-          usage: '2 pumpičky vklepať do vyčistenej pleti ráno.',
-          purpose: 'Posilnenie kožnej bariéry, hĺbková hydratácia a ochrana pred znečistením.',
-          price: 24.5,
-          meicetJustification: 'Zvýšenie vnútrokožnej hydratácie a zníženie citlivosti cievnych zón.'
-        },
-        {
-          step: 4,
-          category: 'Upokojujúci hydratačný krém',
-          productName: 'La Roche-Posay Toleriane Dermallergo Krém',
-          brand: 'La Roche-Posay',
-          activeIngredients: 'Neurosensine, Sphingobioma, termálna voda La Roche-Posay, bambucké maslo',
-          usage: 'Naniesť ráno na tvár a krk.',
-          purpose: 'Okamžité upokojenie reaktívnej pleti, redukcia začervenania a obnova mikrobiómu.',
-          price: 23,
-          meicetJustification: 'Priame zmiernenie cievneho erytému zisteného v polarizovanom spektre Meicet.'
-        },
-        {
-          step: 5,
-          category: 'Širokospektrálna fotoprotekcia SPF 50+',
-          productName: 'La Roche-Posay Anthelios UVMune 400 Invisible Fluid SPF 50+',
-          brand: 'La Roche-Posay',
-          activeIngredients: 'Mexoryl 400 (chráni pred ultra-dlhým UVA až do 400nm), Netlock technológia',
-          usage: 'Pretrepať a aplikovať ráno 15 minút pred odchodom. Prekryť oblasť jazvy viečka.',
-          purpose: 'Maximálna ochrana pred bunkovým poškodením a ochrana jazvy pred pigmentáciou.',
-          price: 21.5,
-          meicetJustification: 'Kritická ochrana pooperačnej jazvy pred stmavnutím a prevencia solárnych lentíg.'
-        }
-      ] : [
-        {
-          step: 1,
-          category: 'Jemné čistenie pórov',
-          productName: 'SkinCeuticals Simply Clean Gél',
-          brand: 'SkinCeuticals',
-          activeIngredients: 'Aminokyseliny, ovocné kyseliny, harmanček a aloe vera',
-          usage: 'Vytvoriť jemnú penu s vlažnou vodou, jemne masírovať 45 sekúnd, opláchnuť. Netrieť viečka!',
-          purpose: 'Šetrné odstránenie mazu bez vysušenia kožnej bariéry a príprava na antioxidant.',
-          price: 48,
-          meicetJustification: 'Znížené skóre TEWL vyžaduje šetrný čistič s fyziologickým pH bez sulfátov.'
-        },
-        {
-          step: 2,
-          category: 'Klinický antioxidačný etalón',
-          productName: 'SkinCeuticals C E Ferulic Sérum',
-          brand: 'SkinCeuticals',
-          activeIngredients: '15% čistá kyselina L-askorbová, 1% alfa-tokoferol, 0.5% kyselina ferulová',
-          usage: '4-5 kvapiek ráno na suchú tvár a krk pred nanesením krému.',
-          purpose: '8-násobná fotoprotekcia, neutralizácia voľných radikálov, zosvetlenie UV škvŕn a stimulácia kolagénu.',
-          price: 175,
-          meicetJustification: 'Kompenzácia zisteného skrytého fotopoškodenia v UV spektre Meicet (skóre 48/100).'
-        },
-        {
-          step: 3,
-          category: 'Hĺbkové hyalurónové sérum',
-          productName: 'SkinCeuticals H.A. Intensifier',
-          brand: 'SkinCeuticals',
-          activeIngredients: 'Kyselina hyalurónová, 10% Proxylane™, extrakt z koreňa sladkého drievka a fialovej ryže',
-          usage: '4-6 kvapiek vklepať do líc, čela a krku.',
-          purpose: 'Zvýšenie hladiny kyseliny hyalurónovej v pleti o 30% a vyplnenie jemných vrások.',
-          price: 118,
-          meicetJustification: 'Riešenie kritickej dehydratácie zistenej na Meicet (skóre 44%) a podpora elasticity.'
-        },
-        {
-          step: 4,
-          category: 'Klinický lipidový krém 2:4:2',
-          productName: 'SkinCeuticals Triple Lipid Restore 2:4:2',
-          brand: 'SkinCeuticals',
-          activeIngredients: '2% čisté ceramidy, 4% prírodný cholesterol, 2% mastné kyseliny',
-          usage: 'Veľkosť hrášku jemne zahriať medzi prstami a vtlačiť do pleti tváre a dekoltu.',
-          purpose: 'Patentovaný pomer na obnovu poškodenej kožnej bariéry a redukciu transepidermálnej straty vody.',
-          price: 155,
-          meicetJustification: 'Uzatvorenie vlhkosti v pokožke a redukcia TEWL (transepidermálnej straty vody).'
-        },
-        {
-          step: 5,
-          category: 'Širokospektrálna fotoprotekcia SPF 50+',
-          productName: 'SkinCeuticals Ultra Facial Defense SPF 50+',
-          brand: 'SkinCeuticals',
-          activeIngredients: 'Mexoryl SX & XL fotostabilné filtre, vitamín E',
-          usage: 'Aplikovať každé ráno 15 minút pred odchodom. Dôkladne prekryť oblasť jaziev viečok!',
-          purpose: 'Komplexná ochrana pred UVA/UVB lúčmi, prevencia nových pigmentácií a stmavnutia jaziev.',
-          price: 42,
-          meicetJustification: 'Kritická ochrana pooperačnej jazvy pred stmavnutím a prevencia solárnych lentíg.'
-        }
-      ],
-      evening: preferredTier === 'mid_end' ? [
-        {
-          step: 1,
-          category: 'Večerné čistiace penenie',
-          productName: 'CeraVe Čistiaci penivý gél (Foaming Cleanser)',
-          brand: 'CeraVe',
-          activeIngredients: '3 ceramidy, niacínamid, kyselina hyalurónová',
-          usage: 'Vytvoriť penu, jemne umyť tvár od denného SPF a opláchnuť.',
-          purpose: 'Dôkladné večerné odstránenie nečistôt a mazu bez pocitu pnutia.',
-          price: 14.5,
-          meicetJustification: 'Uvoľnenie pórov v T-zóne bez narušenia prirodzeného lipidového plášťa.'
-        },
-        {
-          step: 2,
-          category: 'Sérum proti pigmentovým škvrnám',
-          productName: 'La Roche-Posay Mela B3 Sérum proti pigmentácii',
-          brand: 'La Roche-Posay',
-          activeIngredients: 'Melasyl™ (patentovaná molekula proti pigmentu), 10% niacínamid, LHA',
-          usage: '3-4 kvapky večer na celú tvár pred aplikáciou krému.',
-          purpose: 'Zachytenie prekurzorov melanínu a redukcia solárnych škvŕn a pozápalových stôp.',
-          price: 44.5,
-          meicetJustification: 'Cielené pôsobenie na subklinické UV pigmentácie zistené analyzátorom Meicet.'
-        },
-        {
-          step: 3,
-          category: 'Obnovujúce sérum s retinolom',
-          productName: 'CeraVe Retinolové obnovujúce sérum (Resurfacing Retinol)',
-          brand: 'CeraVe',
-          activeIngredients: 'Enkapsulovaný retinol, extrakt z koreňa sladkého drievka, 3 ceramidy, niacínamid',
-          usage: 'Aplikovať večer 2-3x týždenne. Vyhnúť sa priamej aplikácii na jazvu viečka!',
-          purpose: 'Podpora bunkovej obnovy, zjemnenie pórov a zlepšenie hladkosti pleti.',
-          price: 18.5,
-          meicetJustification: 'Zamerané na omladenie zisteného biologického veku pleti (41 r.) a zjemnenie textúry.'
-        },
-        {
-          step: 4,
-          category: 'Intenzívny nočný regeneračný balzam',
-          productName: 'La Roche-Posay Cicaplast Baume B5+ Obnovujúci balzam',
-          brand: 'La Roche-Posay',
-          activeIngredients: 'Madecassoside, 5% panthenol, Tribioma prebiotický komplex, meď, zinok',
-          usage: 'Naniesť na celú tvár, hrubšia vrstva na oblasť jazvy viečka.',
-          purpose: 'Urýchlenie obnovy kožnej bariéry, upokojenie erytému a optimálne zrenie jazvy.',
-          price: 17.5,
-          meicetJustification: 'Podpora epitelizácie a upokojenie citlivých cievnych zón zistených na Meicet.'
-        }
-      ] : [
-        {
-          step: 1,
-          category: 'Večerné čistenie pleti',
-          productName: 'SkinCeuticals Simply Clean Gél',
-          brand: 'SkinCeuticals',
-          activeIngredients: 'Aminokyseliny, glycerín a jemné botanické zložky',
-          usage: 'Odstrániť denný SPF a nečistoty, opláchnuť vlažnou vodou a osušiť prikladaním uteráka.',
-          purpose: 'Dokonale čistá pleť pripravená na nočnú regeneráciu.',
-          price: 48,
-          meicetJustification: 'Efektívne uvoľnenie pórov v T-zóne bez narušenia kožného filmu.'
-        },
-        {
-          step: 2,
-          category: 'Upokojujúce sérum na cievny erytém',
-          productName: 'SkinCeuticals Phyto Corrective Gel',
-          brand: 'SkinCeuticals',
-          activeIngredients: 'Kyselina hyalurónová, botanické extrakty (uhorka, tymián, olivový list), morušovník',
-          usage: '3-4 kvapky vklepať do začervenaných zón a líc.',
-          purpose: 'Upokojenie reaktívnych cievnych zón, zmiernenie začervenania a zjednotenie tónu pleti.',
-          price: 85,
-          meicetJustification: 'Cielené riešenie reaktívneho cievneho erytému zisteného v spektre krížovej polarizácie.'
-        },
-        {
-          step: 3,
-          category: 'Bunková obnova & Retinoid',
-          productName: 'SkinCeuticals Retinol 0.3 Obnovujúci nočný krém',
-          brand: 'SkinCeuticals',
-          activeIngredients: '0.3% čistý enkapsulovaný retinol, bisabolol, extrakt z boswellie',
-          usage: 'Veľkosť hrášku 2-3x týždenne večer na suchú pleť. Vyhnúť sa jazve horných viečok!',
-          purpose: 'Stimulácia kolagénovej syntézy, vyhladenie jemných vrások a zmenšenie priemeru pórov.',
-          price: 98,
-          meicetJustification: 'Zamerané na omladenie biologického veku pleti (41 r.) a normalizáciu keratinizácie.'
-        },
-        {
-          step: 4,
-          category: 'Intenzívny nočný regeneračný krém',
-          productName: 'SkinCeuticals Triple Lipid Restore 2:4:2',
-          brand: 'SkinCeuticals',
-          activeIngredients: '2% ceramidy, 4% cholesterol, 2% mastné kyseliny',
-          usage: 'Naniesť na celú tvár a krk ako záverečný nočný krok.',
-          purpose: 'Hĺbková nočná obnova lipidového plášťa a kompenzácia účinku retinolu.',
-          price: 155,
-          meicetJustification: 'Maximálna regenerácia epidermy a zníženie citlivosti po aktívnych látkach.'
-        }
-      ],
-      weeklyCare: preferredTier === 'mid_end' ? [
-        '1x týždenne: CeraVe SA Zjemňujúci čistiaci gél s kyselinou salicylovou na šetrné uvoľnenie pórov v T-zóne.',
-        '1x týždenne: Chladivý obklad s termálnou vodou La Roche-Posay na zmiernenie cievneho erytému.',
-        'Každý víkend: Kontrola jazvy po blefaroplastike a jemná tlaková ischemická masáž.'
-      ] : [
-        '1x týždenne: Šetrná enzymatická exfoliácia a upokojujúca gélová kúra SkinCeuticals Phyto Corrective Masque.',
-        '1x týždenne: Intenzívny nočný zábal Triple Lipid Restore 2:4:2 na dehydratované zóny líc.',
-        'Každý víkend: Kontrola vyzrievania pooperačnej jazvy viečok (tlaková masáž).'
-      ],
+      morning: preferredTier === 'mid_end' ? midEndMorning : highEndMorning,
+      evening: preferredTier === 'mid_end' ? midEndEvening : highEndEvening,
+      weeklyCare: preferredTier === 'mid_end'
+        ? [
+            'Po každom estetickom ošetrení aplikovať La Roche-Posay Cicaplast Baume B5+ na rýchlu obnovu bariéry.',
+            'Každé ráno aplikovať Anthelios UVMune 400 SPF 50+.'
+          ]
+        : [
+            '7 dní pred laserom alebo peelingom vysadiť večerný Retinol 0.3.',
+            'Po zákrokoch používať SkinCeuticals Epidermal Repair a Triple Lipid Restore 2:4:2.'
+          ],
       seasonalTips: preferredTier === 'mid_end'
-        ? 'V letnom období (máj - september) vynechať retinolové sérum a zamerať sa na Mela B3 sérum, hydratačný booster Minéral 89 a SPF 50+ Anthelios. V zime pridať Cicaplast Baume B5+ ako nočnú bariéru.'
-        : 'V období od mája do septembra vymeniť nočný retinol za antioxidačné peptidy a Phyto Corrective Gel. V zime pridať nočný zábal s Triple Lipid Restore 2:4:2.'
+        ? 'V lete používajte ľahký Vichy Minéral 89 + La Roche-Posay Anthelios UVMune 400 SPF 50+. V zime pridajte výživný CeraVe Hydratačný krém a Cicaplast Baume B5+.'
+        : 'V lete chráňte pleť kombináciou C E Ferulic + Advanced Brightening SPF 50+. Na jeseň a v zime zaraďte večerný Retinol 0.3 a Triple Lipid Restore 2:4:2.'
     },
     scarProtocol: {
-      hasScars: true,
-      scarSummary: 'Pooperačná jazva po blefaroplastike horných viečok v 6. mesiaci hojenia. Jazva je v štádiu prebiehajúcej remodelácie kolagénu s viditeľným cievnym erytémom v spektre polarizovaného svetla.',
+      hasScars: false,
+      scarSummary: 'Tento modul je zameraný na diagnostiku pleti a nechirurgickú estetiku. Protokol starostlivosti o pooperačné chirurgické jazvy sa nachádza v samostatnom Chirurgickom Pre-Op & Post-Op Pláne.',
       dailyRoutine: {
-        cleansing: 'Umývať viečka iba vlažnou vodou alebo fyziologickým roztokom, vyhnúť sa mydlu a drhnutiu.',
-        siliconeTherapy: 'Aplikovať lekársky silikónový gél (Strataderm / Kelo-cote) 2x denne (ráno po vstrebaní séra a večer pred spaním) vo veľmi tenkej vrstve. Silikón udržiava ideálnu hydratáciu tkaniva a normalizuje produkciu kolagénu.',
-        pressureMassage: 'Tlaková ischemická masáž: 3x denne po dobu 3-5 minút. Prstami jemne stlačiť jazvu proti očnicovej kosti do zblednutia (ischemizácia), podržať 10 sekúnd, uvoľniť a posunúť sa o kúsok ďalej. Nikdy jazvu nerozťahovať do šírky!',
-        sunProtection: 'Striktná ochrana minerálnym filtrom SPF 50+ s oxidom zinočnatým každé ráno a pri pobyte vonku slnečné okuliare s UV400 filtrom. UV žiarenie v prvých 12-18 mesiacoch spôsobuje trvalú ireverzibilnú pigmentáciu jazvy!'
+        cleansing: 'Šetrné čistenie pleti podľa zvolenej Basic alebo Premium rutiny.',
+        siliconeTherapy: 'Pri atrofických jazvičkách po akné je indikovaný Rejuran S (190 €) a Frakčný CO2 laser.',
+        pressureMassage: '',
+        sunProtection: 'Celoročná ochrana SPF 50+.'
       },
       clinicalLaserTherapy: {
         recommendedProcedures: [
-          'Cievny laser (Vaskulárny laser na uzavretie kapilár a elimináciu ružového zafarbenia jazvy)',
-          'Kontrolné sedenie cievnym laserom po 4-6 týždňoch pre dosiahnutie rovnomerného tónu pleti'
+          'Cievny laser (začervenanie, rosacea, cievky)',
+          'CoolPeel® / Frakčný CO2 laser (textúra, póry, jazvičky po akné)'
         ],
-        bestSeason: 'Cievny laser je optimálny na jeseň, v zime aj na jar (pri dôslednom krytí minerálnym SPF 50+)',
-        precautions: 'Pred ošetrením cievnym laserom neopaľovať pokožku a po zákroku minimálne 4 týždne aplikovať minerálny SPF 50+ filter.'
+        bestSeason: 'Jeseň, Zima a skorá Jar (obdobie nízkeho UV indexu)',
+        precautions: '4 týždne pred a po laserovom ošetrení sa vyhýbať priamemu slneniu a soláriu.'
       },
-      warningSigns: [
-        'Výrazné svrbenie, zhrubnutie alebo vyvýšenie jazvy nad úroveň kože (podozrenie na počínajúcu hypertrofiu – indikácia pre silikónovú náplasť alebo aplikáciu diprophosu).',
-        'Zvýšená bolestivosť, opuch alebo hnisavý exsudát (ihneď kontaktovať ambulanciu SAY CLINIC).'
-      ]
+      warningSigns: []
     },
     milestones: [
       {
-        timeframe: 'Po 3 mesiacoch (Kontrola 1)',
-        title: 'Overenie obnovy kožnej bariéry a cievneho erytému',
-        focusArea: 'Hydratácia pleti a stav pooperačnej jazvy viečok',
-        targetMetrics: 'Nárast hydratácie z 44% na >65%, zníženie cievneho indexu erytému o min. 25%, pokojná blednúca jazva.',
+        timeframe: 'Po 3 mesiacoch',
+        title: 'Kontrola obnovy kožnej bariéry a hydratácie',
+        focusArea: 'Hydratácia pleti (TEWL) a ústup začervenania',
+        targetMetrics: 'Nárast hydratácie z 44 % na >65 %, zníženie reaktivity cievnych zón.',
         rescanChecklist: [
-          '3D spektrálny sken Meicet Pro-A (RGB, UV, Cross-Polarized)',
-          'Kontrola turgoru a elasticity viečok',
-          'Úprava letnej skincare rutiny a kontrola SPF fotoprotekcie'
+          'Kontrolný 3D sken Meicet Pro-A',
+          'Vyhodnotenie znášanlivosti domácej Skincare rutiny'
         ]
       },
       {
-        timeframe: 'Po 6 mesiacoch (Kontrola 2)',
-        title: 'Post-letný fototoxický audit a plánovanie ošetrení cievnym laserom',
-        focusArea: 'Cievny erytém, teleangiektázie v polarizovanom svetle a pripravenosť na cievny laser',
-        targetMetrics: 'Stabilizované UV škvrny bez nových pigmentov, zmenšenie pórov o 20%, jazva viečka mäkká a normotrofická.',
+        timeframe: 'Po 6 mesiacoch',
+        title: 'Jesenný audit pleti pred laserovou sezónou',
+        focusArea: 'UV pigmentácie a textúra pórov',
+        targetMetrics: 'Zjemnenie pórov a zjednotenie farebného tónu pleti.',
         rescanChecklist: [
           'Meicet UV analýza podpovrchového melanínu',
-          'Naplánovanie termínu cievneho lasera v kalendári sál SAY CLINIC',
-          'Príprava pleti na ošetrenie cievnym laserom a fotoprotekcia'
+          'Načasovanie ošetrenia CoolPeel® CO2 / Cievny laser'
         ]
       },
       {
-        timeframe: 'Po 12 mesiacoch (Finálny audit ročného plánu)',
-        title: 'Celkové klinické zhodnotenie a omladenie biologického veku',
-        focusArea: 'Komplexný 360° profil pleti',
-        targetMetrics: 'Zníženie Meicet veku pleti z 41 r. na ≤36 r., celkové skóre zdravia pleti nárast z 68 na >85 bodov.',
+        timeframe: 'Po 12 mesiacoch',
+        title: 'Ročné vyhodnotenie omladenia pleti',
+        focusArea: 'Komplexný 360° profil kvality a biologického veku pleti',
+        targetMetrics: 'Zníženie veku pleti na Meicet Pro-A z 41 r. na ≤36 r., celkové skóre >85 bodov.',
         rescanChecklist: [
-          'Finálny porovnávací report Meicet Pro-A (Before vs After 12 mesiacov)',
-          'Stanovenie udržiavacieho protokolu pre ďalší rok',
-          'Vystavenie certifikátu zdravia pleti SAY CLINIC'
+          'Porovnanie Before vs. After (12 mesiacov)',
+          'Nastavenie udržiavacieho režimu na ďalší rok'
         ]
       }
     ],
-    doctorNotes: 'Pacientka bola podrobne poučená o význame synergie medzi domácou starostlivosťou a klinickými ošetreniami. Zvláštny dôraz bol kladený na ochranu pooperačných jaziev viečok pred UV žiarením v jarnom a letnom období. Harmonogram ošetrení je synchronizovaný so sezónnymi bezpečnostnými pravidlami kliniky SAY CLINIC.',
+    doctorNotes:
+      'Plán pleti a domácej starostlivosti (Basic / Premium) je zostavený na mieru podľa 3D diagnostiky Meicet Pro-A a oficiálneho cenníka SAY CLINIC.',
     doctorName: 'MUDr. Ján Mráz',
     createdAt: new Date().toISOString()
   };

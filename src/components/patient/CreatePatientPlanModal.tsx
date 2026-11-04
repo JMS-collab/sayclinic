@@ -58,18 +58,17 @@ export default function CreatePatientPlanModal({
   );
   const [doctorName] = useState('MUDr. Ján Mráz');
 
-  // Vybraté operácie a výkony, podľa ktorých AI zostaví celý ročný plán
+  // Vybraté operácie a výkony, podľa ktorých AI zostaví celý chirurgický plán
   const [selectedProcedureIds, setSelectedProcedureIds] = useState<string[]>([
+    'deep_plane_facelift',
+    'neck_lift',
     'blepharoplasty_upper_lower',
-    'fractional_co2_laser',
-    'botulinum_hyaluronic',
-    'polynucleotides_profhilo'
+    'fractional_co2_laser'
   ]);
 
   const [selectedPresetKey, setSelectedPresetKey] = useState<string>('face_sequential_transformation');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const [showMeicetModal, setShowMeicetModal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -78,7 +77,7 @@ export default function CreatePatientPlanModal({
       const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
       const names = EBM_PROCEDURE_CATALOG.filter(p => next.includes(p.id)).map(p => p.shortLabel);
       if (names.length > 0) {
-        setTitle(`Ročný plán starostlivosti: ${names.join(' ➔ ')}`);
+        setTitle(`Chirurgický Plán & SAY Care: ${names.join(' + ')}`);
         setProcedureName(names.join(', '));
       }
       return next;
@@ -89,16 +88,22 @@ export default function CreatePatientPlanModal({
     setSelectedPresetKey(key);
     const preset = PRESET_PATIENT_PLANS[key];
     if (key === 'face_sequential_transformation') {
-      setSelectedProcedureIds(['deep_plane_facelift', 'blepharoplasty_upper_lower', 'fractional_co2_laser', 'botulinum_hyaluronic']);
-    } else if (key === 'face_annual_rejuvenation') {
-      setSelectedProcedureIds(['fractional_co2_laser', 'botulinum_hyaluronic', 'polynucleotides_profhilo']);
+      setSelectedProcedureIds(['deep_plane_facelift', 'neck_lift', 'blepharoplasty_upper_lower', 'fractional_co2_laser']);
+      setTitle('Chirurgický Plán: Deep Plane Facelift + Necklift + Blefaroplastika');
+    } else if (key === 'abdominoplasty_combo') {
+      setSelectedProcedureIds(['abdominoplasty_lipo', 'liposuction_contouring', 'diastasis_recti', 'vascular_scar_laser']);
+      setTitle('Chirurgický Plán: Abdominoplastika + Liposukcia bokov + Diastáza');
+    } else if (key === 'rhinoplasty_combo') {
+      setSelectedProcedureIds(['rhinoplasty_open_closed', 'septoplasty']);
+      setTitle('Chirurgický Plán: Rhinoplastika + Septoplastika');
     } else if (key === 'breast_surgery_care') {
       setSelectedProcedureIds(['breast_augmentation_mastopexy', 'vascular_scar_laser']);
+      setTitle('Chirurgický Plán: Augmentácia / Modelácia prsníkov + Protokol jaziev');
     } else if (key === 'blepharoplasty_care') {
       setSelectedProcedureIds(['blepharoplasty_upper_lower', 'vascular_scar_laser', 'botulinum_hyaluronic']);
+      setTitle('Chirurgický Plán: Blefaroplastika viečok + Omladenie okolia očí');
     }
     if (preset) {
-      if (preset.title) setTitle(preset.title);
       if (preset.planType) setPlanType(preset.planType);
       if (preset.diagnosisOrGoal) setDiagnosisOrGoal(preset.diagnosisOrGoal);
       if (preset.preOpCare?.procedureName) setProcedureName(preset.preOpCare.procedureName);
@@ -164,14 +169,14 @@ export default function CreatePatientPlanModal({
         <div className="bg-gradient-to-r from-[#2C2A29] to-[#3a3735] text-white p-5 flex justify-between items-center border-b border-[#C5A059]/40">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#C5A059]/20 border border-[#C5A059]/50 flex items-center justify-center text-xl">
-              ✨
+              🏥
             </div>
             <div>
               <h3 className="font-bold text-base text-white flex items-center gap-2">
-                <span>AI & EBM Zostavenie Ročného Plánu Pacienta (3-v-1)</span>
+                <span>Chirurgický Pre-Op & Post-Op Plán (SAY Care & Operačná kalkulácia)</span>
               </h3>
               <p className="text-xs text-stone-300">
-                Pacient: <strong className="text-white">{patient.name}</strong> • RČ: {patient.birthNumber} • Overené podľa medzinárodných guidelinov (ERAS®, ASPS, EADV)
+                Pacient: <strong className="text-white">{patient.name}</strong> • RČ: {patient.birthNumber} • ERAS® Prehabilitácia, Operačné Kombo Zľavy & Protokol jaziev
               </p>
             </div>
           </div>
@@ -185,27 +190,13 @@ export default function CreatePatientPlanModal({
 
         {/* TELO FORMULÁRA */}
         <div className="p-6 overflow-y-auto space-y-5 text-xs text-[#2C2A29]">
-          {/* BANNER PRE MEICET PRO-A INTEGRÁCIU */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#FAF8F5] via-white to-[#FAF8F5] border-2 border-[#C5A059] flex flex-wrap items-center justify-between gap-3 shadow-xs">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl p-2 bg-[#C5A059]/20 rounded-xl">🔬</span>
-              <div>
-                <strong className="text-xs font-bold text-[#2C2A29] block">
-                  Máte diagnostický PDF report z analyzátora pleti Meicet Pro-A?
-                </strong>
-                <p className="text-[10px] text-[#8C857B] mt-0.5">
-                  AI extrahuje 8 spektier, posúdi ich s chirurgickou a dermatologickou anamnézou a zostaví ročný plán, skincare aj starostlivosť o jazvy.
-                </p>
-              </div>
+          {/* INFO O KOMBINOVANÝCH OPERÁCIÁCH V 1 ANESTÉZII */}
+          <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex items-start gap-3">
+            <span className="text-lg">💡</span>
+            <div className="text-[11px] text-emerald-950 leading-relaxed">
+              <strong className="font-bold block text-xs">Automatické cenové zvýhodnenie pri kombinácii operácií v 1 anestézii:</strong>
+              Ak zvolíte hlavnú operáciu a k nej doplnkový chirurgický výkon v tej istej dobe (napr. <em>Facelift + Necklift za 1 000 € + Viečka za 600 €</em>, <em>Abdominoplastika + Liposukcia bokov za 600 € + Diastáza za 300 €</em> alebo <em>Rhinoplastika + Septoplastika za 500 €</em>), systém ich zaradí do <strong>1. kroku (spoločná operácia)</strong> s automatickou zľavou.
             </div>
-            <button
-              type="button"
-              onClick={() => setShowMeicetModal(true)}
-              className="px-3.5 py-2 bg-[#2C2A29] hover:bg-[#C5A059] text-white rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
-              <span>Nahrať Meicet PDF</span>
-            </button>
           </div>
 
           {/* DROPDOWN VŠETKÝCH VÝKONOV A ZVOLENÉ CHIPY PRE AI PLÁN */}
@@ -315,15 +306,16 @@ export default function CreatePatientPlanModal({
             </div>
           </div>
 
-          {/* RÝCHLE PREDVOLENÉ KOMBINÁCIE */}
+          {/* RÝCHLE PREDVOLENÉ CHIRURGICKÉ KOMBINÁCIE */}
           <div className="space-y-2">
             <label className="font-bold text-[11px] uppercase tracking-wider text-[#8C857B] block">
-              2. Alebo zvoľte rýchly klinický profil:
+              2. Alebo zvoľte rýchlu chirurgickú kombináciu:
             </label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               {[
-                { key: 'face_sequential_transformation', icon: '💎', label: 'Kompletná tvár 3-v-1' },
-                { key: 'face_annual_rejuvenation', icon: '✨', label: 'Neinvazívny Anti-Aging' },
+                { key: 'face_sequential_transformation', icon: '💎', label: 'Facelift + Krk + Viečka' },
+                { key: 'abdominoplasty_combo', icon: '🔥', label: 'Abdomino + Lipo + Diastáza' },
+                { key: 'rhinoplasty_combo', icon: '👃', label: 'Rhino + Septoplastika' },
                 { key: 'breast_surgery_care', icon: '🏥', label: 'Prsníky & Jazvy' },
                 { key: 'blepharoplasty_care', icon: '👁️', label: 'Očné viečka & Okolie' }
               ].map(preset => (
@@ -425,20 +417,6 @@ export default function CreatePatientPlanModal({
           </button>
         </div>
       </div>
-
-      {showMeicetModal && (
-        <MeicetUploadModal
-          isOpen={showMeicetModal}
-          onClose={() => setShowMeicetModal(false)}
-          patient={patient}
-          onAnalysisComplete={(res) => {
-            const plan = MeicetService.convertToPatientPlan(res);
-            onSavePlan(plan);
-            setShowMeicetModal(false);
-            onClose();
-          }}
-        />
-      )}
     </div>
   );
 }

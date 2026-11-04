@@ -7,7 +7,6 @@ import {
   Download, 
   CalendarPlus, 
   ShoppingBag, 
-  FileText, 
   CheckCircle2, 
   AlertCircle, 
   Flame, 
@@ -22,13 +21,9 @@ import {
   Check, 
   ArrowRight, 
   Calendar as CalendarIcon,
-  ChevronRight,
-  TrendingUp,
-  Activity,
   Award,
   Layers,
-  HelpCircle,
-  ExternalLink,
+  Trash2,
   X
 } from 'lucide-react';
 import { MeicetAnalysisResult, MeicetTreatmentPlanItem, SkincareTier } from '@/types/meicet';
@@ -36,51 +31,90 @@ import { MeicetService } from '@/services/meicetService';
 import { MeicetReportPdfDocument } from './MeicetReportPdfDocument';
 import { CalendarEvent } from '@/data/calendarConfig';
 import { generatePdfFilename, exportElementToPdf } from '@/lib/pdfGenerator';
+import { getLiveClinicPriceList, ClinicPriceItem } from '@/data/clinicPriceList';
 
 interface MeicetViewerProps {
   report: MeicetAnalysisResult;
   onClose?: () => void;
+  onUpdateReport?: (report: MeicetAnalysisResult) => void;
   onSaveToPatientPlans?: (plan: any) => void;
   onScheduleTreatment?: (event: Partial<CalendarEvent>) => void;
   onTransferToCosmeticsPOS?: (products: any[]) => void;
   onNewScanRequested?: () => void;
 }
 
+const SKIN_TREATMENT_IDS = [
+  'vascular_laser_face',
+  'vascular_laser_lesion',
+  'coolpeel_co2_face',
+  'co2_laser_fractional_face',
+  'co2_laser_eyelids',
+  'botox_1_area',
+  'botox_2_areas',
+  'botox_3_areas',
+  'hyaluronic_acid_1ml',
+  'skinbooster_1ml',
+  'rejuran_healer_2ml',
+  'rejuran_i_1ml',
+  'rejuran_s_1ml',
+  'crystal_hydro_pdrn',
+  'philart_2ml',
+  'profhilo_2ml',
+  'sculptra_1vial',
+  'radiesse_1_5ml',
+  'exosomes_asce',
+  'biorepeel_face',
+  'chemical_peel_tca',
+  'microneedling_dermapen',
+];
+
 export function MeicetViewer({
   report,
   onClose,
+  onUpdateReport,
   onSaveToPatientPlans,
   onScheduleTreatment,
   onTransferToCosmeticsPOS,
   onNewScanRequested
 }: MeicetViewerProps) {
-  const [activeTab, setActiveTab] = useState<'metrics' | 'annual_plan' | 'skincare' | 'scars' | 'milestones'>('metrics');
+  const [activeTab, setActiveTab] = useState<'metrics' | 'skincare' | 'annual_plan'>('metrics');
   const [isSaved, setIsSaved] = useState(false);
   const [bookedTreatments, setBookedTreatments] = useState<Record<string, boolean>>({});
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [posTransferNotice, setPosTransferNotice] = useState<string | null>(null);
   const [selectedTier, setSelectedTier] = useState<SkincareTier>(
-    report.skincareRoutine?.selectedTier || 'high_end'
+    report.skincareRoutine?.selectedTier || 'mid_end'
   );
+  const [selectedSeasonKey, setSelectedSeasonKey] = useState<'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter'>('q1_spring');
+  const [selectedNewTreatmentId, setSelectedNewTreatmentId] = useState<string>('biorepeel_face');
+
   const pdfReportRef = useRef<HTMLDivElement>(null);
 
-  const { metrics, anamnesis, clinicalSynthesis, annualSchedule, skincareRoutine, scarProtocol, milestones } = report;
+  const { metrics, anamnesis, clinicalSynthesis, annualSchedule, skincareRoutine } = report;
 
-  // Aktívna skincare rutina podľa zvoleného tieru (High-End: SkinCeuticals alebo Mid-End: La Roche-Posay / CeraVe / Vichy)
+  // Zoznam povolených pleťových ošetrení z živého cenníka (bez IPL, bez HydraFacial, bez AHA peelingu)
+  const availableSkinTreatments: ClinicPriceItem[] = React.useMemo(() => {
+    const allLive = getLiveClinicPriceList();
+    return SKIN_TREATMENT_IDS
+      .map(id => allLive.find(item => item.id === id))
+      .filter((item): item is ClinicPriceItem => Boolean(item));
+  }, []);
+
+  // Aktívna skincare rutina podľa zvoleného tieru (Basic: La Roche-Posay / CeraVe / Vichy alebo Premium: SkinCeuticals)
   const activeTierRoutine = selectedTier === 'mid_end'
     ? (report.skincareRoutine?.midEnd || {
         tier: 'mid_end',
-        tierLabel: 'Mid-End (La Roche-Posay, CeraVe, Vichy)',
+        tierLabel: 'Basic (La Roche-Posay, CeraVe, Vichy)',
         brandDescription: 'Dostupná lekárenská starostlivosť z nášho cenníka – overená dermatologická tolerancia a obnova bariéry',
-        totalEstimatedPrice: 216,
+        totalEstimatedPrice: 121,
         morning: report.skincareRoutine?.morning || [],
         evening: report.skincareRoutine?.evening || [],
         weeklyCare: report.skincareRoutine?.weeklyCare || []
       })
     : (report.skincareRoutine?.highEnd || {
         tier: 'high_end',
-        tierLabel: 'High-End (SkinCeuticals)',
+        tierLabel: 'Premium (SkinCeuticals)',
         brandDescription: 'Klinický luxus z cenníka – patentované zloženia s maximálnou koncentráciou antioxidantov a lipidov',
         totalEstimatedPrice: 538,
         morning: report.skincareRoutine?.morning || [],
@@ -94,6 +128,98 @@ export function MeicetViewer({
   const currentTotalPrice = activeTierRoutine.totalEstimatedPrice ||
     [...currentMorning, ...currentEvening].reduce((sum, item) => sum + (item.price || 0), 0);
 
+  const allAnnualProcedures = [
+    ...(annualSchedule?.q1_spring || []),
+    ...(annualSchedule?.q2_summer || []),
+    ...(annualSchedule?.q3_autumn || []),
+    ...(annualSchedule?.q4_winter || []),
+  ];
+  const totalAnnualProceduresPrice = allAnnualProcedures.reduce((sum, item) => sum + (item.price || 0), 0);
+
+  const handleSelectTier = (tier: SkincareTier) => {
+    setSelectedTier(tier);
+    const tierRoutine = tier === 'mid_end' ? report.skincareRoutine?.midEnd : report.skincareRoutine?.highEnd;
+    if (onUpdateReport && tierRoutine) {
+      onUpdateReport({
+        ...report,
+        skincareRoutine: {
+          ...report.skincareRoutine,
+          selectedTier: tier,
+          morning: tierRoutine.morning,
+          evening: tierRoutine.evening,
+          weeklyCare: tierRoutine.weeklyCare,
+        }
+      });
+    }
+  };
+
+  // Pridanie procedúry do vybraného kvartálu v ročnom pláne pleti
+  const handleAddProcedureToQuarter = () => {
+    const found = availableSkinTreatments.find(t => t.id === selectedNewTreatmentId);
+    if (!found) return;
+
+    const seasonLabels: Record<'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter', string> = {
+      q1_spring: 'Jar (Q1)',
+      q2_summer: 'Leto (Q2)',
+      q3_autumn: 'Jeseň (Q3)',
+      q4_winter: 'Zima (Q4)'
+    };
+
+    const mappedCategory: MeicetTreatmentPlanItem['category'] =
+      found.category === 'laser'
+        ? 'laser'
+        : found.category === 'peeling_needling'
+        ? 'peel'
+        : found.subcategory?.toLowerCase().includes('botulotox') || found.subcategory?.toLowerCase().includes('kyselina')
+        ? 'injectables'
+        : 'biostimulation';
+
+    const newItem: MeicetTreatmentPlanItem = {
+      id: `proc-${found.id}-${Date.now()}`,
+      seasonOrMonth: seasonLabels[selectedSeasonKey],
+      category: mappedCategory,
+      name: found.name,
+      targetArea: 'Tvár / Dekolt',
+      reasoning: found.description || 'Cielené klinické ošetrenie pleti podľa diagnostiky Meicet Pro-A.',
+      price: found.price,
+      sessionsCount: 1,
+      intervalWeeks: 4,
+      downtime: found.category === 'laser' ? '2 - 5 dní' : '0 - 24 hodín',
+      priority: 'high'
+    };
+
+    const updatedSchedule = {
+      ...annualSchedule,
+      [selectedSeasonKey]: [...(annualSchedule[selectedSeasonKey] || []), newItem]
+    };
+
+    const updatedReport: MeicetAnalysisResult = {
+      ...report,
+      annualSchedule: updatedSchedule
+    };
+
+    if (onUpdateReport) {
+      onUpdateReport(updatedReport);
+    }
+  };
+
+  // Odstránenie procedúry z kvartálu
+  const handleRemoveProcedureFromQuarter = (
+    seasonKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter',
+    itemId: string
+  ) => {
+    const updatedSchedule = {
+      ...annualSchedule,
+      [seasonKey]: (annualSchedule[seasonKey] || []).filter(item => item.id !== itemId)
+    };
+    if (onUpdateReport) {
+      onUpdateReport({
+        ...report,
+        annualSchedule: updatedSchedule
+      });
+    }
+  };
+
   // Uloženie do karty pacienta (rešpektuje vybraný tier)
   const handleSavePlan = () => {
     const updatedReport: MeicetAnalysisResult = {
@@ -106,6 +232,9 @@ export function MeicetViewer({
         weeklyCare: currentWeeklyCare
       }
     };
+    if (onUpdateReport) {
+      onUpdateReport(updatedReport);
+    }
     const patientPlan = MeicetService.convertToPatientPlan(updatedReport);
     if (onSaveToPatientPlans) {
       onSaveToPatientPlans(patientPlan);
@@ -115,7 +244,7 @@ export function MeicetViewer({
   };
 
   // Naplánovanie ošetrenia do kalendára kliniky
-  const handleScheduleItem = (treatment: MeicetTreatmentPlanItem, season: string) => {
+  const handleScheduleItem = (treatment: MeicetTreatmentPlanItem) => {
     if (onScheduleTreatment) {
       onScheduleTreatment({
         title: treatment.name,
@@ -124,9 +253,9 @@ export function MeicetViewer({
         date: new Date().toISOString().split('T')[0],
         startTime: '10:00',
         endTime: '10:45',
-        type: treatment.category === 'laser' ? 'osetrenie' : treatment.category === 'surgery' ? 'operacia' : 'kontrola',
+        type: 'osetrenie',
         doctorName: 'MUDr. Ján Mráz',
-        notes: `Zákrok z ročného plánu Meicet Pro-A: ${treatment.name} (${treatment.seasonOrMonth}). Cieľ: ${treatment.targetArea}. Dôvod: ${treatment.reasoning}`
+        notes: `Zákrok z ročného plánu pleti Meicet Pro-A: ${treatment.name} (${treatment.seasonOrMonth}). Cieľ: ${treatment.targetArea}. Dôvod: ${treatment.reasoning}`
       });
       setBookedTreatments(prev => ({ ...prev, [treatment.id]: true }));
     }
@@ -158,7 +287,7 @@ export function MeicetViewer({
     // Deduplikácia podľa názvu produktu (napr. rovnaký čistiaci gél)
     const uniqueProducts = Array.from(new Map(allProducts.map(p => [p.name, p])).values());
     onTransferToCosmeticsPOS(uniqueProducts);
-    setPosTransferNotice(`Sada ${selectedTier === 'high_end' ? 'High-End (SkinCeuticals)' : 'Mid-End (La Roche-Posay / CeraVe / Vichy)'} (${uniqueProducts.length} položiek, spolu ${currentTotalPrice} €) bola odoslaná do POS pokladne.`);
+    setPosTransferNotice(`Sada ${selectedTier === 'high_end' ? 'Premium (SkinCeuticals)' : 'Basic (La Roche-Posay / CeraVe / Vichy)'} (${uniqueProducts.length} položiek, spolu ${currentTotalPrice} €) bola odoslaná do POS pokladne.`);
     setTimeout(() => setPosTransferNotice(null), 5000);
   };
 
@@ -229,15 +358,15 @@ export function MeicetViewer({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-serif text-xl font-bold tracking-wide">
-                Meicet Pro-A 3D Analýza & Ročný plán ošetrení
+                Meicet AI & Plán pleti (Skincare + Ročný plán procedúr)
               </h2>
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                Syntéza s anamnézou aktívna
+                Čistý pleťový protokol
               </span>
             </div>
             <p className="text-xs text-[#E8E2D9] mt-0.5">
-              Pacient: <strong>{report.patientName}</strong> | Sken: {report.scanDate} | Súbor: {report.pdfSourceFilename || 'Meicet_ProA_ISEMECO.pdf'}
+              Pacient: <strong>{report.patientName}</strong> | Dátum: {report.scanDate} | Zdroj: {report.pdfSourceFilename || 'Meicet Pro-A / Rýchla diagnostika'}
             </p>
           </div>
         </div>
@@ -265,7 +394,7 @@ export function MeicetViewer({
               title="Vystaviť odporúčanú dermokozmetiku priamo do pokladne (POS)"
             >
               <ShoppingBag className="w-4 h-4 text-purple-200" />
-              <span>Predaj do POS</span>
+              <span>Predaj Skincare do POS ({currentTotalPrice} €)</span>
             </button>
           )}
 
@@ -287,1027 +416,782 @@ export function MeicetViewer({
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                <span>Synchronizovať s plánmi</span>
+                <span>Uložiť plán pleti</span>
               </>
             )}
           </button>
 
-          {/* NOVÝ SKEN */}
+          {/* NOVÝ SKEN / ZMENA PROBLÉMU PLETI */}
           {onNewScanRequested && (
             <button
               type="button"
               onClick={onNewScanRequested}
               className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-[#E8E2D9] font-bold text-xs transition-colors cursor-pointer"
-              title="Nahrať ďalší alebo nový PDF report Meicet Pro-A"
             >
-              + Nový report
+              Zmeniť diagnostiku / Nové PDF
             </button>
           )}
         </div>
       </div>
 
-      {/* KLINICKÉ SUMÁRNE KARTY (SKÓRE, VEK PLETI, ANAMNESTICKÁ SYNERGIA) */}
+      {/* NOTIFIKÁCIA O PRENOSE DO POS */}
+      {posTransferNotice && (
+        <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-between text-purple-900 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5 text-xs font-bold">
+            <ShoppingBag className="w-4 h-4 text-purple-600" />
+            <span>{posTransferNotice}</span>
+          </div>
+          <button onClick={() => setPosTransferNotice(null)} className="text-purple-500 hover:text-purple-800">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* SÚHRNNÉ KARTY SKÓRE PLETI & SKINCARE */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         
-        {/* KARTA 1: CELKOVÉ SKÓRE ZDRAVIA PLETI */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E8E2D9] shadow-xs flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-center font-bold text-xl">
-            {metrics.skinScoreOverall}
-          </div>
+        {/* CELKOVÉ SKÓRE PLETI */}
+        <div className="bg-white rounded-2xl border border-[#E8E2D9] p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Skin Health Score</span>
-            <span className="text-xs font-bold text-[#2C2A29]">
-              {metrics.skinScoreOverall >= 75 ? 'Výborný stav' : metrics.skinScoreOverall >= 60 ? 'Stredný stav pleti' : 'Vyžaduje cielenú terapiu'}
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#8C837A] block">
+              Index zdravia pleti
             </span>
-            <span className="text-[10px] text-[#8C857B] block">Analyzátor Meicet Pro-A</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-3xl font-serif font-bold text-[#2C2A29]">
+                {metrics.overallSkinScore}
+              </span>
+              <span className="text-xs font-bold text-[#8C837A]">/ 100</span>
+            </div>
+            <p className="text-[11px] font-medium text-amber-700 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Cieľ o 12 mesiacov: <strong>85+ / 100</strong></span>
+            </p>
+          </div>
+          <div className="w-16 h-16 rounded-full border-4 border-[#C5A059] bg-[#FDFBF7] flex flex-col items-center justify-center">
+            <span className="text-xs font-bold text-[#8C6D2D]">FITZ</span>
+            <span className="text-sm font-serif font-bold text-[#2C2A29]">{metrics.fitzpatrickType}</span>
           </div>
         </div>
 
-        {/* KARTA 2: BIOLOGICKÝ VEK PLETI VS SKUTOČNÝ VEK */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E8E2D9] shadow-xs flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xl ${
-            metrics.skinAge > metrics.actualAge 
-              ? 'bg-amber-50 text-amber-800 border border-amber-200' 
-              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-          }`}>
-            {metrics.skinAge}
-          </div>
+        {/* VEK PLETI VS REÁLNY VEK */}
+        <div className="bg-white rounded-2xl border border-[#E8E2D9] p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Vek pleti Meicet</span>
-            <span className="text-xs font-bold text-[#2C2A29]">
-              Skutočný vek: {metrics.actualAge} rokov
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#8C837A] block">
+              Biologický vek pleti
             </span>
-            <span className={`text-[10px] font-bold block ${metrics.skinAge > metrics.actualAge ? 'text-amber-600' : 'text-emerald-700'}`}>
-              {metrics.skinAge > metrics.actualAge 
-                ? `+${metrics.skinAge - metrics.actualAge} r. (dehydratácia & UV)` 
-                : `${metrics.actualAge - metrics.skinAge} r. mladšia pleť`}
-            </span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className={`text-3xl font-serif font-bold ${metrics.skinAge > metrics.chronologicalAge ? 'text-rose-600' : 'text-emerald-600'}`}>
+                {metrics.skinAge} r.
+              </span>
+              <span className="text-xs text-[#8C837A]">
+                (vek: {metrics.chronologicalAge} r.)
+              </span>
+            </div>
+            <p className="text-[11px] font-medium text-[#6B635B] mt-1">
+              {metrics.skinAge > metrics.chronologicalAge 
+                ? `Optické starnutie +${metrics.skinAge - metrics.chronologicalAge} roky` 
+                : `Mladistvý profil pleti`}
+            </p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+            <Clock className="w-6 h-6" />
           </div>
         </div>
 
-        {/* KARTA 3: HYDRATÁCIA & TEWL */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E8E2D9] shadow-xs flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 flex items-center justify-center font-bold text-xl">
-            {metrics.hydration.score}%
-          </div>
+        {/* TYP A KONDÍCIA PLETI */}
+        <div className="bg-white rounded-2xl border border-[#E8E2D9] p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Hydratácia & Bariéra</span>
-            <span className="text-xs font-bold text-sky-900">{metrics.hydration.status}</span>
-            <span className="text-[10px] text-sky-700 block">TEWL: {metrics.hydration.tewlLevel}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#8C837A] block">
+              Typ pleti & Hydratácia
+            </span>
+            <div className="text-base font-serif font-bold text-[#2C2A29] mt-1">
+              {metrics.skinType}
+            </div>
+            <p className="text-[11px] text-[#6B635B] mt-1 flex items-center gap-1.5">
+              <Droplet className="w-3.5 h-3.5 text-sky-500" />
+              <span>Bariéra: <strong>{metrics.hydrationAndSebum.score}%</strong> ({metrics.hydrationAndSebum.level})</span>
+            </p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
+            <Droplet className="w-6 h-6" />
           </div>
         </div>
 
-        {/* KARTA 4: STATUS JAZVY A OPERÁCIÍ */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E8E2D9] shadow-xs flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center justify-center font-bold text-xl">
-            🩹
-          </div>
+        {/* ZVOLENÁ SKINCARE & ROČNÝ PLÁN */}
+        <div className="bg-gradient-to-br from-[#FAF7F2] to-[#F3EDE2] rounded-2xl border border-[#D4C5B1] p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Scar Care Protocol</span>
-            <span className="text-xs font-bold text-[#2C2A29] truncate max-w-[150px] block">
-              {scarProtocol.hasScars ? 'Aktívna starostlivosť' : 'Bez evidencie jaziev'}
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#8C6D2D] block">
+              Zvolená Skincare & Plán
             </span>
-            <span className="text-[10px] text-red-700 font-bold block">
-              {scarProtocol.hasScars ? 'Silikón + Vaskulárny laser' : 'Preventívny režim'}
-            </span>
+            <div className="text-sm font-serif font-bold text-[#2C2A29] mt-1">
+              {selectedTier === 'mid_end' ? 'Basic (Lekáreň)' : 'Premium (SkinCeuticals)'}: {currentTotalPrice} €
+            </div>
+            <p className="text-[11px] text-[#5A524C] mt-1">
+              Klinické procedúry: <strong>{allAnnualProcedures.length}x</strong> ({totalAnnualProceduresPrice} €)
+            </p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-[#C5A059]/15 border border-[#C5A059]/30 flex items-center justify-center text-[#8C6D2D]">
+            <ShieldCheck className="w-6 h-6" />
           </div>
         </div>
-
       </div>
 
-      {/* KLINICKÁ SYNTÉZA MEICET DÁT S ANAMNÉZOU */}
-      <div className="bg-gradient-to-r from-[#FAF8F5] via-white to-[#FAF8F5] border border-[#C5A059]/40 p-5 rounded-2xl shadow-xs space-y-3">
-        <div className="flex items-center justify-between border-b border-[#E8E2D9] pb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🩺</span>
-            <h3 className="font-serif text-sm font-bold uppercase tracking-wider text-[#2C2A29]">
-              Lekárska syntéza: Synergia 3D Meicet nálezu a anamnézy pacienta
-            </h3>
+      {/* SYNTÉZA A KONTRAINDIKÁCIE PLETI */}
+      <div className="bg-white rounded-2xl border border-[#E8E2D9] p-5 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#E8E2D9]">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#C5A059]" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[#2C2A29]">
+                Klinická syntéza pleti & Primárne ciele ošetrenia
+              </h3>
+            </div>
+            <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
+              {clinicalSynthesis.executiveSummary}
+            </p>
           </div>
-          <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
-            MUDr. Ján Mráz | SAY CLINIC
-          </span>
+          <div className="flex flex-wrap gap-1.5 shrink-0">
+            {clinicalSynthesis.primaryConcerns.map((concern, idx) => (
+              <span key={idx} className="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-bold">
+                🎯 {concern}
+              </span>
+            ))}
+          </div>
         </div>
 
-        <p className="text-xs text-[#2C2A29] leading-relaxed">
-          {clinicalSynthesis.summary}
-        </p>
-
-        {/* KĽÚČOVÉ NÁLEZY V ODPOVEDI NA OPERÁCIE A JAZVY */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-          <div className="p-3 rounded-xl bg-white border border-[#E8E2D9] space-y-1">
-            <span className="text-[10px] uppercase font-bold text-emerald-800 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Prioritné indikácie zistené analyzátorom Meicet:</span>
-            </span>
-            <ul className="space-y-1 text-xs text-[#2C2A29] pl-1">
-              {clinicalSynthesis.keyFindings.map((finding, idx) => (
-                <li key={idx} className="flex items-start gap-1.5">
-                  <span className="text-[#C5A059] font-bold">•</span>
-                  <span>{finding}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-200 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-amber-900 flex items-center gap-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4">
+          <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5 mb-1">
               <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-              <span>Klinické upozornenia a prevencia (Sezónnosť & Kontraindikácie):</span>
+              Bezpečnostné upozornenia & Kontraindikácie
             </span>
-            <ul className="space-y-1 text-xs text-amber-900 pl-1">
-              {clinicalSynthesis.riskAlerts.map((risk, idx) => (
-                <li key={idx} className="flex items-start gap-1.5">
-                  <span className="text-amber-700 font-bold">•</span>
-                  <span>{risk}</span>
-                </li>
+            <ul className="text-[11px] text-amber-950 space-y-1">
+              {clinicalSynthesis.contraindicationsAndAlerts.map((alert, i) => (
+                <li key={i} className="leading-snug">• {alert}</li>
               ))}
-              {clinicalSynthesis.synergyWithSurgeries && (
-                <li className="flex items-start gap-1.5 font-semibold text-red-800 pt-1 border-t border-amber-200/60 mt-1">
-                  <span>🩹</span>
-                  <span>{clinicalSynthesis.synergyWithSurgeries}</span>
-                </li>
-              )}
             </ul>
+          </div>
+
+          <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 mb-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              Portfólio kliniky SAY (Klinicky overené metódy)
+            </span>
+            <p className="text-[11px] text-emerald-950 leading-snug">
+              Plán využíva výhradne reálne dostupné procedúry kliniky: <strong>Cievny laser</strong>, <strong>Frakčný CO2 laser / CoolPeel</strong>, <strong>Injekčné biostimulátory a polynukleotidy (Rejuran, Profhilo, Sculptra, Radiesse, Botox, HA)</strong> a <strong>Lekársky peeling (BioRePeel, TCA) & Dermapen 4</strong>.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* HLAVNÁ NAVIGÁCIA ZÁLOŽIEK */}
-      <div className="flex flex-wrap gap-2 border-b border-[#E8E2D9]">
-        <button
-          type="button"
-          onClick={() => setActiveTab('metrics')}
-          className={`px-4 py-2.5 rounded-t-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
-            activeTab === 'metrics'
-              ? 'bg-[#2C2A29] text-white shadow-xs'
-              : 'bg-white hover:bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29] border border-b-0 border-transparent hover:border-[#E8E2D9]'
-          }`}
-        >
-          <Activity className="w-4 h-4 text-[#C5A059]" />
-          <span>1. Metriky Meicet Pro-A (8 Spektier)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('annual_plan')}
-          className={`px-4 py-2.5 rounded-t-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
-            activeTab === 'annual_plan'
-              ? 'bg-[#2C2A29] text-white shadow-xs'
-              : 'bg-white hover:bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29] border border-b-0 border-transparent hover:border-[#E8E2D9]'
-          }`}
-        >
-          <CalendarIcon className="w-4 h-4 text-emerald-400" />
-          <span>2. Ročný plán ošetrení (12 Mesiacov)</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-[#C5A059] text-white text-[9px]">4Q</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('skincare')}
-          className={`px-4 py-2.5 rounded-t-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
-            activeTab === 'skincare'
-              ? 'bg-[#2C2A29] text-white shadow-xs'
-              : 'bg-white hover:bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29] border border-b-0 border-transparent hover:border-[#E8E2D9]'
-          }`}
-        >
-          <Droplet className="w-4 h-4 text-sky-400" />
-          <span>3. Denná Skincare Rutina (Ráno / Večer)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('scars')}
-          className={`px-4 py-2.5 rounded-t-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
-            activeTab === 'scars'
-              ? 'bg-[#2C2A29] text-white shadow-xs'
-              : 'bg-white hover:bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29] border border-b-0 border-transparent hover:border-[#E8E2D9]'
-          }`}
-        >
-          <Flame className="w-4 h-4 text-red-500" />
-          <span>4. Starostlivosť o jazvy (Scar Protocol)</span>
-          {scarProtocol.hasScars && (
-            <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[9px] animate-pulse">!</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('milestones')}
-          className={`px-4 py-2.5 rounded-t-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
-            activeTab === 'milestones'
-              ? 'bg-[#2C2A29] text-white shadow-xs'
-              : 'bg-white hover:bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29] border border-b-0 border-transparent hover:border-[#E8E2D9]'
-          }`}
-        >
-          <Award className="w-4 h-4 text-amber-400" />
-          <span>5. Kontrolné re-skeny Meicet</span>
-        </button>
+      {/* PREPÍNAČ 3 ČISTÝCH SEKCIÍ MODULU */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-[#E8E2D9] pb-3">
+        {[
+          { id: 'metrics', label: '1. Stav pleti (Meicet 3D Metriky)', icon: Eye, badge: '8 vrstiev' },
+          { id: 'skincare', label: '2. Domáca Skincare Ráno / Večer (Basic ⇄ Premium)', icon: Sun, badge: `${currentTotalPrice} €` },
+          { id: 'annual_plan', label: '3. Ročný plán procedúr na pleť (Q1 – Q4)', icon: CalendarIcon, badge: `${allAnnualProcedures.length} zákrokov` },
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-[#2C2A29] text-white shadow-md border border-[#C5A059]'
+                  : 'bg-white text-[#5A524C] hover:bg-[#FAF7F2] border border-[#E8E2D9]'
+              }`}
+            >
+              <Icon className={`w-4 h-4 ${isActive ? 'text-[#C5A059]' : 'text-[#8C837A]'}`} />
+              <span>{tab.label}</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                isActive ? 'bg-[#C5A059]/25 text-[#E8C882]' : 'bg-[#F5F2EB] text-[#8C837A]'
+              }`}>
+                {tab.badge}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* OBSAH ZÁLOŽIEK */}
-      <div className="bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm min-h-[400px]">
-        
-        {/* ZÁLOŽKA 1: DETAILNÉ METRIKY MEICET PRO-A */}
-        {activeTab === 'metrics' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="font-serif text-base font-bold text-[#2C2A29]">
-                  Multispektrálna 3D analýza pleti (Meicet Pro-A ISEMECO System)
-                </h3>
-                <p className="text-xs text-[#8C857B]">
-                  Objektívne hodnotenie v spektre bieleho RGB svetla, UV svetla, krížovej a paralelnej polarizácie.
-                </p>
-              </div>
-              <span className="text-[11px] px-3 py-1 rounded-full bg-[#FAF8F5] border border-[#C5A059] font-bold text-[#C5A059]">
-                Fototyp: Fitzpatrick {metrics.fitzpatrickPhototype} | Typ pleti: {metrics.skinType}
-              </span>
-            </div>
+      {/* ===================================================================================== */}
+      {/* TAB 1: STAV PLETI (MEICET 3D METRIKY) */}
+      {/* ===================================================================================== */}
+      {activeTab === 'metrics' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              metrics.hydrationAndSebum,
+              metrics.poresAndTexture,
+              metrics.wrinklesAndElasticity,
+              metrics.surfacePigmentation,
+              metrics.uvDeepSpots,
+              metrics.vascularityAndRedness,
+              metrics.porphyrinsAndAcne,
+              metrics.sensitivityAndBarrier,
+            ].map((m, idx) => {
+              const badgeColor =
+                m.level === 'critical'
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : m.level === 'moderate'
+                  ? 'bg-amber-100 text-amber-800 border-amber-300'
+                  : m.level === 'mild'
+                  ? 'bg-sky-100 text-sky-800 border-sky-300'
+                  : 'bg-emerald-100 text-emerald-800 border-emerald-300';
 
-            {/* MRIEŽKA 8 PARAMETROV S UKAZOVATEĽMI */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
-              {/* 1. Hydratácia & TEWL */}
-              <div className="p-4 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] space-y-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl p-2 rounded-lg bg-sky-100 text-sky-800 font-bold">💧</span>
-                    <div>
-                      <h4 className="font-bold text-xs text-[#2C2A29]">Hydratácia pleti & Bariéra (TEWL)</h4>
-                      <p className="text-[10px] text-[#8C857B]">Krížová polarizácia & impedančný senzor</p>
-                    </div>
-                  </div>
-                  <span className="text-lg font-bold text-sky-700">{metrics.hydration.score}%</span>
-                </div>
-                <div className="w-full bg-[#E8E2D9] h-2 rounded-full overflow-hidden">
-                  <div className="bg-sky-500 h-full rounded-full" style={{ width: `${metrics.hydration.score}%` }} />
-                </div>
-                <p className="text-xs text-[#2C2A29]">{metrics.hydration.description}</p>
-                <p className="text-[10px] text-sky-900 bg-sky-50 p-2 rounded border border-sky-200">
-                  <strong>Klinický záver:</strong> {metrics.hydration.clinicalSignificance}
-                </p>
-              </div>
+              const barColor =
+                m.level === 'critical'
+                  ? 'bg-rose-500'
+                  : m.level === 'moderate'
+                  ? 'bg-amber-500'
+                  : m.level === 'mild'
+                  ? 'bg-sky-500'
+                  : 'bg-emerald-500';
 
-              {/* 2. Póry & Infundíbulá */}
-              <div className="p-4 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] space-y-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl p-2 rounded-lg bg-amber-100 text-amber-800 font-bold">🕳️</span>
-                    <div>
-                      <h4 className="font-bold text-xs text-[#2C2A29]">Póry & Infundíbulá</h4>
-                      <p className="text-[10px] text-[#8C857B]">Paralelná polarizácia | Zóna: {metrics.pores.predominantZone}</p>
-                    </div>
-                  </div>
-                  <span className="text-lg font-bold text-amber-700">{metrics.pores.score}%</span>
-                </div>
-                <div className="w-full bg-[#E8E2D9] h-2 rounded-full overflow-hidden">
-                  <div className="bg-amber-500 h-full rounded-full" style={{ width: `${metrics.pores.score}%` }} />
-                </div>
-                <p className="text-xs text-[#2C2A29]">{metrics.pores.description}</p>
-                <p className="text-[10px] text-[#2C2A29] bg-white p-2 rounded border border-[#E8E2D9]">
-                  <strong>Klinický záver:</strong> {metrics.pores.clinicalSignificance}
-                </p>
-              </div>
-
-              {/* 3. Vrásky & Jemné linky */}
-              <div className="p-4 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] space-y-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl p-2 rounded-lg bg-purple-100 text-purple-800 font-bold">〰️</span>
-                    <div>
-                      <h4 className="font-bold text-xs text-[#2C2A29]">Vrásky & Mimické linky</h4>
-                      <p className="text-[10px] text-[#8C857B]">Glabela, čelo, periorbitálne vejáriky</p>
-                    </div>
-                  </div>
-                  <span className="text-lg font-bold text-purple-700">{metrics.wrinkles.score}%</span>
-                </div>
-                <div className="w-full bg-[#E8E2D9] h-2 rounded-full overflow-hidden">
-                  <div className="bg-purple-500 h-full rounded-full" style={{ width: `${metrics.wrinkles.score}%` }} />
-                </div>
-                <p className="text-xs text-[#2C2A29]">{metrics.wrinkles.description}</p>
-                <p className="text-[10px] text-purple-900 bg-purple-50 p-2 rounded border border-purple-200">
-                  <strong>Klinický záver:</strong> {metrics.wrinkles.clinicalSignificance}
-                </p>
-              </div>
-
-              {/* 4. UV Fotopoškodenie & Skrytý melanín */}
-              <div className="p-4 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] space-y-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl p-2 rounded-lg bg-indigo-100 text-indigo-800 font-bold">☀️</span>
-                    <div>
-                      <h4 className="font-bold text-xs text-[#2C2A29]">UV Skryté fotopoškodenie</h4>
-                      <p className="text-[10px] text-[#8C857B]">Detekcia v UV spektre 365nm | Riziko: {metrics.uvDamage.hiddenSpotsRisk}</p>
-                    </div>
-                  </div>
-                  <span className="text-lg font-bold text-indigo-700">{metrics.uvDamage.score}%</span>
-                </div>
-                <div className="w-full bg-[#E8E2D9] h-2 rounded-full overflow-hidden">
-                  <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${metrics.uvDamage.score}%` }} />
-                </div>
-                <p className="text-xs text-[#2C2A29]">{metrics.uvDamage.description}</p>
-                <p className="text-[10px] text-indigo-900 bg-indigo-50 p-2 rounded border border-indigo-200">
-                  <strong>Klinický záver:</strong> {metrics.uvDamage.clinicalSignificance}
-                </p>
-              </div>
-
-              {/* 5. Cievny erytém & Reaktivita (Krížová polarizácia) */}
-              <div className="p-4 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] space-y-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl p-2 rounded-lg bg-rose-100 text-rose-800 font-bold">🩸</span>
-                    <div>
-                      <h4 className="font-bold text-xs text-[#2C2A29]">Cievny erytém & Citlivosť</h4>
-                      <p className="text-[10px] text-[#8C857B]">Krížovo-polarizované spektrum | Kuperóza & jazvy</p>
-                    </div>
-                  </div>
-                  <span className="text-lg font-bold text-rose-700">{metrics.redAreas.score}%</span>
-                </div>
-                <div className="w-full bg-[#E8E2D9] h-2 rounded-full overflow-hidden">
-                  <div className="bg-rose-500 h-full rounded-full" style={{ width: `${metrics.redAreas.score}%` }} />
-                </div>
-                <p className="text-xs text-[#2C2A29]">{metrics.redAreas.description}</p>
-                <p className="text-[10px] text-rose-900 bg-rose-50 p-2 rounded border border-rose-200">
-                  <strong>Klinický záver:</strong> {metrics.redAreas.clinicalSignificance}
-                </p>
-              </div>
-
-              {/* 6. Kožný maz & Porfyríny */}
-              <div className="p-4 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] space-y-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl p-2 rounded-lg bg-emerald-100 text-emerald-800 font-bold">🧪</span>
-                    <div>
-                      <h4 className="font-bold text-xs text-[#2C2A29]">Maz & Porfyríny (C. acnes)</h4>
-                      <p className="text-[10px] text-[#8C857B]">Fluorescenčná Woodova analýza</p>
-                    </div>
-                  </div>
-                  <span className="text-lg font-bold text-emerald-700">{metrics.sebumAndPorphyrins.score}%</span>
-                </div>
-                <div className="w-full bg-[#E8E2D9] h-2 rounded-full overflow-hidden">
-                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${metrics.sebumAndPorphyrins.score}%` }} />
-                </div>
-                <p className="text-xs text-[#2C2A29]">{metrics.sebumAndPorphyrins.description}</p>
-                <p className="text-[10px] text-[#2C2A29] bg-white p-2 rounded border border-[#E8E2D9]">
-                  <strong>Klinický záver:</strong> {metrics.sebumAndPorphyrins.clinicalSignificance}
-                </p>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* ZÁLOŽKA 2: ROČNÝ PLÁN OŠETRENÍ (12 MESIACOV) */}
-        {activeTab === 'annual_plan' && (
-          <div className="space-y-6">
-            <div className="flex flex-wrap justify-between items-center gap-3">
-              <div>
-                <h3 className="font-serif text-base font-bold text-[#2C2A29]">
-                  Personalizovaný 12-mesačný harmonogram ošetrení SAY CLINIC
-                </h3>
-                <p className="text-xs text-[#8C857B]">
-                  Zostavený na základe objektívnych Meicet Pro-A dát a prísnych bezpečnostných pravidiel sezónnosti.
-                </p>
-              </div>
-
-              <span className="text-[10px] bg-amber-50 text-amber-800 px-3 py-1 rounded-full border border-amber-200 font-bold flex items-center gap-1">
-                <span>☀️</span>
-                <span>Sezónny protokol: Leto bez ablatívnych laserov | Jeseň = Laser season</span>
-              </span>
-            </div>
-
-            {/* SEZÓNNE KVARTÁLY */}
-            <div className="space-y-5">
-              {annualSchedule.map((season, sIdx) => {
-                const isSummer = season.season === 'leto';
-                const isAutumn = season.season === 'jesen';
-
-                return (
-                  <div 
-                    key={sIdx}
-                    className={`rounded-2xl border p-5 space-y-4 transition-all ${
-                      isSummer 
-                        ? 'border-amber-200 bg-amber-50/20' 
-                        : isAutumn 
-                          ? 'border-orange-200 bg-orange-50/20' 
-                          : 'border-[#E8E2D9] bg-[#FAF8F5]/60'
-                    }`}
-                  >
-                    {/* KVARTÁL HLAVIČKA */}
-                    <div className="flex flex-wrap justify-between items-center gap-2 border-b border-gray-200/80 pb-2">
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-8 h-8 rounded-xl bg-[#2C2A29] text-[#C5A059] flex items-center justify-center font-bold text-xs">
-                          {sIdx + 1}Q
+              return (
+                <div key={idx} className="bg-white rounded-2xl border border-[#E8E2D9] p-5 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C837A] block">
+                          Spektrálny režim: {m.lightMode}
                         </span>
-                        <div>
-                          <h4 className="font-serif text-sm font-bold text-[#2C2A29]">
-                            {season.quarter}: {season.title}
-                          </h4>
-                          <p className="text-[11px] text-[#8C857B]">{season.focus}</p>
-                        </div>
+                        <h4 className="text-base font-serif font-bold text-[#2C2A29]">
+                          {m.label}
+                        </h4>
                       </div>
-
-                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                        isSummer ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-gray-100 text-[#2C2A29]'
-                      }`}>
-                        {season.season}
-                      </span>
+                      <div className="text-right">
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${badgeColor}`}>
+                          {m.level === 'critical' ? 'Kritické' : m.level === 'moderate' ? 'Stredné' : m.level === 'mild' ? 'Mierne' : 'Optimálne'} ({m.score}/100)
+                        </span>
+                        {m.percentile !== undefined && (
+                          <span className="block text-[10px] text-[#8C837A] mt-0.5">
+                            Percentil rovesníkov: {m.percentile}%
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <p className="text-xs text-amber-900 bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80 italic">
-                      ⚠️ {season.seasonalConsideration}
+                    {/* Progress bar */}
+                    <div className="w-full h-2 bg-[#F5F2EB] rounded-full overflow-hidden my-3">
+                      <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${m.score}%` }} />
+                    </div>
+
+                    <p className="text-xs text-[#4A433D] leading-relaxed mb-3">
+                      <strong>Nález:</strong> {m.finding}
                     </p>
-
-                    {/* ZOZNAM PROCEDÚR V TOMTO KVARTÁLI */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {season.treatments.map((t) => {
-                        const isBooked = bookedTreatments[t.id];
-
-                        return (
-                          <div 
-                            key={t.id}
-                            className="bg-white border border-[#E8E2D9] hover:border-[#C5A059] p-3.5 rounded-xl shadow-2xs flex flex-col justify-between transition-all group"
-                          >
-                            <div className="space-y-1.5">
-                              <div className="flex justify-between items-start gap-1">
-                                <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
-                                  t.category === 'laser' 
-                                    ? 'bg-rose-100 text-rose-800' 
-                                    : t.category === 'injectable' 
-                                      ? 'bg-purple-100 text-purple-800' 
-                                      : t.isMeicetScan 
-                                        ? 'bg-[#C5A059]/20 text-[#8C6D2D]' 
-                                        : 'bg-sky-100 text-sky-800'
-                                }`}>
-                                  {t.category === 'laser' ? 'Cievny laser' : t.category === 'injectable' ? 'Injekcia' : t.isMeicetScan ? 'Meicet 3D Sken' : 'Dermokozmetika'}
-                                </span>
-
-                                <span className="text-[10px] font-bold text-[#8C857B]">
-                                  {t.seasonOrMonth}
-                                </span>
-                              </div>
-
-                              <h5 className="font-bold text-xs text-[#2C2A29] group-hover:text-[#C5A059] transition-colors">
-                                {t.name}
-                              </h5>
-                              <p className="text-[10px] text-[#8C857B]">Oblasť: <strong>{t.targetArea}</strong></p>
-                              <p className="text-[11px] text-[#2C2A29] leading-snug">{t.reasoning}</p>
-                            </div>
-
-                            <div className="mt-3 pt-2.5 border-t border-[#E8E2D9] flex justify-between items-center">
-                              <div>
-                                {t.estimatedPrice ? (
-                                  <span className="text-xs font-bold text-[#2C2A29]">{t.estimatedPrice} €</span>
-                                ) : (
-                                  <span className="text-[10px] text-[#8C857B]">V cene programu</span>
-                                )}
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => handleScheduleItem(t, season.quarter)}
-                                disabled={isBooked}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
-                                  isBooked 
-                                    ? 'bg-emerald-100 text-emerald-800' 
-                                    : 'bg-[#2C2A29] text-white hover:bg-[#C5A059]'
-                                }`}
-                              >
-                                {isBooked ? (
-                                  <>
-                                    <Check className="w-3 h-3" />
-                                    <span>V kalendári</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CalendarPlus className="w-3 h-3 text-[#C5A059]" />
-                                    <span>Rezervovať</span>
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
-        {/* ZÁLOŽKA 3: DENNÁ SKINCARE RUTINA */}
-        {activeTab === 'skincare' && (
-          <div className="space-y-6">
-            
-            {/* NOTIFIKÁCIA O ODOSLANÍ DO POS POKLADNE */}
-            {posTransferNotice && (
-              <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs flex items-center justify-between animate-in fade-in duration-300">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-purple-700" />
-                  <span className="font-medium">{posTransferNotice}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPosTransferNotice(null)}
-                  className="text-purple-600 hover:text-purple-800 text-xs font-bold"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            {/* PREPÍNAČ MEDZI HIGH-END (SkinCeuticals) A MID-END (La Roche-Posay, CeraVe, Vichy) */}
-            <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] space-y-3.5 shadow-2xs">
-              <div className="flex flex-wrap justify-between items-center gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059] bg-white px-2 py-0.5 rounded border border-[#E8E2D9]">
-                      Cenník SAY CLINIC
+                  <div className="p-3 rounded-xl bg-[#FAF7F2] border border-[#E8E2D9] text-xs text-[#2C2A29]">
+                    <span className="font-bold text-[#8C6D2D] block mb-0.5">
+                      💡 Klinická indikácia:
                     </span>
-                    <span className="text-[10px] text-[#8C857B]">
-                      Oficiálna ponuka kliniky
-                    </span>
-                  </div>
-                  <h3 className="font-serif text-base font-bold text-[#2C2A29] mt-0.5">
-                    Personalizovaná domáca dermokozmetická rutina
-                  </h3>
-                  <p className="text-xs text-[#8C857B]">
-                    Vyberte cenový štandard rutiny podľa preferencie pacienta. Všetky produkty sú skladom na recepcii.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#8C857B] bg-white px-3 py-1.5 rounded-xl border border-[#E8E2D9] shadow-2xs">
-                    Cena celej sady: <strong className="text-[#2C2A29]">{currentTotalPrice} €</strong>
-                  </span>
-
-                  {onTransferToCosmeticsPOS && (
-                    <button
-                      type="button"
-                      onClick={handleTransferToPOS}
-                      className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                      title="Vystaviť všetky produkty aktuálnej rutiny do pokladne"
-                    >
-                      <ShoppingBag className="w-4 h-4" />
-                      <span>Vystaviť do POS ({selectedTier === 'high_end' ? 'SkinCeuticals' : 'Mid-End'})</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* TIER TLAČIDLÁ PREPÍNAČA */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                {/* 1. HIGH-END: SKINCEUTICALS */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedTier('high_end')}
-                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative ${
-                    selectedTier === 'high_end'
-                      ? 'bg-white border-[#C5A059] ring-2 ring-[#C5A059]/40 shadow-sm'
-                      : 'bg-white/60 border-[#E8E2D9] hover:bg-white hover:border-[#C5A059]/60 text-[#8C857B]'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
-                        💎
-                      </span>
-                      <div>
-                        <span className="font-bold text-xs text-[#2C2A29] block">
-                          High-End: SkinCeuticals
-                        </span>
-                        <span className="text-[10px] font-bold text-[#C5A059]">
-                          Klinická prémiová dermokozmetika
-                        </span>
-                      </div>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                      selectedTier === 'high_end' 
-                        ? 'bg-[#C5A059] text-white shadow-2xs' 
-                        : 'bg-gray-100 text-[#8C857B]'
-                    }`}>
-                      ~538 €
-                    </span>
-                  </div>
-
-                  <p className="text-[11px] text-[#2C2A29] font-medium leading-snug">
-                    Patentované antioxidačné séra (C E Ferulic), bunková obnova (Triple Lipid 2:4:2, H.A. Intensifier) a cievne upokojenie (Phyto Corrective).
-                  </p>
-
-                  <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-gray-100 text-[10px]">
-                    <span className="text-[#8C857B]">
-                      5 ranných krokov • 4 večerné kroky
-                    </span>
-                    {selectedTier === 'high_end' ? (
-                      <span className="inline-flex items-center gap-1 font-bold text-[#C5A059]">
-                        <Check className="w-3.5 h-3.5" /> Zvolená rutina
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 group-hover:text-gray-600">
-                        Kliknite pre prepnutie
-                      </span>
-                    )}
-                  </div>
-                </button>
-
-                {/* 2. MID-END: LA ROCHE-POSAY, CERAVE, VICHY */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedTier('mid_end')}
-                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative ${
-                    selectedTier === 'mid_end'
-                      ? 'bg-white border-emerald-600 ring-2 ring-emerald-600/40 shadow-sm'
-                      : 'bg-white/60 border-[#E8E2D9] hover:bg-white hover:border-emerald-600/60 text-[#8C857B]'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">
-                        🌿
-                      </span>
-                      <div>
-                        <span className="font-bold text-xs text-[#2C2A29] block">
-                          Mid-End: La Roche-Posay, CeraVe, Vichy
-                        </span>
-                        <span className="text-[10px] font-bold text-emerald-700">
-                          Overená dermatologická lekárenská starostlivosť
-                        </span>
-                      </div>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                      selectedTier === 'mid_end' 
-                        ? 'bg-emerald-600 text-white shadow-2xs' 
-                        : 'bg-gray-100 text-[#8C857B]'
-                    }`}>
-                      ~216 €
-                    </span>
-                  </div>
-
-                  <p className="text-[11px] text-[#2C2A29] font-medium leading-snug">
-                    Dermatologická triáda z cenníka: Cicaplast B5+ na jazvy a bariéru, Mela B3 na pigmentácie, Minéral 89 booster, CeraVe čistenie s ceramidmi.
-                  </p>
-
-                  <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-gray-100 text-[10px]">
-                    <span className="text-[#8C857B]">
-                      5 ranných krokov • 4 večerné kroky
-                    </span>
-                    {selectedTier === 'mid_end' ? (
-                      <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
-                        <Check className="w-3.5 h-3.5" /> Zvolená rutina
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 group-hover:text-gray-600">
-                        Kliknite pre prepnutie
-                      </span>
-                    )}
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* PREHĽAD PRODUKTOV PRE VYBRANÝ TIER */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* RANNÁ RUTINA */}
-              <div className="space-y-3 p-5 rounded-2xl bg-amber-50/20 border border-amber-200">
-                <div className="flex items-center justify-between border-b border-amber-200 pb-2">
-                  <div className="flex items-center gap-2">
-                    <Sun className="w-5 h-5 text-amber-600" />
-                    <h4 className="font-serif text-sm font-bold text-amber-950 uppercase tracking-wide">
-                      ☀️ Ranná rutina (Ochrana & Hydratácia)
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-bold text-amber-900 bg-amber-100/70 px-2 py-0.5 rounded">
-                    {selectedTier === 'high_end' ? 'SkinCeuticals Protokol' : 'Dermatologický Protokol'}
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {currentMorning.map(item => (
-                    <div key={item.step} className="p-3 bg-white rounded-xl border border-[#E8E2D9] space-y-1.5 shadow-2xs hover:border-[#C5A059] transition-all">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-2 py-0.5 rounded">
-                          Krok {item.step}: {item.category}
-                        </span>
-                        <div className="text-right">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                            item.brand === 'SkinCeuticals' 
-                              ? 'text-[#C5A059] bg-[#FAF8F5] border border-[#E8E2D9]' 
-                              : item.brand === 'La Roche-Posay' 
-                                ? 'text-sky-800 bg-sky-50 border border-sky-200' 
-                                : item.brand === 'Vichy'
-                                  ? 'text-indigo-800 bg-indigo-50 border border-indigo-200'
-                                  : 'text-emerald-800 bg-emerald-50 border border-emerald-200'
-                          }`}>
-                            {item.brand}
-                          </span>
-                          {item.price ? (
-                            <span className="text-[10px] font-bold text-[#2C2A29] block mt-0.5">
-                              {item.price} €
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <p className="font-bold text-xs text-[#2C2A29]">{item.productName}</p>
-                      <p className="text-[11px] text-[#8C857B] italic">Kľúčové zložky: {item.activeIngredients}</p>
-                      <p className="text-xs text-[#2C2A29]">{item.usage}</p>
-                      <p className="text-[10px] text-sky-800 bg-sky-50/70 p-1.5 rounded border border-sky-100">
-                        <strong>Odôvodnenie Meicet:</strong> {item.meicetJustification}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* VEČERNÁ RUTINA */}
-              <div className="space-y-3 p-5 rounded-2xl bg-indigo-50/20 border border-indigo-200">
-                <div className="flex items-center justify-between border-b border-indigo-200 pb-2">
-                  <div className="flex items-center gap-2">
-                    <Moon className="w-5 h-5 text-indigo-700" />
-                    <h4 className="font-serif text-sm font-bold text-indigo-950 uppercase tracking-wide">
-                      🌙 Večerná rutina (Bunková regenerácia & Retinoidy)
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-bold text-indigo-900 bg-indigo-100/70 px-2 py-0.5 rounded">
-                    {selectedTier === 'high_end' ? 'SkinCeuticals Protokol' : 'Dermatologický Protokol'}
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {currentEvening.map(item => (
-                    <div key={item.step} className="p-3 bg-white rounded-xl border border-[#E8E2D9] space-y-1.5 shadow-2xs hover:border-[#C5A059] transition-all">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded">
-                          Krok {item.step}: {item.category}
-                        </span>
-                        <div className="text-right">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                            item.brand === 'SkinCeuticals' 
-                              ? 'text-[#C5A059] bg-[#FAF8F5] border border-[#E8E2D9]' 
-                              : item.brand === 'La Roche-Posay' 
-                                ? 'text-sky-800 bg-sky-50 border border-sky-200' 
-                                : item.brand === 'Vichy'
-                                  ? 'text-indigo-800 bg-indigo-50 border border-indigo-200'
-                                  : 'text-emerald-800 bg-emerald-50 border border-emerald-200'
-                          }`}>
-                            {item.brand}
-                          </span>
-                          {item.price ? (
-                            <span className="text-[10px] font-bold text-[#2C2A29] block mt-0.5">
-                              {item.price} €
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <p className="font-bold text-xs text-[#2C2A29]">{item.productName}</p>
-                      <p className="text-[11px] text-[#8C857B] italic">Kľúčové zložky: {item.activeIngredients}</p>
-                      <p className="text-xs text-[#2C2A29]">{item.usage}</p>
-                      <p className="text-[10px] text-purple-900 bg-purple-50/70 p-1.5 rounded border border-purple-100">
-                        <strong>Odôvodnenie Meicet:</strong> {item.meicetJustification}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-
-            {/* ŠPECIÁLNA TÝŽDENNÁ STAROSTLIVOSŤ */}
-            <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] space-y-2">
-              <h5 className="font-bold text-xs uppercase tracking-wider text-[#2C2A29] flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#C5A059]" />
-                  <span>Týždenná starostlivosť a sezónne tipy ({selectedTier === 'high_end' ? 'SkinCeuticals' : 'La Roche-Posay / CeraVe / Vichy'})</span>
-                </span>
-                <span className="text-[10px] text-[#8C857B]">
-                  Prispôsobené vybranému balíčku
-                </span>
-              </h5>
-              <ul className="space-y-1 text-xs text-[#2C2A29] pl-1">
-                {currentWeeklyCare.map((tip, idx) => (
-                  <li key={idx} className="flex items-start gap-1.5">
-                    <span className="text-[#C5A059] font-bold">•</span>
-                    <span>{tip}</span>
-                  </li>
-                ))}
-              </ul>
-              {((activeTierRoutine as any)?.seasonalTips || skincareRoutine.seasonalTips) ? (
-                <p className="text-[11px] text-amber-900 bg-amber-50 p-2 rounded border border-amber-200 mt-2">
-                  <strong>Sezónne striedanie:</strong> {(activeTierRoutine as any)?.seasonalTips || skincareRoutine.seasonalTips}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        )}
-
-        {/* ZÁLOŽKA 4: STAROSTLIVOSŤ O JAZVY (SCAR CARE PROTOCOL) */}
-        {activeTab === 'scars' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="font-serif text-base font-bold text-[#2C2A29] flex items-center gap-2">
-                  <span>Protokol starostlivosti o jazvy (SAY CLINIC Scar Protocol)</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-bold uppercase">
-                    Pooperačná & laserová ochrana
-                  </span>
-                </h3>
-                <p className="text-xs text-[#8C857B]">
-                  Komplexný protokol manažmentu zrenia jaziev po blefaroplastike, augmentácii, facelifte alebo po akné.
-                </p>
-              </div>
-            </div>
-
-            {/* STAV JAZVY */}
-            <div className="p-4 rounded-xl bg-red-50/40 border border-red-200 space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-red-900 block">
-                Objektívne zhodnotenie jazvy v multispektrálnom rozbore Meicet:
-              </span>
-              <p className="text-xs text-[#2C2A29] font-medium leading-relaxed">
-                {scarProtocol.scarSummary}
-              </p>
-            </div>
-
-            {/* 3 PILIERE DOMÁCEJ STAROSTLIVOSTI */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              
-              <div className="p-4 rounded-xl border border-[#E8E2D9] bg-white space-y-2 shadow-2xs">
-                <div className="w-8 h-8 rounded-lg bg-red-100 text-red-700 flex items-center justify-center font-bold text-sm">
-                  1
-                </div>
-                <h4 className="font-bold text-xs text-[#2C2A29]">Silikónová terapia</h4>
-                <p className="text-xs text-[#2C2A29] leading-relaxed">
-                  {scarProtocol.dailyRoutine.siliconeTherapy}
-                </p>
-                <span className="text-[10px] text-[#8C857B] block pt-1 border-t border-gray-100">
-                  Odporúčané preparáty: Strataderm, Kelo-cote, Dermatix silikónové plátky.
-                </span>
-              </div>
-
-              <div className="p-4 rounded-xl border border-[#E8E2D9] bg-white space-y-2 shadow-2xs">
-                <div className="w-8 h-8 rounded-lg bg-red-100 text-red-700 flex items-center justify-center font-bold text-sm">
-                  2
-                </div>
-                <h4 className="font-bold text-xs text-[#2C2A29]">Tlakové ischemické masáže</h4>
-                <p className="text-xs text-[#2C2A29] leading-relaxed">
-                  {scarProtocol.dailyRoutine.pressureMassage}
-                </p>
-                <span className="text-[10px] text-[#8C857B] block pt-1 border-t border-gray-100">
-                  Technika: Stlačenie do zblednutia na 10 sekúnd, opakovať 3-5 minút. Nerozťahovať jazvu do šírky!
-                </span>
-              </div>
-
-              <div className="p-4 rounded-xl border border-[#E8E2D9] bg-white space-y-2 shadow-2xs">
-                <div className="w-8 h-8 rounded-lg bg-red-100 text-red-700 flex items-center justify-center font-bold text-sm">
-                  3
-                </div>
-                <h4 className="font-bold text-xs text-[#2C2A29]">Striktná UV Fotoprotekcia SPF 50+</h4>
-                <p className="text-xs text-[#2C2A29] leading-relaxed">
-                  {scarProtocol.dailyRoutine.sunProtection}
-                </p>
-                <span className="text-[10px] text-[#8C857B] block pt-1 border-t border-gray-100">
-                  Dôvod: Nezrelá jazva vystavená UV žiareniu trvalo a ireverzibilne zhnedne (pozápalová hyperpigmentácia).
-                </span>
-              </div>
-
-            </div>
-
-            {/* KLINICKÁ PRÍSTROJOVÁ TERAPIA NA SAY CLINIC (CIEVNY LASER) */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-[#FAF8F5] via-white to-[#FAF8F5] border border-[#C5A059] space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="font-serif text-xs font-bold uppercase tracking-wider text-[#2C2A29] flex items-center gap-1.5">
-                  <span>🔬</span>
-                  <span>Klinická cievna laserová korekcia jazvy na klinike SAY CLINIC:</span>
-                </h4>
-                <span className="text-[10px] bg-rose-50 text-rose-800 px-2 py-0.5 rounded font-bold border border-rose-200">
-                  Laser je výhradne cievny (vaskulárny)
-                </span>
-              </div>
-              <ul className="space-y-1 text-xs text-[#2C2A29] pl-1">
-                {scarProtocol.clinicalLaserTherapy.recommendedProcedures.map((proc, idx) => (
-                  <li key={idx} className="flex items-start gap-1.5">
-                    <span className="text-[#C5A059] font-bold">✓</span>
-                    <span>{proc}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="text-[11px] text-[#8C857B] pt-2 border-t border-[#E8E2D9] flex flex-wrap justify-between items-center gap-2">
-                <span><strong>Ideálna sezóna:</strong> {scarProtocol.clinicalLaserTherapy.bestSeason}</span>
-                <span>{scarProtocol.clinicalLaserTherapy.precautions}</span>
-              </div>
-            </div>
-
-            {/* VAROVNÉ PRÍZNAKY */}
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
-              <strong className="block text-amber-950 font-bold uppercase text-[10px]">
-                Varovné príznaky – kedy ihneď navštíviť ambulanciu:
-              </strong>
-              <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
-                {scarProtocol.warningSigns.map((sign, idx) => (
-                  <li key={idx}>{sign}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {/* ZÁLOŽKA 5: KONTROLNÉ MÍĽNIKY A RE-SKENY MEICET */}
-        {activeTab === 'milestones' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="font-serif text-base font-bold text-[#2C2A29]">
-                  Kontrolné premerania a merateľné ciele na Meicet Pro-A
-                </h3>
-                <p className="text-xs text-[#8C857B]">
-                  Objektívne preukázanie účinnosti ročného plánu pred a po intervenciách.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {milestones.map((m, idx) => (
-                <div key={idx} className="p-4 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#C5A059] bg-white px-2.5 py-1 rounded-full border border-[#E8E2D9]">
-                      {m.timeframe}
-                    </span>
-                    <span className="text-[10px] text-[#8C857B]">Zameranie: {m.focusArea}</span>
-                  </div>
-
-                  <h4 className="font-serif text-sm font-bold text-[#2C2A29]">{m.title}</h4>
-                  
-                  <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-semibold">
-                    🎯 <strong>Cieľové parametre Meicet:</strong> {m.targetMetrics}
-                  </div>
-
-                  <div className="text-xs text-[#8C857B]">
-                    <strong>Kontrolný checklist:</strong> {m.rescanChecklist.join(' • ')}
+                    {m.clinicalImplication}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      {/* MODÁL PRE TLAČ / A4 PDF PRE PACIENTA */}
-      {showPdfModal && (
-        <div className="fixed inset-0 bg-[#2C2A29]/80 z-50 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-[#C5A059] overflow-hidden my-auto max-h-[95vh] flex flex-col">
-            
-            <div className="p-4 bg-[#2C2A29] text-white flex justify-between items-center border-b border-[#C5A059]">
-              <div className="flex items-center gap-2">
-                <Printer className="w-5 h-5 text-[#C5A059]" />
-                <span className="font-serif font-bold text-sm">
-                  Tlačový náhľad Meicet Pro-A správy (A4 Formát pre pacienta)
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleDownloadPdf}
-                  disabled={generatingPdf}
-                  className="px-4 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#C5A059]/40 disabled:opacity-50"
-                  title="Stiahnuť oficiálny A4 PDF report Meicet Pro-A"
-                >
-                  <Download className="w-4 h-4 text-[#C5A059]" />
-                  <span>{generatingPdf ? 'Generujem...' : 'Stiahnuť PDF'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="px-4 py-1.5 rounded-xl bg-[#C5A059] hover:bg-[#b08d4b] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Tlačiť report cez systémovú tlač (A4)"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Tlačiť A4</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPdfModal(false)}
-                  className="text-white/60 hover:text-white p-1"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 overflow-y-auto bg-gray-100 flex justify-center">
-              <div ref={pdfReportRef} className="bg-white shadow-xl max-w-[210mm] w-full printable-document">
-                <MeicetReportPdfDocument report={report} selectedTier={selectedTier} />
-              </div>
-            </div>
-
+              );
+            })}
           </div>
         </div>
       )}
 
+      {/* ===================================================================================== */}
+      {/* TAB 2: DOMÁCA SKINCARE RÁNO / VEČER (BASIC ⇄ PREMIUM) */}
+      {/* ===================================================================================== */}
+      {activeTab === 'skincare' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          
+          {/* HORNÁ LIŠTA S PREPÍNAČOM BASIC VS PREMIUM A PRENOSOM DO POKLADNE */}
+          <div className="bg-white rounded-2xl border-2 border-[#C5A059]/60 p-5 shadow-sm flex flex-col gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#8C6D2D] block">
+                  Krok 2: Personalizovaná domáca dermokozmetika podľa cenníka kliniky
+                </span>
+                <h3 className="text-lg font-serif font-bold text-[#2C2A29] mt-0.5">
+                  Ranný a večerný protokol na mieru ({activeTierRoutine.tierLabel})
+                </h3>
+                <p className="text-xs text-[#6B635B] mt-1">
+                  {activeTierRoutine.brandDescription}
+                </p>
+              </div>
+              {onTransferToCosmeticsPOS && (
+                <button
+                  type="button"
+                  onClick={handleTransferToPOS}
+                  className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm shrink-0"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>Preniesť zvolenú sadu do POS pokladne ({currentTotalPrice} €)</span>
+                </button>
+              )}
+            </div>
+
+            {/* PREPÍNAČ TIEROV: BASIC vs PREMIUM */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#E8E2D9]">
+              <button
+                type="button"
+                onClick={() => handleSelectTier('mid_end')}
+                className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center justify-between ${
+                  selectedTier === 'mid_end'
+                    ? 'border-sky-600 bg-sky-50/70 shadow-sm'
+                    : 'border-[#E8E2D9] bg-[#FAF7F2] hover:border-sky-300'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-sky-600 text-white text-[10px] font-bold uppercase">
+                      BASIC / LEKÁREŇ
+                    </span>
+                    <span className="text-sm font-serif font-bold text-[#2C2A29]">
+                      La Roche-Posay, CeraVe, Vichy
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#5A524C] mt-1">
+                    Dostupná dermokozmetika s overenou znášanlivosťou z nášho cenníka
+                  </p>
+                </div>
+                <div className="text-right shrink-0 ml-3">
+                  <span className="text-xs text-[#8C837A] block">Kompletná sada</span>
+                  <span className="text-lg font-serif font-bold text-sky-900">
+                    {report.skincareRoutine?.midEnd?.totalEstimatedPrice || 121} €
+                  </span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectTier('high_end')}
+                className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center justify-between ${
+                  selectedTier === 'high_end'
+                    ? 'border-[#C5A059] bg-gradient-to-r from-[#FDFBF7] to-[#F5EFE4] shadow-sm'
+                    : 'border-[#E8E2D9] bg-[#FAF7F2] hover:border-[#C5A059]/50'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-[#2C2A29] text-[#E8C882] text-[10px] font-bold uppercase border border-[#C5A059]">
+                      👑 PREMIUM / KLINICKÝ LUXUS
+                    </span>
+                    <span className="text-sm font-serif font-bold text-[#2C2A29]">
+                      SkinCeuticals
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#5A524C] mt-1">
+                    Patentované klinické séra C E Ferulic, H.A. Intensifier a Triple Lipid Restore 2:4:2
+                  </p>
+                </div>
+                <div className="text-right shrink-0 ml-3">
+                  <span className="text-xs text-[#8C837A] block">Kompletná sada</span>
+                  <span className="text-lg font-serif font-bold text-[#8C6D2D]">
+                    {report.skincareRoutine?.highEnd?.totalEstimatedPrice || 538} €
+                  </span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* RANNÁ RUTINA */}
+            <div className="bg-white rounded-2xl border border-[#E8E2D9] overflow-hidden shadow-xs">
+              <div className="bg-gradient-to-r from-amber-500/15 to-orange-500/10 p-4 border-b border-[#E8E2D9] flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                    <Sun className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-serif font-bold text-base text-[#2C2A29]">
+                      Ranná rutina (AM Ochrana & Bariéra)
+                    </h4>
+                    <p className="text-[11px] text-[#6B635B]">
+                      Antioxidačný štít, hydratácia a širokospektrálna UV ochrana
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg">
+                  {currentMorning.length} kroky
+                </span>
+              </div>
+
+              <div className="p-4 space-y-3">
+                {currentMorning.map((stepItem) => (
+                  <div key={stepItem.step} className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8E2D9] flex items-start gap-3.5">
+                    <div className="w-7 h-7 rounded-full bg-amber-500 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      {stepItem.step}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-md">
+                          {stepItem.category}
+                        </span>
+                        {stepItem.price && (
+                          <span className="text-xs font-serif font-bold text-[#2C2A29]">
+                            {stepItem.price} €
+                          </span>
+                        )}
+                      </div>
+                      <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1">
+                        {stepItem.brand} – {stepItem.productName}
+                      </h5>
+                      <p className="text-[11px] text-[#8C6D2D] font-medium mt-0.5">
+                        Aktívne látky: {stepItem.keyIngredients}
+                      </p>
+                      <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
+                        {stepItem.usageNotes}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* VEČERNÁ RUTINA */}
+            <div className="bg-white rounded-2xl border border-[#E8E2D9] overflow-hidden shadow-xs">
+              <div className="bg-gradient-to-r from-indigo-500/15 to-purple-500/10 p-4 border-b border-[#E8E2D9] flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                    <Moon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-serif font-bold text-base text-[#2C2A29]">
+                      Večerná rutina (PM Obnova & Remodelácia)
+                    </h4>
+                    <p className="text-[11px] text-[#6B635B]">
+                      Dvojfázové čistenie, bunkový obrat a hĺbková obnova lipidov
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-indigo-800 bg-indigo-100 px-2.5 py-1 rounded-lg">
+                  {currentEvening.length} kroky
+                </span>
+              </div>
+
+              <div className="p-4 space-y-3">
+                {currentEvening.map((stepItem) => (
+                  <div key={stepItem.step} className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8E2D9] flex items-start gap-3.5">
+                    <div className="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      {stepItem.step}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800 bg-indigo-100/80 px-2 py-0.5 rounded-md">
+                          {stepItem.category}
+                        </span>
+                        {stepItem.price && (
+                          <span className="text-xs font-serif font-bold text-[#2C2A29]">
+                            {stepItem.price} €
+                          </span>
+                        )}
+                      </div>
+                      <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1">
+                        {stepItem.brand} – {stepItem.productName}
+                      </h5>
+                      <p className="text-[11px] text-[#8C6D2D] font-medium mt-0.5">
+                        Aktívne látky: {stepItem.keyIngredients}
+                      </p>
+                      <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
+                        {stepItem.usageNotes}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* TÝŽDENNÁ STAROSTLIVOSŤ A PRAVIDLÁ */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl border border-[#E8E2D9] p-5">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#2C2A29] mb-2.5 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#C5A059]" />
+                Doplnková týždenná starostlivosť ({activeTierRoutine.tierLabel})
+              </h4>
+              <ul className="space-y-1.5 text-xs text-[#4A433D]">
+                {currentWeeklyCare.map((w, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>{w}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="bg-rose-50/60 rounded-2xl border border-rose-200 p-5">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-rose-900 mb-2.5 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-rose-600" />
+                Čomu sa prísne vyhnúť (Kontraindikované zložky)
+              </h4>
+              <ul className="space-y-1.5 text-xs text-rose-950">
+                {skincareRoutine.ingredientsToAvoid.map((avoid, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-rose-600 font-bold">✕</span>
+                    <span>{avoid}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================================== */}
+      {/* TAB 3: ROČNÝ PLÁN PROCEDÚR NA PLEŤ (12 MESIACOV / Q1 - Q4) */}
+      {/* ===================================================================================== */}
+      {activeTab === 'annual_plan' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          
+          {/* RÝCHLE PRIDANIE PROCEDÚRY DO KVARTÁLU Z CENNÍKA KLINIKY */}
+          <div className="bg-white rounded-2xl border-2 border-[#C5A059]/60 p-5 shadow-xs">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#8C6D2D] block">
+                  Krok 3: Klinické procedúry na pleť podľa sezóny (Q1 – Q4)
+                </span>
+                <h3 className="text-base font-serif font-bold text-[#2C2A29] mt-0.5">
+                  Ročný harmonogram ošetrení pleti ({allAnnualProcedures.length} zákrokov | Spolu {totalAnnualProceduresPrice} €)
+                </h3>
+                <p className="text-xs text-[#6B635B] mt-0.5">
+                  Cievny laser • Frakčný CO2 laser / CoolPeel • Botox, HA, Rejuran, Profhilo, Sculptra, Radiesse • BioRePeel, TCA peeling & Dermapen 4
+                </p>
+              </div>
+
+              {/* PRIDAŤ ZÁKROK DO KVARTÁLU */}
+              <div className="flex flex-wrap items-center gap-2 bg-[#FAF7F2] p-2.5 rounded-xl border border-[#E8E2D9]">
+                <select
+                  value={selectedSeasonKey}
+                  onChange={e => setSelectedSeasonKey(e.target.value as any)}
+                  className="px-2.5 py-2 rounded-lg bg-white border border-[#D4C5B1] text-xs font-bold text-[#2C2A29]"
+                >
+                  <option value="q1_spring">🌸 Q1: Jar</option>
+                  <option value="q2_summer">☀️ Q2: Leto</option>
+                  <option value="q3_autumn">🍂 Q3: Jeseň</option>
+                  <option value="q4_winter">❄️ Q4: Zima</option>
+                </select>
+
+                <select
+                  value={selectedNewTreatmentId}
+                  onChange={e => setSelectedNewTreatmentId(e.target.value)}
+                  className="px-2.5 py-2 rounded-lg bg-white border border-[#D4C5B1] text-xs font-bold text-[#2C2A29] max-w-[260px]"
+                >
+                  {availableSkinTreatments.map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} ({item.price} €)
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleAddProcedureToQuarter}
+                  className="px-3 py-2 rounded-lg bg-[#2C2A29] hover:bg-[#3A3836] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Pridať do sezóny</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[
+              {
+                key: 'q1_spring' as const,
+                title: '🌸 Q1: Jar (Marec – Máj)',
+                subtitle: 'Biorevitalizácia, kontrola erytému a príprava bariéry pred letom',
+                headerBg: 'from-emerald-600 to-teal-700',
+                items: annualSchedule.q1_spring
+              },
+              {
+                key: 'q2_summer' as const,
+                title: '☀️ Q2: Leto (Jún – August)',
+                subtitle: 'Hĺbková injekčná hydratácia, polynukleotidy a bezpečné letné protokoly',
+                headerBg: 'from-amber-500 to-orange-600',
+                items: annualSchedule.q2_summer
+              },
+              {
+                key: 'q3_autumn' as const,
+                title: '🍂 Q3: Jeseň (September – November)',
+                subtitle: 'Korekcia fotopoškodenia, cievny laser, lekársky peeling a kolagénová stimulácia',
+                headerBg: 'from-rose-600 to-amber-700',
+                items: annualSchedule.q3_autumn
+              },
+              {
+                key: 'q4_winter' as const,
+                title: '❄️ Q4: Zima (December – Február)',
+                subtitle: 'Hlboký laserový resurfacing (Frakčný CO2 / CoolPeel) v období nízkeho UV indexu',
+                headerBg: 'from-slate-700 to-indigo-900',
+                items: annualSchedule.q4_winter
+              }
+            ].map(season => (
+              <div key={season.key} className="bg-white rounded-2xl border border-[#E8E2D9] overflow-hidden shadow-xs flex flex-col">
+                <div className={`bg-gradient-to-r ${season.headerBg} text-white p-4 flex items-center justify-between`}>
+                  <div>
+                    <h4 className="font-serif font-bold text-base">{season.title}</h4>
+                    <p className="text-[11px] text-white/85 mt-0.5">{season.subtitle}</p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white text-xs font-bold">
+                    {(season.items || []).reduce((sum, i) => sum + (i.price || 0), 0)} €
+                  </span>
+                </div>
+
+                <div className="p-4 space-y-3 flex-1">
+                  {(!season.items || season.items.length === 0) ? (
+                    <div className="p-6 text-center text-xs text-[#8C837A] border border-dashed border-[#E8E2D9] rounded-xl">
+                      Žiadne naplánované ošetrenia v tomto kvartáli. Pridajte zákrok vyššie.
+                    </div>
+                  ) : (
+                    season.items.map(item => {
+                      const isBooked = bookedTreatments[item.id];
+                      return (
+                        <div key={item.id} className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8E2D9] hover:border-[#C5A059] transition-all">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <span className="inline-block px-2 py-0.5 rounded-md bg-[#2C2A29] text-[#E8C882] text-[10px] font-bold uppercase tracking-wider mb-1">
+                                {item.seasonOrMonth} • {item.targetArea}
+                              </span>
+                              <h5 className="font-serif font-bold text-sm text-[#2C2A29]">
+                                {item.name}
+                              </h5>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="text-right">
+                                <span className="text-base font-serif font-bold text-[#8C6D2D] block">
+                                  {item.price} €
+                                </span>
+                                <span className="text-[10px] text-[#8C837A]">
+                                  Rekonvalescencia: {item.downtime}
+                                </span>
+                              </div>
+                              {onUpdateReport && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveProcedureFromQuarter(season.key, item.id)}
+                                  className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Odstrániť procedúru z kvartálu"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-[#5A524C] mt-2 leading-relaxed">
+                            {item.reasoning}
+                          </p>
+
+                          <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-[#E8E2D9]">
+                            <span className="text-[11px] font-medium text-[#6B635B]">
+                              Počet sedení: <strong>{item.sessionsCount}x</strong>
+                              {item.intervalWeeks ? ` (interval ${item.intervalWeeks} týž.)` : ''}
+                            </span>
+
+                            {onScheduleTreatment && (
+                              <button
+                                type="button"
+                                onClick={() => handleScheduleItem(item)}
+                                disabled={isBooked}
+                                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                                  isBooked
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : 'bg-[#2C2A29] hover:bg-[#3A3836] text-white'
+                                }`}
+                              >
+                                {isBooked ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Zapísané v kalendári</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <CalendarPlus className="w-3.5 h-3.5 text-[#C5A059]" />
+                                    <span>Objednať do kalendára</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================================== */}
+      {/* MODÁLNE OKNO PRE REPREZENTATÍVNU A4 TLAČ / PDF EXPORT */}
+      {/* ===================================================================================== */}
+      {showPdfModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#FAF7F2] rounded-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden border-2 border-[#C5A059] shadow-2xl">
+            
+            {/* HORNÁ LIŠTA MODÁLU */}
+            <div className="bg-[#2C2A29] text-white px-6 py-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <Printer className="w-5 h-5 text-[#C5A059]" />
+                <div>
+                  <h3 className="font-serif font-bold text-base">
+                    Náhľad A4 protokolu pleti pre pacienta ({report.patientName})
+                  </h3>
+                  <p className="text-[11px] text-[#E8E2D9]">
+                    1. Stav pleti • 2. Domáca Skincare ({selectedTier === 'mid_end' ? 'Basic' : 'Premium'}) • 3. Ročný plán procedúr na pleť
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer border border-white/20"
+                >
+                  <Printer className="w-4 h-4 text-[#C5A059]" />
+                  <span>Vytlačiť (A4)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={generatingPdf}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C5A059] to-[#8C6D2D] text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>{generatingPdf ? 'Generujem PDF...' : 'Stiahnuť PDF'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPdfModal(false)}
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* OBSAH DOKUMENTU */}
+            <div className="p-6 overflow-y-auto flex-1 bg-stone-200">
+              <div ref={pdfReportRef} className="shadow-xl mx-auto">
+                <MeicetReportPdfDocument
+                  report={{
+                    ...report,
+                    skincareRoutine: {
+                      ...report.skincareRoutine,
+                      selectedTier,
+                      morning: currentMorning,
+                      evening: currentEvening,
+                      weeklyCare: currentWeeklyCare
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -47,13 +47,13 @@ import {
   DrawingToolType 
 } from './Sculpture2DViewer';
 import { Sculpture3DViewer } from './Sculpture3DViewer';
+import { getClinicPrice } from '../data/clinicPriceList';
 
 export interface AestheticMaterial {
   id: string;
   name: string;
   type: 'botox' | 'filler' | 'meso' | 'biostimulator';
   categoryLabel: string;
-  lot?: string;
   color: string;
   defaultUnit: string;
   defaultUnits: number;
@@ -70,7 +70,7 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#3B82F6',
     defaultUnit: 'Speywood',
     defaultUnits: 10,
-    defaultPrice: 120,
+    defaultPrice: getClinicPrice('botox_1_area', 120),
     recommendedTechnique: 'Intramuskulárne mikrovpichy'
   },
   {
@@ -81,7 +81,7 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#3B82F6',
     defaultUnit: 'Speywood',
     defaultUnits: 25,
-    defaultPrice: 300,
+    defaultPrice: getClinicPrice('botox_masseter', 300),
     recommendedTechnique: 'Hlboké intramuskulárne bolusy do m. masseter'
   },
   {
@@ -92,7 +92,7 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#2563EB',
     defaultUnit: 'Speywood',
     defaultUnits: 50,
-    defaultPrice: 400,
+    defaultPrice: getClinicPrice('botox_hyperhidrosis', 400),
     recommendedTechnique: 'Intradermálna mriežka 0.1ml na bod'
   },
   {
@@ -103,7 +103,7 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#F472B6',
     defaultUnit: 'ml',
     defaultUnits: 0.1,
-    defaultPrice: 180,
+    defaultPrice: getClinicPrice('hyaluronic_acid_05ml', 180),
     recommendedTechnique: 'Jemná hydratácia pier / vrások'
   },
   {
@@ -114,7 +114,7 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#EC4899',
     defaultUnit: 'ml',
     defaultUnits: 0.1,
-    defaultPrice: 290,
+    defaultPrice: getClinicPrice('hyaluronic_acid_1ml', 290),
     recommendedTechnique: 'OBT mikrodepozity kontúry a tela pier'
   },
   {
@@ -125,7 +125,7 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#DB2777',
     defaultUnit: 'ml',
     defaultUnits: 0.2,
-    defaultPrice: 290,
+    defaultPrice: getClinicPrice('hyaluronic_acid_1ml', 290),
     recommendedTechnique: 'Bolus na periost / kanyla líca a brada'
   },
   {
@@ -136,8 +136,74 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#06B6D4',
     defaultUnit: 'ml',
     defaultUnits: 0.1,
-    defaultPrice: 300,
+    defaultPrice: getClinicPrice('skinbooster_1ml', 300),
     recommendedTechnique: 'Mikropapulárna aplikácia do papilárnej dermis'
+  },
+  {
+    id: 'rejuran_healer',
+    name: 'Rejuran Healer (2ml Polynukleotidy)',
+    type: 'meso',
+    categoryLabel: 'Polynukleotidy PN',
+    color: '#0EA5E9',
+    defaultUnit: 'ml',
+    defaultUnits: 0.2,
+    defaultPrice: getClinicPrice('rejuran_healer_2ml', 290),
+    recommendedTechnique: 'Intradermálne mikropapuly celá tvár'
+  },
+  {
+    id: 'rejuran_i',
+    name: 'Rejuran I (1ml Očné okolie)',
+    type: 'meso',
+    categoryLabel: 'Polynukleotidy Oči',
+    color: '#38BDF8',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1,
+    defaultPrice: getClinicPrice('rejuran_i_1ml', 190),
+    recommendedTechnique: 'Jemné periorbitálne mikropapuly'
+  },
+  {
+    id: 'rejuran_s',
+    name: 'Rejuran S (1ml Jazvy & Akné)',
+    type: 'meso',
+    categoryLabel: 'Polynukleotidy Jazvy',
+    color: '#0284C7',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1,
+    defaultPrice: getClinicPrice('rejuran_s_1ml', 190),
+    recommendedTechnique: 'Subcízia a intradermálna aplikácia pod bázu jazvy'
+  },
+  {
+    id: 'crystal_hydro',
+    name: 'Crystal Hydro PDRN (3ml)',
+    type: 'meso',
+    categoryLabel: 'PDRN + HA + Niacínamid',
+    color: '#14B8A6',
+    defaultUnit: 'ml',
+    defaultUnits: 0.3,
+    defaultPrice: getClinicPrice('crystal_hydro_pdrn', 210),
+    recommendedTechnique: 'Multipunktúrna mezoterapia tváre a krku'
+  },
+  {
+    id: 'philart',
+    name: 'PhilArt / Nucleofill (2ml)',
+    type: 'meso',
+    categoryLabel: 'Polynukleotidy',
+    color: '#0D9488',
+    defaultUnit: 'ml',
+    defaultUnits: 0.2,
+    defaultPrice: getClinicPrice('philart_2ml', 300),
+    recommendedTechnique: '5-bodová alebo multipunktúrna biostimulácia'
+  },
+  {
+    id: 'exosomes_asce',
+    name: 'Exozómy ASCE+ SRLV',
+    type: 'meso',
+    categoryLabel: 'Exozómy & Regenerácia',
+    color: '#8B5CF6',
+    defaultUnit: 'ampulka',
+    defaultUnits: 1,
+    defaultPrice: getClinicPrice('exosomes_asce', 320),
+    recommendedTechnique: 'Aplikácia s microneedlingom alebo po laseri'
   },
   {
     id: 'profhilo',
@@ -147,18 +213,18 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#10B981',
     defaultUnit: 'ml',
     defaultUnits: 0.2,
-    defaultPrice: 290,
+    defaultPrice: getClinicPrice('profhilo_2ml', 290),
     recommendedTechnique: '5-bodová BAP technika (Bio Aesthetic Points)'
   },
   {
     id: 'sculptra',
-    name: 'Sculptra',
+    name: 'Sculptra (1 fľaštička)',
     type: 'biostimulator',
     categoryLabel: 'PLLA Neokolagenéza',
     color: '#C5A059',
     defaultUnit: 'fľaštička',
     defaultUnits: 1,
-    defaultPrice: 450,
+    defaultPrice: getClinicPrice('sculptra_1vial', 450),
     recommendedTechnique: 'Hlboký subkutánny vejárovitý nános kanylou'
   },
   {
@@ -169,8 +235,8 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#D97706',
     defaultUnit: 'ml',
     defaultUnits: 0.3,
-    defaultPrice: 420,
-    recommendedTechnique: 'Kanylový vějířovitý vektoring na periost / subkutis'
+    defaultPrice: getClinicPrice('radiesse_1_5ml', 390),
+    recommendedTechnique: 'Kanylový vejárovitý vektoring na periost / subkutis'
   },
   {
     id: 'hyaluronidase',
@@ -180,19 +246,41 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#EF4444',
     defaultUnit: 'IU',
     defaultUnits: 150,
-    defaultPrice: 80,
+    defaultPrice: getClinicPrice('hyaluronidase', 80),
     recommendedTechnique: 'Cielené rozpustenie HA výplne mikroihlou'
   },
   {
-    id: 'chemical_peel',
-    name: 'Chemický peeling',
+    id: 'biorepeel',
+    name: 'BioRePeelCl3 / PRX-T33 (Tvár)',
     type: 'meso',
-    categoryLabel: 'Exfoliácia & Póry',
+    categoryLabel: 'Biorevitalizačný peeling',
     color: '#F59E0B',
     defaultUnit: 'ošetrenie',
     defaultUnits: 1,
-    defaultPrice: 50,
-    recommendedTechnique: 'Lekársky peeling s neutralizáciou'
+    defaultPrice: getClinicPrice('biorepeel_face', 90),
+    recommendedTechnique: 'Dvojfázový TCA biorevitalizačný peeling'
+  },
+  {
+    id: 'chemical_peel_tca',
+    name: 'Lekársky TCA peeling (stredne hlboký)',
+    type: 'meso',
+    categoryLabel: 'Lekársky TCA peeling',
+    color: '#D97706',
+    defaultUnit: 'ošetrenie',
+    defaultUnits: 1,
+    defaultPrice: getClinicPrice('chemical_peel_tca', 110),
+    recommendedTechnique: 'Stredne hlboký lekársky TCA peeling s kontrolou frostu'
+  },
+  {
+    id: 'microneedling_dermapen',
+    name: 'Lekársky Microneedling (Dermapen 4 + HA)',
+    type: 'meso',
+    categoryLabel: 'Microneedling Dermapen 4',
+    color: '#E11D48',
+    defaultUnit: 'ošetrenie',
+    defaultUnits: 1,
+    defaultPrice: getClinicPrice('microneedling_dermapen', 140),
+    recommendedTechnique: 'Frakčný mikroihličkový indukčný protokol kolagénu'
   },
   {
     id: 'client_material_refill',
@@ -202,7 +290,7 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     color: '#8B5CF6',
     defaultUnit: 'aplikácia',
     defaultUnits: 1,
-    defaultPrice: 50,
+    defaultPrice: getClinicPrice('client_material_refill', 50),
     recommendedTechnique: 'Aplikácia pacientom doneseného preparátu'
   }
 ];
@@ -212,7 +300,6 @@ export interface AestheticTemplate {
   title: string;
   category: 'botox' | 'filler' | 'meso' | 'biostimulator';
   productName: string;
-  lot?: string;
   price: number;
   type: 'point' | 'fanning' | 'threads';
   color: string;
@@ -228,8 +315,7 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     title: 'Botox Glabela (Vráska hnevu)',
     category: 'botox',
     productName: 'Dysport 300IU',
-    lot: 'DYSP-4412B',
-    price: 120,
+    price: getClinicPrice('botox_1_area', 120),
     type: 'point',
     color: '#3B82F6',
     description: 'Izolované ošetrenie glabelárneho komplexu (m. procerus a m. corrugator bilaterálne).',
@@ -243,7 +329,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         startPoint: { x: 300, y: 258 },
         zoneName: 'Glabela – m. procerus',
         productName: 'Dysport 300IU',
-        lotNumber: 'DYSP-4412B',
         details: '15 Speywood U',
         units: 15,
         unitsUnit: 'Speywood',
@@ -257,7 +342,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         startPoint: { x: 278, y: 272 },
         zoneName: 'Glabela – m. corrugator Ľ (mediálny)',
         productName: 'Dysport 300IU',
-        lotNumber: 'DYSP-4412B',
         details: '10 Speywood U',
         units: 10,
         unitsUnit: 'Speywood',
@@ -271,7 +355,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         startPoint: { x: 322, y: 272 },
         zoneName: 'Glabela – m. corrugator P (mediálny)',
         productName: 'Dysport 300IU',
-        lotNumber: 'DYSP-4412B',
         details: '10 Speywood U',
         units: 10,
         unitsUnit: 'Speywood',
@@ -285,7 +368,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         startPoint: { x: 248, y: 268 },
         zoneName: 'Glabela – m. corrugator Ľ (chvost)',
         productName: 'Dysport 300IU',
-        lotNumber: 'DYSP-4412B',
         details: '5 Speywood U',
         units: 5,
         unitsUnit: 'Speywood',
@@ -299,7 +381,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         startPoint: { x: 352, y: 268 },
         zoneName: 'Glabela – m. corrugator P (chvost)',
         productName: 'Dysport 300IU',
-        lotNumber: 'DYSP-4412B',
         details: '5 Speywood U',
         units: 5,
         unitsUnit: 'Speywood',
@@ -312,8 +393,7 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     title: 'Botox Čelo (Horizontálne vrásky)',
     category: 'botox',
     productName: 'Dysport 300IU',
-    lot: 'DYSP-4412B',
-    price: 120,
+    price: getClinicPrice('botox_1_area', 120),
     type: 'point',
     color: '#3B82F6',
     description: 'Horizontálne vrásky čela (m. frontalis) so zachovaním prirodzenej polohy obočia.',
@@ -327,7 +407,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         startPoint: { x: 220, y: 210 },
         zoneName: 'Čelo Ľ lateralis',
         productName: 'Dysport 300IU',
-        lotNumber: 'DYSP-4412B',
         details: '10 Speywood U',
         units: 10,
         unitsUnit: 'Speywood',
@@ -341,7 +420,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         startPoint: { x: 260, y: 205 },
         zoneName: 'Čelo Ľ medialis',
         productName: 'Dysport 300IU',
-        lotNumber: 'DYSP-4412B',
         details: '10 Speywood U',
         units: 10,
         unitsUnit: 'Speywood',
@@ -355,7 +433,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         startPoint: { x: 300, y: 195 },
         zoneName: 'Čelo stred',
         productName: 'Dysport 300IU',
-        lotNumber: 'DYSP-4412B',
         details: '10 Speywood U',
         units: 10,
         unitsUnit: 'Speywood',
@@ -369,7 +446,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         startPoint: { x: 340, y: 205 },
         zoneName: 'Čelo P medialis',
         productName: 'Dysport 300IU',
-        lotNumber: 'DYSP-4412B',
         details: '10 Speywood U',
         units: 10,
         unitsUnit: 'Speywood',
@@ -383,7 +459,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         startPoint: { x: 380, y: 210 },
         zoneName: 'Čelo P lateralis',
         productName: 'Dysport 300IU',
-        lotNumber: 'DYSP-4412B',
         details: '10 Speywood U',
         units: 10,
         unitsUnit: 'Speywood',
@@ -396,19 +471,18 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     title: 'Botox Očné vejáriky (Oči)',
     category: 'botox',
     productName: 'Dysport 300IU',
-    lot: 'DYSP-4412B',
-    price: 120,
+    price: getClinicPrice('botox_1_area', 120),
     type: 'point',
     color: '#3B82F6',
     description: 'Periorbitálne vrásky laterálneho kútika oka (m. orbicularis oculi).',
     recommendations: '• Nešúchať si oči, neaplikovať dráždivú kozmetiku 24h.\n• Suchý chlad pri miernom opuchu.',
     vectors: [
-      { id: 'tpl_e1', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 195, y: 292 }, zoneName: 'Očné vejáriky Ľ (horný)', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_e2', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 185, y: 308 }, zoneName: 'Očné vejáriky Ľ (stredný)', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_e3', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 195, y: 324 }, zoneName: 'Očné vejáriky Ľ (dolný)', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_e4', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 405, y: 292 }, zoneName: 'Očné vejáriky P (horný)', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_e5', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 415, y: 308 }, zoneName: 'Očné vejáriky P (stredný)', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_e6', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 405, y: 324 }, zoneName: 'Očné vejáriky P (dolný)', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' }
+      { id: 'tpl_e1', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 195, y: 292 }, zoneName: 'Očné vejáriky Ľ (horný)', productName: 'Dysport 300IU', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_e2', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 185, y: 308 }, zoneName: 'Očné vejáriky Ľ (stredný)', productName: 'Dysport 300IU', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_e3', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 195, y: 324 }, zoneName: 'Očné vejáriky Ľ (dolný)', productName: 'Dysport 300IU', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_e4', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 405, y: 292 }, zoneName: 'Očné vejáriky P (horný)', productName: 'Dysport 300IU', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_e5', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 415, y: 308 }, zoneName: 'Očné vejáriky P (stredný)', productName: 'Dysport 300IU', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_e6', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 405, y: 324 }, zoneName: 'Očné vejáriky P (dolný)', productName: 'Dysport 300IU', details: '8 Speywood U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' }
     ]
   },
   {
@@ -416,20 +490,19 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     title: 'Botox Čelo + Glabela (Kombinácia)',
     category: 'botox',
     productName: 'Dysport 300IU',
-    lot: 'DYSP-4412B',
-    price: 200,
+    price: getClinicPrice('botox_2_areas', 200),
     type: 'point',
     color: '#3B82F6',
     description: 'Najčastejšie kombinované ošetrenie čela a glately s cenovým zvýhodnením.',
     recommendations: '• 4 hodiny po aplikácii neľahať.\n• 48 hodín bez sauny a športu.',
     vectors: [
-      { id: 'tpl_fg1', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 300, y: 258 }, zoneName: 'Glabela – procerus', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '15 Sp U', units: 15, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_fg2', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 278, y: 272 }, zoneName: 'Glabela – corrugator Ľ', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_fg3', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 322, y: 272 }, zoneName: 'Glabela – corrugator P', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_fg4', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 220, y: 210 }, zoneName: 'Čelo Ľ lateralis', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_fg5', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 260, y: 205 }, zoneName: 'Čelo Ľ medialis', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_fg6', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 340, y: 205 }, zoneName: 'Čelo P medialis', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_fg7', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 380, y: 210 }, zoneName: 'Čelo P lateralis', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' }
+      { id: 'tpl_fg1', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 300, y: 258 }, zoneName: 'Glabela – procerus', productName: 'Dysport 300IU', details: '15 Sp U', units: 15, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_fg2', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 278, y: 272 }, zoneName: 'Glabela – corrugator Ľ', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_fg3', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 322, y: 272 }, zoneName: 'Glabela – corrugator P', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_fg4', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 220, y: 210 }, zoneName: 'Čelo Ľ lateralis', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_fg5', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 260, y: 205 }, zoneName: 'Čelo Ľ medialis', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_fg6', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 340, y: 205 }, zoneName: 'Čelo P medialis', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_fg7', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 380, y: 210 }, zoneName: 'Čelo P lateralis', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' }
     ]
   },
   {
@@ -437,24 +510,23 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     title: 'Botox Horná tretina (Čelo + Glabela + Oči)',
     category: 'botox',
     productName: 'Dysport 300IU',
-    lot: 'DYSP-4412B',
-    price: 280,
+    price: getClinicPrice('botox_3_areas', 280),
     type: 'point',
     color: '#3B82F6',
     description: 'Kompletná horná tretina tváre: čelo, glabela a očné vejáriky (komplexný vyhladzujúci balík).',
     recommendations: '• 4 hodiny po aplikácii neľahať a nepredkláňať sa.\n• 48 hodín bez sauny, solária a športu.',
     vectors: [
-      { id: 'tpl_u1', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 300, y: 258 }, zoneName: 'Glabela – procerus', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '15 Sp U', units: 15, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_u2', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 278, y: 272 }, zoneName: 'Glabela – corrugator Ľ', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_u3', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 322, y: 272 }, zoneName: 'Glabela – corrugator P', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_u4', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 220, y: 210 }, zoneName: 'Čelo Ľ lateralis', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_u5', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 260, y: 205 }, zoneName: 'Čelo Ľ medialis', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_u6', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 340, y: 205 }, zoneName: 'Čelo P medialis', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_u7', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 380, y: 210 }, zoneName: 'Čelo P lateralis', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_u8', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 195, y: 292 }, zoneName: 'Očné vejáriky Ľ', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '8 Sp U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_u9', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 185, y: 308 }, zoneName: 'Očné vejáriky Ľ', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '8 Sp U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_u10', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 405, y: 292 }, zoneName: 'Očné vejáriky P', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '8 Sp U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
-      { id: 'tpl_u11', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 415, y: 308 }, zoneName: 'Očné vejáriky P', productName: 'Dysport 300IU', lotNumber: 'DYSP-4412B', details: '8 Sp U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' }
+      { id: 'tpl_u1', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 300, y: 258 }, zoneName: 'Glabela – procerus', productName: 'Dysport 300IU', details: '15 Sp U', units: 15, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_u2', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 278, y: 272 }, zoneName: 'Glabela – corrugator Ľ', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_u3', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 322, y: 272 }, zoneName: 'Glabela – corrugator P', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_u4', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 220, y: 210 }, zoneName: 'Čelo Ľ lateralis', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_u5', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 260, y: 205 }, zoneName: 'Čelo Ľ medialis', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_u6', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 340, y: 205 }, zoneName: 'Čelo P medialis', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_u7', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 380, y: 210 }, zoneName: 'Čelo P lateralis', productName: 'Dysport 300IU', details: '10 Sp U', units: 10, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_u8', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 195, y: 292 }, zoneName: 'Očné vejáriky Ľ', productName: 'Dysport 300IU', details: '8 Sp U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_u9', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 185, y: 308 }, zoneName: 'Očné vejáriky Ľ', productName: 'Dysport 300IU', details: '8 Sp U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_u10', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 405, y: 292 }, zoneName: 'Očné vejáriky P', productName: 'Dysport 300IU', details: '8 Sp U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_u11', type: 'point', view: 'front', color: '#3B82F6', startPoint: { x: 415, y: 308 }, zoneName: 'Očné vejáriky P', productName: 'Dysport 300IU', details: '8 Sp U', units: 8, unitsUnit: 'Speywood', createdAt: '10:00' }
     ]
   },
   {
@@ -462,20 +534,19 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     title: 'Restylane Kysse – Modelácia a výplň pier (1ml)',
     category: 'filler',
     productName: 'Restylane Kysse 1ml',
-    lot: 'RST-KYS-993A',
-    price: 340,
+    price: getClinicPrice('hyaluronic_acid_1ml', 290),
     type: 'point',
     color: '#EC4899',
     description: 'Prirodzená definícia kontúr, Amorovho luku a zväčšenie objemu tela pier.',
     recommendations: '• Nefajčiť a nepiť horúce nápoje počas 24 hodín.\n• Používať čistý balzam, chladiť suchým chladom.\n• 48 hodín bez bozkávania a intenzívneho športu.',
     vectors: [
-      { id: 'tpl_l1', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 293, y: 436 }, zoneName: 'Amorov vrchol Ľ', productName: 'Restylane Kysse 1ml', lotNumber: 'RST-KYS-993A', details: '0.05ml OBT', units: 0.05, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_l2', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 307, y: 436 }, zoneName: 'Amorov vrchol P', productName: 'Restylane Kysse 1ml', lotNumber: 'RST-KYS-993A', details: '0.05ml OBT', units: 0.05, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_l3', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 300, y: 439 }, zoneName: 'Amorov zárez', productName: 'Restylane Kysse 1ml', lotNumber: 'RST-KYS-993A', details: '0.05ml', units: 0.05, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_l4', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 278, y: 442 }, zoneName: 'Kontúra hornej pery Ľ', productName: 'Restylane Kysse 1ml', lotNumber: 'RST-KYS-993A', details: '0.1ml', units: 0.1, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_l5', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 322, y: 442 }, zoneName: 'Kontúra hornej pery P', productName: 'Restylane Kysse 1ml', lotNumber: 'RST-KYS-993A', details: '0.1ml', units: 0.1, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_l6', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 285, y: 456 }, zoneName: 'Telo dolnej pery Ľ', productName: 'Restylane Kysse 1ml', lotNumber: 'RST-KYS-993A', details: '0.15ml', units: 0.15, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_l7', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 315, y: 456 }, zoneName: 'Telo dolnej pery P', productName: 'Restylane Kysse 1ml', lotNumber: 'RST-KYS-993A', details: '0.15ml', units: 0.15, unitsUnit: 'ml', createdAt: '10:00' }
+      { id: 'tpl_l1', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 293, y: 436 }, zoneName: 'Amorov vrchol Ľ', productName: 'Restylane Kysse 1ml', details: '0.05ml OBT', units: 0.05, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_l2', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 307, y: 436 }, zoneName: 'Amorov vrchol P', productName: 'Restylane Kysse 1ml', details: '0.05ml OBT', units: 0.05, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_l3', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 300, y: 439 }, zoneName: 'Amorov zárez', productName: 'Restylane Kysse 1ml', details: '0.05ml', units: 0.05, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_l4', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 278, y: 442 }, zoneName: 'Kontúra hornej pery Ľ', productName: 'Restylane Kysse 1ml', details: '0.1ml', units: 0.1, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_l5', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 322, y: 442 }, zoneName: 'Kontúra hornej pery P', productName: 'Restylane Kysse 1ml', details: '0.1ml', units: 0.1, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_l6', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 285, y: 456 }, zoneName: 'Telo dolnej pery Ľ', productName: 'Restylane Kysse 1ml', details: '0.15ml', units: 0.15, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_l7', type: 'point', view: 'front', color: '#EC4899', startPoint: { x: 315, y: 456 }, zoneName: 'Telo dolnej pery P', productName: 'Restylane Kysse 1ml', details: '0.15ml', units: 0.15, unitsUnit: 'ml', createdAt: '10:00' }
     ]
   },
   {
@@ -483,23 +554,39 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     title: 'Profhilo H+L – 5 BAP Bioremodelácia tváre (2ml)',
     category: 'meso',
     productName: 'Profhilo H+L 2ml',
-    lot: 'PRO-2ML-881',
-    price: 290,
+    price: getClinicPrice('profhilo_2ml', 290),
     type: 'point',
     color: '#10B981',
     description: '10 bioestetických bodov (5 vľavo, 5 vpravo) pre hĺbkovú hydratáciu a elasticitu tváre.',
-    recommendations: '• Nemasírovať papulky po BAP bodoch – vstrebu sa do 24-48 hodín.\n• Vynechať saunu a fitko na 48 hodín.',
+    recommendations: '• Nemasírovať papulky po BAP bodoch – vstrebú sa do 24-48 hodín.\n• Vynechať saunu a fitko na 48 hodín.',
     vectors: [
-      { id: 'tpl_b1', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 235, y: 335 }, zoneName: 'Zygomatická prominencia Ľ', productName: 'Profhilo H+L 2ml', lotNumber: 'PRO-2ML-881', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_b2', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 250, y: 390 }, zoneName: 'Nazálna báza Ľ', productName: 'Profhilo H+L 2ml', lotNumber: 'PRO-2ML-881', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_b3', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 215, y: 430 }, zoneName: 'Tragus Ľ', productName: 'Profhilo H+L 2ml', lotNumber: 'PRO-2ML-881', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_b4', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 270, y: 485 }, zoneName: 'Brada Ľ', productName: 'Profhilo H+L 2ml', lotNumber: 'PRO-2ML-881', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_b5', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 210, y: 495 }, zoneName: 'Mandibulárny uhol Ľ', productName: 'Profhilo H+L 2ml', lotNumber: 'PRO-2ML-881', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_b6', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 365, y: 335 }, zoneName: 'Zygomatická prominencia P', productName: 'Profhilo H+L 2ml', lotNumber: 'PRO-2ML-881', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_b7', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 350, y: 390 }, zoneName: 'Nazálna báza P', productName: 'Profhilo H+L 2ml', lotNumber: 'PRO-2ML-881', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_b8', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 385, y: 430 }, zoneName: 'Tragus P', productName: 'Profhilo H+L 2ml', lotNumber: 'PRO-2ML-881', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_b9', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 330, y: 485 }, zoneName: 'Brada P', productName: 'Profhilo H+L 2ml', lotNumber: 'PRO-2ML-881', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
-      { id: 'tpl_b10', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 390, y: 495 }, zoneName: 'Mandibulárny uhol P', productName: 'Profhilo H+L 2ml', lotNumber: 'PRO-2ML-881', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' }
+      { id: 'tpl_b1', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 235, y: 335 }, zoneName: 'Zygomatická prominencia Ľ', productName: 'Profhilo H+L 2ml', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_b2', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 250, y: 390 }, zoneName: 'Nazálna báza Ľ', productName: 'Profhilo H+L 2ml', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_b3', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 215, y: 430 }, zoneName: 'Tragus Ľ', productName: 'Profhilo H+L 2ml', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_b4', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 270, y: 485 }, zoneName: 'Brada Ľ', productName: 'Profhilo H+L 2ml', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_b5', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 210, y: 495 }, zoneName: 'Mandibulárny uhol Ľ', productName: 'Profhilo H+L 2ml', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_b6', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 365, y: 335 }, zoneName: 'Zygomatická prominencia P', productName: 'Profhilo H+L 2ml', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_b7', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 350, y: 390 }, zoneName: 'Nazálna báza P', productName: 'Profhilo H+L 2ml', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_b8', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 385, y: 430 }, zoneName: 'Tragus P', productName: 'Profhilo H+L 2ml', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_b9', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 330, y: 485 }, zoneName: 'Brada P', productName: 'Profhilo H+L 2ml', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_b10', type: 'point', view: 'front', color: '#10B981', startPoint: { x: 390, y: 495 }, zoneName: 'Mandibulárny uhol P', productName: 'Profhilo H+L 2ml', details: '0.2ml BAP', units: 0.2, unitsUnit: 'ml', createdAt: '10:00' }
+    ]
+  },
+  {
+    id: 'rejuran_healer_fullface',
+    title: 'Rejuran Healer (2ml) – Polynukleotidová obnova pleti',
+    category: 'meso',
+    productName: 'Rejuran Healer (2ml Polynukleotidy)',
+    price: getClinicPrice('rejuran_healer_2ml', 290),
+    type: 'point',
+    color: '#0EA5E9',
+    description: 'Intradermálna aplikácia polynukleotidov (PN) pre bunkovú opravu dermis, redukciu pórov a spevnenie pleti.',
+    recommendations: '• Drobné papulky vymiznú do 24-36 hodín – nemasírovať.\n• Používať SPF 50+ a vynechať saunu 48 hodín.',
+    vectors: [
+      { id: 'tpl_rj1', type: 'point', view: 'front', color: '#0EA5E9', startPoint: { x: 245, y: 345 }, zoneName: 'Líce Ľ (horná zóna)', productName: 'Rejuran Healer (2ml Polynukleotidy)', details: '0.5ml mikropapuly', units: 0.5, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_rj2', type: 'point', view: 'front', color: '#0EA5E9', startPoint: { x: 255, y: 405 }, zoneName: 'Líce Ľ (dolná zóna)', productName: 'Rejuran Healer (2ml Polynukleotidy)', details: '0.5ml mikropapuly', units: 0.5, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_rj3', type: 'point', view: 'front', color: '#0EA5E9', startPoint: { x: 355, y: 345 }, zoneName: 'Líce P (horná zóna)', productName: 'Rejuran Healer (2ml Polynukleotidy)', details: '0.5ml mikropapuly', units: 0.5, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_rj4', type: 'point', view: 'front', color: '#0EA5E9', startPoint: { x: 345, y: 405 }, zoneName: 'Líce P (dolná zóna)', productName: 'Rejuran Healer (2ml Polynukleotidy)', details: '0.5ml mikropapuly', units: 0.5, unitsUnit: 'ml', createdAt: '10:00' }
     ]
   },
   {
@@ -507,8 +594,7 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     title: 'Radiesse (+) 1.5ml – Vektoring sánky & Lifting',
     category: 'biostimulator',
     productName: 'Radiesse (+) 1.5ml',
-    lot: 'RAD-150-332',
-    price: 420,
+    price: getClinicPrice('radiesse_1_5ml', 390),
     type: 'fanning',
     color: '#D97706',
     description: 'CaHA kanylový lifting kontúr dolnej čeľuste, kútikov a zygomy.',
@@ -528,7 +614,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         ],
         zoneName: 'Mandibulárny vektoring Ľ',
         productName: 'Radiesse (+) 1.5ml',
-        lotNumber: 'RAD-150-332',
         details: '0.75ml kanyla 25G',
         createdAt: '10:00'
       },
@@ -546,7 +631,6 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
         ],
         zoneName: 'Mandibulárny vektoring P',
         productName: 'Radiesse (+) 1.5ml',
-        lotNumber: 'RAD-150-332',
         details: '0.75ml kanyla 25G',
         createdAt: '10:00'
       }
@@ -554,11 +638,10 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
   },
   {
     id: 'sculptra_cheeks',
-    title: 'Sculptra 10ml – PLLA Neokolagenéza líca',
+    title: 'Sculptra – PLLA Neokolagenéza líca (1 fľaštička)',
     category: 'biostimulator',
-    productName: 'Sculptra 10ml',
-    lot: 'SCL-2026-881A',
-    price: 480,
+    productName: 'Sculptra (1 fľaštička)',
+    price: getClinicPrice('sculptra_1vial', 450),
     type: 'fanning',
     color: '#C5A059',
     description: 'Biostimulačný nános PLLA pre obnovu objemu a pevnosti hlbokých vrstiev kože.',
@@ -578,8 +661,7 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
           { x: 260, y: 430 }
         ],
         zoneName: 'Zygomatický vejár Ľ',
-        productName: 'Sculptra 10ml',
-        lotNumber: 'SCL-2026-881A',
+        productName: 'Sculptra (1 fľaštička)',
         details: '5ml PLLA suspenzia',
         createdAt: '10:00'
       },
@@ -597,8 +679,7 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
           { x: 340, y: 430 }
         ],
         zoneName: 'Zygomatický vejár P',
-        productName: 'Sculptra 10ml',
-        lotNumber: 'SCL-2026-881A',
+        productName: 'Sculptra (1 fľaštička)',
         details: '5ml PLLA suspenzia',
         createdAt: '10:00'
       }
@@ -786,7 +867,6 @@ export function AestheticsModule({
   const [newMatName, setNewMatName] = useState('');
   const [newMatType, setNewMatType] = useState<'botox' | 'filler' | 'meso' | 'biostimulator'>('botox');
   const [newMatCategory, setNewMatCategory] = useState('Botulotoxín A');
-  const [newMatLot, setNewMatLot] = useState('LOT-2026-01');
   const [newMatColor, setNewMatColor] = useState('#3B82F6');
   const [newMatPrice, setNewMatPrice] = useState<number>(120);
   const [newMatUnit, setNewMatUnit] = useState('Speywood');
@@ -805,8 +885,7 @@ export function AestheticsModule({
     {
       id: 'li_initial',
       title: 'Dysport, m. frontalis bilat., 4 vpichy strana, celkovo 50IU',
-      price: 120,
-      lot: 'DYSP-4412B'
+      price: 120
     }
   ]);
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent');
@@ -1073,7 +1152,6 @@ export function AestheticsModule({
       title: customTemplateTitle.trim(),
       category: activeMaterial.type,
       productName: activeMaterial.name,
-      lot: activeMaterial.lot,
       price: customTemplatePrice,
       type: activeTool === 'fanning' ? 'fanning' : activeTool === 'threads' ? 'threads' : 'point',
       color: activeColor,
@@ -1109,8 +1187,7 @@ export function AestheticsModule({
     const newItem: TreatmentLineItem = {
       id: `li_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       title: title || `${activeMaterial.name}, individuálna aplikácia`,
-      price: price !== undefined ? price : activeMaterial.defaultPrice,
-      lot: activeMaterial.lot
+      price: price !== undefined ? price : activeMaterial.defaultPrice
     };
     setLineItems(prev => [...prev, newItem]);
   };
@@ -1806,7 +1883,7 @@ ${sessionNextStep}`;
                   onSelectColor={setActiveColor}
                   currentProduct={{
                     name: activeMaterial.name,
-                    lot: activeMaterial.lot || '',
+                    lot: '',
                     type: activeMaterial.type
                   }}
                   selectedVectorId={selectedVectorId}
@@ -1825,7 +1902,6 @@ ${sessionNextStep}`;
                   onSelectColor={setActiveColor}
                   currentProduct={{
                     name: activeMaterial.name,
-                    lot: activeMaterial.lot,
                     type: activeMaterial.type,
                     unit: activeMaterial.defaultUnit
                   }}

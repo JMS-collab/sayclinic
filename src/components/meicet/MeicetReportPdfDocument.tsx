@@ -71,18 +71,13 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase text-[#8C857B]">Anamnestické zhrnutie</p>
+          <p className="text-[10px] font-bold uppercase text-[#8C857B]">Hlavné zameranie pleti</p>
           <p className="text-[10px] text-[#2C2A29]">
-            <strong>Operácie:</strong> {anamnesis.pastSurgeries.length > 0 ? anamnesis.pastSurgeries.join(', ') : 'Bez predchádzajúcich operácií'}
+            <strong>Hlavné ciele:</strong> {anamnesis.clientConcerns && anamnesis.clientConcerns.length > 0 ? anamnesis.clientConcerns.join(', ') : 'Obnova bariéry, hydratácia a anti-aging'}
           </p>
           <p className="text-[10px] text-[#2C2A29]">
             <strong>Alergie:</strong> {anamnesis.allergies.length > 0 ? anamnesis.allergies.join(', ') : 'Neguje'}
           </p>
-          {anamnesis.scarHistory.length > 0 && (
-            <p className="text-[10px] text-[#DC2626] font-semibold">
-              <strong>Jazva:</strong> {anamnesis.scarHistory.map(s => `${s.location} (${s.appearance})`).join('; ')}
-            </p>
-          )}
         </div>
       </div>
 
@@ -169,92 +164,18 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
       {/* KLINICKÁ SYNTÉZA & ZHODNOTENIE */}
       <div className="mb-5 p-3 rounded-xl bg-[#FAF8F5] border border-[#C5A059]/40">
         <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#C5A059] mb-1">
-          2. Lekárske posúdenie synergie Meicet nálezu a anamnézy pacienta
+          Lekárske zhodnotenie stavu pleti (Meicet Pro-A AI Syntéza)
         </h4>
-        <p className="text-[10px] text-[#2C2A29] leading-relaxed mb-2">
+        <p className="text-[10px] text-[#2C2A29] leading-relaxed">
           {clinicalSynthesis.summary}
         </p>
-        {clinicalSynthesis.synergyWithSurgeries && (
-          <p className="text-[10px] text-amber-900 bg-amber-50 p-2 rounded border border-amber-200">
-            <strong>Chirurgický kontext:</strong> {clinicalSynthesis.synergyWithSurgeries}
-          </p>
-        )}
       </div>
-
-      {/* ROČNÝ PLÁN OŠETRENÍ NA 12 MESIACOV */}
-      <div className="mb-6 print-avoid-break">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-3">
-          3. Ročný plán ošetrení SAY CLINIC (Sezónny 12-mesačný harmonogram)
-        </h4>
-
-        <div className="space-y-3">
-          {annualSchedule.map((season, idx) => (
-            <div key={idx} className="border border-[#E8E2D9] rounded-lg p-2.5 bg-white">
-              <div className="flex justify-between items-center mb-1 border-b border-gray-100 pb-1">
-                <span className="font-bold text-[#2C2A29] text-[11px]">{season.quarter}: {season.title}</span>
-                <span className="text-[9px] uppercase font-bold text-[#C5A059]">{season.season}</span>
-              </div>
-              <p className="text-[9px] text-[#8C857B] italic mb-2">
-                Poznámka: {season.seasonalConsideration}
-              </p>
-              <div className="space-y-1">
-                {season.treatments.map((t, tIdx) => (
-                  <div key={tIdx} className="flex justify-between items-center text-[10px] py-1 px-1.5 rounded bg-[#FAF8F5]">
-                    <div>
-                      <strong className="text-[#2C2A29]">{t.name}</strong> ({t.seasonOrMonth}) - <span className="text-[#8C857B]">{t.targetArea}</span>
-                      <p className="text-[9px] text-[#8C857B]">{t.reasoning}</p>
-                    </div>
-                    <div className="text-right shrink-0 ml-2">
-                      <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-white border border-[#E8E2D9]">
-                        {t.priority}
-                      </span>
-                      {t.estimatedPrice ? (
-                        <span className="text-[10px] font-bold block text-[#2C2A29]">{t.estimatedPrice} €</span>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* PROTOKOL STAROSTLIVOSTI O JAZVY */}
-      {scarProtocol.hasScars && (
-        <div className="mb-6 p-3.5 rounded-xl border border-red-200 bg-red-50/30 print-avoid-break">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-red-800 mb-1 flex items-center justify-between">
-            <span>4. Protokol starostlivosti o jazvy (SAY CLINIC Scar Care Protocol)</span>
-            <span className="text-[9px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold uppercase">Prioritná starostlivosť</span>
-          </h4>
-          <p className="text-[10px] text-[#2C2A29] mb-2">{scarProtocol.scarSummary}</p>
-
-          <div className="grid grid-cols-3 gap-2 text-[10px] mb-2">
-            <div className="p-2 bg-white rounded border border-red-100">
-              <strong className="block text-red-900 mb-0.5">1. Silikónová liečba</strong>
-              <p className="text-[9px] text-[#2C2A29]">{scarProtocol.dailyRoutine.siliconeTherapy}</p>
-            </div>
-            <div className="p-2 bg-white rounded border border-red-100">
-              <strong className="block text-red-900 mb-0.5">2. Tlaková masáž</strong>
-              <p className="text-[9px] text-[#2C2A29]">{scarProtocol.dailyRoutine.pressureMassage}</p>
-            </div>
-            <div className="p-2 bg-white rounded border border-red-100">
-              <strong className="block text-red-900 mb-0.5">3. UV Fotoprotekcia</strong>
-              <p className="text-[9px] text-[#2C2A29]">{scarProtocol.dailyRoutine.sunProtection}</p>
-            </div>
-          </div>
-
-          <div className="text-[9px] text-[#8C857B]">
-            <strong>Klinická terapia na SAY CLINIC (Cievny laser):</strong> {scarProtocol.clinicalLaserTherapy.recommendedProcedures.join(' | ')}
-          </div>
-        </div>
-      )}
 
       {/* DENNÁ SKINCARE RUTINA */}
       <div className="mb-6 print-avoid-break">
         <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-1 mb-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[#C5A059]">
-            5. Personalizovaná domáca dermokozmetická rutina — {tierTitle}
+            2. Personalizovaná domáca dermokozmetická rutina — {tierTitle}
           </h4>
           <span className="text-[9px] font-bold text-[#8C857B] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#E8E2D9]">
             {(routineData as any)?.totalEstimatedPrice ? `Sada z cenníka: ${(routineData as any).totalEstimatedPrice} €` : 'Z nášho cenníka'}
@@ -304,21 +225,44 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
         </div>
 
         <p className="text-[9px] text-[#8C857B] italic mt-2 border-t border-gray-100 pt-1">
-          * V cenníku kliniky SAY CLINIC sú k dispozícii obe línie: prémiová High-End (SkinCeuticals) aj dostupná Mid-End (La Roche-Posay, CeraVe, Vichy).
+          * V cenníku kliniky SAY CLINIC sú k dispozícii obe línie: Basic (La Roche-Posay, CeraVe, Vichy) aj Premium (SkinCeuticals).
         </p>
       </div>
 
-      {/* KONTROLNÉ MÍĽNIKY MEICET */}
-      <div className="mb-6 p-3 rounded-xl border border-[#E8E2D9] bg-[#FAF8F5] print-avoid-break">
-        <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#2C2A29] mb-2">
-          6. Kontrolné míľniky a pretestovanie na Meicet Pro-A
+      {/* ROČNÝ PLÁN OŠETRENÍ NA 12 MESIACOV */}
+      <div className="mb-6 print-avoid-break">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-[#C5A059] border-b border-[#E8E2D9] pb-1 mb-3">
+          3. Ročný plán pleťových procedúr SAY CLINIC (Sezónny 12-mesačný harmonogram)
         </h4>
-        <div className="grid grid-cols-3 gap-2 text-[10px]">
-          {milestones.map((m, idx) => (
-            <div key={idx} className="p-2 rounded bg-white border border-[#E8E2D9]">
-              <strong className="text-[#C5A059] block">{m.timeframe}</strong>
-              <span className="font-bold text-[#2C2A29] block mb-1">{m.title}</span>
-              <p className="text-[9px] text-[#8C857B]">{m.targetMetrics}</p>
+
+        <div className="space-y-3">
+          {annualSchedule.map((season, idx) => (
+            <div key={idx} className="border border-[#E8E2D9] rounded-lg p-2.5 bg-white">
+              <div className="flex justify-between items-center mb-1 border-b border-gray-100 pb-1">
+                <span className="font-bold text-[#2C2A29] text-[11px]">{season.quarter}: {season.title}</span>
+                <span className="text-[9px] uppercase font-bold text-[#C5A059]">{season.season}</span>
+              </div>
+              <p className="text-[9px] text-[#8C857B] italic mb-2">
+                Poznámka: {season.seasonalConsideration}
+              </p>
+              <div className="space-y-1">
+                {season.treatments.map((t, tIdx) => (
+                  <div key={tIdx} className="flex justify-between items-center text-[10px] py-1 px-1.5 rounded bg-[#FAF8F5]">
+                    <div>
+                      <strong className="text-[#2C2A29]">{t.name}</strong> ({t.seasonOrMonth}) - <span className="text-[#8C857B]">{t.targetArea}</span>
+                      <p className="text-[9px] text-[#8C857B]">{t.reasoning}</p>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-white border border-[#E8E2D9]">
+                        {t.priority}
+                      </span>
+                      {t.estimatedPrice ? (
+                        <span className="text-[10px] font-bold block text-[#2C2A29]">{t.estimatedPrice} €</span>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
