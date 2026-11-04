@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import { MeicetAnalysisResult } from '@/types/meicet';
 import { createDemoMeicetResult } from '@/data/meicetDemoData';
 import { getEffectiveGeminiApiKey } from '@/lib/geminiKey';
+import { MeicetClinicalEducationService } from '@/services/meicetClinicalEducationService';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -345,6 +346,7 @@ Extrahuj skutočné hodnoty z reportu alebo snímky spektier a vygeneruj fináln
       parsed.pdfSourceFilename = pdfFileName;
       parsed.doctorName = parsed.doctorName || 'MUDr. Ján Mráz';
       parsed.createdAt = new Date().toISOString();
+      parsed.clinicalEducation = parsed.clinicalEducation || MeicetClinicalEducationService.synthesizeClinicalEducation(parsed);
 
       return NextResponse.json({
         success: true,

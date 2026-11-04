@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   Sparkles, 
   Printer, 
@@ -27,14 +27,24 @@ import {
   X,
   FlaskConical,
   Lightbulb,
-  HardDrive
+  HardDrive,
+  MoreHorizontal,
+  Home,
+  ArrowLeftRight
 } from 'lucide-react';
-import { MeicetAnalysisResult, MeicetTreatmentPlanItem, SkincareTier } from '@/types/meicet';
+import { MeicetAnalysisResult, MeicetTreatmentPlanItem, SkincareTier, MeicetSkincareProduct } from '@/types/meicet';
 import { MeicetService } from '@/services/meicetService';
 import { MeicetReportPdfDocument } from './MeicetReportPdfDocument';
 import { CalendarEvent } from '@/data/calendarConfig';
 import { generatePdfFilename, exportElementToPdf, generatePdfBase64 } from '@/lib/pdfGenerator';
 import { getLiveClinicPriceList, ClinicPriceItem } from '@/data/clinicPriceList';
+import { MeicetClinicalEducationCard } from './MeicetClinicalEducationCard';
+import { MeicetClinicalEducationService } from '@/services/meicetClinicalEducationService';
+import { MeicetProductContextMenu } from './MeicetProductContextMenu';
+import { MeicetProductSwapModal } from './MeicetProductSwapModal';
+import { MeicetTitrationEditModal } from './MeicetTitrationEditModal';
+import { MeicetProcedureContextMenu } from './MeicetProcedureContextMenu';
+import { MeicetProcedureSwapModal } from './MeicetProcedureSwapModal';
 
 interface MeicetViewerProps {
   report: MeicetAnalysisResult;
@@ -104,6 +114,71 @@ export function MeicetViewer({
   );
   const [selectedSeasonKey, setSelectedSeasonKey] = useState<'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter'>('q1_spring');
   const [selectedNewTreatmentId, setSelectedNewTreatmentId] = useState<string>('biorepeel_face');
+
+  // Kontextové menu a modaly pre skincare produkty
+  const [productContextMenu, setProductContextMenu] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    product: MeicetSkincareProduct | null;
+    routineType: 'morning' | 'evening';
+  }>({
+    isOpen: false,
+    x: 0,
+    y: 0,
+    product: null,
+    routineType: 'morning'
+  });
+
+  const [productSwapModal, setProductSwapModal] = useState<{
+    isOpen: boolean;
+    product: MeicetSkincareProduct | null;
+    routineType: 'morning' | 'evening';
+  }>({
+    isOpen: false,
+    product: null,
+    routineType: 'morning'
+  });
+
+  const [titrationEditModal, setTitrationEditModal] = useState<{
+    isOpen: boolean;
+    product: MeicetSkincareProduct | null;
+    routineType: 'morning' | 'evening';
+  }>({
+    isOpen: false,
+    product: null,
+    routineType: 'morning'
+  });
+
+  // Kontextové menu a modaly pre procedúry v ročnom pláne
+  const [procedureContextMenu, setProcedureContextMenu] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    treatment: MeicetTreatmentPlanItem | null;
+    quarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter';
+  }>({
+    isOpen: false,
+    x: 0,
+    y: 0,
+    treatment: null,
+    quarterKey: 'q1_spring'
+  });
+
+  const [procedureSwapModal, setProcedureSwapModal] = useState<{
+    isOpen: boolean;
+    treatment: MeicetTreatmentPlanItem | null;
+    quarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter';
+  }>({
+    isOpen: false,
+    treatment: null,
+    quarterKey: 'q1_spring'
+  });
+
+  // Klinická edukatívna syntéza EBM
+  const clinicalEducation = useMemo(() => {
+    return MeicetClinicalEducationService.getClinicalEducation(report);
+  }, [report]);
 
   const pdfReportRef = useRef<HTMLDivElement>(null);
   const hiddenPdfRef = useRef<HTMLDivElement>(null);
@@ -273,8 +348,188 @@ export function MeicetViewer({
   const currentMorning = activeTierRoutine.morning;
   const currentEvening = activeTierRoutine.evening;
   const currentWeeklyCare = activeTierRoutine.weeklyCare;
-  const currentTotalPrice = activeTierRoutine.totalEstimatedPrice ||
-    [...currentMorning, ...currentEvening].reduce((sum, item) => sum + (item.price || 0), 0);
+
+  const allRoutineProducts = [...currentMorning, ...currentEvening];
+  const productsToBuy = allRoutineProducts.filter(item => !item.alreadyOwned);
+  const ownedProducts = allRoutineProducts.filter(item => item.alreadyOwned);
+
+  const currentTotalPrice = productsToBuy.reduce((sum, item) => sum + (item.price || 0), 0);
+  const totalOwnedSaved = ownedProducts.reduce((sum, item) => sum + (item.price || 0), 0);
+
+  // Pomocná funkcia na aplikáciu zmien v skincare rutine
+  const updateSkincareRoutine = (
+    newMorning: MeicetSkincareProduct[],
+    newEvening: MeicetSkincareProduct[]
+  ) => {
+    const updatedTierData = {
+      ...activeTierRoutine,
+      morning: newMorning,
+      evening: newEvening
+    };
+
+    const updatedSkincare: any = {
+      ...report.skincareRoutine,
+      selectedTier,
+      morning: newMorning,
+      evening: newEvening,
+      highEnd: selectedTier === 'high_end' ? updatedTierData : report.skincareRoutine?.highEnd,
+      midEnd: selectedTier === 'mid_end' ? updatedTierData : report.skincareRoutine?.midEnd
+    };
+
+    const updatedReport: MeicetAnalysisResult = {
+      ...report,
+      skincareRoutine: updatedSkincare
+    };
+
+    if (onUpdateReport) {
+      onUpdateReport(updatedReport);
+    }
+  };
+
+  // 1. Nahradenie produktu za iný
+  const handleSwapSkincareProduct = (
+    newProduct: MeicetSkincareProduct,
+    routineType: 'morning' | 'evening'
+  ) => {
+    if (routineType === 'morning') {
+      const updated = currentMorning.map(p => p.step === newProduct.step ? newProduct : p);
+      updateSkincareRoutine(updated, currentEvening);
+    } else {
+      const updated = currentEvening.map(p => p.step === newProduct.step ? newProduct : p);
+      updateSkincareRoutine(currentMorning, updated);
+    }
+  };
+
+  // 2. Prepnutie "Klient už vlastní doma"
+  const handleToggleProductAlreadyOwned = (
+    targetProduct: MeicetSkincareProduct,
+    routineType: 'morning' | 'evening'
+  ) => {
+    const toggle = (p: MeicetSkincareProduct) => 
+      p.step === targetProduct.step ? { ...p, alreadyOwned: !p.alreadyOwned } : p;
+
+    if (routineType === 'morning') {
+      updateSkincareRoutine(currentMorning.map(toggle), currentEvening);
+    } else {
+      updateSkincareRoutine(currentMorning, currentEvening.map(toggle));
+    }
+  };
+
+  // 3. Úprava frekvencie a titrácie
+  const handleSaveProductTitration = (
+    targetProduct: MeicetSkincareProduct,
+    routineType: 'morning' | 'evening',
+    frequency: string,
+    titration?: string
+  ) => {
+    const edit = (p: MeicetSkincareProduct) => 
+      p.step === targetProduct.step 
+        ? { ...p, frequencySchedule: frequency, usage: frequency, titrationNotes: titration } 
+        : p;
+
+    if (routineType === 'morning') {
+      updateSkincareRoutine(currentMorning.map(edit), currentEvening);
+    } else {
+      updateSkincareRoutine(currentMorning, currentEvening.map(edit));
+    }
+  };
+
+  // 4. Odstránenie produktu z rutiny (s prečíslovaním krokov)
+  const handleRemoveSkincareProduct = (
+    targetProduct: MeicetSkincareProduct,
+    routineType: 'morning' | 'evening'
+  ) => {
+    if (routineType === 'morning') {
+      const filtered = currentMorning
+        .filter(p => p.step !== targetProduct.step)
+        .map((p, idx) => ({ ...p, step: idx + 1 }));
+      updateSkincareRoutine(filtered, currentEvening);
+    } else {
+      const filtered = currentEvening
+        .filter(p => p.step !== targetProduct.step)
+        .map((p, idx) => ({ ...p, step: idx + 1 }));
+      updateSkincareRoutine(currentMorning, filtered);
+    }
+  };
+
+  // 5. Nahradenie procedúry v kvartáli
+  const handleSwapProcedureItem = (
+    newTreatment: MeicetTreatmentPlanItem,
+    quarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter'
+  ) => {
+    const updatedQuarter = (annualSchedule[quarterKey] || []).map((item: any) => 
+      item.id === newTreatment.id ? newTreatment : item
+    );
+    const updatedSchedule = {
+      ...annualSchedule,
+      [quarterKey]: updatedQuarter
+    };
+    if (onUpdateReport) {
+      onUpdateReport({ ...report, annualSchedule: updatedSchedule });
+    }
+  };
+
+  // 6. Presun procedúry do iného kvartálu
+  const handleMoveProcedureQuarter = (
+    treatment: MeicetTreatmentPlanItem,
+    sourceQuarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter',
+    targetQuarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter'
+  ) => {
+    if (sourceQuarterKey === targetQuarterKey) return;
+    const seasonLabels: Record<'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter', string> = {
+      q1_spring: 'Jar (Q1)',
+      q2_summer: 'Leto (Q2)',
+      q3_autumn: 'Jeseň (Q3)',
+      q4_winter: 'Zima (Q4)'
+    };
+    const movedItem = {
+      ...treatment,
+      seasonOrMonth: seasonLabels[targetQuarterKey]
+    };
+    const updatedSchedule = {
+      ...annualSchedule,
+      [sourceQuarterKey]: (annualSchedule[sourceQuarterKey] || []).filter((i: any) => i.id !== treatment.id),
+      [targetQuarterKey]: [...(annualSchedule[targetQuarterKey] || []), movedItem]
+    };
+    if (onUpdateReport) {
+      onUpdateReport({ ...report, annualSchedule: updatedSchedule });
+    }
+  };
+
+  // 7. Zmena priority procedúry
+  const handleChangeProcedurePriority = (
+    treatment: MeicetTreatmentPlanItem,
+    quarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter',
+    priority: 'vysoká' | 'odporúčaná' | 'udržiavacia'
+  ) => {
+    const updatedQuarter = (annualSchedule[quarterKey] || []).map((item: any) => 
+      item.id === treatment.id ? { ...item, priority } : item
+    );
+    const updatedSchedule = {
+      ...annualSchedule,
+      [quarterKey]: updatedQuarter
+    };
+    if (onUpdateReport) {
+      onUpdateReport({ ...report, annualSchedule: updatedSchedule });
+    }
+  };
+
+  // 8. Označenie procedúry ako externý zákrok
+  const handleToggleProcedureExternal = (
+    treatment: MeicetTreatmentPlanItem,
+    quarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter'
+  ) => {
+    const updatedQuarter = (annualSchedule[quarterKey] || []).map((item: any) => 
+      item.id === treatment.id ? { ...item, isExternal: !item.isExternal } : item
+    );
+    const updatedSchedule = {
+      ...annualSchedule,
+      [quarterKey]: updatedQuarter
+    };
+    if (onUpdateReport) {
+      onUpdateReport({ ...report, annualSchedule: updatedSchedule });
+    }
+  };
 
   const allAnnualProcedures = [
     ...(annualSchedule?.q1_spring || []),
@@ -443,11 +698,11 @@ export function MeicetViewer({
     }
   };
 
-  // Preniesť zvolenú skincare rutinu do pokladne POS (výhradne interné produkty SAY CLINIC)
+  // Preniesť zvolenú skincare rutinu do pokladne POS (výhradne interné produkty SAY CLINIC a ktoré klient ešte nevlastní)
   const handleTransferToPOS = () => {
     if (!onTransferToCosmeticsPOS) return;
-    const internalMorning = currentMorning.filter(p => !p.isExternal);
-    const internalEvening = currentEvening.filter(p => !p.isExternal);
+    const internalMorning = currentMorning.filter(p => !p.isExternal && !p.alreadyOwned);
+    const internalEvening = currentEvening.filter(p => !p.isExternal && !p.alreadyOwned);
     const allProducts = [
       ...internalMorning.map(p => ({
         id: `prod-${selectedTier}-m-${p.step}`,
@@ -471,7 +726,7 @@ export function MeicetViewer({
     // Deduplikácia podľa názvu produktu (napr. rovnaký čistiaci gél)
     const uniqueProducts = Array.from(new Map(allProducts.map(p => [p.name, p])).values());
     onTransferToCosmeticsPOS(uniqueProducts);
-    setPosTransferNotice(`Sada ${selectedTier === 'high_end' ? 'Premium (SkinCeuticals)' : 'Basic (La Roche-Posay / CeraVe / Vichy)'} (${uniqueProducts.length} položiek, spolu ${currentTotalPrice} €) bola odoslaná do POS pokladne.`);
+    setPosTransferNotice(`Sada ${selectedTier === 'high_end' ? 'Premium (SkinCeuticals)' : 'Basic (La Roche-Posay / CeraVe / Vichy)'} (${uniqueProducts.length} položiek k úhrade, spolu ${currentTotalPrice} €${totalOwnedSaved > 0 ? `, ušetrené ${totalOwnedSaved} € za produkty, ktoré klient už má` : ''}) bola odoslaná do POS pokladne.`);
     setTimeout(() => setPosTransferNotice(null), 5000);
   };
 
@@ -953,6 +1208,12 @@ export function MeicetViewer({
       {activeTab === 'skincare' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           
+          {/* 🔬 KLINICKÁ DIAGNOSTICKO-TERAPEUTICKÁ MAPA & EDUKÁCIA */}
+          <MeicetClinicalEducationCard 
+            education={clinicalEducation} 
+            patientName={report.patientName} 
+          />
+
           {/* HORNÁ LIŠTA S PREPÍNAČOM BASIC VS PREMIUM A PRENOSOM DO POKLADNE */}
           <div className="bg-white rounded-2xl border-2 border-[#C5A059]/60 p-5 shadow-sm flex flex-col gap-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -967,16 +1228,26 @@ export function MeicetViewer({
                   {activeTierRoutine.brandDescription}
                 </p>
               </div>
-              {onTransferToCosmeticsPOS && (
-                <button
-                  type="button"
-                  onClick={handleTransferToPOS}
-                  className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm shrink-0"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Preniesť zvolenú sadu do POS pokladne ({currentTotalPrice} €)</span>
-                </button>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {totalOwnedSaved > 0 && (
+                  <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-medium flex items-center gap-1.5 shadow-2xs">
+                    <Home className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>
+                      Klient už má <strong>{ownedProducts.length}</strong> {ownedProducts.length === 1 ? 'produkt' : 'produkty'} (ušetrené <strong>{totalOwnedSaved} €</strong>)
+                    </span>
+                  </div>
+                )}
+                {onTransferToCosmeticsPOS && (
+                  <button
+                    type="button"
+                    onClick={handleTransferToPOS}
+                    className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm shrink-0"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Preniesť sadu do POS pokladne ({currentTotalPrice} €)</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* PREPÍNAČ TIEROV: BASIC vs PREMIUM */}
@@ -1069,31 +1340,59 @@ export function MeicetViewer({
                 {currentMorning.map((stepItem) => {
                   const isExt = Boolean(stepItem.isExternal);
                   const isRx = Boolean(stepItem.prescriptionOnly);
+                  const isOwned = Boolean(stepItem.alreadyOwned);
+
                   return (
                     <div 
                       key={stepItem.step} 
-                      className={`p-4 rounded-xl border flex items-start gap-3.5 transition-all ${
-                        isExt 
-                          ? 'bg-stone-100/80 border-stone-300' 
-                          : 'bg-[#FAF7F2] border-[#E8E2D9]'
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setProductContextMenu({
+                          isOpen: true,
+                          x: e.clientX,
+                          y: e.clientY,
+                          product: stepItem,
+                          routineType: 'morning'
+                        });
+                      }}
+                      className={`p-4 rounded-xl border flex items-start gap-3.5 transition-all group relative cursor-pointer ${
+                        isOwned
+                          ? 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-300/50 shadow-2xs'
+                          : isExt 
+                            ? 'bg-stone-100/80 border-stone-300 hover:border-stone-400' 
+                            : 'bg-[#FAF7F2] border-[#E8E2D9] hover:border-[#C5A059]'
                       }`}
                     >
                       <div className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 ${
-                        isExt ? 'bg-stone-500 text-white' : 'bg-amber-500 text-white'
+                        isOwned 
+                          ? 'bg-emerald-600 text-white' 
+                          : isExt 
+                            ? 'bg-stone-500 text-white' 
+                            : 'bg-amber-500 text-white'
                       }`}>
                         {stepItem.step}
                       </div>
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                              isExt 
-                                ? 'text-stone-700 bg-stone-200/80' 
-                                : 'text-amber-800 bg-amber-100/80'
+                              isOwned
+                                ? 'text-emerald-800 bg-emerald-100/90'
+                                : isExt 
+                                  ? 'text-stone-700 bg-stone-200/80' 
+                                  : 'text-amber-800 bg-amber-100/80'
                             }`}>
                               {stepItem.category}
                             </span>
-                            {isExt && (
+                            {isOwned && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                                <Home className="w-3 h-3 text-emerald-700" />
+                                🏠 Klient už vlastní doma
+                              </span>
+                            )}
+                            {isExt && !isOwned && (
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
                                 isRx 
                                   ? 'bg-rose-50 text-rose-800 border-rose-300' 
@@ -1103,14 +1402,51 @@ export function MeicetViewer({
                               </span>
                             )}
                           </div>
-                          {stepItem.price && (
-                            <span className={`text-xs font-serif font-bold ${isExt ? 'text-stone-600' : 'text-[#2C2A29]'}`}>
-                              {isExt ? `~${stepItem.price} € (lekáreň)` : `${stepItem.price} €`}
-                            </span>
-                          )}
+
+                          <div className="flex items-center gap-2">
+                            {stepItem.price && (
+                              <div className="text-right">
+                                {isOwned ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-serif font-bold line-through text-stone-400">
+                                      {stepItem.price} €
+                                    </span>
+                                    <span className="text-[11px] font-bold text-emerald-700">
+                                      (0 €)
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className={`text-xs font-serif font-bold ${isExt ? 'text-stone-600' : 'text-[#2C2A29]'}`}>
+                                    {isExt ? `~${stepItem.price} € (lekáreň)` : `${stepItem.price} €`}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Tlačidlo rýchlych možností (alebo pravý klik) */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setProductContextMenu({
+                                  isOpen: true,
+                                  x: rect.left - 200,
+                                  y: rect.bottom + 4,
+                                  product: stepItem,
+                                  routineType: 'morning'
+                                });
+                              }}
+                              className="p-1 rounded-lg text-[#8C837A] hover:text-[#2C2A29] hover:bg-black/5 transition-all opacity-70 group-hover:opacity-100 cursor-pointer"
+                              title="Možnosti produktu (alebo kliknite pravým tlačidlom)"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1">
-                          {stepItem.brand} – {stepItem.productName}
+
+                        <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1 flex items-center justify-between">
+                          <span>{stepItem.brand} – {stepItem.productName}</span>
                         </h5>
 
                         {/* BLOK 1: 🧪 Kľúčová účinná látka & koncentrácia */}
@@ -1184,31 +1520,59 @@ export function MeicetViewer({
                 {currentEvening.map((stepItem) => {
                   const isExt = Boolean(stepItem.isExternal);
                   const isRx = Boolean(stepItem.prescriptionOnly);
+                  const isOwned = Boolean(stepItem.alreadyOwned);
+
                   return (
                     <div 
                       key={stepItem.step} 
-                      className={`p-4 rounded-xl border flex items-start gap-3.5 transition-all ${
-                        isExt 
-                          ? 'bg-stone-100/80 border-stone-300' 
-                          : 'bg-[#FAF7F2] border-[#E8E2D9]'
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setProductContextMenu({
+                          isOpen: true,
+                          x: e.clientX,
+                          y: e.clientY,
+                          product: stepItem,
+                          routineType: 'evening'
+                        });
+                      }}
+                      className={`p-4 rounded-xl border flex items-start gap-3.5 transition-all group relative cursor-pointer ${
+                        isOwned
+                          ? 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-300/50 shadow-2xs'
+                          : isExt 
+                            ? 'bg-stone-100/80 border-stone-300 hover:border-stone-400' 
+                            : 'bg-[#FAF7F2] border-[#E8E2D9] hover:border-[#C5A059]'
                       }`}
                     >
                       <div className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 ${
-                        isExt ? 'bg-stone-500 text-white' : 'bg-indigo-600 text-white'
+                        isOwned 
+                          ? 'bg-emerald-600 text-white' 
+                          : isExt 
+                            ? 'bg-stone-500 text-white' 
+                            : 'bg-indigo-600 text-white'
                       }`}>
                         {stepItem.step}
                       </div>
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                              isExt 
-                                ? 'text-stone-700 bg-stone-200/80' 
-                                : 'text-indigo-800 bg-indigo-100/80'
+                              isOwned
+                                ? 'text-emerald-800 bg-emerald-100/90'
+                                : isExt 
+                                  ? 'text-stone-700 bg-stone-200/80' 
+                                  : 'text-indigo-800 bg-indigo-100/80'
                             }`}>
                               {stepItem.category}
                             </span>
-                            {isExt && (
+                            {isOwned && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                                <Home className="w-3 h-3 text-emerald-700" />
+                                🏠 Klient už vlastní doma
+                              </span>
+                            )}
+                            {isExt && !isOwned && (
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
                                 isRx 
                                   ? 'bg-rose-50 text-rose-800 border-rose-300' 
@@ -1218,14 +1582,51 @@ export function MeicetViewer({
                               </span>
                             )}
                           </div>
-                          {stepItem.price && (
-                            <span className={`text-xs font-serif font-bold ${isExt ? 'text-stone-600' : 'text-[#2C2A29]'}`}>
-                              {isExt ? `~${stepItem.price} € (lekáreň)` : `${stepItem.price} €`}
-                            </span>
-                          )}
+
+                          <div className="flex items-center gap-2">
+                            {stepItem.price && (
+                              <div className="text-right">
+                                {isOwned ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-serif font-bold line-through text-stone-400">
+                                      {stepItem.price} €
+                                    </span>
+                                    <span className="text-[11px] font-bold text-emerald-700">
+                                      (0 €)
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className={`text-xs font-serif font-bold ${isExt ? 'text-stone-600' : 'text-[#2C2A29]'}`}>
+                                    {isExt ? `~${stepItem.price} € (lekáreň)` : `${stepItem.price} €`}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Tlačidlo rýchlych možností (alebo pravý klik) */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setProductContextMenu({
+                                  isOpen: true,
+                                  x: rect.left - 200,
+                                  y: rect.bottom + 4,
+                                  product: stepItem,
+                                  routineType: 'evening'
+                                });
+                              }}
+                              className="p-1 rounded-lg text-[#8C837A] hover:text-[#2C2A29] hover:bg-black/5 transition-all opacity-70 group-hover:opacity-100 cursor-pointer"
+                              title="Možnosti produktu (alebo kliknite pravým tlačidlom)"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1">
-                          {stepItem.brand} – {stepItem.productName}
+
+                        <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1 flex items-center justify-between">
+                          <span>{stepItem.brand} – {stepItem.productName}</span>
                         </h5>
 
                         {/* BLOK 1: 🧪 Kľúčová účinná látka & koncentrácia */}
@@ -1442,9 +1843,20 @@ export function MeicetViewer({
                       return (
                         <div 
                           key={item.id} 
-                          className={`p-4 rounded-xl border transition-all ${
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setProcedureContextMenu({
+                              isOpen: true,
+                              x: e.clientX,
+                              y: e.clientY,
+                              treatment: item,
+                              quarterKey: season.key
+                            });
+                          }}
+                          className={`p-4 rounded-xl border transition-all group relative cursor-pointer ${
                             isExt 
-                              ? 'bg-stone-100/90 border-stone-300' 
+                              ? 'bg-stone-100/90 border-stone-300 hover:border-stone-400' 
                               : 'bg-[#FAF7F2] border-[#E8E2D9] hover:border-[#C5A059]'
                           }`}
                         >
@@ -1470,6 +1882,27 @@ export function MeicetViewer({
                                   {isExt ? 'odhadom mimo kliniky' : `Rekonvalescencia: ${(item as any).downtime || (item as any).recovery || 'Bez obmedzenia'}`}
                                 </span>
                               </div>
+
+                              {/* Tlačidlo možností procedúry */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setProcedureContextMenu({
+                                    isOpen: true,
+                                    x: rect.left - 200,
+                                    y: rect.bottom + 4,
+                                    treatment: item,
+                                    quarterKey: season.key
+                                  });
+                                }}
+                                className="p-1.5 rounded-lg text-[#8C837A] hover:text-[#2C2A29] hover:bg-black/5 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
+                                title="Možnosti zákroku (alebo kliknite pravým tlačidlom)"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+
                               {onUpdateReport && (
                                 <button
                                   type="button"
@@ -1610,6 +2043,112 @@ export function MeicetViewer({
           </div>
         </div>
       )}
+      {/* KONTEXTOVÉ MENU A MODALY PRE SKINCARE PRODUKTY */}
+      <MeicetProductContextMenu
+        isOpen={productContextMenu.isOpen}
+        x={productContextMenu.x}
+        y={productContextMenu.y}
+        product={productContextMenu.product}
+        routineType={productContextMenu.routineType}
+        onClose={() => setProductContextMenu(prev => ({ ...prev, isOpen: false }))}
+        onSwapProduct={() => {
+          setProductSwapModal({
+            isOpen: true,
+            product: productContextMenu.product,
+            routineType: productContextMenu.routineType
+          });
+        }}
+        onEditTitration={() => {
+          setTitrationEditModal({
+            isOpen: true,
+            product: productContextMenu.product,
+            routineType: productContextMenu.routineType
+          });
+        }}
+        onToggleAlreadyOwned={() => {
+          if (productContextMenu.product) {
+            handleToggleProductAlreadyOwned(productContextMenu.product, productContextMenu.routineType);
+          }
+        }}
+        onRemoveProduct={() => {
+          if (productContextMenu.product) {
+            handleRemoveSkincareProduct(productContextMenu.product, productContextMenu.routineType);
+          }
+        }}
+      />
+
+      <MeicetProductSwapModal
+        isOpen={productSwapModal.isOpen}
+        onClose={() => setProductSwapModal(prev => ({ ...prev, isOpen: false }))}
+        currentProduct={productSwapModal.product}
+        routineType={productSwapModal.routineType}
+        onSelectAlternative={(newProduct) => {
+          handleSwapSkincareProduct(newProduct, productSwapModal.routineType);
+        }}
+      />
+
+      <MeicetTitrationEditModal
+        isOpen={titrationEditModal.isOpen}
+        onClose={() => setTitrationEditModal(prev => ({ ...prev, isOpen: false }))}
+        product={titrationEditModal.product}
+        onSave={(newFreq, newTitr) => {
+          if (titrationEditModal.product) {
+            handleSaveProductTitration(titrationEditModal.product, titrationEditModal.routineType, newFreq, newTitr);
+          }
+        }}
+      />
+
+      {/* KONTEXTOVÉ MENU A MODALY PRE PROCEDÚRY */}
+      <MeicetProcedureContextMenu
+        isOpen={procedureContextMenu.isOpen}
+        x={procedureContextMenu.x}
+        y={procedureContextMenu.y}
+        treatment={procedureContextMenu.treatment}
+        currentQuarterKey={procedureContextMenu.quarterKey}
+        onClose={() => setProcedureContextMenu(prev => ({ ...prev, isOpen: false }))}
+        onSwapProcedure={() => {
+          setProcedureSwapModal({
+            isOpen: true,
+            treatment: procedureContextMenu.treatment,
+            quarterKey: procedureContextMenu.quarterKey
+          });
+        }}
+        onMoveQuarter={(targetQuarter) => {
+          if (procedureContextMenu.treatment) {
+            handleMoveProcedureQuarter(procedureContextMenu.treatment, procedureContextMenu.quarterKey, targetQuarter);
+          }
+        }}
+        onChangePriority={(priority) => {
+          if (procedureContextMenu.treatment) {
+            handleChangeProcedurePriority(procedureContextMenu.treatment, procedureContextMenu.quarterKey, priority);
+          }
+        }}
+        onToggleExternal={() => {
+          if (procedureContextMenu.treatment) {
+            handleToggleProcedureExternal(procedureContextMenu.treatment, procedureContextMenu.quarterKey);
+          }
+        }}
+        onRemoveProcedure={() => {
+          if (procedureContextMenu.treatment) {
+            handleRemoveProcedureFromQuarter(procedureContextMenu.quarterKey, procedureContextMenu.treatment.id);
+          }
+        }}
+      />
+
+      <MeicetProcedureSwapModal
+        isOpen={procedureSwapModal.isOpen}
+        onClose={() => setProcedureSwapModal(prev => ({ ...prev, isOpen: false }))}
+        currentTreatment={procedureSwapModal.treatment}
+        quarterLabel={
+          procedureSwapModal.quarterKey === 'q1_spring' ? '🌸 Q1: Jar' :
+          procedureSwapModal.quarterKey === 'q2_summer' ? '☀️ Q2: Leto' :
+          procedureSwapModal.quarterKey === 'q3_autumn' ? '🍂 Q3: Jeseň' : '❄️ Q4: Zima'
+        }
+        onSelectAlternative={(newProc) => {
+          handleSwapProcedureItem(newProc, procedureSwapModal.quarterKey);
+        }}
+      />
+
       {/* Skrytý A4 DOM kontajner pre spoľahlivé generovanie Base64 PDF na Google Drive */}
       <div style={{ position: 'fixed', left: -9999, top: 0, width: '210mm', opacity: 0, pointerEvents: 'none' }} aria-hidden="true">
         <div ref={hiddenPdfRef} className="bg-white p-2">

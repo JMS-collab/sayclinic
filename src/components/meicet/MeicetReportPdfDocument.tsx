@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { MeicetAnalysisResult } from '@/types/meicet';
+import { MeicetClinicalEducationService } from '@/services/meicetClinicalEducationService';
 
 interface MeicetReportPdfDocumentProps {
   report: MeicetAnalysisResult;
@@ -10,6 +11,8 @@ interface MeicetReportPdfDocumentProps {
 
 export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPdfDocumentProps) {
   const { metrics, anamnesis, clinicalSynthesis, annualSchedule, skincareRoutine, scarProtocol, milestones } = report;
+
+  const clinicalEdu = MeicetClinicalEducationService.getClinicalEducation(report);
 
   const activeTier = selectedTier || skincareRoutine.selectedTier || 'high_end';
   const routineData = activeTier === 'mid_end' && skincareRoutine.midEnd
@@ -171,6 +174,69 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
         </p>
       </div>
 
+      {/* 🔬 KLINICKÁ DIAGNÓZA, CIELE A MECHANIZMUS ÚČINKU LIEČIVÝCH LÁTOK (EBM PROTOKOL) */}
+      <div className="mb-5 p-3 rounded-xl bg-white border border-[#C5A059]/50 print-avoid-break">
+        <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-1 mb-2">
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
+            🔬 Klinická diagnóza, terapeutické ciele & mechanizmus účinku liečby
+          </h4>
+          <span className="text-[8px] font-mono text-[#8C857B] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E8E2D9]">
+            EBM Protokol SAY CLINIC
+          </span>
+        </div>
+
+        {/* 1. Nálezy */}
+        <div className="mb-2">
+          <span className="text-[9px] font-bold text-[#8C6D2D] uppercase block mb-1">
+            1. Patofyziologický nález (Čo sa deje s vašou pleťou):
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            {clinicalEdu.pathophysiology.issues.map(iss => (
+              <div key={iss.id} className="p-1.5 rounded bg-[#FAF8F5] border border-[#E8E2D9] text-[8.5px]">
+                <strong className="text-[#2C2A29] block font-serif">{iss.name}</strong>
+                <p className="text-[#5A524C] mt-0.5">{iss.finding}</p>
+                <p className="text-[8px] text-[#8C6D2D] italic mt-0.5">{iss.biologicalMechanism}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 2. Terapeutické ciele */}
+        <div className="mb-2">
+          <span className="text-[9px] font-bold text-[#8C6D2D] uppercase block mb-1">
+            2. Terapeutická stratégia (Postupnosť liečebných fáz):
+          </span>
+          <div className="grid grid-cols-3 gap-1.5">
+            {clinicalEdu.therapeuticStrategy.phases.map((ph, idx) => (
+              <div key={idx} className="p-1.5 rounded bg-blue-50/50 border border-blue-200/50 text-[8px]">
+                <span className="font-bold text-blue-950 block">{ph.phase}</span>
+                <strong className="text-blue-900 block font-serif">{ph.title}</strong>
+                <p className="text-blue-900/90 mt-0.5">{ph.objective}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 3. Kľúčové molekuly */}
+        <div>
+          <span className="text-[9px] font-bold text-[#8C6D2D] uppercase block mb-1">
+            3. Kľúčové účinné látky a ich bunkový mechanizmus:
+          </span>
+          <div className="grid grid-cols-2 gap-1.5">
+            {clinicalEdu.activeIngredientsMatrix.slice(0, 4).map(item => (
+              <div key={item.id} className="p-1.5 rounded bg-[#FAF8F5] border border-[#E8E2D9] text-[8px]">
+                <div className="flex justify-between items-start font-bold">
+                  <span className="text-[#2C2A29] font-serif">{item.ingredient}</span>
+                  {item.concentration && <span className="text-[7.5px] font-mono text-[#8C6D2D] bg-white px-1 rounded border border-[#E8DFC9]">{item.concentration}</span>}
+                </div>
+                <p className="text-[#5A524C] mt-0.5"><span className="font-semibold text-[#8C6D2D]">Bunkový účinok:</span> {item.biologicalAction}</p>
+                <p className="text-emerald-800 font-medium mt-0.5">✓ {item.clinicalBenefit}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* DENNÁ SKINCARE RUTINA */}
       <div className="mb-6 print-avoid-break">
         <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-1 mb-3">
@@ -187,12 +253,18 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
             <span className="text-[11px] font-bold text-amber-800 block mb-1.5 uppercase tracking-wide">☀️ Ranná rutina</span>
             <div className="space-y-2">
               {morningProducts.map(item => (
-                <div key={item.step} className="p-2 rounded border border-[#E8E2D9] bg-[#FAF8F5] text-[10px]">
+                <div key={item.step} className={`p-2 rounded border text-[10px] ${item.alreadyOwned ? 'bg-emerald-50/50 border-emerald-300' : 'bg-[#FAF8F5] border-[#E8E2D9]'}`}>
                   <div className="flex justify-between items-start font-bold">
                     <span className="text-[#2C2A29]">{item.step}. {item.category}</span>
                     <div className="text-right shrink-0 ml-1">
                       <span className="text-[#C5A059] text-[9px]">{item.brand}</span>
-                      {item.price ? <span className="text-[9px] font-bold text-[#2C2A29] ml-1">({item.price} €)</span> : null}
+                      {item.alreadyOwned ? (
+                        <span className="text-[8px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300 ml-1">
+                          🏠 Už má doma (0 €)
+                        </span>
+                      ) : (
+                        item.price ? <span className="text-[9px] font-bold text-[#2C2A29] ml-1">({item.price} €)</span> : null
+                      )}
                     </div>
                   </div>
                   <p className="text-[#2C2A29] font-bold mt-0.5">{item.productName}</p>
@@ -226,12 +298,18 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
             <span className="text-[11px] font-bold text-indigo-900 block mb-1.5 uppercase tracking-wide">🌙 Večerná rutina</span>
             <div className="space-y-2">
               {eveningProducts.map(item => (
-                <div key={item.step} className="p-2 rounded border border-[#E8E2D9] bg-[#FAF8F5] text-[10px]">
+                <div key={item.step} className={`p-2 rounded border text-[10px] ${item.alreadyOwned ? 'bg-emerald-50/50 border-emerald-300' : 'bg-[#FAF8F5] border-[#E8E2D9]'}`}>
                   <div className="flex justify-between items-start font-bold">
                     <span className="text-[#2C2A29]">{item.step}. {item.category}</span>
                     <div className="text-right shrink-0 ml-1">
                       <span className="text-[#C5A059] text-[9px]">{item.brand}</span>
-                      {item.price ? <span className="text-[9px] font-bold text-[#2C2A29] ml-1">({item.price} €)</span> : null}
+                      {item.alreadyOwned ? (
+                        <span className="text-[8px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300 ml-1">
+                          🏠 Už má doma (0 €)
+                        </span>
+                      ) : (
+                        item.price ? <span className="text-[9px] font-bold text-[#2C2A29] ml-1">({item.price} €)</span> : null
+                      )}
                     </div>
                   </div>
                   <p className="text-[#2C2A29] font-bold mt-0.5">{item.productName}</p>

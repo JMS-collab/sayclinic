@@ -132,6 +132,57 @@ export interface MeicetSkincareProduct {
   prescriptionOnly?: boolean; // liek na lekársky predpis (Rp.)
   pharmacyBrand?: boolean; // voľnopredajná lekárenská dermokozmetika
   externalProviderNote?: string;
+  alreadyOwned?: boolean; // Klient už produkt vlastní doma (nezapočítava sa do sumy nákupu)
+  galenicForm?: 'gel' | 'serum' | 'fluid' | 'emulsion' | 'cream' | 'balm' | 'rx' | 'other'; // Textúra / galenická forma
+}
+
+export interface MeicetPathophysiologyIssue {
+  id: string;
+  name: string;
+  finding: string;
+  biologicalMechanism: string;
+  severity: 'mierne' | 'výrazné' | 'kritické';
+}
+
+export interface MeicetTherapeuticPhase {
+  phase: string; // napr. 'Fáza 1 (Mesiace 1 - 2)'
+  title: string;
+  objective: string;
+  rationale: string;
+}
+
+export interface MeicetActiveIngredientEducation {
+  id: string;
+  ingredient: string;
+  concentration?: string;
+  category: string;
+  targetIssue: string;
+  biologicalAction: string; // bunkový a molekulárny mechanizmus
+  clinicalBenefit: string; // reálny klinický prínos pre klienta
+}
+
+export interface MeicetProcedureMechanismEducation {
+  id: string;
+  procedureName: string;
+  category: string;
+  targetLayer: string; // napr. 'Superficiálna epidermis', 'Dermis (papilárna/retikulárna)', 'Cievny plexus'
+  mechanismOfAction: string; // napr. 'Selektívna fototermolýza oxyhemoglobínu', 'Aktivácia fibroblastov cez CD44'
+  whyIndicated: string;
+}
+
+export interface MeicetClinicalEducation {
+  pathophysiology: {
+    title: string;
+    description: string;
+    issues: MeicetPathophysiologyIssue[];
+  };
+  therapeuticStrategy: {
+    title: string;
+    goal: string;
+    phases: MeicetTherapeuticPhase[];
+  };
+  activeIngredientsMatrix: MeicetActiveIngredientEducation[];
+  proceduresMechanisms: MeicetProcedureMechanismEducation[];
 }
 
 export interface MeicetScarCareProtocol {
@@ -190,6 +241,9 @@ export interface MeicetAnalysisResult {
   
   // Špecifický protokol starostlivosti o jazvy
   scarProtocol: MeicetScarCareProtocol;
+  
+  // Podrobná edukatívna analýza pleti, ciele a terapia s účinnými látkami
+  clinicalEducation?: MeicetClinicalEducation;
   
   // Kontrolné míľniky a pretestovanie na Meicet
   milestones: MeicetMilestone[];
