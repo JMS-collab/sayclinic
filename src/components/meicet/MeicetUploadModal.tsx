@@ -134,8 +134,11 @@ export function MeicetUploadModal({
   };
 
   const processFile = (file: File) => {
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      setErrorMsg('Prosím nahrajte platný PDF report z analyzátora Meicet Pro-A.');
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(file.name);
+
+    if (!isPdf && !isImage) {
+      setErrorMsg('Prosím nahrajte platný PDF report alebo JPG / PNG snímku z analyzátora Meicet.');
       return;
     }
     setErrorMsg(null);
@@ -344,7 +347,7 @@ export function MeicetUploadModal({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,application/pdf"
+                accept=".pdf,application/pdf,.jpg,.jpeg,.png,image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={handleFileInputChange}
               />
@@ -357,7 +360,7 @@ export function MeicetUploadModal({
                   <div className="min-w-0">
                     <p className="font-bold text-sm text-[#2C2A29] truncate">{selectedFile.name}</p>
                     <p className="text-[11px] text-emerald-700 font-semibold">
-                      PDF pripravené na AI multispektrálnu analýzu ({(selectedFile.size / 1024).toFixed(1)} KB)
+                      Súbor pripravený na AI multispektrálnu analýzu ({(selectedFile.size / 1024).toFixed(1)} KB)
                     </p>
                     <p className="text-[10px] text-[#8C857B] mt-0.5">Kliknite sem, ak chcete nahrať iný súbor</p>
                   </div>
@@ -369,10 +372,10 @@ export function MeicetUploadModal({
                   </div>
                   <div>
                     <p className="font-bold text-sm text-[#2C2A29]">
-                      Sem presuňte PDF report z analyzátora Meicet Pro-A
+                      Sem presuňte PDF report alebo JPG / PNG snímku z analyzátora Meicet Pro-A
                     </p>
                     <p className="text-xs text-[#8C857B]">
-                      alebo <span className="text-[#C5A059] font-bold underline">kliknite pre výber súboru</span> z počítača (.pdf)
+                      alebo <span className="text-[#C5A059] font-bold underline">kliknite pre výber súboru</span> z počítača (.pdf, .jpg, .png)
                     </p>
                   </div>
                   <p className="text-[10px] text-[#8C857B] max-w-md mx-auto">

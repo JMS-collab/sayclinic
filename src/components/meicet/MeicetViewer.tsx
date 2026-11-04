@@ -546,7 +546,7 @@ export function MeicetViewer({
               onClick={onNewScanRequested}
               className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-[#E8E2D9] font-bold text-xs transition-colors cursor-pointer"
             >
-              Zmeniť diagnostiku / Nové PDF
+              Zmeniť diagnostiku / Nový sken (PDF / JPG)
             </button>
           )}
         </div>

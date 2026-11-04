@@ -186,7 +186,7 @@ export function MeicetModule({
             className="px-4 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white font-bold text-xs uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Nahrať Meicet PDF</span>
+            <span>Nahrať Meicet (PDF / JPG)</span>
           </button>
         </div>
       </div>
@@ -200,7 +200,7 @@ export function MeicetModule({
                 Vytvorenie plánu pleti pre: {patient?.name || 'Klient'}
               </span>
               <h4 className="font-serif text-lg font-bold text-[#2C2A29]">
-                Vyberte spôsob diagnostiky pleti (Meicet PDF alebo Rýchle naklikanie problémov)
+                Vyberte spôsob diagnostiky pleti (Meicet PDF / JPG alebo Rýchle naklikanie problémov)
               </h4>
             </div>
             <button
@@ -209,7 +209,7 @@ export function MeicetModule({
               className="px-5 py-2.5 rounded-xl bg-[#FAF8F5] hover:bg-[#2C2A29] text-[#2C2A29] hover:text-white border border-[#C5A059] font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer"
             >
               <Upload className="w-4 h-4 text-[#C5A059]" />
-              <span>Mám PDF zo skenera Meicet Pro-A</span>
+              <span>Mám PDF / JPG zo skenera Meicet Pro-A</span>
             </button>
           </div>
 

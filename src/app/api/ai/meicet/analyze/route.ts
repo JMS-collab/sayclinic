@@ -232,7 +232,7 @@ VÝSTUP MUSÍ BYŤ VÝHRADNE ČISTÝ JSON V ŠTRUKTÚRE MeicetAnalysisResult:
   "createdAt": string
 }`;
 
-    const userPrompt = `Analyzuj priložený report z analyzátora Meicet Pro-A pre pacienta:
+    const userPrompt = `Analyzuj priložený report alebo snímku z analyzátora Meicet Pro-A (PDF / JPG / PNG) pre pacienta:
 - Meno: ${patientName}
 - ID pacienta: ${patientId}
 - Rodné číslo: ${patientBirthNumber}
@@ -240,18 +240,34 @@ VÝSTUP MUSÍ BYŤ VÝHRADNE ČISTÝ JSON V ŠTRUKTÚRE MeicetAnalysisResult:
 - Pohlavie: ${gender}
 - Anamnéza pacienta (známe údaje): ${JSON.stringify(anamnesis, null, 2)}
 - Špecifické poznámky lekára: ${customDoctorNotes || 'Žiadne doplňujúce poznámky.'}
-- Názov zdrojového PDF súboru: ${pdfFileName}
+- Názov zdrojového súboru: ${pdfFileName}
 
-Extrahuj skutočné hodnoty z reportu a vygeneruj finálny JSON podľa požadovanej schémy.`;
+Extrahuj skutočné hodnoty z reportu alebo snímky spektier a vygeneruj finálny JSON podľa požadovanej schémy.`;
 
     let contentsPayload: any[];
 
     if (pdfBase64 && typeof pdfBase64 === 'string' && pdfBase64.length > 50) {
-      const cleanBase64 = pdfBase64.replace(/^data:application\/pdf;base64,/, '');
+      let mimeType = 'application/pdf';
+      let cleanBase64 = pdfBase64;
+      const dataUriMatch = pdfBase64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,/);
+      if (dataUriMatch) {
+        mimeType = dataUriMatch[1];
+        cleanBase64 = pdfBase64.substring(dataUriMatch[0].length);
+      } else {
+        const lowerName = pdfFileName.toLowerCase();
+        if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
+          mimeType = 'image/jpeg';
+        } else if (lowerName.endsWith('.png')) {
+          mimeType = 'image/png';
+        } else if (lowerName.endsWith('.webp')) {
+          mimeType = 'image/webp';
+        }
+      }
+
       contentsPayload = [
         {
           inlineData: {
-            mimeType: 'application/pdf',
+            mimeType,
             data: cleanBase64
           }
         },
@@ -262,7 +278,7 @@ Extrahuj skutočné hodnoty z reportu a vygeneruj finálny JSON podľa požadova
     } else {
       contentsPayload = [
         {
-          text: `${userPrompt}\n\nPoznámka: PDF report nebol dodaný ako binárny súbor, použi typické parametre pleti pre vek ${actualAge} r. a fototyp II v súlade s anamnézou.`
+          text: `${userPrompt}\n\nPoznámka: Súbor reportu/snímky nebol dodaný ako binárny súbor, použi typické parametre pleti pre vek ${actualAge} r. a fototyp II v súlade s anamnézou.`
         }
       ];
     }
