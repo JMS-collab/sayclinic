@@ -1,4 +1,4 @@
-import { MeicetAnalysisResult, MeicetSkinMetrics, MeicetAnamnesisContext } from '@/types/meicet';
+import { MeicetAnalysisResult, MeicetSkinMetrics, MeicetAnamnesisContext, MeicetSkincareProduct } from '@/types/meicet';
 import { getClinicPrice } from '@/data/clinicPriceList';
 
 export interface QuickSkinConcernPreset {
@@ -145,6 +145,7 @@ export function createDemoMeicetResult(
   requestedSkinType?: string
 ): MeicetAnalysisResult {
   const priceVascularFace = getClinicPrice('vascular_laser_face', 160);
+  const priceVascularNose = getClinicPrice('vascular_laser_lesion', 70);
   const priceCoolpeelFace = getClinicPrice('coolpeel_face', 220);
   const priceBotox2Areas = getClinicPrice('botox_2_areas', 216);
   const priceProfhilo = getClinicPrice('profhilo_2ml', 290);
@@ -154,6 +155,7 @@ export function createDemoMeicetResult(
   const priceTcaPeel = getClinicPrice('tca_peel_medical', 110);
   const priceDermapen = getClinicPrice('dermapen_microneedling', 140);
   const priceSculptra = getClinicPrice('sculptra', 450);
+  const priceExosomes = getClinicPrice('exosomes_asce', 320);
 
   // Ceny kozmetiky zo živého cenníka
   const priceScCleanser = getClinicPrice('sc_soothing_cleanser', 46);
@@ -253,7 +255,7 @@ export function createDemoMeicetResult(
   };
 
   // Rutina pre citlivú a suchú pleť vs štandardná
-  const highEndMorning = isSensitiveDry
+  const highEndMorning: MeicetSkincareProduct[] = isSensitiveDry
     ? [
         {
           step: 1,
@@ -261,6 +263,10 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Soothing Cleanser (150 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Sorbitol, glycerín, extrakt z orchidey a uhorky',
+          keyActiveIngredient: 'Sorbitol, glycerín, botanické extrakty (fyziologické pH)',
+          whyItMatters: 'Šetrne odstraňuje kožný maz a nečistoty bez poškodenia ochrannej hydrolipidovej bariéry a bez vysušenia (kritické pri TEWL 44/100).',
+          frequencySchedule: 'Každé ráno: 1 pumpička peny',
+          titrationNotes: 'Vmasírovať jemne do navlhčenej pleti vlažnou vodou, vyhnúť sa treniu uterákom.',
           usage: '1 pumpičku peny ráno jemne vmasírovať do vlhkej pleti, opláchnuť vlažnou vodou.',
           purpose: 'Šetrné odstránenie mazu bez narušenia kožnej bariéry a upokojenie citlivej pleti.',
           price: priceScCleanser,
@@ -272,6 +278,10 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Phyto Corrective Gel (30 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Botanické extrakty (tymián, uhorka), kyselina hyalurónová, morušovník',
+          keyActiveIngredient: 'Botanické extrakty (uhorka, tymián), kyselina hyalurónová, arbutín',
+          whyItMatters: 'Priama reakcia na reaktívny cievny erytém zistený Meicet spektrom (skóre 36/100). Okamžite chladí a sťahuje reaktívne kapiláry.',
+          frequencySchedule: 'Každé ráno: 3–4 kvapky',
+          titrationNotes: 'Vklepať končekmi prstov prioritne do líc a krídel nosa pred hydratačným sérom.',
           usage: '3–4 kvapky ráno na vyčistenú tvár, prioritne na oblasť líc a nosa.',
           purpose: 'Okamžité zmiernenie začervenania, upokojenie reaktívnych kapilár a hydratácia bez zaťaženia.',
           price: priceScPhyto,
@@ -283,6 +293,10 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals H.A. Intensifier (30 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Kyselina hyalurónová, 10% Proxylane™, extrakt zo sladkého drievka',
+          keyActiveIngredient: '1.3% kyselina hyalurónová + 10% Proxylane™ + 2% extrakt zo sladkého drievka',
+          whyItMatters: 'Zvyšuje hladinu kyseliny hyalurónovej v koži o +30 %, viaže vodu a vypĺňa dehydratačné ryhy spôsobené vysokou stratou vody (TEWL 44/100).',
+          frequencySchedule: 'Každé ráno: 4–6 kvapiek',
+          titrationNotes: 'Nanášať na ešte mierne orosenú pleť po Phyto géli pre maximálnu väzbu vody.',
           usage: '4–6 kvapiek vklepať do líc, čela a očného okolia.',
           purpose: 'Zvýšenie vlastnej hladiny kyseliny hyalurónovej v pleti o +30 % a vyplnenie dehydratačných rýh.',
           price: priceScHaIntensifier,
@@ -294,6 +308,10 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Advanced Brightening UV Defense SPF 50+ (40 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Širokospektrálne UV filtre, 1% kyselina tranexamová, 2% niacínamid',
+          keyActiveIngredient: 'Mexoryl SX/XL + 1% kyselina tranexamová + 2% niacínamid',
+          whyItMatters: 'Chráni citlivé cievy pred dilatáciou spôsobenou UV žiarením a teplom a zabraňuje aktivácii podpovrchového melanínu.',
+          frequencySchedule: 'Každé ráno celoročne ako finálny krok',
+          titrationNotes: 'Naniesť v dostatočnom množstve (2 dĺžky prstov) 15 minút pred odchodom z domu.',
           usage: 'Aplikovať každé ráno ako posledný krok pred odchodom z domu.',
           purpose: 'Ochrana pred UVA/UVB žiarením a prevencia prehlbovania cievneho erytému a pigmentácií.',
           price: priceScSpf,
@@ -307,6 +325,9 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Soothing Cleanser (150 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Sorbitol, glycerín, extrakt z orchidey a uhorky',
+          keyActiveIngredient: 'Sorbitol a glycerín (fyziologické pH)',
+          whyItMatters: 'Šetrné odstránenie mazu bez narušenia kožnej bariéry a príprava na antioxidačné sérum.',
+          frequencySchedule: 'Každé ráno: 1 pumpička peny',
           usage: '1 pumpičku peny ráno jemne vmasírovať do vlhkej pleti, opláchnuť vlažnou vodou.',
           purpose: 'Šetrné odstránenie mazu bez narušenia kožnej bariéry a príprava na antioxidant.',
           price: priceScCleanser,
@@ -318,6 +339,10 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals C E Ferulic (30 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: '15% čistá kyselina L-askorbová, 1% alfa-tokoferol, 0.5% kyselina ferulová',
+          keyActiveIngredient: '15% čistá kyselina L-askorbová + 1% alfa-tokoferol + 0.5% kyselina ferulová',
+          whyItMatters: 'Patentovaný antioxidačný zlatý štandard: 8-násobná ochrana pred voľnými radikálmi a zosvetlenie UV škvŕn (skóre 48/100).',
+          frequencySchedule: 'Každé ráno: 4–5 kvapiek na suchú tvár a krk',
+          titrationNotes: 'Nanášať ráno priamo na suchú pleť po vyčistení. Nechať vstrebať 2 minúty pred ďalším krokom.',
           usage: '4–5 kvapiek ráno na suchú tvár, krk a dekolt.',
           purpose: '8-násobná antioxidačná ochrana, zosvetlenie UV škvŕn a stimulácia syntézy kolagénu.',
           price: priceScCeFerulic,
@@ -329,6 +354,9 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals H.A. Intensifier (30 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Kyselina hyalurónová, 10% Proxylane™, extrakt zo sladkého drievka',
+          keyActiveIngredient: 'Kyselina hyalurónová + 10% Proxylane™',
+          whyItMatters: 'Vyplňuje dehydratačné ryhy a zvyšuje pružnosť dermis.',
+          frequencySchedule: 'Každé ráno: 4–6 kvapiek',
           usage: '4–6 kvapiek vklepať do líc, čela a očného okolia.',
           purpose: 'Zvýšenie vlastnej hladiny kyseliny hyalurónovej v pleti o +30 % a vyplnenie jemných vrások.',
           price: priceScHaIntensifier,
@@ -340,6 +368,9 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Advanced Brightening UV Defense SPF 50+ (40 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Širokospektrálne UV filtre, 1% kyselina tranexamová, 2% niacínamid',
+          keyActiveIngredient: 'Mexoryl SX/XL + kyselina tranexamová',
+          whyItMatters: 'Bariérový štít proti fotostarnutiu a prevencia nových pigmentových škvŕn.',
+          frequencySchedule: 'Každé ráno ako finálny krok',
           usage: 'Aplikovať každé ráno ako posledný krok pred odchodom z domu.',
           purpose: 'Ochrana pred UVA/UVB žiarením a blokáda tvorby pigmentových škvŕn.',
           price: priceScSpf,
@@ -347,7 +378,7 @@ export function createDemoMeicetResult(
         }
       ];
 
-  const highEndEvening = isSensitiveDry
+  const highEndEvening: MeicetSkincareProduct[] = isSensitiveDry
     ? [
         {
           step: 1,
@@ -355,6 +386,10 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Soothing Cleanser (150 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Sorbitol, glycerín, botanické extrakty',
+          keyActiveIngredient: 'Sorbitol, glycerín, extrakt z uhorky a orchidey',
+          whyItMatters: 'Odstraňuje celodenný SPF filter a prach z mestského prostredia bez mechanického dráždenia reaktívnych kapilár.',
+          frequencySchedule: 'Každý večer: 1–2 pumpičky peny',
+          titrationNotes: 'Jemne rozotrieť vlažnou vodou, nešúchať tvár drsným uterákom.',
           usage: 'Večer zmyť SPF a nečistoty vlažnou vodou bez trenia.',
           purpose: 'Dokonale čistá pleť bez podráždenia, pripravená na nočnú obnovu bariéry.',
           price: priceScCleanser,
@@ -366,6 +401,10 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Phyto Corrective Gel (30 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Botanické extrakty (uhorka, tymián), kyselina hyalurónová',
+          keyActiveIngredient: 'Extrakt z tymiánu a uhorky, kyselina hyalurónová',
+          whyItMatters: 'Chladivý účinok tlmí nočnú vazodilatáciu cievok na lícach a pripravuje pokožku na lipidovú rekonštrukciu.',
+          frequencySchedule: 'Každý večer: 3–4 kvapky',
+          titrationNotes: 'Aplikovať jemným vtlačením do líc a citlivých zón.',
           usage: '3–4 kvapky jemne vklepať do líc a citlivých miest pred krémom.',
           purpose: 'Zmiernenie nočného pnutia a sčervenania tváre.',
           price: priceScPhyto,
@@ -373,21 +412,44 @@ export function createDemoMeicetResult(
         },
         {
           step: 3,
+          category: 'Bunková obnova (Titračný Retinol)',
+          productName: 'SkinCeuticals Retinol 0.3 (30 ml)',
+          brand: 'SkinCeuticals',
+          activeIngredients: '0.3% čistý enkapsulovaný retinol, bisabolol, boswellia',
+          keyActiveIngredient: '0.3% čistý enkapsulovaný retinol + bisabolol & boswellia',
+          whyItMatters: 'Stimuluje fibroblasty k tvorbe kolagénu typu I a zahusťuje atrofickú dermis pri skóre vrások (54/100). Enkapsulácia minimalizuje podráždenie.',
+          frequencySchedule: '1x týždenne večer (prvé 2 týždne), potom 2x týždenne; vynechať 5–7 dní pred laserom!',
+          titrationNotes: 'Striktná retinizácia: nanášať veľkosť hrášku výhradne večer na suchú pleť sendvičovou metódou (medzi vrstvy krému). Vynechať očné okolie a pery. Nikdy neaplikovať 7 dní pred laserovým zákrokom!',
+          usage: 'Veľkosť hrášku 1x týždenne večer (postupne zvýšiť na 2x týždenne) na dokonale suchú pleť.',
+          purpose: 'Nočná bunková obnova a redukcia jemných mimických vrások bez poškodenia bariéry.',
+          price: priceScRetinol,
+          meicetJustification: 'Zamerané na spevnenie dermis a biologické omladenie bez narušenia citlivej bariéry.'
+        },
+        {
+          step: 4,
           category: 'Rekonštrukcia lipidovej bariéry 2:4:2',
           productName: 'SkinCeuticals Triple Lipid Restore 2:4:2 (48 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: '2% čisté ceramidy, 4% prírodný cholesterol, 2% mastné kyseliny',
+          keyActiveIngredient: '2% čisté ceramidy (1 & 3), 4% cholesterol, 2% mastné kyseliny',
+          whyItMatters: 'Zlatý štandard dermatológie: fyziologický pomer 2:4:2 znižuje TEWL o 40 %, rekonštruuje medzibunkový tmel a chráni pred stratou hydratácie (TEWL 44/100).',
+          frequencySchedule: 'Každý večer: veľkosť hrášku',
+          titrationNotes: 'Zahriať medzi bruškami prstov a jemne vtlačiť do pokožky celej tváre a krku.',
           usage: 'Každý večer jemne zahriať medzi bruškami prstov a vtlačiť do pleti.',
           purpose: 'Zlatý štandard dermatológie: obnova ochrannej bariéry, zníženie TEWL o 40 % a potlačenie suchosti.',
           price: priceScTripleLipid,
           meicetJustification: 'Priama terapia dehydratácie a oslabeného hydrolipidového plášťa (skóre 44/100).'
         },
         {
-          step: 4,
+          step: 5,
           category: 'SOS regenerácia a cievna ochrana',
           productName: 'SkinCeuticals Epidermal Repair (40 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Beta-glukán, Centella Asiatica (Gotu Kola), pantenol',
+          keyActiveIngredient: 'Beta-glukán + Centella Asiatica (Madecassoside) + pantenol',
+          whyItMatters: 'Bariérový ochranný film na reaktívne cievne zóny líc a urýchlenie hojenia po cievnom laseri.',
+          frequencySchedule: 'Podľa potreby lokálne na líca alebo 2x denne počas 5–7 dní po zákroku',
+          titrationNotes: 'Nanášať lokálne na začervenané ložiská alebo ako ochranný balzam po laserovom ošetrení.',
           usage: 'Tenká vrstva na najviac podráždené miesta a po cievnom laseri.',
           purpose: 'Okamžité upokojenie cievneho erytému a urýchlenie epitelizácie.',
           price: priceScEpidermal,
@@ -401,6 +463,9 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Soothing Cleanser (150 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Sorbitol, glycerín, botanické extrakty',
+          keyActiveIngredient: 'Sorbitol, glycerín, rastlinné výťažky',
+          whyItMatters: 'Čistí rozšírené póry v T-zóne bez narušenia kožnej bariéry.',
+          frequencySchedule: 'Každý večer',
           usage: 'Večer zmyť SPF a nečistoty vlažnou vodou.',
           purpose: 'Dokonale čistá pleť pripravená na nočnú bunkovú obnovu.',
           price: priceScCleanser,
@@ -412,6 +477,10 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Retinol 0.3 (30 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: '0.3% čistý enkapsulovaný retinol, bisabolol, boswellia',
+          keyActiveIngredient: '0.3% čistý enkapsulovaný retinol + bisabolol',
+          whyItMatters: 'Stimulácia novotvorby kolagénu, redukcia pórov a vyhladenie textúry.',
+          frequencySchedule: '2–3x týždenne večer; vynechať 7 dní pred laserom',
+          titrationNotes: 'Začať 1-2x týždenne na suchú pokožku, postupne frekvenciu zvyšovať.',
           usage: 'Veľkosť hrášku 2–3x týždenne večer na suchú pleť (vysadiť 7 dní pred laserom).',
           purpose: 'Stimulácia novotvorby kolagénu, stiahnutie pórov a vyhladenie jemných vrások.',
           price: priceScRetinol,
@@ -423,6 +492,9 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Triple Lipid Restore 2:4:2 (48 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: '2% čisté ceramidy, 4% prírodný cholesterol, 2% mastné kyseliny',
+          keyActiveIngredient: '2% ceramidy, 4% cholesterol, 2% mastné kyseliny',
+          whyItMatters: 'Zabraňuje nočnému TEWL a chráni pokožku pred podráždením z retinolu.',
+          frequencySchedule: 'Každý večer',
           usage: 'Každý večer jemne zahriať medzi prstami a vmasírovať do tváre a krku.',
           purpose: 'Obnova lipidového plášťa, zníženie TEWL a upokojenie pleti po retinole a zákrokoch.',
           price: priceScTripleLipid,
@@ -434,6 +506,9 @@ export function createDemoMeicetResult(
           productName: 'SkinCeuticals Epidermal Repair (40 ml)',
           brand: 'SkinCeuticals',
           activeIngredients: 'Beta-glukán, Centella Asiatica ( Gotu Kola ), pantenol',
+          keyActiveIngredient: 'Beta-glukán + Centella Asiatica + pantenol',
+          whyItMatters: 'Urýchľuje epitelizáciu a tlmí erytém po ošetreniach.',
+          frequencySchedule: 'Prvých 5–7 dní po zákroku alebo podľa potreby',
           usage: 'Aplikovať na začervenané zóny alebo prvých 5–7 dní po laseri / microneedlingu.',
           purpose: 'Okamžité upokojenie erytému a urýchlenie epitelizácie.',
           price: priceScEpidermal,
@@ -441,13 +516,17 @@ export function createDemoMeicetResult(
         }
       ];
 
-  const midEndMorning = [
+  const midEndMorning: MeicetSkincareProduct[] = [
     {
       step: 1,
       category: 'Šetrné čistenie s ceramidmi',
       productName: 'CeraVe Hydratačná čistiaca emulzia (236 ml)',
       brand: 'CeraVe',
       activeIngredients: '3 esenciálne ceramidy, kyselina hyalurónová, MVE technológia',
+      keyActiveIngredient: '3 esenciálne ceramidy (1, 3, 6-II) + kyselina hyalurónová + technológia MVE',
+      whyItMatters: 'Čistí a odstraňuje kožný maz bez penivých sulfátov a bez narušenia kožnej bariéry pri nízkej hydratácii (44/100).',
+      frequencySchedule: 'Každé ráno: 1–2 dávky emulzie',
+      titrationNotes: 'Vmasírovať do navlhčenej pokožky a jemne opláchnuť vlažnou vodou.',
       usage: 'Ráno vmasírovať do navlhčenej pleti a opláchnuť vlažnou vodou.',
       purpose: 'Čistí a hydratuje bez narušenia ochrannej kožnej bariéry.',
       price: priceCeraveCleanser,
@@ -459,6 +538,10 @@ export function createDemoMeicetResult(
       productName: 'Vichy Minéral 89 Hyaluron Booster (50 ml)',
       brand: 'Vichy',
       activeIngredients: '89% vulkanická voda Vichy, prírodná kyselina hyalurónová',
+      keyActiveIngredient: '89% vulkanická voda Vichy + čistá kyselina hyalurónová prírodného pôvodu',
+      whyItMatters: 'Posilňuje obranyschopnosť citlivej pokožky, viaže vodu na povrchu epidermy a znižuje reaktivitu kapilár.',
+      frequencySchedule: 'Každé ráno: 2 pumpičky',
+      titrationNotes: 'Vklepať do čistej pleti tváre a jemne okolo očí.',
       usage: '2 pumpičky ráno vklepať do čistej pleti tváre a okolo očí.',
       purpose: 'Posilnenie obranyschopnosti kože a okamžitá hydratácia.',
       price: priceVichyMineral89,
@@ -470,6 +553,10 @@ export function createDemoMeicetResult(
       productName: 'La Roche-Posay Hyalu B5 Sérum (30 ml)',
       brand: 'La Roche-Posay',
       activeIngredients: 'Duálna kyselina hyalurónová, 5% vitamín B5, madecassoside',
+      keyActiveIngredient: 'Duálna kyselina hyalurónová + 5% vitamín B5 (pantenol) + madecassoside',
+      whyItMatters: 'Pantenol a madecassoside okamžite regenerujú poškodenú bariéru, redukujú dehydratačné linky a urýchľujú epitelizáciu.',
+      frequencySchedule: 'Každé ráno: 3–4 kvapky',
+      titrationNotes: 'Rovnomerne naniesť na tvár a krk pred aplikáciou SPF.',
       usage: '3–4 kvapky ráno na tvár a krk.',
       purpose: 'Obnova pružnosti pleti, vyplnenie jemných liniek a podpora hojenia.',
       price: priceLrpHyaluB5,
@@ -481,6 +568,10 @@ export function createDemoMeicetResult(
       productName: 'La Roche-Posay Anthelios UVMune 400 SPF 50+ (50 ml)',
       brand: 'La Roche-Posay',
       activeIngredients: 'Filter Mexoryl 400 (ochrana pred ultra-dlhým UVA 380–400 nm)',
+      keyActiveIngredient: 'Filter Mexoryl 400 (ochrana pred ultra-dlhým UVA žiarením 380–400 nm)',
+      whyItMatters: 'Kritická ochrana pred UV fotopoškodením (skóre 48/100) a dilatáciou cievok spôsobenou slnečným žiarením.',
+      frequencySchedule: 'Každé ráno ako posledný krok rutiny',
+      titrationNotes: 'Dôkladne pretrepať pred aplikáciou. Naniesť 15 minút pred odchodom z domu.',
       usage: 'Pretrepať a aplikovať každé ráno ako posledný krok.',
       purpose: 'Ochrana pred fotostarnutím a vznikom pigmentových škvŕn.',
       price: priceLrpSpf,
@@ -488,13 +579,17 @@ export function createDemoMeicetResult(
     }
   ];
 
-  const midEndEvening = [
+  const midEndEvening: MeicetSkincareProduct[] = [
     {
       step: 1,
       category: 'Hypoalergénne večerné odlíčenie',
       productName: 'La Roche-Posay Toleriane Dermo-Cleanser (200 ml)',
       brand: 'La Roche-Posay',
       activeIngredients: 'Termálna voda La Roche-Posay, glycerín',
+      keyActiveIngredient: 'Termálna voda La Roche-Posay + glycerín (bez parfumácie a bez mydla)',
+      whyItMatters: 'Ultra-šetrné hypoalergénne čistenie minimalizuje mechanické dráždenie kapilár na lícach a zabraňuje sčervenaniu.',
+      frequencySchedule: 'Každý večer',
+      titrationNotes: 'Naniesť končekmi prstov krúživými pohybmi, zotrieť jemným navlhčeným tampónom alebo opláchnuť.',
       usage: 'Večer jemne odlíčiť a vyčistiť pleť od SPF filtrov.',
       purpose: 'Upokojujúce čistenie pre citlivú a cievne reaktívnu pleť.',
       price: priceLrpCleanser,
@@ -506,6 +601,10 @@ export function createDemoMeicetResult(
       productName: 'Vichy Liftactiv Collagen Specialist (50 ml)',
       brand: 'Vichy',
       activeIngredients: 'Pro-kolagénové peptidy, vitamín Cg, resveratrol',
+      keyActiveIngredient: 'Pro-kolagénové peptidy ryže + vitamín Cg + resveratrol',
+      whyItMatters: 'Stimuluje tvorbu kolagénu typu I a III, spevňuje kontúry tváre pri zistených jemných vráskach (skóre 54/100).',
+      frequencySchedule: 'Každý večer: tenká vrstva na tvár a krk',
+      titrationNotes: 'Aplikovať pred hydratačným krémom alebo Cicaplastom.',
       usage: 'Večer aplikovať na vyčistenú pleť tváre a krku.',
       purpose: 'Stimulácia tvorby kolagénu, spevnenie kontúr a zjednotenie tónu pleti.',
       price: priceVichyCollagen,
@@ -517,6 +616,10 @@ export function createDemoMeicetResult(
       productName: 'CeraVe Hydratačný krém (177 ml)',
       brand: 'CeraVe',
       activeIngredients: '3 esenciálne ceramidy (1, 3, 6-II), kyselina hyalurónová',
+      keyActiveIngredient: '3 identické ceramidy (1, 3, 6-II) + fytosfingozín + technológia MVE',
+      whyItMatters: 'Postupné 24-hodinové uvoľňovanie ceramidov obnovuje medzibunkové lipidy a dramaticky znižuje nočné TEWL.',
+      frequencySchedule: 'Každý večer na suchšie partie tváre a krku',
+      titrationNotes: 'Vtlačiť dlaňami do pokožky pre hĺbkové uzamknutie vlhkosti.',
       usage: 'Naniesť večer na suchšie partie tváre a krku.',
       purpose: 'Postupné 24-hodinové uvoľňovanie hydratácie a obnova bariéry.',
       price: priceCeraveCream,
@@ -528,6 +631,10 @@ export function createDemoMeicetResult(
       productName: 'La Roche-Posay Cicaplast Baume B5+ (100 ml)',
       brand: 'La Roche-Posay',
       activeIngredients: '5% pantenol, madecassoside, Tribioma, zinok a mangán',
+      keyActiveIngredient: '5% pantenol + madecassoside + prebiotický komplex Tribioma + zinok a mangán',
+      whyItMatters: 'SOS bariérový balzam: okamžite upokojuje reaktívny erytém líc (36/100), regeneruje mikrobióm a chráni pokožku po estetických zákrokoch.',
+      frequencySchedule: 'Každý večer lokálne na začervenané miesta; po laseri 2–3x denne',
+      titrationNotes: 'Vhodné aplikovať ako nočnú ochrannú masku na malárnu cievnu zónu.',
       usage: 'Aplikovať na citlivé/začervenané miesta a po každom estetickom zákroku.',
       purpose: 'Intenzívna regenerácia pokožky a upokojenie začervenania.',
       price: priceLrpCicaplast,
@@ -647,8 +754,8 @@ export function createDemoMeicetResult(
             'Úbytok dermálnej pružnosti a mimické vrásky – indikovaný Rejuran Healer a botulotoxín.'
           ],
           riskAlerts: [
-            'STRIKTNÝ ZÁKAZ agresívnych kyselín, mechanických peelingov, horúcej vody a sáun.',
-            'V letnom období (jún – august) nevykonávať ablatívny CO2 laser ani hlboké peelingy.',
+            'STRIKTNÝ ZÁKAZ BioRePeelCl3 (35% TCA), kyselinových peelingov a ablatívnych CO2 laserov pri reaktívnom erytéme a oslabenej bariére (TEWL 44/100)!',
+            'STRIKTNÝ ZÁKAZ agresívnych kyselín, mechanických peelingov, horúcej vody a sáun do kompletnej obnovy kožnej bariéry.',
             'Nutná celoročná ranná fotoprotekcia SPF 50+ s filtrom proti cievnemu prehrievaniu.'
           ],
           synergyWithSurgeries:
@@ -670,164 +777,335 @@ export function createDemoMeicetResult(
           synergyWithSurgeries:
             'Pravidelná biostimulácia polynukleotidmi a udržiavanie zdravej kožnej bariéry výrazne zlepšuje kvalitu a elasticitu dermis.'
         },
-    annualSchedule: [
-      {
-        quarter: 'Q1 (Zima / Jar)',
-        season: 'jar',
-        title: 'Cievne zjednotenie pleti, obnova textúry & relaxácia mimiky',
-        focus: 'Cievny laser na začervenanie, lekársky peeling / microneedling a aplikácia botulotoxínu pred slnečnou sezónou.',
-        seasonalConsideration: 'Nízky UV index na začiatku jari je ideálny na laserové zjednotenie cievok a textúry pleti.',
-        treatments: [
+    annualSchedule: isSensitiveDry
+      ? [
           {
-            id: 'trt-q1-1',
-            name: 'Cievny laser - celá tvár (rosacea / difúzny erytém)',
-            category: 'laser',
-            targetArea: 'Líca, krídla nosa a cievne zóny tváre',
-            seasonOrMonth: 'Marec',
-            frequency: '1 sedenie',
-            priority: 'vysoká',
-            estimatedPrice: priceVascularFace,
-            reasoning: 'Uzavretie rozšírených kapilár a redukcia difúzneho začervenania zisteného v krížovo-polarizovanom svetle Meicet.',
-            status: 'planned'
+            quarter: 'Q1 (Zima / Jar)',
+            season: 'jar',
+            title: 'Cievna stabilizácia & Bunková oprava DNA',
+            focus: 'Selektívna vaskulárna fototermolýza na kapiláry a biostimulácia dermis polynukleotidmi bez ablázie.',
+            seasonalConsideration: 'Nízky UV index na začiatku jari je ideálny na laserové uzavretie cievok a posilnenie bariéry pred slnkom.',
+            treatments: [
+              {
+                id: 'trt-q1-1',
+                name: 'Cievny laser - celá tvár (rosacea / difúzny erytém)',
+                category: 'laser',
+                targetArea: 'Líca, krídla nosa a cievne zóny tváre',
+                seasonOrMonth: 'Marec',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceVascularFace,
+                reasoning: 'Uzavretie ektatických kapilár a potlačenie difúzneho erytému zisteného v krížovo-polarizovanom spektre Meicet (skóre 36/100).',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q1-2',
+                name: 'Rejuran Healer (Polynukleotidy PN 2 ml - celá tvár)',
+                category: 'injectable',
+                targetArea: 'Celá tvár',
+                seasonOrMonth: 'Apríl',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceRejuranHealer,
+                reasoning: 'Hĺbková oprava poškodenej dermálnej DNA, obnova hrúbky atrofickej dermis a posilnenie cievneho endotelu.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q1-3',
+                name: 'Botox - 2 oblasti (–10 % kombinačná zľava)',
+                category: 'injectable',
+                targetArea: 'Glabela (vráska hnevu) + čelo / očné vejáriky',
+                seasonOrMonth: 'Máj',
+                frequency: '1 sedenie (kontrola do 14 dní v cene)',
+                priority: 'vysoká',
+                estimatedPrice: priceBotox2Areas,
+                reasoning: 'Uvoľnenie mimickej hyperaktivity pred letným slnečným žiarením a prevencia fixácie rýh.',
+                status: 'planned'
+              }
+            ]
           },
           {
-            id: 'trt-q1-2',
-            name: 'Botox - 2 oblasti (–10 % kombinačná zľava)',
-            category: 'injectable',
-            targetArea: 'Glabela (vráska hnevu) + čelo / očné vejáriky',
-            seasonOrMonth: 'Apríl',
-            frequency: '1 sedenie (kontrola do 14 dní v cene)',
-            priority: 'vysoká',
-            estimatedPrice: priceBotox2Areas,
-            reasoning: 'Uvoľnenie mimickej hyperaktivity pred letným žmúrením na slnku.',
-            status: 'planned'
+            quarter: 'Q2 (Leto)',
+            season: 'leto',
+            title: 'Intenzívna hydratácia & Posilnenie dermálnej bariéry bez fotosenzitivity',
+            focus: 'STRIKTNÝ ZÁKAZ BioRePeel, chemických peelingov a ablatívnych laserov! Čistá hydratácia a biostimulácia bez olupovania.',
+            seasonalConsideration: 'Bezpečné letné protokoly bez narušenia epidermy a bez rizika pozápalovej hyperpigmentácie (PIH).',
+            treatments: [
+              {
+                id: 'trt-q2-1',
+                name: 'Rejuran Healer (Polynukleotidy PN 2 ml - celá tvár)',
+                category: 'injectable',
+                targetArea: 'Celá tvár',
+                seasonOrMonth: 'Jún / Júl',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceRejuranHealer,
+                reasoning: 'Bunková ochrana pred fotostarnutím, zníženie zápalovej kaskády a stimulácia fyziologickej regenerácie.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q2-2',
+                name: 'Profhilo (bioremodelácia 2 ml - 5 BAP bodov)',
+                category: 'injectable',
+                targetArea: 'Stredná a dolná tretina tváre',
+                seasonOrMonth: 'Júl',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceProfhilo,
+                reasoning: 'Extrémne navýšenie hĺbkovej hydratácie (TEWL 44/100) a obnova pružnosti dermis bez záťaže epidermy.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q2-3',
+                name: 'Rejuran I - Očné okolie (Polynukleotidy PN 1 ml)',
+                category: 'injectable',
+                targetArea: 'Očné viečka a vejárikovité vrásky',
+                seasonOrMonth: 'August',
+                frequency: '1 sedenie',
+                priority: 'odporúčaná',
+                estimatedPrice: priceRejuranEye,
+                reasoning: 'Regenerácia jemnej periorbitálnej kože bez rizika opuchu a bez fotosenzitivity.',
+                status: 'planned'
+              }
+            ]
           },
           {
-            id: 'trt-q1-3',
-            name: 'Profhilo (bioremodelácia 2 ml - 5 BAP bodov)',
-            category: 'injectable',
-            targetArea: 'Stredná a dolná tretina tváre',
-            seasonOrMonth: 'Máj',
-            frequency: '1 sedenie',
-            priority: 'odporúčaná',
-            estimatedPrice: priceProfhilo,
-            reasoning: 'Okamžité navýšenie hĺbkovej hydratácie (z 44 % na >70 %) a stimulácia 4 typov kolagénu.',
-            status: 'planned'
+            quarter: 'Q3 (Jeseň)',
+            season: 'jesen',
+            title: 'Cievna konsolidácia po lete & Dvojitá biostimulácia',
+            focus: 'Korekcia cievnych dilatácií po letných horúčavách cievnym laserom a hĺbkové doplnenie kolagénu. Žiadne agresívne TCA peelingy ani CO2 lasery!',
+            seasonalConsideration: 'Jesenné ochladenie upokojuje reaktívne cievy; ideálny čas na selektívnu cievnu koaguláciu.',
+            treatments: [
+              {
+                id: 'trt-q3-1',
+                name: 'Cievny laser - nos / líca (kontrolné cievne ošetrenie)',
+                category: 'laser',
+                targetArea: 'Líca a krídla nosa',
+                seasonOrMonth: 'Október',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceVascularNose,
+                reasoning: 'Zatavenie nových drobných kapilár po expozícii letnému teplu a slnku.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q3-2',
+                name: 'Rejuran Healer (Polynukleotidy PN 2 ml - celá tvár)',
+                category: 'injectable',
+                targetArea: 'Celá tvár',
+                seasonOrMonth: 'November',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceRejuranHealer,
+                reasoning: 'Konsolidácia dermálnej matrix a urýchlenie bunkovej obnovy pred zimným chladom.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q3-3',
+                name: 'Profhilo (bioremodelácia 2 ml - 5 BAP bodov)',
+                category: 'injectable',
+                targetArea: 'Stredná a dolná tretina tváre',
+                seasonOrMonth: 'November',
+                frequency: '1 sedenie',
+                priority: 'odporúčaná',
+                estimatedPrice: priceProfhilo,
+                reasoning: 'Druhý biostimulačný cyklus kyseliny hyalurónovej pre dlhodobú hydratačnú ochranu.',
+                status: 'planned'
+              }
+            ]
+          },
+          {
+            quarter: 'Q4 (Zima)',
+            season: 'zima',
+            title: 'Regeneratívna bunková terapia exozómami & Cievna stabilizácia',
+            focus: 'Prémiová regenerácia bariéry exozómami ASCE+ a ochrana kapilár pred teplotnými šokmi (mráz / kúrenie).',
+            seasonalConsideration: 'Zimné nízke UV umožňuje bezpečný cievny zákrok a intenzívnu regeneratívnu kúru.',
+            treatments: [
+              {
+                id: 'trt-q4-1',
+                name: 'Cievny laser - celá tvár (rosacea / difúzny erytém)',
+                category: 'laser',
+                targetArea: 'Celá tvár (malárna zóna a nos)',
+                seasonOrMonth: 'December',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceVascularFace,
+                reasoning: 'Finálne zjednotenie tónu pleti a prevencia chronickej vazodilatácie v zime.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q4-2',
+                name: 'Exozómy ASCE+ / ExoCoBio tvár (regeneratívna terapia)',
+                category: 'injectable',
+                targetArea: 'Celá tvár',
+                seasonOrMonth: 'Január',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceExosomes,
+                reasoning: 'Najmodernejšia bunková signalizácia: masívna produkcia kolagénu, protizápalový efekt a komplexná obnova kožnej bariéry.',
+                status: 'planned'
+              }
+            ]
           }
         ]
-      },
-      {
-        quarter: 'Q2 (Leto)',
-        season: 'leto',
-        title: 'Bunková fotoprotekcia, Polynukleotidy & Biorevitalizácia bez fotosenzitivity',
-        focus: 'Zákaz ablatívnych laserov! Oprava DNA buniek polynukleotidmi Rejuran a šetrná biorevitalizácia.',
-        seasonalConsideration: 'Bezpečné letné procedúry bez narušenia epidermy a bez rizika pigmentových škvŕn.',
-        treatments: [
+      : [
           {
-            id: 'trt-q2-1',
-            name: 'Rejuran Healer (Polynukleotidy PN 2 ml - celá tvár)',
-            category: 'injectable',
-            targetArea: 'Celá tvár',
-            seasonOrMonth: 'Jún / Júl',
-            frequency: '1 sedenie',
-            priority: 'vysoká',
-            estimatedPrice: priceRejuranHealer,
-            reasoning: 'Bunková oprava DNA poškodenej UV žiarením, stiahnutie pórov a posilnenie dermálnej matrix.',
-            status: 'planned'
+            quarter: 'Q1 (Zima / Jar)',
+            season: 'jar',
+            title: 'Cievne zjednotenie pleti, obnova textúry & relaxácia mimiky',
+            focus: 'Cievny laser na začervenanie, lekársky peeling / microneedling a aplikácia botulotoxínu pred slnečnou sezónou.',
+            seasonalConsideration: 'Nízky UV index na začiatku jari je ideálny na laserové zjednotenie cievok a textúry pleti.',
+            treatments: [
+              {
+                id: 'trt-q1-1',
+                name: 'Cievny laser - celá tvár (rosacea / difúzny erytém)',
+                category: 'laser',
+                targetArea: 'Líca, krídla nosa a cievne zóny tváre',
+                seasonOrMonth: 'Marec',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceVascularFace,
+                reasoning: 'Uzavretie rozšírených kapilár a redukcia difúzneho začervenania zisteného v krížovo-polarizovanom svetle Meicet.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q1-2',
+                name: 'Botox - 2 oblasti (–10 % kombinačná zľava)',
+                category: 'injectable',
+                targetArea: 'Glabela (vráska hnevu) + čelo / očné vejáriky',
+                seasonOrMonth: 'Apríl',
+                frequency: '1 sedenie (kontrola do 14 dní v cene)',
+                priority: 'vysoká',
+                estimatedPrice: priceBotox2Areas,
+                reasoning: 'Uvoľnenie mimickej hyperaktivity pred letným žmúrením na slnku.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q1-3',
+                name: 'Profhilo (bioremodelácia 2 ml - 5 BAP bodov)',
+                category: 'injectable',
+                targetArea: 'Stredná a dolná tretina tváre',
+                seasonOrMonth: 'Máj',
+                frequency: '1 sedenie',
+                priority: 'odporúčaná',
+                estimatedPrice: priceProfhilo,
+                reasoning: 'Okamžité navýšenie hĺbkovej hydratácie (z 44 % na >70 %) a stimulácia 4 typov kolagénu.',
+                status: 'planned'
+              }
+            ]
           },
           {
-            id: 'trt-q2-2',
-            name: 'Rejuran I - Očné okolie (Polynukleotidy PN 1 ml)',
-            category: 'injectable',
-            targetArea: 'Očné viečka, kruhy pod očami a jemné vejáriky',
-            seasonOrMonth: 'August',
-            frequency: '1 sedenie',
-            priority: 'odporúčaná',
-            estimatedPrice: priceRejuranEye,
-            reasoning: 'Spevnenie tenkej pokožky očného okolia bez rizika opuchu.',
-            status: 'planned'
+            quarter: 'Q2 (Leto)',
+            season: 'leto',
+            title: 'Bunková fotoprotekcia, Polynukleotidy & Biorevitalizácia bez fotosenzitivity',
+            focus: 'Zákaz ablatívnych laserov! Oprava DNA buniek polynukleotidmi Rejuran a šetrná biorevitalizácia.',
+            seasonalConsideration: 'Bezpečné letné procedúry bez narušenia epidermy a bez rizika pigmentových škvŕn.',
+            treatments: [
+              {
+                id: 'trt-q2-1',
+                name: 'Rejuran Healer (Polynukleotidy PN 2 ml - celá tvár)',
+                category: 'injectable',
+                targetArea: 'Celá tvár',
+                seasonOrMonth: 'Jún / Júl',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceRejuranHealer,
+                reasoning: 'Bunková oprava DNA poškodenej UV žiarením, stiahnutie pórov a posilnenie dermálnej matrix.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q2-2',
+                name: 'Rejuran I - Očné okolie (Polynukleotidy PN 1 ml)',
+                category: 'injectable',
+                targetArea: 'Očné viečka, kruhy pod očami a jemné vejáriky',
+                seasonOrMonth: 'August',
+                frequency: '1 sedenie',
+                priority: 'odporúčaná',
+                estimatedPrice: priceRejuranEye,
+                reasoning: 'Spevnenie tenkej pokožky očného okolia bez rizika opuchu.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q2-3',
+                name: 'Medicínsky peeling BioRePeel / PRX-T33',
+                category: 'skin_care',
+                targetArea: 'Celá tvár a T-zóna',
+                seasonOrMonth: 'August',
+                frequency: '1 sedenie',
+                priority: 'udržiavacia',
+                estimatedPrice: priceBioRePeel,
+                reasoning: 'Celoročný biorevitalizačný peeling bez olupovania a bez fotosenzitivity na zjemnenie pórov.',
+                status: 'planned'
+              }
+            ]
           },
           {
-            id: 'trt-q2-3',
-            name: 'Medicínsky peeling BioRePeel / PRX-T33',
-            category: 'skin_care',
-            targetArea: 'Celá tvár a T-zóna',
-            seasonOrMonth: 'August',
-            frequency: '1 sedenie',
-            priority: 'udržiavacia',
-            estimatedPrice: priceBioRePeel,
-            reasoning: 'Celoročný biorevitalizačný peeling bez olupovania a bez fotosenzitivity na zjemnenie pórov.',
-            status: 'planned'
+            quarter: 'Q3 (Jeseň)',
+            season: 'jesen',
+            title: 'Laserový resurfacing CoolPeel® CO2 & Depigmentácia po lete',
+            focus: 'Hlavná laserová sezóna: stiahnutie pórov, zjednotenie textúry a odstránenie pigmentácií.',
+            seasonalConsideration: 'Nízky jesenný UV index umožňuje bezpečné ošetrenie frakčným CO2 laserom a TCA peelingom.',
+            treatments: [
+              {
+                id: 'trt-q3-1',
+                name: 'CoolPeel® (DEKA Tetra CO2) - celá tvár',
+                category: 'laser',
+                targetArea: 'Celá tvár (póry, jemné vrásky a textúra)',
+                seasonOrMonth: 'Október',
+                frequency: '1 sedenie',
+                priority: 'vysoká',
+                estimatedPrice: priceCoolpeelFace,
+                reasoning: 'Subablatívny CO2 laserový resurfacing na stiahnutie rozšírených pórov a obnovu kolagénu s minimálnou rekonvalescenciou.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q3-2',
+                name: 'Lekársky chemický peeling TCA',
+                category: 'skin_care',
+                targetArea: 'Celá tvár (solárne pigmentácie a melazma)',
+                seasonOrMonth: 'November',
+                frequency: '1 sedenie',
+                priority: 'odporúčaná',
+                estimatedPrice: priceTcaPeel,
+                reasoning: 'Cielená eliminácia podpovrchových UV pigmentácií zistených skenerom Meicet.',
+                status: 'planned'
+              }
+            ]
+          },
+          {
+            quarter: 'Q4 (Zima)',
+            season: 'zima',
+            title: 'Hĺbková kolagenéza, Dermapen & Zimná regenerácia',
+            focus: 'Dlhodobá novotvorba kolagénu (Sculptra / Dermapen) a udržiavací refresh botulotoxínu.',
+            seasonalConsideration: 'Zimné obdobie je ideálne na hĺbkovú prestavbu kolagénu a prípravu pleti na nový rok.',
+            treatments: [
+              {
+                id: 'trt-q4-1',
+                name: 'Dermapen 4 / Lekársky microneedling s mezo-sérom',
+                category: 'injectable',
+                targetArea: 'Celá tvár a krk',
+                seasonOrMonth: 'December',
+                frequency: '1 sedenie',
+                priority: 'odporúčaná',
+                estimatedPrice: priceDermapen,
+                reasoning: 'Mikroihličková indukcia kolagénu na zjemnenie textúry a pórov.',
+                status: 'planned'
+              },
+              {
+                id: 'trt-q4-2',
+                name: 'Sculptra (kyselina poly-L-mliečna PLLA)',
+                category: 'injectable',
+                targetArea: 'Vektorový lifting líc a dolnej tretiny tváre',
+                seasonOrMonth: 'Január',
+                frequency: '1 ampulka',
+                priority: 'odporúčaná',
+                estimatedPrice: priceSculptra,
+                reasoning: 'Najsilnejšia biostimulácia vlastného kolagénu typu I a III s efektom na 24 mesiacov.',
+                status: 'planned'
+              }
+            ]
           }
-        ]
-      },
-      {
-        quarter: 'Q3 (Jeseň)',
-        season: 'jesen',
-        title: 'Laserový resurfacing CoolPeel® CO2 & Depigmentácia po lete',
-        focus: 'Hlavná laserová sezóna: stiahnutie pórov, zjednotenie textúry a odstránenie pigmentácií.',
-        seasonalConsideration: 'Nízky jesenný UV index umožňuje bezpečné ošetrenie frakčným CO2 laserom a TCA peelingom.',
-        treatments: [
-          {
-            id: 'trt-q3-1',
-            name: 'CoolPeel® (DEKA Tetra CO2) - celá tvár',
-            category: 'laser',
-            targetArea: 'Celá tvár (póry, jemné vrásky a textúra)',
-            seasonOrMonth: 'Október',
-            frequency: '1 sedenie',
-            priority: 'vysoká',
-            estimatedPrice: priceCoolpeelFace,
-            reasoning: 'Subablatívny CO2 laserový resurfacing na stiahnutie rozšírených pórov a obnovu kolagénu s minimálnou rekonvalescenciou.',
-            status: 'planned'
-          },
-          {
-            id: 'trt-q3-2',
-            name: 'Lekársky chemický peeling TCA',
-            category: 'skin_care',
-            targetArea: 'Celá tvár (solárne pigmentácie a melazma)',
-            seasonOrMonth: 'November',
-            frequency: '1 sedenie',
-            priority: 'odporúčaná',
-            estimatedPrice: priceTcaPeel,
-            reasoning: 'Cielená eliminácia podpovrchových UV pigmentácií zistených skenerom Meicet.',
-            status: 'planned'
-          }
-        ]
-      },
-      {
-        quarter: 'Q4 (Zima)',
-        season: 'zima',
-        title: 'Hĺbková kolagenéza, Dermapen & Zimná regenerácia',
-        focus: 'Dlhodobá novotvorba kolagénu (Sculptra / Dermapen) a udržiavací refresh botulotoxínu.',
-        seasonalConsideration: 'Zimné obdobie je ideálne na hĺbkovú prestavbu kolagénu a prípravu pleti na nový rok.',
-        treatments: [
-          {
-            id: 'trt-q4-1',
-            name: 'Dermapen 4 / Lekársky microneedling s mezo-sérom',
-            category: 'injectable',
-            targetArea: 'Celá tvár a krk',
-            seasonOrMonth: 'December',
-            frequency: '1 sedenie',
-            priority: 'odporúčaná',
-            estimatedPrice: priceDermapen,
-            reasoning: 'Mikroihličková indukcia kolagénu na zjemnenie textúry a pórov.',
-            status: 'planned'
-          },
-          {
-            id: 'trt-q4-2',
-            name: 'Sculptra (kyselina poly-L-mliečna PLLA)',
-            category: 'injectable',
-            targetArea: 'Vektorový lifting líc a dolnej tretiny tváre',
-            seasonOrMonth: 'Január',
-            frequency: '1 ampulka',
-            priority: 'odporúčaná',
-            estimatedPrice: priceSculptra,
-            reasoning: 'Najsilnejšia biostimulácia vlastného kolagénu typu I a III s efektom na 24 mesiacov.',
-            status: 'planned'
-          }
-        ]
-      }
-    ],
+        ],
     skincareRoutine: {
       selectedTier: preferredTier,
       highEnd: {

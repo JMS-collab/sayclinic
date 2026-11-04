@@ -185,19 +185,38 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
         <div className="grid grid-cols-2 gap-4">
           <div>
             <span className="text-[11px] font-bold text-amber-800 block mb-1.5 uppercase tracking-wide">☀️ Ranná rutina</span>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {morningProducts.map(item => (
                 <div key={item.step} className="p-2 rounded border border-[#E8E2D9] bg-[#FAF8F5] text-[10px]">
                   <div className="flex justify-between items-start font-bold">
-                    <span>{item.step}. {item.category}</span>
-                    <div className="text-right">
+                    <span className="text-[#2C2A29]">{item.step}. {item.category}</span>
+                    <div className="text-right shrink-0 ml-1">
                       <span className="text-[#C5A059] text-[9px]">{item.brand}</span>
-                      {item.price ? <span className="text-[9px] font-bold text-[#2C2A29] ml-1.5">({item.price} €)</span> : null}
+                      {item.price ? <span className="text-[9px] font-bold text-[#2C2A29] ml-1">({item.price} €)</span> : null}
                     </div>
                   </div>
-                  <p className="text-[#2C2A29] font-medium">{item.productName}</p>
-                  <p className="text-[9px] text-[#8C857B] italic">{item.activeIngredients}</p>
-                  <p className="text-[9px] text-[#2C2A29] mt-0.5">{item.usage}</p>
+                  <p className="text-[#2C2A29] font-bold mt-0.5">{item.productName}</p>
+                  <p className="text-[9px] text-[#8C6D2D] font-medium mt-1">
+                    🧪 <span className="font-bold">Účinná látka:</span> {item.keyActiveIngredient || item.activeIngredients}
+                  </p>
+                  {(item.whyItMatters || item.meicetJustification) && (
+                    <p className="text-[8.5px] text-[#554a3a] mt-1 bg-amber-50/80 p-1 rounded border border-amber-200/60 leading-tight">
+                      💡 <span className="font-bold text-amber-900">Prečo:</span> {item.whyItMatters || item.meicetJustification}
+                    </p>
+                  )}
+                  <p className="text-[9px] text-[#2C2A29] mt-1">
+                    ⏱️ <span className="font-bold text-slate-800">Aplikácia:</span> {item.frequencySchedule || item.usage}
+                  </p>
+                  {item.titrationNotes && (
+                    <p className="text-[8.5px] text-indigo-950 mt-1 bg-indigo-50/80 p-1 rounded border border-indigo-200/60 leading-tight">
+                      ⚠️ <span className="font-bold text-indigo-900">Titrácia:</span> {item.titrationNotes}
+                    </p>
+                  )}
+                  {item.isExternal && (
+                    <p className="text-[8px] italic text-stone-500 mt-1">
+                      🌐 {item.externalProviderNote || (item.prescriptionOnly ? 'Liek viazaný na lekársky predpis (Rp.)' : 'Zakúpiť v lekárni / drogérii')}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -205,19 +224,38 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
 
           <div>
             <span className="text-[11px] font-bold text-indigo-900 block mb-1.5 uppercase tracking-wide">🌙 Večerná rutina</span>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {eveningProducts.map(item => (
                 <div key={item.step} className="p-2 rounded border border-[#E8E2D9] bg-[#FAF8F5] text-[10px]">
                   <div className="flex justify-between items-start font-bold">
-                    <span>{item.step}. {item.category}</span>
-                    <div className="text-right">
+                    <span className="text-[#2C2A29]">{item.step}. {item.category}</span>
+                    <div className="text-right shrink-0 ml-1">
                       <span className="text-[#C5A059] text-[9px]">{item.brand}</span>
-                      {item.price ? <span className="text-[9px] font-bold text-[#2C2A29] ml-1.5">({item.price} €)</span> : null}
+                      {item.price ? <span className="text-[9px] font-bold text-[#2C2A29] ml-1">({item.price} €)</span> : null}
                     </div>
                   </div>
-                  <p className="text-[#2C2A29] font-medium">{item.productName}</p>
-                  <p className="text-[9px] text-[#8C857B] italic">{item.activeIngredients}</p>
-                  <p className="text-[9px] text-[#2C2A29] mt-0.5">{item.usage}</p>
+                  <p className="text-[#2C2A29] font-bold mt-0.5">{item.productName}</p>
+                  <p className="text-[9px] text-[#8C6D2D] font-medium mt-1">
+                    🧪 <span className="font-bold">Účinná látka:</span> {item.keyActiveIngredient || item.activeIngredients}
+                  </p>
+                  {(item.whyItMatters || item.meicetJustification) && (
+                    <p className="text-[8.5px] text-[#554a3a] mt-1 bg-amber-50/80 p-1 rounded border border-amber-200/60 leading-tight">
+                      💡 <span className="font-bold text-amber-900">Prečo:</span> {item.whyItMatters || item.meicetJustification}
+                    </p>
+                  )}
+                  <p className="text-[9px] text-[#2C2A29] mt-1">
+                    ⏱️ <span className="font-bold text-slate-800">Aplikácia:</span> {item.frequencySchedule || item.usage}
+                  </p>
+                  {item.titrationNotes && (
+                    <p className="text-[8.5px] text-indigo-950 mt-1 bg-indigo-50/80 p-1 rounded border border-indigo-200/60 leading-tight">
+                      ⚠️ <span className="font-bold text-indigo-900">Titrácia:</span> {item.titrationNotes}
+                    </p>
+                  )}
+                  {item.isExternal && (
+                    <p className="text-[8px] italic text-stone-500 mt-1">
+                      🌐 {item.externalProviderNote || (item.prescriptionOnly ? 'Liek viazaný na lekársky predpis (Rp.)' : 'Zakúpiť v lekárni / drogérii')}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

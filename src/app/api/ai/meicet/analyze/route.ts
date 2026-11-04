@@ -89,21 +89,30 @@ DÔLEŽITÉ KLINICKÉ ŠPECIFIKÁ SAY CLINIC (STRIKTNE DODRŽIAVAJ):
      Ak je pre pacienta medicínsky indikovaný výkon alebo liek mimo priameho portfólia SAY CLINIC (napr. HydraFacial vákuové hydro-čistenie, IPL, Morpheus8 RF, Soolantra krém 10 mg/g na rosaceu [Rx], Skinoren krém na akné/komedóny [Rx], Rozex gél [Rx]), môžeš ho uviesť, ale MUSÍŠ pri ňom nastaviť isExternal: true a do externalProviderNote doplniť stručnú poznámku (napr. 'Výkon mimo portfólia SAY CLINIC - indikovaný u externého poskytovateľa' alebo 'Liek na predpis viazaný na recept'). Pre všetky bežné procedúry SAY CLINIC nastav isExternal: false.
    - STRIKTNÉ ODDELENIE OD CHIRURGIE: Tento modul je čisto pre pleť a neinvazívnu/injekčnú estetiku. Nemiešaj sem plastické operácie ani chirurgické pooperačné jazvy.
 
-2. SKINCARE RUTINA V DVOCH ÚROVNIACH Z NÁŠHO CENNÍKA:
+2. STRIKTNÉ KONTRAINDIKÁCIE A GUIDELINES PODĽA TYPU PLETI (EBM DERMATOLÓGIA):
+   * PRE CITLIVÚ A SUCHÚ PLEŤ (alebo oslabenú kožnú bariéru, vysoké TEWL, difúzny cievny erytém / rosaceu / cievnu reaktivitu):
+     - STRIKTNÝ ZÁKAZ chemických peelingov BioRePeelCl3 (35% TCA), PRX-T33, klasického TCA peelingu a ablatívnych laserov (CO2 laser resurfacing)! BioRePeel ani TCA sa nesmú odporúčať v ŽIADNOM štvrťroku (ani v Q2, ani v Q3)!
+     - Namiesto nich indikuj výlučne: Cievny laser (na lícne cievky a difúzny erytém), Polynukleotidy (Rejuran Healer 2 ml celá tvár, Rejuran I na očné okolie), Bioremodeláciu (Profhilo 2 ml) a Exozómy (ASCE+ na hĺbkovú obnovu kožnej bariéry).
+   * PRE MASTNÚ / ZMIEŠANÚ PLEŤ S ROZŠÍRENÝMI PÓRMI A BEZ ERYTÉMU:
+     - BioRePeel / CoolPeel CO2 / TCA sú povolené iba pri hrubšej seboroickej pokožke s neporušenou bariérou mimo letných mesiacov.
+
+3. SKINCARE RUTINA V DVOCH ÚROVNIACH Z NÁŠHO CENNÍKA S EDUKAČNÝMI POLIAMI:
    A) HIGH-END / PREMIUM RUTINA (Značka SkinCeuticals):
-      - Ráno: SkinCeuticals Soothing Cleanser (46 €), SkinCeuticals C E Ferulic (175 €) alebo Phloretin CF (175 €), SkinCeuticals H.A. Intensifier (118 €), SkinCeuticals Advanced Brightening UV Defense SPF 50+ (46 €).
-      - Večer: SkinCeuticals Soothing Cleanser (46 €), SkinCeuticals Retinol 0.3 (98 €), SkinCeuticals Triple Lipid Restore 2:4:2 (155 €), SkinCeuticals Epidermal Repair (85 €).
+      - Ráno: SkinCeuticals Soothing Cleanser (46 €), SkinCeuticals Phyto Corrective Gel (85 €) pri erytéme / C E Ferulic (175 €) pri odolnej pleti, SkinCeuticals H.A. Intensifier (118 €), SkinCeuticals Advanced Brightening UV Defense SPF 50+ (46 €).
+      - Večer: SkinCeuticals Soothing Cleanser (46 €), SkinCeuticals Phyto Corrective Gel (85 €), SkinCeuticals Retinol 0.3 (98 €) s titráciou, SkinCeuticals Triple Lipid Restore 2:4:2 (155 €), SkinCeuticals Epidermal Repair (85 €).
    B) MID-END / BASIC RUTINA (Značky La Roche-Posay, CeraVe, Vichy):
       - Ráno: CeraVe Hydratačná čistiaca emulzia (14 €), Vichy Minéral 89 Hyaluron Booster (26 €), La Roche-Posay Hyalu B5 Sérum (42 €), La Roche-Posay Anthelios UVMune 400 SPF 50+ (22 €).
       - Večer: La Roche-Posay Toleriane Dermo-Cleanser (18 €), Vichy Liftactiv Collagen Specialist (44 €), CeraVe Hydratačný krém (17 €), La Roche-Posay Cicaplast Baume B5+ (18 €).
+   C) POVINNÁ ŠTRUKTÚRA KAŽDÉHO PRODUKTU (EDUKÁCIA PACIENTA):
+      - keyActiveIngredient: Presná účinná látka a koncentrácia (napr. '2% čisté ceramidy, 4% cholesterol, 2% mastné kyseliny' alebo '0.3% čistý enkapsulovaný retinol + bisabolol').
+      - whyItMatters: Personalizované vysvetlenie prečo je látka dôležitá konkrétne pre tohto pacienta s odkazom na jeho Meicet dáta (napr. 'Pri vašom vysokom TEWL 44/100 dopĺňa chýbajúce lipidy a bráni odparovaniu vody').
+      - frequencySchedule: Frekvencia aplikácie (napr. 'Každý večer' alebo '1x týždenne večer – prvé 2 týždne, potom 2x týždenne').
+      - titrationNotes: Špecifické pokyny k aplikácii / titrácii (napr. 'Začať 1x týždenne večer sendvičovou metódou. Vynechať 5–7 dní pred laserom!').
 
 TVOJOU ÚLOHOU JE:
 1. Extraktovať a zhodnotiť objektívne dáta z Meicet Pro-A reportu (Hydratácia/TEWL, Póry, Vrásky, Textúra, UV poškodenie, Hnedé škvrny, Červené cievne zóny, Maz/porfyríny).
-2. Vytvoriť personalizovaný 12-MESAČNÝ ROČNÝ PLÁN PLEŤOVÝCH PROCEDÚR (Q1, Q2, Q3, Q4):
-   - JESEŇ & ZIMA: CoolPeel® / Frakčný CO2 laser, Cievny laser, Lekársky TCA peeling, Dermapen 4, Sculptra.
-   - JAR: Cievny laser, Botox, Profhilo, Skinbooster, Radiesse.
-   - LETO: STRIKTNÝ ZÁKAZ ablatívnych laserov a TCA peelingu! Odporúčaj Polynukleotidy (Rejuran Healer / Rejuran I / Crystal Hydro PDRN) a BioRePeel / PRX-T33.
-3. Navrhnúť detailnú dennú SKINCARE RUTINU v oboch úrovniach (High-End aj Mid-End).
+2. Vytvoriť personalizovaný 12-MESAČNÝ ROČNÝ PLÁN PLEŤOVÝCH PROCEDÚR (Q1, Q2, Q3, Q4) v súlade s vyššie uvedenými EBM kontraindikáciami pre daný typ pleti.
+3. Navrhnúť detailnú dennú SKINCARE RUTINU v oboch úrovniach (High-End aj Mid-End) s vyplnenými edukačnými poľami (keyActiveIngredient, whyItMatters, frequencySchedule, titrationNotes).
 
 VÝSTUP MUSÍ BYŤ VÝHRADNE ČISTÝ JSON V ŠTRUKTÚRE MeicetAnalysisResult:
 {
@@ -178,10 +187,10 @@ VÝSTUP MUSÍ BYŤ VÝHRADNE ČISTÝ JSON V ŠTRUKTÚRE MeicetAnalysisResult:
       "brandDescription": string,
       "totalEstimatedPrice": number,
       "morning": [
-        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
+        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "keyActiveIngredient": string, "whyItMatters": string, "frequencySchedule": string, "titrationNotes": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string, "isExternal": boolean, "externalProviderNote": string }
       ],
       "evening": [
-        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
+        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "keyActiveIngredient": string, "whyItMatters": string, "frequencySchedule": string, "titrationNotes": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string, "isExternal": boolean, "externalProviderNote": string }
       ],
       "weeklyCare": string[]
     },
@@ -191,18 +200,18 @@ VÝSTUP MUSÍ BYŤ VÝHRADNE ČISTÝ JSON V ŠTRUKTÚRE MeicetAnalysisResult:
       "brandDescription": string,
       "totalEstimatedPrice": number,
       "morning": [
-        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
+        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "keyActiveIngredient": string, "whyItMatters": string, "frequencySchedule": string, "titrationNotes": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string, "isExternal": boolean, "externalProviderNote": string }
       ],
       "evening": [
-        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
+        { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "keyActiveIngredient": string, "whyItMatters": string, "frequencySchedule": string, "titrationNotes": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string, "isExternal": boolean, "externalProviderNote": string }
       ],
       "weeklyCare": string[]
     },
     "morning": [
-      { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
+      { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "keyActiveIngredient": string, "whyItMatters": string, "frequencySchedule": string, "titrationNotes": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string, "isExternal": boolean, "externalProviderNote": string }
     ],
     "evening": [
-      { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string }
+      { "step": number, "category": string, "productName": string, "brand": string, "activeIngredients": string, "keyActiveIngredient": string, "whyItMatters": string, "frequencySchedule": string, "titrationNotes": string, "usage": string, "purpose": string, "price": number, "meicetJustification": string, "isExternal": boolean, "externalProviderNote": string }
     ],
     "weeklyCare": string[],
     "seasonalTips": string

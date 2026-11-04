@@ -24,7 +24,9 @@ import {
   Award,
   Layers,
   Trash2,
-  X
+  X,
+  FlaskConical,
+  Lightbulb
 } from 'lucide-react';
 import { MeicetAnalysisResult, MeicetTreatmentPlanItem, SkincareTier } from '@/types/meicet';
 import { MeicetService } from '@/services/meicetService';
@@ -1009,14 +1011,43 @@ export function MeicetViewer({
                         <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1">
                           {stepItem.brand} – {stepItem.productName}
                         </h5>
-                        <p className={`text-[11px] font-medium mt-0.5 ${isExt ? 'text-stone-600' : 'text-[#8C6D2D]'}`}>
-                          Aktívne látky: {(stepItem as any).keyIngredients || stepItem.activeIngredients}
-                        </p>
-                        <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
-                          {(stepItem as any).usageNotes || stepItem.usage}
-                        </p>
+
+                        {/* BLOK 1: 🧪 Kľúčová účinná látka & koncentrácia */}
+                        <div className="mt-2">
+                          <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#8C6D2D] bg-[#F5EFE6] px-2.5 py-1 rounded-lg border border-[#E8DFC9] flex-wrap">
+                            <FlaskConical className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
+                            <span className="font-bold text-[#634812]">Účinná látka:</span>
+                            <span className="text-[#3E3833]">{stepItem.keyActiveIngredient || (stepItem as any).keyIngredients || stepItem.activeIngredients}</span>
+                          </div>
+                        </div>
+
+                        {/* BLOK 2: 💡 Prečo je dôležitá pre vašu pleť */}
+                        {(stepItem.whyItMatters || stepItem.meicetJustification) && (
+                          <div className="mt-2 text-[11px] bg-amber-50/80 border border-amber-200/70 rounded-lg p-2.5 text-[#5A4315] leading-relaxed">
+                            <div className="font-bold text-amber-900 flex items-center gap-1 mb-0.5">
+                              <Lightbulb className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              Prečo je dôležitá pre vašu pleť:
+                            </div>
+                            <p className="text-[#4E3A10]">{stepItem.whyItMatters || stepItem.meicetJustification}</p>
+                          </div>
+                        )}
+
+                        {/* BLOK 3: ⏱️ Frekvencia aplikácie a protokol titrácie */}
+                        <div className="mt-2 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700 bg-slate-100/90 px-2.5 py-1 rounded-lg border border-slate-200 flex-wrap">
+                            <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <span className="font-bold text-slate-800">Frekvencia:</span>
+                            <span className="text-slate-700">{stepItem.frequencySchedule || (stepItem as any).usageNotes || stepItem.usage}</span>
+                          </div>
+                          {stepItem.titrationNotes && (
+                            <div className="text-[11px] text-indigo-950 bg-indigo-50/90 border border-indigo-200/80 rounded-lg p-2 leading-relaxed">
+                              <span className="font-bold text-indigo-900">⚠️ Protokol aplikácie / Titrácia:</span> {stepItem.titrationNotes}
+                            </div>
+                          )}
+                        </div>
+
                         {isExt && (stepItem.externalProviderNote || isRx) && (
-                          <p className="text-[10px] italic text-stone-500 mt-1 bg-white/70 p-1 rounded border border-stone-200">
+                          <p className="text-[10px] italic text-stone-500 mt-2 bg-white/70 p-1.5 rounded-lg border border-stone-200">
                             ℹ️ {stepItem.externalProviderNote || (isRx ? 'Vyžaduje lekársky predpis (Rp.), zakúpiť v lekárni' : 'Zakúpiť v lekárni alebo drogérii')}
                           </p>
                         )}
@@ -1095,14 +1126,43 @@ export function MeicetViewer({
                         <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1">
                           {stepItem.brand} – {stepItem.productName}
                         </h5>
-                        <p className={`text-[11px] font-medium mt-0.5 ${isExt ? 'text-stone-600' : 'text-[#8C6D2D]'}`}>
-                          Aktívne látky: {(stepItem as any).keyIngredients || stepItem.activeIngredients}
-                        </p>
-                        <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
-                          {(stepItem as any).usageNotes || stepItem.usage}
-                        </p>
+
+                        {/* BLOK 1: 🧪 Kľúčová účinná látka & koncentrácia */}
+                        <div className="mt-2">
+                          <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#8C6D2D] bg-[#F5EFE6] px-2.5 py-1 rounded-lg border border-[#E8DFC9] flex-wrap">
+                            <FlaskConical className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
+                            <span className="font-bold text-[#634812]">Účinná látka:</span>
+                            <span className="text-[#3E3833]">{stepItem.keyActiveIngredient || (stepItem as any).keyIngredients || stepItem.activeIngredients}</span>
+                          </div>
+                        </div>
+
+                        {/* BLOK 2: 💡 Prečo je dôležitá pre vašu pleť */}
+                        {(stepItem.whyItMatters || stepItem.meicetJustification) && (
+                          <div className="mt-2 text-[11px] bg-amber-50/80 border border-amber-200/70 rounded-lg p-2.5 text-[#5A4315] leading-relaxed">
+                            <div className="font-bold text-amber-900 flex items-center gap-1 mb-0.5">
+                              <Lightbulb className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              Prečo je dôležitá pre vašu pleť:
+                            </div>
+                            <p className="text-[#4E3A10]">{stepItem.whyItMatters || stepItem.meicetJustification}</p>
+                          </div>
+                        )}
+
+                        {/* BLOK 3: ⏱️ Frekvencia aplikácie a protokol titrácie */}
+                        <div className="mt-2 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700 bg-slate-100/90 px-2.5 py-1 rounded-lg border border-slate-200 flex-wrap">
+                            <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <span className="font-bold text-slate-800">Frekvencia:</span>
+                            <span className="text-slate-700">{stepItem.frequencySchedule || (stepItem as any).usageNotes || stepItem.usage}</span>
+                          </div>
+                          {stepItem.titrationNotes && (
+                            <div className="text-[11px] text-indigo-950 bg-indigo-50/90 border border-indigo-200/80 rounded-lg p-2 leading-relaxed">
+                              <span className="font-bold text-indigo-900">⚠️ Protokol aplikácie / Titrácia:</span> {stepItem.titrationNotes}
+                            </div>
+                          )}
+                        </div>
+
                         {isExt && (stepItem.externalProviderNote || isRx) && (
-                          <p className="text-[10px] italic text-stone-500 mt-1 bg-white/70 p-1 rounded border border-stone-200">
+                          <p className="text-[10px] italic text-stone-500 mt-2 bg-white/70 p-1.5 rounded-lg border border-stone-200">
                             ℹ️ {stepItem.externalProviderNote || (isRx ? 'Vyžaduje lekársky predpis (Rp.), zakúpiť v lekárni' : 'Zakúpiť v lekárni alebo drogérii')}
                           </p>
                         )}

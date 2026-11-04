@@ -120,6 +120,10 @@ export interface MeicetSkincareProduct {
   productName: string;
   brand: string;
   activeIngredients: string;
+  keyActiveIngredient?: string; // 🧪 Presná účinná látka & koncentrácia (napr. "Čistý zapuzdrený retinol 0.3%")
+  whyItMatters?: string; // 💡 Prečo je dôležitá pre vašu pleť (prepojenie na Meicet skóre a kožnú bariéru)
+  frequencySchedule?: string; // ⏱️ Frekvencia & Titračná schéma (napr. "1x týždenne večer – prvé 2 týždne, potom 2x týždenne")
+  titrationNotes?: string; // Špecifické pokyny (napr. "Vynechať 5 dní pred laserom, neaplikovať na vlhkú pleť")
   usage: string;
   purpose: string;
   price?: number;
