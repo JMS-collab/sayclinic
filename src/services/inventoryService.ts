@@ -1,30 +1,12 @@
 // Správa skladu, spotreby materiálu a objednávok pre SAY CLINIC
 import { RealtimeSyncService } from './realtimeSyncService';
+import { 
+  InventoryCategory, 
+  InventoryItem, 
+  INITIAL_CLINIC_INVENTORY 
+} from '../data/clinicInventoryCatalog';
 
-export type InventoryCategory = 
-  | 'estetika' 
-  | 'implantaty' 
-  | 'kompresivne_pradlo' 
-  | 'sijaci_material' 
-  | 'anestezia' 
-  | 'ambulantny_material' 
-  | 'spotrebny';
-
-export interface InventoryItem {
-  id: string;
-  name: string;
-  category: InventoryCategory;
-  quantity: number;
-  unit: 'ks' | 'ml' | 'bal' | 'vialka' | 'pár' | 'set';
-  minQuantity: number;
-  optimalQuantity: number;
-  costPerUnit: number; // Nákupná cena bez DPH (€)
-  supplier: string; // napr. 'Galderma', 'Lipoelastic', 'Establishment Labs', 'Ethicon', 'B.Braun'
-  supplierCode?: string;
-  lotNumber?: string;
-  expirationDate?: string;
-  location?: string; // napr. 'Chladnička 1', 'Operačná sála', 'Sklad prádla'
-}
+export type { InventoryCategory, InventoryItem };
 
 export type MaterialUsageSourceType = 
   | 'operacia' 
@@ -96,7 +78,7 @@ export interface FrequentItemRecommendation {
 
 export const FREQUENT_ITEMS_BY_PROCEDURE: Record<string, FrequentItemRecommendation[]> = {
   breast: [
-    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', category: 'anestezia', defaultQty: 2, unit: 'vialka', reason: 'Lokálna anestézia' },
+    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', category: 'anestezia', defaultQty: 2, unit: 'liekovka', reason: 'Lokálna anestézia' },
     { itemId: 'inv-pds-40', name: 'PDS II 4-0 ihla SH-1 (bal 36ks)', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Hlboká podkožná sutúra' },
     { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2 (bal 36ks)', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Subkutikulárny steh' },
     { itemId: 'inv-glycolon-40', name: 'Glycolon 4-0 intrakutánny steh', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Intrakutánny uzáver' },
@@ -106,19 +88,19 @@ export const FREQUENT_ITEMS_BY_PROCEDURE: Record<string, FrequentItemRecommendat
     { itemId: 'inv-belt-sg', name: 'Prsný kompresívny pás SG', category: 'kompresivne_pradlo', defaultQty: 1, unit: 'ks', reason: 'Horná stabilizácia' },
   ],
   eyelids: [
-    { itemId: 'inv-citanest', name: 'Citanest 1% s Adrenalínom', category: 'anestezia', defaultQty: 1, unit: 'vialka', reason: 'Infiltrácia viečok' },
+    { itemId: 'inv-citanest', name: 'Citanest 1% s Adrenalínom', category: 'anestezia', defaultQty: 1, unit: 'liekovka', reason: 'Infiltrácia viečok' },
     { itemId: 'inv-prolene-50', name: 'Prolene 5-0 ihla P-3', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Nevstrebateľný kožný steh' },
     { itemId: 'inv-steri-strip', name: 'Steri-Strip sterilné náplasti 6x75mm', category: 'ambulantny_material', defaultQty: 1, unit: 'bal', reason: 'Fixácia po extrakcii / šití' },
     { itemId: 'inv-mepore', name: 'Mepore sterilné krytie', category: 'ambulantny_material', defaultQty: 1, unit: 'bal', reason: 'Absorpčné krytie' },
   ],
   carpal: [
-    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% / Supracain', category: 'anestezia', defaultQty: 1, unit: 'vialka', reason: 'Zvodová anestézia zápästia' },
+    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% / Supracain', category: 'anestezia', defaultQty: 1, unit: 'liekovka', reason: 'Zvodová anestézia zápästia' },
     { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Kožná sutúra dlane' },
     { itemId: 'inv-steri-strip', name: 'Steri-Strip sterilné náplasti', category: 'ambulantny_material', defaultQty: 1, unit: 'bal', reason: 'Primárna fixácia' },
     { itemId: 'inv-mepore', name: 'Mepore krytie & elastická bandáž', category: 'ambulantny_material', defaultQty: 1, unit: 'ks', reason: 'Kompresný zábal ruky' },
   ],
   abdomen: [
-    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj.', category: 'anestezia', defaultQty: 4, unit: 'vialka', reason: 'Infiltrácia brušnej steny' },
+    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj.', category: 'anestezia', defaultQty: 4, unit: 'liekovka', reason: 'Infiltrácia brušnej steny' },
     { itemId: 'inv-pds-40', name: 'PDS II 2-0 / 0 slučka na diastázu', category: 'sijaci_material', defaultQty: 2, unit: 'bal', reason: 'Plikácia priamych svalov' },
     { itemId: 'inv-monocryl-40', name: 'Monocryl 3-0 / 4-0', category: 'sijaci_material', defaultQty: 2, unit: 'bal', reason: 'Dvojvrstvové šitie podkožia' },
     { itemId: 'inv-surgicel', name: 'Surgicel hemostatická gáza', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Hemostáza plochy' },
@@ -126,7 +108,7 @@ export const FREQUENT_ITEMS_BY_PROCEDURE: Record<string, FrequentItemRecommendat
     { itemId: 'inv-belt-sg', name: 'Brušný kompresívny pás 3-panelový', category: 'kompresivne_pradlo', defaultQty: 1, unit: 'ks', reason: 'Fixácia brucha' },
   ],
   facelift: [
-    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj.', category: 'anestezia', defaultQty: 3, unit: 'vialka', reason: 'Infiltrácia tváre a krku' },
+    { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj.', category: 'anestezia', defaultQty: 3, unit: 'liekovka', reason: 'Infiltrácia tváre a krku' },
     { itemId: 'inv-pds-40', name: 'PDS II 3-0 / 4-0', category: 'sijaci_material', defaultQty: 2, unit: 'bal', reason: 'SMAS fixácia a plikácia' },
     { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0', category: 'sijaci_material', defaultQty: 2, unit: 'bal', reason: 'Preaurikulárny uzáver' },
     { itemId: 'inv-prolene-50', name: 'Prolene 5-0', category: 'sijaci_material', defaultQty: 1, unit: 'bal', reason: 'Jemný retroaurikulárny steh' },
@@ -161,7 +143,7 @@ export interface OpiateItem {
   activeSubstance: string; // "Fentanylum"
   form: string; // "injekčný roztok v ampulkách"
   strength: string; // "0.1 mg / 2 ml"
-  packageUnit: 'ampulka' | 'vialka' | 'balenie';
+  packageUnit: 'ampulka' | 'liekovka' | 'balenie';
   currentStock: number; // Aktuálny fyzický počet ampuliek v trezore
   minStock: number;
   lotNumber: string;
@@ -209,7 +191,7 @@ export interface OpiateLogEntry {
   quantityOut: number; // Výdaj (ampulky)
   quantityWasted?: number; // Nespotrebovaný znehodnotený zostatok z ampulky (napr. 0.5 ml)
   balanceAfter: number; // Zostatok po tomto zápise
-  unit: string; // 'ampulka' | 'vialka' | 'ml'
+  unit: string; // 'ampulka' | 'liekovka' | 'ml'
   
   notes?: string;
   recordedBy: string; // Meno zapisujúceho pracovníka
@@ -287,11 +269,11 @@ export const INITIAL_OPIATES: OpiateItem[] = [
   },
   {
     id: 'op-ketamin',
-    name: 'Calypsol (Ketamín) 50 mg / ml (10 ml vialka)',
+    name: 'Calypsol (Ketamín) 50 mg / ml (10 ml liekovka)',
     activeSubstance: 'Ketaminum',
-    form: 'injekčný roztok vo vialke (10ml)',
+    form: 'injekčný roztok v liekovke (10ml)',
     strength: '500 mg / 10 ml',
-    packageUnit: 'vialka',
+    packageUnit: 'liekovka',
     currentStock: 0,
     minStock: 3,
     lotNumber: '',
@@ -324,8 +306,8 @@ export const INITIAL_OPIATES: OpiateItem[] = [
 // Úradný register (Kniha OPL) - čistý počiatočný stav
 export const INITIAL_OPIATE_LOGS: OpiateLogEntry[] = [];
 
-// Skladové zásoby SAY CLINIC - čistý počiatočný stav
-export const INITIAL_INVENTORY: InventoryItem[] = [];
+// Skladové zásoby SAY CLINIC - počiatočný stav z oficiálneho cenníka
+export const INITIAL_INVENTORY: InventoryItem[] = INITIAL_CLINIC_INVENTORY;
 
 // Počiatočné balíčky výkonov
 export const INITIAL_BUNDLES: MaterialBundle[] = [
@@ -336,7 +318,7 @@ export const INITIAL_BUNDLES: MaterialBundle[] = [
     category: 'operacia',
     keywords: ['augment', 'prsník', 'prsnik', 'mamma', 'implantat', 'implantát', 'vloženie implantátov'],
     items: [
-      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 2, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 2, unit: 'liekovka', category: 'anestezia' },
       { itemId: 'inv-pds-40', name: 'PDS II 4-0 ihla SH-1 (bal 36ks)', quantity: 1, unit: 'bal', category: 'sijaci_material' },
       { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2 (bal 36ks)', quantity: 1, unit: 'bal', category: 'sijaci_material' },
       { itemId: 'inv-glycolon-40', name: 'Glycolon 4-0 intrakutánny steh', quantity: 1, unit: 'bal', category: 'sijaci_material' },
@@ -353,7 +335,7 @@ export const INITIAL_BUNDLES: MaterialBundle[] = [
     category: 'operacia',
     keywords: ['blefaro', 'vieč', 'viec', 'očn', 'ocn', 'očných', 'ocnych'],
     items: [
-      { itemId: 'inv-citanest', name: 'Citanest 1% s Adrenalínom 1:200 000', quantity: 1, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-citanest', name: 'Citanest 1% s Adrenalínom 1:200 000', quantity: 1, unit: 'liekovka', category: 'anestezia' },
       { itemId: 'inv-prolene-50', name: 'Prolene 5-0 ihla P-3 (bal 36ks)', quantity: 1, unit: 'bal', category: 'sijaci_material' },
       { itemId: 'inv-steri-strip', name: 'Steri-Strip sterilné náplasťové stehy 6x75mm', quantity: 1, unit: 'bal', category: 'ambulantny_material' },
       { itemId: 'inv-mepore', name: 'Mepore sterilné pooperačné krytie', quantity: 1, unit: 'bal', category: 'ambulantny_material' },
@@ -366,7 +348,7 @@ export const INITIAL_BUNDLES: MaterialBundle[] = [
     category: 'operacia',
     keywords: ['karpál', 'karpal', 'kanál', 'kanal', 'nervus medianus', 'tunel'],
     items: [
-      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 1, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 1, unit: 'liekovka', category: 'anestezia' },
       { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2 (bal 36ks)', quantity: 1, unit: 'bal', category: 'sijaci_material' },
       { itemId: 'inv-steri-strip', name: 'Steri-Strip sterilné náplasťové stehy', quantity: 1, unit: 'bal', category: 'ambulantny_material' },
       { itemId: 'inv-mepore', name: 'Mepore sterilné krytie + elastická bandáž', quantity: 1, unit: 'ks', category: 'ambulantny_material' },
@@ -379,7 +361,7 @@ export const INITIAL_BUNDLES: MaterialBundle[] = [
     category: 'operacia',
     keywords: ['abdomino', 'brucho', 'bruch', 'diastáza', 'diastaza', 'dermolipectomia'],
     items: [
-      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 4, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 4, unit: 'liekovka', category: 'anestezia' },
       { itemId: 'inv-pds-40', name: 'PDS II 2-0 / 0 slučka na plikáciu diastázy', quantity: 2, unit: 'bal', category: 'sijaci_material' },
       { itemId: 'inv-monocryl-40', name: 'Monocryl 3-0 / 4-0 na podkožie', quantity: 2, unit: 'bal', category: 'sijaci_material' },
       { itemId: 'inv-glycolon-40', name: 'Glycolon 4-0 intrakutánny steh', quantity: 1, unit: 'bal', category: 'sijaci_material' },
@@ -395,7 +377,7 @@ export const INITIAL_BUNDLES: MaterialBundle[] = [
     category: 'operacia',
     keywords: ['facelift', 'face-lift', 'necklift', 'smas', 'lifting tváre', 'lifting krku'],
     items: [
-      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 3, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-marcaine', name: 'Marcaine 0.5% inj. (bupivakain)', quantity: 3, unit: 'liekovka', category: 'anestezia' },
       { itemId: 'inv-pds-40', name: 'PDS II 3-0 / 4-0 na SMAS fixáciu', quantity: 2, unit: 'bal', category: 'sijaci_material' },
       { itemId: 'inv-monocryl-40', name: 'Monocryl 4-0 ihla PS-2 (bal 36ks)', quantity: 2, unit: 'bal', category: 'sijaci_material' },
       { itemId: 'inv-prolene-50', name: 'Prolene 5-0 ihla P-3 na kožu', quantity: 1, unit: 'bal', category: 'sijaci_material' },
@@ -424,7 +406,7 @@ export const INITIAL_BUNDLES: MaterialBundle[] = [
     category: 'operacia',
     keywords: ['labio', 'pysk', 'intímna', 'intimna'],
     items: [
-      { itemId: 'inv-citanest', name: 'Citanest 1% s Adrenalínom', quantity: 1, unit: 'vialka', category: 'anestezia' },
+      { itemId: 'inv-citanest', name: 'Citanest 1% s Adrenalínom', quantity: 1, unit: 'liekovka', category: 'anestezia' },
       { itemId: 'inv-glycolon-40', name: 'Vicryl Rapide / Glycolon 5-0 vstrebateľný steh', quantity: 2, unit: 'bal', category: 'sijaci_material' },
       { itemId: 'inv-dermacyn', name: 'Dermacyn antiseptický gél na rany', quantity: 1, unit: 'ks', category: 'ambulantny_material' },
     ]
@@ -448,7 +430,7 @@ export const INITIAL_BUNDLES: MaterialBundle[] = [
     category: 'estetika',
     keywords: ['botox', 'dysport', 'vrásk', 'vrask', 'neurotoxin'],
     items: [
-      { itemId: 'inv-dysport', name: 'Dysport 500U / Botox 100U', quantity: 1, unit: 'vialka', category: 'estetika' },
+      { itemId: 'inv-dysport', name: 'Dysport 500U / Botox 100U', quantity: 1, unit: 'liekovka', category: 'estetika' },
       { itemId: 'inv-cannula-tsk', name: 'TSK ihly 30G/32G mikroneedle set', quantity: 1, unit: 'bal', category: 'spotrebny' },
     ]
   }
@@ -470,15 +452,30 @@ export class InventoryService {
       const saved = localStorage.getItem(this.STORAGE_KEY_INVENTORY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      // Inicializácia pri prvom spustení
+      // Inicializácia pri prvom spustení alebo ak bol sklad prázdny
       localStorage.setItem(this.STORAGE_KEY_INVENTORY, JSON.stringify(INITIAL_INVENTORY));
       return INITIAL_INVENTORY;
     } catch (e) {
       console.error('Chyba načítania skladu:', e);
       return INITIAL_INVENTORY;
     }
+  }
+
+  // Synchronizácia skladu s katalógom položiek z cenníka
+  public static syncWithCatalog(mode: 'merge' | 'reset' = 'merge'): InventoryItem[] {
+    if (typeof window === 'undefined') return INITIAL_INVENTORY;
+    if (mode === 'reset') {
+      this.saveInventory(INITIAL_INVENTORY);
+      return INITIAL_INVENTORY;
+    }
+    const current = this.getInventory();
+    const existingIds = new Set(current.map(i => i.id));
+    const newItems = INITIAL_INVENTORY.filter(i => !existingIds.has(i.id));
+    const updated = [...current, ...newItems];
+    this.saveInventory(updated);
+    return updated;
   }
 
   // Uloženie zásob

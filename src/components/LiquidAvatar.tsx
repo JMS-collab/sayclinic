@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 interface AvatarProps {
   id: string;
   name: string;
-  role: 'doctor' | 'manager' | 'nurse' | 'ceo' | 'receptionist';
+  role: 'doctor' | 'manager' | 'nurse' | 'ceo' | 'receptionist' | 'external_clinic';
   className?: string;
   avatarUrl?: string;
 }
@@ -21,6 +21,7 @@ const MEMOJI_MAP: Record<string, string> = {
   u8: '/avatars/anesteziolog.jpg?v=3',
   u9: '/avatars/anest_sestra.jpg?v=1',
   u10: '/avatars/foltaniova.jpg?v=3',
+  u21: '/avatars/doctor_senior.jpg',
 };
 
 export function LiquidAvatar({ id, name, role, className = "w-full h-full", avatarUrl }: AvatarProps) {

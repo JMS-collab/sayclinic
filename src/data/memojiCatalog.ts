@@ -99,6 +99,46 @@ export const MEMOJI_PRESETS: MemojiPreset[] = [
     url: '/avatars/anesteziolog.jpg?v=3',
     badge: 'OAIM'
   },
+  {
+    id: 'doc-kasac',
+    category: 'doctor',
+    categoryLabel: 'Lekári & Chirurgovia',
+    categoryIcon: '👨‍⚕️',
+    name: 'MUDr. Martin Kasáč',
+    roleDescription: 'Anesteziológ (OAIM)',
+    url: '/avatars/anesteziolog.jpg?v=3',
+    badge: 'OAIM'
+  },
+  {
+    id: 'doc-vrban',
+    category: 'doctor',
+    categoryLabel: 'Lekári & Chirurgovia',
+    categoryIcon: '👨‍⚕️',
+    name: 'MUDr. Vladimír Vrban',
+    roleDescription: 'Anesteziológ (OAIM)',
+    url: '/avatars/anesteziolog.jpg?v=3',
+    badge: 'OAIM'
+  },
+  {
+    id: 'doc-gombosova',
+    category: 'doctor',
+    categoryLabel: 'Lekári & Chirurgovia',
+    categoryIcon: '👩‍⚕️',
+    name: 'MUDr. Monika Gombošová',
+    roleDescription: 'Anesteziologička (OAIM)',
+    url: '/avatars/anesteziolog.jpg?v=3',
+    badge: 'OAIM'
+  },
+  {
+    id: 'doc-hudecova',
+    category: 'doctor',
+    categoryLabel: 'Lekári & Chirurgovia',
+    categoryIcon: '👩‍⚕️',
+    name: 'MUDr. Martina Hudecová',
+    roleDescription: 'Anesteziologička (OAIM)',
+    url: '/avatars/anesteziolog.jpg?v=3',
+    badge: 'OAIM'
+  },
 
   // 2. ZDRAVOTNÉ SESTRY
   {
@@ -150,6 +190,66 @@ export const MEMOJI_PRESETS: MemojiPreset[] = [
     roleDescription: 'Asistencia pri anestézii',
     url: '/avatars/anest_sestra.jpg?v=1',
     badge: 'OAIM Sestra'
+  },
+  {
+    id: 'nurse-halajova',
+    category: 'nurse',
+    categoryLabel: 'Zdravotné sestry',
+    categoryIcon: '🩺',
+    name: 'Denisa Halajová',
+    roleDescription: 'Anesteziologická sestra',
+    url: '/avatars/anest_sestra.jpg?v=1',
+    badge: 'OAIM Sestra'
+  },
+  {
+    id: 'nurse-besinova',
+    category: 'nurse',
+    categoryLabel: 'Zdravotné sestry',
+    categoryIcon: '🩺',
+    name: 'Ivana Bešinová',
+    roleDescription: 'Anesteziologická sestra',
+    url: '/avatars/anest_sestra.jpg?v=1',
+    badge: 'OAIM Sestra'
+  },
+  {
+    id: 'nurse-otiepkova',
+    category: 'nurse',
+    categoryLabel: 'Zdravotné sestry',
+    categoryIcon: '🩺',
+    name: 'Katarína Otiepková',
+    roleDescription: 'Inštrumentárka / Sestra',
+    url: '/avatars/nurse_scrub_cap.jpg',
+    badge: 'Inštrumentárka'
+  },
+  {
+    id: 'nurse-cunderlikova',
+    category: 'nurse',
+    categoryLabel: 'Zdravotné sestry',
+    categoryIcon: '🩺',
+    name: 'Erika Čunderlíková',
+    roleDescription: 'Inštrumentárka / Sestra',
+    url: '/avatars/nurse_scrub_cap.jpg',
+    badge: 'Inštrumentárka'
+  },
+  {
+    id: 'nurse-rafanedisova',
+    category: 'nurse',
+    categoryLabel: 'Zdravotné sestry',
+    categoryIcon: '🩺',
+    name: 'Izabela Rafanedisová',
+    roleDescription: 'Inštrumentárka / Sestra',
+    url: '/avatars/nurse_scrub_cap.jpg',
+    badge: 'Inštrumentárka'
+  },
+  {
+    id: 'nurse-papanova',
+    category: 'nurse',
+    categoryLabel: 'Zdravotné sestry',
+    categoryIcon: '🩺',
+    name: 'Anna Papánová',
+    roleDescription: 'Anesteziologická sestra',
+    url: '/avatars/anest_sestra.jpg?v=1',
+    badge: 'Anest. sestra'
   },
   {
     id: 'nurse-genmoji-ema',

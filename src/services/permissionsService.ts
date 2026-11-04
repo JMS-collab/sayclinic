@@ -1,6 +1,6 @@
 import { UserAccount } from '../components/LoginForm';
 
-export type RoleType = 'ceo' | 'doctor' | 'manager' | 'nurse' | 'receptionist';
+export type RoleType = 'ceo' | 'doctor' | 'manager' | 'nurse' | 'receptionist' | 'external_clinic';
 
 export type TabId = 
   | 'home' 
@@ -256,6 +256,18 @@ export const RECOMMENDED_ROLE_PERMISSIONS: Record<RoleType, RolePermissionConfig
       reset_financial_data: false,
       manage_permissions: false,
     }
+  },
+
+  // 6. EXTERNÁ KLINIKA / OPERAČNÉ SÁLY RUDLOVÁ
+  external_clinic: {
+    allowedTabs: ['calendar', 'patients'],
+    specialPermissions: {
+      view_financial_kpis: false,
+      view_clinic_pnl: false,
+      manage_invoices: false,
+      reset_financial_data: false,
+      manage_permissions: false,
+    }
   }
 };
 
@@ -285,6 +297,7 @@ export const PermissionsService = {
           manager: { ...RECOMMENDED_ROLE_PERMISSIONS.manager, ...parsed.manager },
           nurse: { ...RECOMMENDED_ROLE_PERMISSIONS.nurse, ...parsed.nurse },
           receptionist: { ...RECOMMENDED_ROLE_PERMISSIONS.receptionist, ...parsed.receptionist },
+          external_clinic: { ...RECOMMENDED_ROLE_PERMISSIONS.external_clinic, ...parsed.external_clinic },
         };
       }
     } catch (e) {
@@ -320,7 +333,7 @@ export const PermissionsService = {
     const canSimulate = user.role === 'ceo' || user.role === 'manager' || user.email === 'say@sayclinic.sk' || user.email === 'mraz@sayclinic.sk' || user.id === 'u1';
     if (canSimulate && typeof window !== 'undefined') {
       const sim = localStorage.getItem(SIMULATED_ROLE_KEY) as RoleType | null;
-      if (sim && (sim === 'ceo' || sim === 'doctor' || sim === 'manager' || sim === 'nurse' || sim === 'receptionist')) {
+      if (sim && (sim === 'ceo' || sim === 'doctor' || sim === 'manager' || sim === 'nurse' || sim === 'receptionist' || sim === 'external_clinic')) {
         return sim;
       }
     }
@@ -383,6 +396,7 @@ export const PermissionsService = {
       case 'manager': return 'Klinický Manažment';
       case 'nurse': return 'Zdravotná sestra';
       case 'receptionist': return 'Recepčná & Koordinátorka';
+      case 'external_clinic': return 'Operačné sály Rudlová';
     }
   },
 
@@ -394,6 +408,7 @@ export const PermissionsService = {
       case 'manager': return 'bg-amber-50 text-amber-900 border-amber-200';
       case 'nurse': return 'bg-emerald-50 text-emerald-800 border-emerald-200';
       case 'receptionist': return 'bg-purple-50 text-purple-900 border-purple-200';
+      case 'external_clinic': return 'bg-amber-100 text-amber-900 border-[#C5A059]';
     }
   }
 };

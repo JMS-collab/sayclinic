@@ -25,7 +25,8 @@ export type SyncCollection =
   | 'meicet_reports'
   | 'audit_logs'
   | 'loyalty_transactions'
-  | 'loyalty_overrides';
+  | 'loyalty_overrides'
+  | 'operative_notes';
 
 interface CollectionMapping {
   storageKey: string;
@@ -128,6 +129,10 @@ const COLLECTION_MAP: Record<SyncCollection, CollectionMapping> = {
   loyalty_overrides: {
     storageKey: 'say_clinic_loyalty_overrides_v1',
     eventName: 'say_clinic_loyalty_changed',
+  },
+  operative_notes: {
+    storageKey: 'say_clinic_operative_notes',
+    eventName: 'say_clinic_operative_notes_changed',
   },
 };
 

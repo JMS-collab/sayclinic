@@ -7,7 +7,7 @@ export interface QuickActionItem {
   description: string;
   iconName: 'FolderOpen' | 'UserPlus' | 'Calendar' | 'FileText' | 'Pill' | 'Sparkles' | 'ShoppingBag' | 'Boxes' | 'BarChart3' | 'Briefcase';
   badge?: string;
-  actionType: 'tab' | 'new_patient';
+  actionType: 'tab' | 'new_patient' | 'new_calendar_event';
   defaultEnabledRoles: RoleType[];
 }
 
@@ -42,6 +42,15 @@ export const QUICK_ACTIONS_CATALOG: QuickActionItem[] = [
     description: 'Harmonogram sál SAY, Rudlová, kontroly a dospávacie izby',
     iconName: 'Calendar',
     actionType: 'tab',
+    defaultEnabledRoles: ['ceo', 'doctor', 'manager', 'nurse', 'receptionist']
+  },
+  {
+    id: 'new_calendar_event',
+    tabId: 'calendar',
+    label: 'Naplánovať termín / operáciu',
+    description: 'Rýchle vytvorenie nového termínu, operácie alebo kontroly v kalendári',
+    iconName: 'Calendar',
+    actionType: 'new_calendar_event',
     defaultEnabledRoles: ['ceo', 'doctor', 'manager', 'nurse', 'receptionist']
   },
   {

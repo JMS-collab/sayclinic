@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { 
   Search, 
@@ -152,6 +152,11 @@ export default function PatientDatabase({
   currentUser
 }: PatientDatabaseProps) {
   const { data: session } = useSession();
+  const isRudlovaOnly = Boolean(
+    currentUser?.role === 'external_clinic' ||
+    currentUser?.id === 'u21' ||
+    currentUser?.email === 'rudlova@sayclinic.sk'
+  );
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || activePatient || null);
 
@@ -452,6 +457,30 @@ export default function PatientDatabase({
   const [isOrganizingDriveFiles, setIsOrganizingDriveFiles] = useState(false);
 
   const [patientRecords, setPatientRecords] = useState<Record<string, MedicalRecord[]>>({});
+
+  const getVisiblePatientRecords = useCallback((patientId: string): MedicalRecord[] => {
+    const raw = patientRecords[patientId] || [];
+    if (!isRudlovaOnly) return raw;
+    return raw.filter(r => {
+      const docTypeLower = ((r as any).docType || '').toLowerCase();
+      const typeLower = (r.type || '').toLowerCase();
+      const titleLower = (r.title || '').toLowerCase();
+      const isPricingDoc =
+        docTypeLower === 'dohoda_o_cene' ||
+        docTypeLower === 'cenova_ponuka' ||
+        typeLower.includes('dohoda o cene') ||
+        typeLower.includes('cenová ponuka') ||
+        typeLower.includes('cenova ponuka') ||
+        titleLower.includes('dohoda o cene') ||
+        titleLower.includes('cenová ponuka') ||
+        titleLower.includes('cenova ponuka') ||
+        titleLower.includes('cenník') ||
+        titleLower.includes('faktúr');
+      return !isPricingDoc;
+    });
+  }, [patientRecords, isRudlovaOnly]);
+
+  const visiblePatientRecords = selectedPatient ? getVisiblePatientRecords(selectedPatient.id) : [];
 
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<MedicalRecord | null>(null);
@@ -2519,30 +2548,32 @@ export default function PatientDatabase({
                         <p className="text-xs text-[#8C857B]">Tel: {patient.phone}</p>
 
                         {/* VERNOSTNÁ KATEGÓRIA KLIENTA NA KARTE */}
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLoyaltyModalPatient({ id: patient.id, name: patient.name });
-                          }}
-                          className="mt-2.5 p-2 rounded-xl bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] transition-all flex items-center justify-between gap-2"
-                          title="Kliknutím nastavíte vernostnú kategóriu klienta (Basic 0%, Premium 5%, VIP 10%)"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${pLoyalty.tierDef.badgeBg} ${pLoyalty.tierDef.badgeText} ${pLoyalty.tierDef.badgeBorder}`}
-                            >
-                              {pLoyalty.tierDef.name} ({pLoyalty.tierDef.discountPercent}%)
-                            </span>
-                            {pLoyalty.hasSurgeryOver1000 && (
-                              <span className="text-[9px] text-amber-800 font-bold" title="Automaticky Premium po operácii nad 1 000 €">
-                                ★ Op&gt;1k
+                        {!isRudlovaOnly && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLoyaltyModalPatient({ id: patient.id, name: patient.name });
+                            }}
+                            className="mt-2.5 p-2 rounded-xl bg-[#FBF9F6] border border-[#E8E2D9] hover:border-[#C5A059] transition-all flex items-center justify-between gap-2"
+                            title="Kliknutím nastavíte vernostnú kategóriu klienta (Basic 0%, Premium 5%, VIP 10%)"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${pLoyalty.tierDef.badgeBg} ${pLoyalty.tierDef.badgeText} ${pLoyalty.tierDef.badgeBorder}`}
+                              >
+                                {pLoyalty.tierDef.name} ({pLoyalty.tierDef.discountPercent}%)
                               </span>
-                            )}
+                              {pLoyalty.hasSurgeryOver1000 && (
+                                <span className="text-[9px] text-amber-800 font-bold" title="Automaticky Premium po operácii nad 1 000 €">
+                                  ★ Op&gt;1k
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-[#2C2A29]">
+                              {pLoyalty.eligibleSpend365d.toFixed(0)} € <span className="text-[9px] font-normal text-[#8C857B]">/ 365d</span>
+                            </span>
                           </div>
-                          <span className="text-[10px] font-mono font-bold text-[#2C2A29]">
-                            {pLoyalty.eligibleSpend365d.toFixed(0)} € <span className="text-[9px] font-normal text-[#8C857B]">/ 365d</span>
-                          </span>
-                        </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -2642,7 +2673,7 @@ export default function PatientDatabase({
             </div>
 
             {/* VERNOSTNÁ KARTA KLIENTA V KARTE PACIENTA (365 DNÍ: SKIN CARE & OŠETRENIA, OPERÁCIE > 1000 € -> PREMIUM) */}
-            {(() => {
+            {!isRudlovaOnly && (() => {
               const selLoyalty = loyaltyMap.get(selectedPatient.id) || LoyaltyService.calculateClientLoyalty(selectedPatient);
               return (
                 <div className="bg-[#FAF6EF] border border-[#C5A059]/40 p-4 rounded-2xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-2xs">
@@ -2936,7 +2967,7 @@ export default function PatientDatabase({
                     </button>
 
                     {/* Pokladňa po ošetrení (POS) */}
-                    {onNavigateToCosmetics && (
+                    {!isRudlovaOnly && onNavigateToCosmetics && (
                       <button
                         type="button"
                         onClick={() => onNavigateToCosmetics(selectedPatient)}
@@ -2997,7 +3028,7 @@ export default function PatientDatabase({
                     ))
                   );
                   const currentPatientPlans = allPatientPlans[selectedPatient.id] || [];
-                  const currentRecords = patientRecords[selectedPatient.id] || [];
+                  const currentRecords = getVisiblePatientRecords(selectedPatient.id);
                   const totalZaznamyCount = currentRecords.length + patientMaterialLogs.length;
 
                   return (
@@ -3092,7 +3123,7 @@ export default function PatientDatabase({
                           <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
                           <span>Dekurzy & Správy</span>
                           <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${zaznamySubTab === 'dekurzy' ? 'bg-white/20 text-white' : 'bg-white text-gray-700 border border-[#E8E2D9]'}`}>
-                            {(patientRecords[selectedPatient.id] || []).length}
+                            {visiblePatientRecords.length}
                           </span>
                         </button>
 
@@ -3144,9 +3175,9 @@ export default function PatientDatabase({
                       {/* SUB-OBSAH 1A: DEKURZY & SPRÁVY */}
                       {zaznamySubTab === 'dekurzy' && (
                         <div className="space-y-3">
-                          {patientRecords[selectedPatient.id] && patientRecords[selectedPatient.id].length > 0 ? (
+                          {visiblePatientRecords.length > 0 ? (
                             <div className="space-y-2">
-                              {patientRecords[selectedPatient.id].map(record => (
+                              {visiblePatientRecords.map(record => (
                                 <div key={record.id} className="border border-[#E8E2D9] rounded-xl p-3.5 flex flex-wrap justify-between items-center hover:bg-[#FAF8F5] transition-all bg-white shadow-2xs gap-3">
                                   <div className="space-y-1">
                                     <div className="flex flex-wrap items-center gap-2">
@@ -3617,7 +3648,7 @@ export default function PatientDatabase({
                               patient={selectedPatient}
                               onUpdatePlan={handleUpdatePlan}
                               onScheduleTreatment={handleScheduleTreatmentFromPlan}
-                              onOpenInCosmeticsPOS={(items) => onNavigateToCosmetics?.(selectedPatient, items)}
+                              onOpenInCosmeticsPOS={!isRudlovaOnly ? ((items) => onNavigateToCosmetics?.(selectedPatient, items)) : undefined}
                             />
                           </div>
                         );
@@ -3972,7 +4003,7 @@ export default function PatientDatabase({
             <div className="xl:col-span-4 sticky top-24 space-y-4 min-w-0">
               <PatientTimelineSidebar
                 patient={selectedPatient}
-                records={patientRecords[selectedPatient.id] || []}
+                records={getVisiblePatientRecords(selectedPatient.id)}
                 calendarEvents={storedEvents.filter(evt => 
                   (evt.patientId && evt.patientId === selectedPatient.id) ||
                   (evt.patientName && selectedPatient.name && (
@@ -4362,7 +4393,7 @@ export default function PatientDatabase({
             }}
             patient={selectedPatient}
             sourceRecord={schedulingSourceRecord}
-            allRecords={patientRecords[selectedPatient.id] || []}
+            allRecords={getVisiblePatientRecords(selectedPatient.id)}
             initialEventDetails={schedulingInitialDetails}
             onSaveEvent={handleSaveCalendarEvent}
             onNavigateToCalendar={onNavigateToCalendar}
@@ -4522,7 +4553,7 @@ export default function PatientDatabase({
               )}
 
               {/* 7. Pokladňa POS / Kozmetika */}
-              {onNavigateToCosmetics && (
+              {!isRudlovaOnly && onNavigateToCosmetics && (
                 <button
                   type="button"
                   onClick={() => {

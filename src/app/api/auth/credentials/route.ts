@@ -57,6 +57,17 @@ const ALIAS_MAP: Record<string, string[]> = {
   u8: ['anesteziolog@sayclinic.sk', 'anestezia@sayclinic.sk'],
   u9: ['anest.sestra@sayclinic.sk', 'anesteziologicka.sestra@sayclinic.sk', 'anesteziologickasestra@sayclinic.sk'],
   u10: ['foltaniova@sayclinic.sk', 'viktoria.foltaniova@sayclinic.sk', 'viktoria@sayclinic.sk'],
+  u11: ['kasac@sayclinic.sk', 'martin.kasac@sayclinic.sk'],
+  u12: ['vrban@sayclinic.sk', 'vladimir.vrban@sayclinic.sk'],
+  u13: ['gombosova@sayclinic.sk', 'monika.gombosova@sayclinic.sk'],
+  u14: ['hudecova@sayclinic.sk', 'martina.hudecova@sayclinic.sk'],
+  u15: ['otiepkova@sayclinic.sk', 'katarina.otiepkova@sayclinic.sk'],
+  u16: ['cunderlikova@sayclinic.sk', 'erika.cunderlikova@sayclinic.sk'],
+  u17: ['rafanedisova@sayclinic.sk', 'izabela.rafanedisova@sayclinic.sk'],
+  u18: ['halajova@sayclinic.sk', 'denisa.halajova@sayclinic.sk'],
+  u19: ['besinova@sayclinic.sk', 'ivana.besinova@sayclinic.sk'],
+  u20: ['papanova@sayclinic.sk', 'anna.papanova@sayclinic.sk'],
+  u21: ['rudlova@sayclinic.sk', 'klinika.rudlova@sayclinic.sk', 'klinikarudlova@sayclinic.sk'],
 };
 
 // GET /api/auth/credentials - vráti centrálne uložené heslá pre synchronizáciu naprieč počítačmi

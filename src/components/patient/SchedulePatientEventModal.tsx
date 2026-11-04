@@ -8,7 +8,8 @@ import {
   CLINIC_STAFF, 
   POST_OP_CONTROL_PRESETS,
   calculateTargetControlDate,
-  getPostOpTimeDiff
+  getPostOpTimeDiff,
+  formatLocalDate
 } from '../../data/calendarConfig';
 import { Patient, MedicalRecord } from '../PatientDatabase';
 import { 
@@ -59,7 +60,7 @@ export default function SchedulePatientEventModal({
 
   const initialSurgery = sourceRecord || (surgeryRecords.length > 0 ? surgeryRecords[0] : null);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate();
 
   // Výpočet počiatočného termínu (napr. 14 dní po operácii alebo zajtra)
   const defaultTargetDate = initialSurgery?.date 
@@ -95,7 +96,7 @@ export default function SchedulePatientEventModal({
         setOperationDate('');
         setEventType(initialEventDetails.eventType || 'osetrenie');
         setControlInterval('');
-        setEventDate(initialEventDetails.targetDate || new Date().toISOString().split('T')[0]);
+        setEventDate(initialEventDetails.targetDate || formatLocalDate());
         if (initialEventDetails.doctor) setAssignedDoctor(initialEventDetails.doctor);
         setNotes(initialEventDetails.notes || '');
         return;
@@ -114,7 +115,7 @@ export default function SchedulePatientEventModal({
         setAssignedDoctor(surg.doctor || 'MUDr. Ján Mráz');
         setNotes(`Pooperačná kontrola po ${surg.title}. Skontrolovať hojenie rán.`);
       } else {
-        const today = new Date().toISOString().split('T')[0];
+        const today = formatLocalDate();
         setSelectedRecordId('');
         setOperationTitle('');
         setOperationDate('');

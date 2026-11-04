@@ -291,32 +291,46 @@ export const DEFAULT_SURGICAL_TEAM_PRESETS = {
     'MUDr. Zuzana Sroková, MPH',
     'MUDr. Minh Tuong Tran',
     'MUDr. Ján Mráz',
+    'MUDr. Martin Kasáč',
+    'MUDr. Vladimír Vrban',
     'Sabina Lenhartová',
     'Ema Foltáni',
-    'Viktória Foltániová',
-    'Bc. Katarína Ondrušová'
+    'Katarína Otiepková',
+    'Erika Čunderlíková',
+    'Izabela Rafanedisová',
+    'Anna Papánová',
+    'Viktória Foltániová'
   ],
   anesthesiologists: [
-    'Anesteziológ',
+    'MUDr. Martin Kasáč',
+    'MUDr. Vladimír Vrban',
+    'MUDr. Monika Gombošová',
+    'MUDr. Martina Hudecová',
     'MUDr. Peter Kováč',
     'MUDr. Ivan Bella',
     'MUDr. Martin Hraško',
     'MUDr. Elena Vargová',
+    'Anesteziológ',
     'Lokálna anestézia (bez anesteziológa)'
   ],
   instrumentalists: [
+    'Katarína Otiepková',
+    'Erika Čunderlíková',
+    'Izabela Rafanedisová',
+    'Anna Papánová',
     'Sabina Lenhartová',
     'Ema Foltáni',
     'Viktória Foltániová',
-    'Bc. Katarína Ondrušová',
     'Mgr. Elena Solivajsová'
   ],
   anestNurses: [
-    'Anesteziologická sestra',
+    'Denisa Halajová',
+    'Ivana Bešinová',
+    'Bc. Jana Malá',
     'Ema Foltáni',
-    'Viktória Foltániová',
     'Sabina Lenhartová',
-    'Bc. Andrea Kmeťová',
+    'Viktória Foltániová',
+    'Anesteziologická sestra',
     'Bez anest. sestry (Lokálna anestézia)'
   ]
 };
@@ -719,9 +733,9 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient, all
     anesEnd: '10:45',
     operator: 'MUDr. Ján Mráz',
     assistant: 'Bez asistencie', 
-    anesthesiologist: 'MUDr. Peter Kováč', 
-    anestNurse: 'Ema Foltáni', 
-    instrumentalist: 'Sabina Lenhartová', 
+    anesthesiologist: 'MUDr. Martin Kasáč', 
+    anestNurse: 'Denisa Halajová', 
+    instrumentalist: 'Katarína Otiepková', 
     checkup: '1 týždeň'
   });
 

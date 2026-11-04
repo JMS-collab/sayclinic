@@ -24,32 +24,47 @@ export const DEFAULT_SURGICAL_TEAM_PRESETS: SurgicalTeamPresets = {
     'MUDr. Zuzana Sroková, MPH',
     'MUDr. Minh Tuong Tran',
     'MUDr. Ján Mráz',
+    'MUDr. Martin Kasáč',
+    'MUDr. Vladimír Vrban',
     'Sabina Lenhartová',
     'Ema Foltáni',
-    'Viktória Foltániová',
-    'Bc. Katarína Ondrušová'
+    'Katarína Otiepková',
+    'Erika Čunderlíková',
+    'Izabela Rafanedisová',
+    'Anna Papánová',
+    'Viktória Foltániová'
   ],
   anesthesiologists: [
-    'Anesteziológ',
+    'MUDr. Martin Kasáč',
+    'MUDr. Vladimír Vrban',
+    'MUDr. Monika Gombošová',
+    'MUDr. Martina Hudecová',
     'MUDr. Peter Kováč',
     'MUDr. Ivan Bella',
     'MUDr. Martin Hraško',
     'MUDr. Elena Vargová',
+    'Anesteziológ',
     'Lokálna anestézia (bez anesteziológa)'
   ],
   instrumentalists: [
+    'Katarína Otiepková',
+    'Erika Čunderlíková',
+    'Izabela Rafanedisová',
+    'Anna Papánová',
     'Sabina Lenhartová',
     'Ema Foltáni',
     'Viktória Foltániová',
-    'Bc. Katarína Ondrušová',
     'Mgr. Elena Solivajsová'
   ],
   anestNurses: [
-    'Anesteziologická sestra',
+    'Denisa Halajová',
+    'Ivana Bešinová',
+    'Anna Papánová',
+    'Bc. Jana Malá',
     'Ema Foltáni',
-    'Viktória Foltániová',
     'Sabina Lenhartová',
-    'Bc. Andrea Kmeťová',
+    'Viktória Foltániová',
+    'Anesteziologická sestra',
     'Bez anest. sestry (Lokálna anestézia)'
   ]
 };
@@ -119,12 +134,17 @@ export const StaffService = {
       const unsubscribe = onSnapshot(docRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data() as Partial<SurgicalTeamPresets>;
+          const mergeRole = (saved: string[] | undefined, defaults: string[]) => {
+            if (!Array.isArray(saved) || saved.length === 0) return defaults;
+            const set = new Set([...defaults, ...saved]);
+            return Array.from(set);
+          };
           const merged: SurgicalTeamPresets = {
-            operators: Array.isArray(data.operators) && data.operators.length > 0 ? data.operators : DEFAULT_SURGICAL_TEAM_PRESETS.operators,
-            assistants: Array.isArray(data.assistants) && data.assistants.length > 0 ? data.assistants : DEFAULT_SURGICAL_TEAM_PRESETS.assistants,
-            anesthesiologists: Array.isArray(data.anesthesiologists) && data.anesthesiologists.length > 0 ? data.anesthesiologists : DEFAULT_SURGICAL_TEAM_PRESETS.anesthesiologists,
-            instrumentalists: Array.isArray(data.instrumentalists) && data.instrumentalists.length > 0 ? data.instrumentalists : DEFAULT_SURGICAL_TEAM_PRESETS.instrumentalists,
-            anestNurses: Array.isArray(data.anestNurses) && data.anestNurses.length > 0 ? data.anestNurses : DEFAULT_SURGICAL_TEAM_PRESETS.anestNurses,
+            operators: mergeRole(data.operators, DEFAULT_SURGICAL_TEAM_PRESETS.operators),
+            assistants: mergeRole(data.assistants, DEFAULT_SURGICAL_TEAM_PRESETS.assistants),
+            anesthesiologists: mergeRole(data.anesthesiologists, DEFAULT_SURGICAL_TEAM_PRESETS.anesthesiologists),
+            instrumentalists: mergeRole(data.instrumentalists, DEFAULT_SURGICAL_TEAM_PRESETS.instrumentalists),
+            anestNurses: mergeRole(data.anestNurses, DEFAULT_SURGICAL_TEAM_PRESETS.anestNurses),
           };
           cachedTeamPresets = merged;
           callback(merged);
@@ -239,8 +259,11 @@ export const StaffService = {
         if (snapshot.exists()) {
           const data = snapshot.data();
           if (Array.isArray(data?.users) && data.users.length > 0) {
-            cachedUsers = data.users;
-            callback(data.users);
+            const existingIds = new Set(data.users.map((u: any) => u.id));
+            const missingUsers = SAY_CLINIC_USERS.filter((u) => !existingIds.has(u.id));
+            const mergedUsers = missingUsers.length > 0 ? [...data.users, ...missingUsers] : data.users;
+            cachedUsers = mergedUsers;
+            callback(mergedUsers);
             return;
           }
         }

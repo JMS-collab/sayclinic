@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Check, 
   Plus, 
@@ -9,9 +9,14 @@ import {
   AlertCircle, 
   Clock, 
   CheckCircle2, 
-  Briefcase 
+  Briefcase,
+  Copy,
+  ExternalLink,
+  Flame,
+  FolderKanban
 } from 'lucide-react';
 import { UserAccount, SAY_CLINIC_USERS } from './LoginForm';
+import { RealtimeSyncService } from '../services/realtimeSyncService';
 
 export interface OperativeNote {
   id: string;
@@ -127,6 +132,7 @@ export default function OperativeNotesWidget({
   onOpenProjects,
 }: OperativeNotesWidgetProps) {
   const [notes, setNotes] = useState<OperativeNote[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>(currentUser.id);
   const [newPriority, setNewPriority] = useState<'normal' | 'high' | 'urgent'>('normal');
@@ -134,14 +140,38 @@ export default function OperativeNotesWidget({
   const [showCompleted, setShowCompleted] = useState(true);
   const [isExpandedForm, setIsExpandedForm] = useState(false);
 
-  // 1. Načítanie poznámok z localStorage
+  // Kontextové menu po pravom kliknutí na poznámku/úlohu
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    note: OperativeNote | null;
+  }>({ isOpen: false, x: 0, y: 0, note: null });
+
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Zatvorenie kontextového menu pri kliknutí mimo alebo stlačení Escape
+  useEffect(() => {
+    if (!contextMenu.isOpen) return;
+    const handleClose = () => setContextMenu(prev => ({ ...prev, isOpen: false }));
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    window.addEventListener('mousedown', handleClose);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', handleClose);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [contextMenu.isOpen]);
+
+  // 1. Načítanie poznámok z localStorage a real-time synchronizácia
   useEffect(() => {
     try {
       const saved = localStorage.getItem('say_clinic_operative_notes');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Migrácia starého formátu string[] ak existuje
           if (typeof parsed[0] === 'string') {
             const converted: OperativeNote[] = (parsed as unknown as string[]).map((str, idx) => ({
               id: `migrated-${idx}-${Date.now()}`,
@@ -160,25 +190,63 @@ export default function OperativeNotesWidget({
           } else {
             setNotes(parsed);
           }
-          return;
+        } else {
+          setNotes(INITIAL_OPERATIVE_NOTES);
         }
+      } else {
+        setNotes(INITIAL_OPERATIVE_NOTES);
+        localStorage.setItem('say_clinic_operative_notes', JSON.stringify(INITIAL_OPERATIVE_NOTES));
       }
-      // Ak nie je uložené, načítame predvolené
-      setNotes(INITIAL_OPERATIVE_NOTES);
-      localStorage.setItem('say_clinic_operative_notes', JSON.stringify(INITIAL_OPERATIVE_NOTES));
+
+      // Načítanie projektov pre extrakciu pridelených úloh
+      const savedProjects = localStorage.getItem('say_clinic_projects');
+      if (savedProjects) {
+        const parsedProj = JSON.parse(savedProjects);
+        if (Array.isArray(parsedProj)) setProjects(parsedProj);
+      }
     } catch (e) {
       console.error('Chyba načítania operatívnych poznámok:', e);
       setNotes(INITIAL_OPERATIVE_NOTES);
     }
+
+    // Odber zmien v reálnom čase zo siete SAY CLINIC
+    const unsubNotes = RealtimeSyncService.subscribe('operative_notes', (updated: any) => {
+      if (Array.isArray(updated)) {
+        setNotes(updated);
+      }
+    });
+
+    const unsubProjects = RealtimeSyncService.subscribe('projects', (updatedProj: any) => {
+      if (Array.isArray(updatedProj)) {
+        setProjects(updatedProj);
+      }
+    });
+
+    return () => {
+      unsubNotes();
+      unsubProjects();
+    };
   }, [currentUser.id, currentUser.name]);
 
-  // Uloženie zmien
+  // Uloženie zmien poznámok + vysielanie cez RealtimeSyncService
   const saveNotes = (updated: OperativeNote[]) => {
     setNotes(updated);
     try {
       localStorage.setItem('say_clinic_operative_notes', JSON.stringify(updated));
+      RealtimeSyncService.publish('operative_notes', updated, currentUser.id);
     } catch (e) {
       console.error('Chyba zápisu operatívnych poznámok:', e);
+    }
+  };
+
+  // Uloženie projektov pri zmene stavu projektovej úlohy
+  const saveProjects = (updatedProjects: any[]) => {
+    setProjects(updatedProjects);
+    try {
+      localStorage.setItem('say_clinic_projects', JSON.stringify(updatedProjects));
+      RealtimeSyncService.publish('projects', updatedProjects, currentUser.id);
+    } catch (e) {
+      console.error('Chyba zápisu projektov:', e);
     }
   };
 
@@ -187,36 +255,70 @@ export default function OperativeNotesWidget({
     setSelectedAssigneeId(currentUser.id);
   }, [currentUser.id]);
 
-  // 2. Filtrovanie podľa požiadavky:
-  // "Zobraz tam poznamky ktore som si vytvoril sam a aj vsetky ktore mi boli pridelene"
+  // Prepojenie projektových úloh priradených používateľovi do zoznamu úloh
+  const projectTasksAsNotes = useMemo((): OperativeNote[] => {
+    const list: OperativeNote[] = [];
+    if (!Array.isArray(projects)) return list;
+
+    projects.forEach((proj: any) => {
+      if (!proj || !Array.isArray(proj.tasks)) return;
+      proj.tasks.forEach((task: any) => {
+        if (!task) return;
+        const isMine = task.assignedToId === currentUser.id || task.createdById === currentUser.id;
+        if (isMine) {
+          list.push({
+            id: `proj-task-${task.id}`,
+            text: task.title,
+            completed: Boolean(task.completed),
+            completedAt: task.completedAt,
+            createdById: task.createdById || proj.createdById || 'u1',
+            createdByName: task.createdByName || proj.createdByName || 'Vedenie kliniky',
+            assignedToId: task.assignedToId || currentUser.id,
+            assignedToName: task.assignedToName || currentUser.name,
+            createdAt: proj.createdAt || new Date().toISOString(),
+            priority: (task.priority === 'urgent' || task.priority === 'high') ? task.priority : 'normal',
+            source: 'project',
+            projectId: proj.id,
+            projectTitle: proj.title,
+            taskId: task.id,
+          });
+        }
+      });
+    });
+    return list;
+  }, [projects, currentUser.id, currentUser.name]);
+
+  // Kombinovaný zoznam poznámok a projektových úloh
+  const allCombinedItems = useMemo(() => {
+    return [...notes, ...projectTasksAsNotes];
+  }, [notes, projectTasksAsNotes]);
+
+  // 2. Filtrovanie
   const filteredNotes = useMemo(() => {
-    return notes.filter((n) => {
+    return allCombinedItems.filter((n) => {
       const isCreatedByMe = n.createdById === currentUser.id;
       const isAssignedToMe = n.assignedToId === currentUser.id || n.assignedToId === 'all';
 
-      // Základné pravidlo: Musí to byť buď mnou vytvorené, ALEBO mne pridelené
       if (!isCreatedByMe && !isAssignedToMe) {
         return false;
       }
 
-      // Podfiltrácia podľa vybraného pohľadu
       if (filterScope === 'assigned_to_me' && !isAssignedToMe) return false;
       if (filterScope === 'created_by_me' && !isCreatedByMe) return false;
 
-      // Filter hotových
       if (!showCompleted && n.completed) return false;
 
       return true;
     });
-  }, [notes, currentUser.id, filterScope, showCompleted]);
+  }, [allCombinedItems, currentUser.id, filterScope, showCompleted]);
 
   // Počítadlá pre aktuálneho používateľa
   const counts = useMemo(() => {
-    const myTotal = notes.filter(n => n.createdById === currentUser.id || n.assignedToId === currentUser.id || n.assignedToId === 'all');
+    const myTotal = allCombinedItems.filter(n => n.createdById === currentUser.id || n.assignedToId === currentUser.id || n.assignedToId === 'all');
     const myActive = myTotal.filter(n => !n.completed);
     const myCompleted = myTotal.filter(n => n.completed);
-    const assignedToMe = notes.filter(n => (n.assignedToId === currentUser.id || n.assignedToId === 'all') && !n.completed);
-    const createdByMe = notes.filter(n => n.createdById === currentUser.id && !n.completed);
+    const assignedToMe = allCombinedItems.filter(n => (n.assignedToId === currentUser.id || n.assignedToId === 'all') && !n.completed);
+    const createdByMe = allCombinedItems.filter(n => n.createdById === currentUser.id && !n.completed);
 
     return {
       total: myTotal.length,
@@ -225,12 +327,34 @@ export default function OperativeNotesWidget({
       assignedActive: assignedToMe.length,
       createdActive: createdByMe.length,
     };
-  }, [notes, currentUser.id]);
+  }, [allCombinedItems, currentUser.id]);
 
-  // Označenie poznámky ako splnenej / nesplnenej
-  const handleToggleComplete = (noteId: string) => {
+  // Označenie poznámky alebo projektovej úlohy ako splnenej / nesplnenej
+  const handleToggleComplete = (item: OperativeNote) => {
+    if (item.source === 'project' && item.projectId && item.taskId) {
+      const updatedProjects = projects.map((p: any) => {
+        if (p.id === item.projectId) {
+          const updatedTasks = p.tasks.map((t: any) => {
+            if (t.id === item.taskId) {
+              const nextDone = !t.completed;
+              return {
+                ...t,
+                completed: nextDone,
+                completedAt: nextDone ? new Date().toISOString() : undefined,
+              };
+            }
+            return t;
+          });
+          return { ...p, tasks: updatedTasks };
+        }
+        return p;
+      });
+      saveProjects(updatedProjects);
+      return;
+    }
+
     const updated = notes.map((n) => {
-      if (n.id === noteId) {
+      if (n.id === item.id) {
         const nextCompleted = !n.completed;
         return {
           ...n,
@@ -241,6 +365,13 @@ export default function OperativeNotesWidget({
       return n;
     });
     saveNotes(updated);
+  };
+
+  // Zmena priority poznámky
+  const handleChangePriority = (noteId: string, priority: 'normal' | 'high' | 'urgent') => {
+    const updated = notes.map(n => n.id === noteId ? { ...n, priority } : n);
+    saveNotes(updated);
+    setContextMenu(prev => ({ ...prev, isOpen: false }));
   };
 
   // Pridanie novej poznámky
@@ -280,6 +411,7 @@ export default function OperativeNotesWidget({
   const handleDeleteNote = (noteId: string) => {
     const updated = notes.filter(n => n.id !== noteId);
     saveNotes(updated);
+    setContextMenu(prev => ({ ...prev, isOpen: false }));
   };
 
   // Konverzia na projekt
@@ -287,8 +419,21 @@ export default function OperativeNotesWidget({
     if (onConvertToProject) {
       onConvertToProject(note.text, note.id);
     }
-    // Po prekonvertovaní označíme alebo odstránime
     handleDeleteNote(note.id);
+  };
+
+  // Spracovanie pravého kliknutia (Right Click Context Menu)
+  const handleContextMenu = (e: React.MouseEvent, note: OperativeNote) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const x = Math.min(e.clientX, window.innerWidth - 260);
+    const y = Math.min(e.clientY, window.innerHeight - 280);
+    setContextMenu({
+      isOpen: true,
+      x: Math.max(10, x),
+      y: Math.max(10, y),
+      note,
+    });
   };
 
   return (
@@ -431,14 +576,14 @@ export default function OperativeNotesWidget({
               </div>
 
               {/* Priorita */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[10px] uppercase font-bold text-[#8C857B]">Priorita:</span>
                 <button
                   type="button"
                   onClick={() => setNewPriority('normal')}
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+                  className={`px-2.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
                     newPriority === 'normal'
-                      ? 'bg-white text-[#2C2A29] border-[#2C2A29]'
+                      ? 'bg-white text-[#2C2A29] border-[#2C2A29] shadow-2xs'
                       : 'bg-transparent text-[#8C857B] border-[#E0D8C8]'
                   }`}
                 >
@@ -446,14 +591,25 @@ export default function OperativeNotesWidget({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setNewPriority('urgent')}
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
-                    newPriority === 'urgent'
-                      ? 'bg-rose-100 text-rose-800 border-rose-400'
+                  onClick={() => setNewPriority('high')}
+                  className={`px-2.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                    newPriority === 'high'
+                      ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs font-extrabold'
                       : 'bg-transparent text-[#8C857B] border-[#E0D8C8]'
                   }`}
                 >
-                  ⚡ Urgentné
+                  ⚡ Vysoká
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewPriority('urgent')}
+                  className={`px-2.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                    newPriority === 'urgent'
+                      ? 'bg-rose-100 text-rose-800 border-rose-400 shadow-2xs font-extrabold'
+                      : 'bg-transparent text-[#8C857B] border-[#E0D8C8]'
+                  }`}
+                >
+                  🔥 Urgentné
                 </button>
               </div>
             </div>
@@ -465,7 +621,7 @@ export default function OperativeNotesWidget({
               <button
                 type="button"
                 onClick={() => setIsExpandedForm(false)}
-                className="text-[10px] text-[#8C857B] hover:text-[#2C2A29] underline"
+                className="text-[10px] text-[#8C857B] hover:text-[#2C2A29] underline cursor-pointer"
               >
                 Zavrieť možnosti
               </button>
@@ -475,7 +631,7 @@ export default function OperativeNotesWidget({
       </form>
 
       {/* Zoznam poznámok */}
-      <div className="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
+      <div className="space-y-2 max-h-[380px] overflow-y-auto pr-0.5 relative">
         {filteredNotes.length === 0 ? (
           <div className="text-center py-8 text-[#8C857B] text-xs italic bg-[#FBF9F6] rounded-xl border border-[#E8E2D9] px-4 space-y-1">
             <p>Žiadne operatívne poznámky v tomto zobrazení.</p>
@@ -489,24 +645,29 @@ export default function OperativeNotesWidget({
             const isAssignedToMe = note.assignedToId === currentUser.id;
             const isAssignedToAll = note.assignedToId === 'all';
             const isPersonal = isCreatedByMe && isAssignedToMe;
+            const isProject = note.source === 'project';
 
             return (
               <div
                 key={note.id}
-                className={`p-3 rounded-xl border transition-all flex items-start gap-3 group ${
+                onContextMenu={(e) => handleContextMenu(e, note)}
+                className={`p-3 rounded-xl border transition-all flex items-start gap-3 group relative select-none cursor-default ${
                   note.completed
                     ? 'bg-[#F9F8F6] border-[#EBE6DF] opacity-70'
                     : note.priority === 'urgent'
                     ? 'bg-rose-50/40 border-rose-200 hover:border-rose-300'
+                    : note.priority === 'high'
+                    ? 'bg-amber-50/40 border-amber-200 hover:border-amber-300'
                     : 'bg-[#FBF9F6] border-[#E8E2D9] hover:border-[#C5A059] hover:bg-white'
                 }`}
+                title="Pravým kliknutím otvoríte možnosti poznámky"
               >
                 {/* 1. TLAČIDLO PRE OZNAČENIE AKO SPLNENÉ */}
                 <button
                   type="button"
-                  onClick={() => handleToggleComplete(note.id)}
+                  onClick={() => handleToggleComplete(note)}
                   title={note.completed ? 'Označiť ako nesplnené' : 'Označiť ako splnené'}
-                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer ${
                     note.completed
                       ? 'bg-emerald-600 border-emerald-600 text-white'
                       : 'border-[#C5A059] bg-white hover:bg-[#C5A059]/10 text-transparent hover:text-[#C5A059]'
@@ -528,16 +689,28 @@ export default function OperativeNotesWidget({
                       {note.text}
                     </p>
 
-                    {/* Urgentný odznak */}
-                    {note.priority === 'urgent' && !note.completed && (
+                    {/* Odznak priority */}
+                    {note.priority === 'urgent' && !note.completed ? (
                       <span className="flex-shrink-0 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-0.5">
                         <AlertCircle className="w-2.5 h-2.5" /> Urgent
                       </span>
-                    )}
+                    ) : note.priority === 'high' && !note.completed ? (
+                      <span className="flex-shrink-0 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-0.5">
+                        <Flame className="w-2.5 h-2.5 text-amber-600" /> Vysoká
+                      </span>
+                    ) : null}
                   </div>
 
                   {/* Štítky pôvodu a pridelenia */}
                   <div className="flex items-center gap-1.5 flex-wrap text-[9px]">
+                    {/* Odznak projektu */}
+                    {isProject && (
+                      <span className="bg-sky-50 text-sky-800 border border-sky-300 font-bold px-1.5 py-0.2 rounded-md flex items-center gap-1">
+                        <FolderKanban className="w-2.5 h-2.5 text-sky-600" />
+                        <span>Projekt: {note.projectTitle || 'Poverenie'}</span>
+                      </span>
+                    )}
+
                     {/* Stav pridelenia */}
                     {isPersonal ? (
                       <span className="bg-purple-100 text-purple-900 border border-purple-200 font-bold px-1.5 py-0.2 rounded-md">
@@ -575,32 +748,160 @@ export default function OperativeNotesWidget({
 
                 {/* 3. AKCIE: PREMENIŤ NA PROJEKT / VYMAZAŤ */}
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  {!note.completed && (
+                  {!note.completed && !isProject && (
                     <button
                       type="button"
                       onClick={() => handleConvert(note)}
                       title="Premeniť túto poznámku na projekt / delegované poverenie"
-                      className="text-[9px] bg-[#C5A059] hover:bg-[#9C7D3D] text-white px-2 py-1 rounded-md font-bold transition-colors shadow-xs flex items-center gap-1"
+                      className="text-[9px] bg-[#C5A059] hover:bg-[#9C7D3D] text-white px-2 py-1 rounded-md font-bold transition-colors shadow-xs flex items-center gap-1 cursor-pointer"
                     >
                       <Briefcase className="w-2.5 h-2.5" />
                       <span className="hidden sm:inline">+ Projekt</span>
                     </button>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteNote(note.id)}
-                    title="Odstrániť poznámku"
-                    className="text-[#8C857B] hover:text-rose-600 font-bold p-1 rounded hover:bg-rose-50 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {!isProject && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteNote(note.id)}
+                      title="Odstrániť poznámku"
+                      className="text-[#8C857B] hover:text-rose-600 font-bold p-1 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })
         )}
       </div>
+
+      {/* PLÁVAJÚCE KONTEXTOVÉ MENU (RIGHT CLICK) PRE POZNÁMKU */}
+      {contextMenu.isOpen && contextMenu.note && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-[160] w-64 bg-white/98 backdrop-blur-xl border border-[#E8E2D9] rounded-2xl shadow-[0_20px_50px_rgba(44,42,41,0.22)] overflow-hidden text-xs text-[#2C2A29] flex flex-col animate-in fade-in zoom-in-95 duration-150 select-none"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* HLAVIČKA MENU */}
+          <div className="px-3.5 py-2.5 bg-[#2C2A29] text-white border-b border-[#3E3A37]">
+            <p className="font-bold text-xs truncate text-white">
+              {contextMenu.note.text}
+            </p>
+            <div className="text-[10px] text-[#C5A059] mt-0.5 flex items-center justify-between">
+              <span>{contextMenu.note.source === 'project' ? 'Úloha z projektu' : 'Operatívna poznámka'}</span>
+              <span>{contextMenu.note.priority ? `Priorita: ${contextMenu.note.priority}` : ''}</span>
+            </div>
+          </div>
+
+          <div className="p-1.5 space-y-0.5">
+            {/* Stav splnenia */}
+            <button
+              type="button"
+              onClick={() => {
+                if (contextMenu.note) handleToggleComplete(contextMenu.note);
+                setContextMenu(prev => ({ ...prev, isOpen: false }));
+              }}
+              className="w-full px-3 py-2 rounded-xl text-left font-semibold hover:bg-[#FAF8F5] flex items-center gap-2.5 transition-colors cursor-pointer text-[#2C2A29]"
+            >
+              <CheckCircle2 className={`w-3.5 h-3.5 ${contextMenu.note.completed ? 'text-[#8C857B]' : 'text-emerald-600'}`} />
+              <span>{contextMenu.note.completed ? 'Označiť ako aktívne (nesplnené)' : 'Označiť ako splnené'}</span>
+            </button>
+
+            {/* Zmena priority (len pre bežné poznámky) */}
+            {contextMenu.note.source !== 'project' && (
+              <div className="px-3 py-1.5 border-t border-b border-[#E8E2D9]/60 my-1">
+                <span className="text-[9px] uppercase tracking-wider font-bold text-[#8C857B] block mb-1">
+                  Zmeniť prioritu:
+                </span>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => contextMenu.note && handleChangePriority(contextMenu.note.id, 'normal')}
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                      contextMenu.note.priority === 'normal'
+                        ? 'bg-[#2C2A29] text-white border-[#2C2A29]'
+                        : 'bg-white text-[#6B6357] border-[#E8E2D9] hover:border-[#C5A059]'
+                    }`}
+                  >
+                    Štandard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => contextMenu.note && handleChangePriority(contextMenu.note.id, 'high')}
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                      contextMenu.note.priority === 'high'
+                        ? 'bg-amber-100 text-amber-900 border-amber-400'
+                        : 'bg-white text-amber-800 border-[#E8E2D9] hover:border-amber-300'
+                    }`}
+                  >
+                    Vysoká
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => contextMenu.note && handleChangePriority(contextMenu.note.id, 'urgent')}
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                      contextMenu.note.priority === 'urgent'
+                        ? 'bg-rose-100 text-rose-800 border-rose-400'
+                        : 'bg-white text-rose-700 border-[#E8E2D9] hover:border-rose-300'
+                    }`}
+                  >
+                    Urgent
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Premeniť na projekt */}
+            {contextMenu.note.source !== 'project' && !contextMenu.note.completed && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (contextMenu.note) handleConvert(contextMenu.note);
+                  setContextMenu(prev => ({ ...prev, isOpen: false }));
+                }}
+                className="w-full px-3 py-2 rounded-xl text-left font-semibold hover:bg-amber-50 text-amber-900 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <Briefcase className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span>Premeniť na projekt / delegovať</span>
+              </button>
+            )}
+
+            {/* Kopírovať text */}
+            <button
+              type="button"
+              onClick={() => {
+                if (contextMenu.note) {
+                  navigator.clipboard.writeText(contextMenu.note.text);
+                }
+                setContextMenu(prev => ({ ...prev, isOpen: false }));
+              }}
+              className="w-full px-3 py-2 rounded-xl text-left font-semibold hover:bg-[#FAF8F5] flex items-center gap-2.5 transition-colors cursor-pointer text-[#2C2A29]"
+            >
+              <Copy className="w-3.5 h-3.5 text-[#8C857B]" />
+              <span>Kopírovať text úlohy</span>
+            </button>
+
+            {/* Vymazať poznámku */}
+            {contextMenu.note.source !== 'project' && (
+              <div className="pt-1 border-t border-[#E8E2D9]/80">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (contextMenu.note) handleDeleteNote(contextMenu.note.id);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl text-left font-semibold hover:bg-rose-50 text-rose-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Odstrániť poznámku</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Odkaz na projektový manažment */}
       <div className="pt-2 border-t border-[#E8E2D9] flex items-center justify-between text-xs">
@@ -610,7 +911,7 @@ export default function OperativeNotesWidget({
         <button
           type="button"
           onClick={onOpenProjects}
-          className="font-bold text-[#C5A059] hover:text-[#9C7D3D] hover:underline flex items-center gap-1"
+          className="font-bold text-[#C5A059] hover:text-[#9C7D3D] hover:underline flex items-center gap-1 cursor-pointer"
         >
           <span>Projekty & Sála (CEO)</span>
           <span>→</span>

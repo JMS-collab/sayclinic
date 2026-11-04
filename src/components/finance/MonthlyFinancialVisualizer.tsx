@@ -360,37 +360,6 @@ export default function MonthlyFinancialVisualizer({
       }
     });
 
-    // Doplnenie prípadných nadchádzajúcich operácií priamo z kalendára
-    calendarEvents.forEach(evt => {
-      if (evt.type !== 'operacia' || !evt.patientName || evt.patientName === 'Personál kliniky') return;
-      if (evt.id && (evt.id.startsWith('seed-') || evt.id.startsWith('demo-'))) return;
-      const alreadyInReqs = reqs.some(r => r.patientName.toLowerCase() === evt.patientName.toLowerCase());
-      if (alreadyInReqs) return;
-
-      const days = getDaysDiff(evt.date);
-      const matchedPatient = patients.find(p => p.name.toLowerCase() === evt.patientName.toLowerCase());
-      const deposit = Math.max(0, Number(evt.depositAmount) || 0);
-
-      if (!evt.isDepositPaid && deposit > 0) {
-        reqs.push({
-          id: `req-cal-dep-${evt.id}`,
-          patientName: evt.patientName,
-          patientPhone: evt.patientPhone || matchedPatient?.phone,
-          patientEmail: evt.patientEmail || matchedPatient?.email,
-          procedureName: evt.title,
-          doctorName: evt.doctorName || evt.operator || 'MUDr. Ján Mráz',
-          type: 'deposit_required',
-          typeLabel: 'Záloha pred operáciou',
-          amount: deposit,
-          dueDate: evt.date,
-          daysRemaining: days,
-          urgency: days <= 3 ? 'critical' : days <= 7 ? 'high' : 'medium',
-          description: `Plánovaný zákrok z kalendára (${evt.date}), záloha ${deposit} € nie je zaevidovaná ako uhradená.`,
-          invoiceType: 'advance'
-        });
-      }
-    });
-
     // B. Neuhradené existujúce faktúry z knihy faktúr
     invoices.forEach(inv => {
       if (inv.status === 'unpaid' || inv.status === 'overdue') {

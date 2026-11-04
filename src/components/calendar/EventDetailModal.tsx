@@ -5,22 +5,35 @@ import { matchesQuery } from '@/utils/fuzzySearch';
 import { 
   CalendarEvent, 
   EventType, 
+  EventAttendanceStatus,
+  EVENT_STATUS_OPTIONS,
+  getEventStatusInfo,
   FreeformCategory, 
   getRoomInfo, 
   FREEFORM_PRESETS,
   getAnesthesiaInfo,
   getClinicStayInfo,
-  getPostOpTimeDiff
+  getPostOpTimeDiff,
+  parseLocalDate,
+  getSurgeryReadinessSummary
 } from '@/data/calendarConfig';
 
 interface EventDetailModalProps {
   event: CalendarEvent | null;
+  hidePrices?: boolean;
   onClose: () => void;
   onEdit: (event: CalendarEvent) => void;
   onDelete?: (event: CalendarEvent) => void;
   onCancelClick?: (event: CalendarEvent) => void;
   onCancelRequest?: (event: CalendarEvent) => void;
+  onRestoreCancelled?: (event: CalendarEvent) => void;
+  onStatusChange?: (event: CalendarEvent, newStatus: EventAttendanceStatus) => void;
+  onScheduleFollowUp?: (event: CalendarEvent, daysOffset?: number) => void;
+  onDuplicate?: (event: CalendarEvent) => void;
   onToggleDepositPaid?: ((event: CalendarEvent) => void) | ((eventId: string, newStatus: boolean) => void);
+  onTogglePreOpItem?: (event: CalendarEvent, key: 'isDepositPaid' | 'preOpExamReady' | 'materialsReady' | 'consentsSigned') => void;
+  onCheckoutInPOS?: (event: CalendarEvent) => void;
+  onCreateMedicalDocument?: (event: CalendarEvent) => void;
   onOpenFolder?: (event: CalendarEvent) => void;
   onOpenPatientFolder?: (event: CalendarEvent) => void;
   onSendWhatsApp?: (event: CalendarEvent) => void;
@@ -49,12 +62,20 @@ interface EventDetailModalProps {
 
 export default function EventDetailModal({
   event,
+  hidePrices = false,
   onClose,
   onEdit,
   onDelete,
   onCancelClick,
   onCancelRequest,
+  onRestoreCancelled,
+  onStatusChange,
+  onScheduleFollowUp,
+  onDuplicate,
   onToggleDepositPaid,
+  onTogglePreOpItem,
+  onCheckoutInPOS,
+  onCreateMedicalDocument,
   onOpenFolder,
   onOpenPatientFolder,
   onSendWhatsApp,
@@ -80,7 +101,6 @@ export default function EventDetailModal({
   attachPreOpInstructions = false,
   setAttachPreOpInstructions
 }: EventDetailModalProps) {
-  // Local state fallbacks for email panel
   const [localEmailOpen, setLocalEmailOpen] = useState(false);
   const [localEmailSubject, setLocalEmailSubject] = useState(
     event ? `SAY CLINIC: Informácie k termínu - ${event.title}` : ''
@@ -99,8 +119,10 @@ export default function EventDetailModal({
 
   useEffect(() => {
     if (!event) return;
-    // Ak už má event vlastné údaje o operácii, nie je potrebné hľadať
-    if (event.operationTitle && event.operationDate) return;
+    if (event.operationTitle && event.operationDate) {
+      setDiscoveredOp(null);
+      return;
+    }
 
     if (event.type === 'kontrola' || !event.operationTitle) {
       try {
@@ -153,6 +175,7 @@ export default function EventDetailModal({
   if (!event) return null;
 
   const room = getRoomInfo(event.roomId);
+  const statusInfo = getEventStatusInfo(event.status, event.isCancelled);
   
   const durationMin = (() => {
     if (!event.startTime || !event.endTime) return 60;
@@ -169,7 +192,7 @@ export default function EventDetailModal({
   const formatEventDate = (d?: string) => {
     if (!d) return '';
     try {
-      const parsed = new Date(d);
+      const parsed = parseLocalDate(d);
       return isNaN(parsed.getTime()) ? d : parsed.toLocaleDateString('sk-SK', { 
         weekday: 'short', 
         day: 'numeric', 
@@ -234,7 +257,6 @@ export default function EventDetailModal({
 
   const handleToggleDeposit = () => {
     if (onToggleDepositPaid) {
-      // Check if it expects event object or (id, newStatus)
       try {
         (onToggleDepositPaid as (evt: CalendarEvent) => void)(event);
       } catch {
@@ -261,13 +283,19 @@ export default function EventDetailModal({
         <div className="border-b border-[#E8E2D9] pb-3 flex justify-between items-start shrink-0">
           <div>
             <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-              {/* Odznak miestnosti / sály */}
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${room.badgeColor}`}>
                 <span>{room.icon}</span>
                 <span>{room.name}</span>
               </span>
 
               {renderBadge()}
+
+              {event.type !== 'volno' && (
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${statusInfo.badge}`}>
+                  <span>{statusInfo.icon}</span>
+                  <span>{statusInfo.shortLabel}</span>
+                </span>
+              )}
               
               {event.googleEventId ? (
                 <span className="bg-emerald-50 text-emerald-800 border border-emerald-300 text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
@@ -306,15 +334,53 @@ export default function EventDetailModal({
           
           {/* AK JE ZRUŠENÝ */}
           {event.isCancelled && (
-            <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl">
-              <p className="text-rose-700 font-bold uppercase text-xs flex items-center gap-1">
-                <span>❌</span> Termín bol Zrušený
-              </p>
-              <p className="text-rose-800 text-xs mt-1">Dôvod: <strong>{event.cancelReason || 'Neuvedený'}</strong></p>
+            <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl flex items-center justify-between gap-2">
+              <div>
+                <p className="text-rose-700 font-bold uppercase text-xs flex items-center gap-1">
+                  <span>❌</span> Termín bol Zrušený
+                </p>
+                <p className="text-rose-800 text-xs mt-0.5">Dôvod: <strong>{event.cancelReason || 'Neuvedený'}</strong></p>
+              </div>
+              {onRestoreCancelled && (
+                <button
+                  type="button"
+                  onClick={() => onRestoreCancelled(event)}
+                  className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold uppercase shrink-0 cursor-pointer transition-colors"
+                >
+                  ↺ Obnoviť termín
+                </button>
+              )}
             </div>
           )}
 
-          {/* ŠPECIFICKÝ POHĽAD: VOĽNÝ POPIS / INTERNÁ UDALOSŤ (OBED, DOVOLENKA, TEAMBUILDING...) */}
+          {/* RÝCHLY PREPÍNAČ STAVU NÁVŠTEVY */}
+          {event.type !== 'volno' && !event.isCancelled && onStatusChange && (
+            <div className="bg-[#FAF8F5] p-2.5 rounded-xl border border-[#E8E2D9] flex flex-wrap items-center justify-between gap-1.5">
+              <span className="text-[9px] uppercase font-bold text-[#8C857B]">Stav termínu:</span>
+              <div className="flex flex-wrap items-center gap-1">
+                {EVENT_STATUS_OPTIONS.filter(s => s.id !== 'cancelled').map(st => {
+                  const isActive = (event.status || 'planned') === st.id;
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => onStatusChange(event, st.id)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1 cursor-pointer ${
+                        isActive
+                          ? `${st.badge} shadow-2xs ring-1 ring-current`
+                          : 'bg-white text-[#6B6357] border-[#E8E2D9] hover:border-[#C5A059]'
+                      }`}
+                    >
+                      <span>{st.icon}</span>
+                      <span>{st.shortLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ŠPECIFICKÝ POHĽAD: VOĽNÝ POPIS / INTERNÁ UDALOSŤ */}
           {event.type === 'volno' ? (
             <div className="bg-indigo-50/70 border border-indigo-200 p-4 rounded-xl space-y-3">
               <div className="flex items-center gap-3">
@@ -369,9 +435,18 @@ export default function EventDetailModal({
                         <div className="mt-1 flex items-center gap-1">
                           <input 
                             type="text" 
-                            placeholder="+421 900 000 000" 
-                            className="text-[11px] border border-[#E8E2D9] rounded px-1.5 py-0.5 bg-white font-mono"
-                            onBlur={(e) => onPhoneChange(event.id, e.target.value)}
+                            placeholder="+421 900 000 000 (enter/klik mimo uloží)" 
+                            className="text-[11px] border border-[#E8E2D9] rounded px-1.5 py-0.5 bg-white font-mono w-full"
+                            onBlur={(e) => {
+                              if (e.target.value.trim()) onPhoneChange(event.id, e.target.value.trim());
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const val = (e.target as HTMLInputElement).value.trim();
+                                if (val) onPhoneChange(event.id, val);
+                              }
+                            }}
                           />
                         </div>
                       )
@@ -384,9 +459,18 @@ export default function EventDetailModal({
                         <div className="mt-1 flex items-center gap-1">
                           <input 
                             type="email" 
-                            placeholder="email@pacient.sk" 
-                            className="text-[11px] border border-[#E8E2D9] rounded px-1.5 py-0.5 bg-white"
-                            onBlur={(e) => onEmailChange(event.id, e.target.value)}
+                            placeholder="email@pacient.sk (enter/klik mimo uloží)" 
+                            className="text-[11px] border border-[#E8E2D9] rounded px-1.5 py-0.5 bg-white w-full"
+                            onBlur={(e) => {
+                              if (e.target.value.trim()) onEmailChange(event.id, e.target.value.trim());
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const val = (e.target as HTMLInputElement).value.trim();
+                                if (val) onEmailChange(event.id, val);
+                              }
+                            }}
                           />
                         </div>
                       )
@@ -408,26 +492,28 @@ export default function EventDetailModal({
                 </div>
 
                 {/* Cena a záloha */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E8E2D9]">
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-[#2C2A29] text-sm">
-                      Cena: {event.totalPrice || 0} €
-                    </span>
+                {!hidePrices && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E8E2D9]">
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-[#2C2A29] text-sm">
+                        Cena: {event.totalPrice || 0} €
+                      </span>
+                      {event.depositAmount ? (
+                        <span className="text-[#C5A059] font-bold text-xs">
+                          Záloha: {event.depositAmount} €
+                        </span>
+                      ) : null}
+                    </div>
+
                     {event.depositAmount ? (
-                      <span className="text-[#C5A059] font-bold text-xs">
-                        Záloha: {event.depositAmount} €
+                      <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-md border ${
+                        event.isDepositPaid ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-rose-100 text-rose-800 border-rose-300'
+                      }`}>
+                        {event.isDepositPaid ? '🟢 Záloha hradená' : '🔴 Záloha nehradená'}
                       </span>
                     ) : null}
                   </div>
-
-                  {event.depositAmount ? (
-                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-md border ${
-                      event.isDepositPaid ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-rose-100 text-rose-800 border-rose-300'
-                    }`}>
-                      {event.isDepositPaid ? '🟢 Záloha hradená' : '🔴 Záloha nehradená'}
-                    </span>
-                  ) : null}
-                </div>
+                )}
               </div>
 
               {/* ŠPECIFICKÉ PRE OPERÁCIU: OPERAČNÝ TÍM, VYBAVENIE, MATERIÁLY */}
@@ -440,9 +526,55 @@ export default function EventDetailModal({
                     <span className="text-[9px] font-bold text-[#C5A059] uppercase">Operačný deň</span>
                   </div>
 
+                  {/* PREDOPERAČNÝ SEMAFOR PRIPRAVENOSTI (KLIKATEĽNÝ V DETAILE) */}
+                  {(() => {
+                    const readiness = getSurgeryReadinessSummary(event);
+                    return (
+                      <div className="bg-white p-2.5 rounded-xl border border-[#E0D8C8] space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9.5px] uppercase font-bold text-[#2C2A29] flex items-center gap-1">
+                            <span>🚦</span> Predoperačný semafor (kliknite pre zmenu stavu)
+                          </span>
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${readiness.badgeClass}`}>
+                            {readiness.statusLabel}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                          {readiness.items.map(item => (
+                            <button
+                              key={item.key}
+                              type="button"
+                              onClick={() => {
+                                if (onTogglePreOpItem) {
+                                  onTogglePreOpItem(event, item.key);
+                                } else if (item.key === 'isDepositPaid') {
+                                  handleToggleDeposit();
+                                }
+                              }}
+                              className={`p-2 rounded-lg border text-left transition-all flex items-center justify-between gap-1 cursor-pointer ${
+                                item.ready
+                                  ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                                  : 'bg-[#FAF8F5] border-[#E0D8C8] text-[#6B6357] hover:border-[#C5A059]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1 min-w-0">
+                                <span className="text-xs shrink-0">{item.icon}</span>
+                                <span className="text-[9.5px] font-bold truncate">{item.shortLabel}</span>
+                              </div>
+                              <span className={`text-[8.5px] font-black px-1.5 py-0.2 rounded shrink-0 ${
+                                item.ready ? 'bg-emerald-600 text-white' : 'bg-rose-100 text-rose-700'
+                              }`}>
+                                {item.ready ? '✓ OK' : 'Chýba'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Druh anestézie a Pobyt na klinike */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {/* Druh anestézie */}
                     <div className="p-2.5 bg-white rounded-lg border border-[#E0D8C8]">
                       <span className="text-[9px] uppercase font-bold text-[#8C857B] block flex items-center gap-1">
                         <span>💉</span> Druh anestézie
@@ -465,7 +597,6 @@ export default function EventDetailModal({
                       </span>
                     </div>
 
-                    {/* Pobyt na klinike */}
                     <div className="p-2.5 bg-white rounded-lg border border-[#E0D8C8]">
                       <span className="text-[9px] uppercase font-bold text-[#8C857B] block flex items-center gap-1">
                         <span>{getClinicStayInfo(event.clinicStay)?.icon || '🏥'}</span> Pobyt na klinike
@@ -513,17 +644,22 @@ export default function EventDetailModal({
                   </div>
 
                   {/* Špeciálne vybavenie */}
-                  {event.specialEquipment && event.specialEquipment.length > 0 && (
+                  {((event.specialEquipment && event.specialEquipment.length > 0) || event.specialEquipmentOther) && (
                     <div className="pt-2 border-t border-[#E0D8C8]">
                       <span className="text-[9px] uppercase font-bold text-[#8C857B] block mb-1">
                         ⚡ Špeciálne vybavenie & Prístroje:
                       </span>
                       <div className="flex flex-wrap gap-1">
-                        {event.specialEquipment.map(eq => (
+                        {event.specialEquipment?.map(eq => (
                           <span key={eq} className="px-2 py-0.5 bg-[#2C2A29] text-white rounded text-[10px] font-bold">
                             {eq}
                           </span>
                         ))}
+                        {event.specialEquipmentOther && (
+                          <span className="px-2 py-0.5 bg-amber-900 text-white rounded text-[10px] font-bold">
+                            + {event.specialEquipmentOther}
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
@@ -549,10 +685,35 @@ export default function EventDetailModal({
                     </div>
                   )}
 
+                  {/* Rýchle naplánovanie pooperačnej kontroly priamo z operácie */}
+                  {onScheduleFollowUp && !event.isCancelled && (
+                    <div className="pt-2 border-t border-[#E0D8C8] flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[9px] uppercase font-bold text-[#8C857B]">
+                        🩺 Naplánovať pooperačnú kontrolu:
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onScheduleFollowUp(event, 7)}
+                          className="px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                        >
+                          +7 dní (Preväz)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onScheduleFollowUp(event, 14)}
+                          className="px-2.5 py-1 bg-sky-700 hover:bg-sky-800 text-white rounded-lg text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                        >
+                          +14 dní (Stehy)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               )}
 
-              {/* ŠPECIFICKÉ PRE POOPERAČNÚ KONTROLU: INFORMÁCIE PO ČOM A KEDY BOLA OPERÁCIA */}
+              {/* ŠPECIFICKÉ PRE POOPERAČNÚ KONTROLU */}
               {(event.type === 'kontrola' || event.operationTitle || discoveredOp) && (
                 <div className="bg-sky-50/80 p-3.5 rounded-xl border border-sky-200 space-y-3">
                   <div className="flex items-center justify-between border-b border-sky-200/80 pb-2">
@@ -564,9 +725,7 @@ export default function EventDetailModal({
                     </span>
                   </div>
 
-                  {/* Informácie po čom a kedy bola operácia */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* PO ČOM BOLA OPERÁCIA */}
                     <div className="p-2.5 bg-white rounded-lg border border-sky-200 shadow-2xs">
                       <span className="text-[9px] uppercase font-bold text-sky-700 block flex items-center gap-1">
                         <span>🔪</span> Po akej operácii / Druh zákroku:
@@ -581,7 +740,6 @@ export default function EventDetailModal({
                       )}
                     </div>
 
-                    {/* KEDY BOLA OPERÁCIA & ČASOVÝ ODSTUP */}
                     <div className="p-2.5 bg-white rounded-lg border border-sky-200 shadow-2xs">
                       <span className="text-[9px] uppercase font-bold text-sky-700 block flex items-center gap-1">
                         <span>📅</span> Dátum operácie & Časový odstup:
@@ -606,7 +764,6 @@ export default function EventDetailModal({
                     </div>
                   </div>
 
-                  {/* Operatér a implantáty / materiál */}
                   <div className="p-2.5 bg-white rounded-lg border border-sky-200/80 text-[11px] space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-[#8C857B] font-semibold">Operatér zákroku:</span>
@@ -626,7 +783,6 @@ export default function EventDetailModal({
                     )}
                   </div>
 
-                  {/* Akcia: Otvoriť kartu pacienta & operačný protokol */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
                     {(onOpenPatientFolder || onOpenFolder) && (
                       <button
@@ -663,14 +819,14 @@ export default function EventDetailModal({
               {event.notes && (
                 <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-200">
                   <span className="text-[9px] uppercase font-bold text-gray-500 block mb-0.5">Poznámka:</span>
-                  <p className="text-gray-800 italic">{event.notes}</p>
+                  <p className="text-gray-800 italic whitespace-pre-line">{event.notes}</p>
                 </div>
               )}
 
             </div>
           )}
 
-          {/* AKČNÉ TLAČIDLÁ PRE PACIENTA (WHATSAPP, SMS, EMAIL) - PRE MEDICÍNSKE ZÁKROKY */}
+          {/* AKČNÉ TLAČIDLÁ PRE PACIENTA (WHATSAPP, SMS, EMAIL) */}
           {event.type !== 'volno' && !event.isCancelled && (
             <div className="space-y-2 pt-1">
               <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Komunikácia s pacientom</span>
@@ -698,7 +854,6 @@ export default function EventDetailModal({
                 </button>
               </div>
 
-              {/* TLAČIDLO OZNAČIŤ ZÁLOHU */}
               {event.depositAmount && event.depositAmount > 0 && onToggleDepositPaid && (
                 <button
                   type="button"
@@ -711,6 +866,42 @@ export default function EventDetailModal({
                 >
                   {event.isDepositPaid ? '✕ Zrušiť úhradu zálohy' : '✓ Označiť zálohu ako HRADENÚ'}
                 </button>
+              )}
+
+              {/* PREPOJENIE S POKLADŇOU (POS) A GENERÁTOROM DOKUMENTOV */}
+              {(onCheckoutInPOS || onCreateMedicalDocument) && (
+                <div className="pt-2 border-t border-[#E8E2D9] space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold text-[#8C857B] block">
+                    Klinické operácie & Pokladňa (1 klikom)
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {!hidePrices && onCheckoutInPOS && (
+                      <button
+                        type="button"
+                        onClick={() => onCheckoutInPOS(event)}
+                        className="bg-amber-50 hover:bg-amber-100 text-amber-950 border border-[#C5A059] py-2 px-3 rounded-xl text-[10px] font-bold uppercase shadow-2xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>🧾</span>
+                        <span>
+                          Doplatiť v Pokladni (
+                          {Math.max(0, (event.totalPrice || 0) - (event.isDepositPaid ? (event.depositAmount || 0) : 0))} €)
+                        </span>
+                      </button>
+                    )}
+                    {onCreateMedicalDocument && (
+                      <button
+                        type="button"
+                        onClick={() => onCreateMedicalDocument(event)}
+                        className="bg-sky-50 hover:bg-sky-100 text-sky-950 border border-sky-300 py-2 px-3 rounded-xl text-[10px] font-bold uppercase shadow-2xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>📄</span>
+                        <span>
+                          {event.type === 'operacia' ? 'Vytvoriť operačný protokol' : 'Vytvoriť lekársku správu'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -751,7 +942,6 @@ export default function EventDetailModal({
                 />
               </div>
 
-              {/* PRÍLOHY */}
               {(setAttachAdvanceInvoice || setAttachInstructions || setAttachPreOpInstructions) && (
                 <div className="flex flex-wrap gap-3 py-1 bg-white p-2 rounded-lg border border-[#E8E2D9]">
                   {setAttachAdvanceInvoice && (
@@ -807,14 +997,25 @@ export default function EventDetailModal({
 
         {/* SPODNÁ LIŠTA S TLAČIDLAMI */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#E8E2D9] shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               onClick={() => onEdit(event)}
-              className="bg-white hover:bg-gray-100 text-[#2C2A29] border border-[#E8E2D9] px-3.5 py-2 rounded-xl text-[10px] font-bold uppercase shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+              className="bg-white hover:bg-gray-100 text-[#2C2A29] border border-[#E8E2D9] px-3 py-2 rounded-xl text-[10px] font-bold uppercase shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
             >
               <span>✏️</span> Upraviť
             </button>
+
+            {onDuplicate && (
+              <button
+                type="button"
+                onClick={() => onDuplicate(event)}
+                className="bg-white hover:bg-[#FAF8F5] text-[#2C2A29] border border-[#E8E2D9] px-3 py-2 rounded-xl text-[10px] font-bold uppercase shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+                title="Vytvoriť kópiu termínu"
+              >
+                <span>📋</span> Duplikovať
+              </button>
+            )}
 
             {onDelete && (
               <button
@@ -847,7 +1048,7 @@ export default function EventDetailModal({
               <button
                 type="button"
                 onClick={handleOpenFolderAction}
-                className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+                className="bg-[#2C2A29] hover:bg-[#C5A059] text-white px-3.5 py-2 rounded-xl text-[10px] font-bold uppercase shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <span>📁</span> Karta pacienta
               </button>
@@ -856,7 +1057,7 @@ export default function EventDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 rounded-xl text-[10px] font-bold uppercase text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
+              className="px-3 py-2 rounded-xl text-[10px] font-bold uppercase text-[#8C857B] hover:text-[#2C2A29] cursor-pointer"
             >
               Zavrieť
             </button>

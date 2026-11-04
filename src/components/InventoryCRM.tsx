@@ -10,7 +10,8 @@ import {
   Check, 
   Package, 
   Layers,
-  Lock
+  Lock,
+  RefreshCw
 } from 'lucide-react';
 import OpiateLogbook from './inventory/OpiateLogbook';
 import PatientProcedureDispensingView from './inventory/PatientProcedureDispensingView';
@@ -460,8 +461,25 @@ export default function InventoryCRM({
     showToast(`Balíček "${name}" bol úspešne zmazaný.`);
   };
 
+  const handleSyncWithCatalog = () => {
+    const updated = InventoryService.syncWithCatalog('merge');
+    setInventory(updated);
+    setReorderList(InventoryService.getReorderItems());
+    showToast(`Sklad bol úspešne synchronizovaný s cenníkom (${updated.length} položiek).`);
+  };
+
+  const handleResetCatalog = () => {
+    if (typeof window !== 'undefined' && window.confirm('Naozaj si prajete obnoviť celý sklad na počiatočný stav z cenníka (181 položiek)? Všetky zásoby budú nastavené na predvolený stav.')) {
+      const reset = InventoryService.syncWithCatalog('reset');
+      setInventory(reset);
+      setReorderList(InventoryService.getReorderItems());
+      showToast(`Sklad bol obnovený na oficiálny cenník (${reset.length} položiek).`);
+    }
+  };
+
   const getCategoryLabel = (cat: string) => {
     switch (cat) {
+      case 'skincare': return '🧴 Skincare & Kozmetika';
       case 'estetika': return '💉 Estetika / Botox';
       case 'implantaty': return '🏥 Implantáty';
       case 'kompresivne_pradlo': return '👙 Poop. prádlo';
@@ -510,6 +528,15 @@ export default function InventoryCRM({
             </button>
           ) : activeTab === 'opiates' ? null : (
             <>
+              <button 
+                type="button"
+                onClick={handleSyncWithCatalog}
+                title="Synchronizovať sklad s oficiálnym cenníkom (doplní položky od skincare, cez Dysport až po operačnú sálu)"
+                className="bg-[#FAF8F5] hover:bg-[#F0EBE1] text-[#2C2A29] border border-[#E8E2D9] px-3 py-2 rounded-xl text-xs uppercase font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span>Synchronizovať s cenníkom</span>
+              </button>
               <button 
                 type="button"
                 onClick={() => setIsManualUsageModal(true)}
@@ -674,6 +701,7 @@ export default function InventoryCRM({
                 className="border border-[#E8E2D9] p-2.5 rounded-xl text-xs bg-[#FBF9F6] font-semibold text-[#2C2A29]"
               >
                 <option value="all">Všetky kategórie ({inventory.length})</option>
+                <option value="skincare">Skincare & Dermokozmetika</option>
                 <option value="estetika">Estetika (Botox/Výplne)</option>
                 <option value="implantaty">Implantáty</option>
                 <option value="kompresivne_pradlo">Pooperačné prádlo</option>
@@ -1269,6 +1297,7 @@ export default function InventoryCRM({
                     onChange={e => setNewItem({...newItem, category: e.target.value as any})} 
                     className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white"
                   >
+                    <option value="skincare">🧴 Skincare & Dermokozmetika</option>
                     <option value="estetika">💉 Estetika (Botox/Výplne)</option>
                     <option value="implantaty">🏥 Implantáty</option>
                     <option value="kompresivne_pradlo">👙 Pooperačné prádlo</option>
@@ -1287,7 +1316,7 @@ export default function InventoryCRM({
                     className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white"
                   >
                     <option value="ks">ks (kus)</option>
-                    <option value="vialka">vialka</option>
+                    <option value="liekovka">liekovka</option>
                     <option value="bal">balenie</option>
                     <option value="ml">ml</option>
                     <option value="pár">pár</option>
@@ -1592,6 +1621,7 @@ export default function InventoryCRM({
                     onChange={e => setEditingItem({ ...editingItem, category: e.target.value as InventoryCategory })} 
                     className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white font-semibold text-[#2C2A29]"
                   >
+                    <option value="skincare">🧴 Skincare & Dermokozmetika</option>
                     <option value="estetika">Estetika (Botox/Výplne)</option>
                     <option value="implantaty">Implantáty</option>
                     <option value="kompresivne_pradlo">Pooperačné prádlo</option>
@@ -1608,12 +1638,12 @@ export default function InventoryCRM({
                     onChange={e => setEditingItem({ ...editingItem, unit: e.target.value as any })} 
                     className="w-full border border-[#E8E2D9] p-2 rounded-xl bg-white"
                   >
-                    <option value="ks">ks (kusy)</option>
-                    <option value="balenie">balenie</option>
+                    <option value="ks">ks (kus)</option>
+                    <option value="liekovka">liekovka</option>
+                    <option value="bal">balenie</option>
                     <option value="ml">ml</option>
-                    <option value="amp">amp (ampulka)</option>
-                    <option value="par">pár</option>
-                    <option value="fl">fl (fľaštička)</option>
+                    <option value="pár">pár</option>
+                    <option value="set">set</option>
                   </select>
                 </div>
               </div>

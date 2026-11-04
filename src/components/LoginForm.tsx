@@ -16,6 +16,9 @@ import {
   Lock,
   Mail,
   ArrowRight,
+  ArrowLeft,
+  Users,
+  ChevronRight,
   AlertCircle,
   Info,
   QrCode,
@@ -41,7 +44,7 @@ export interface UserAccount {
   id: string;
   name: string;
   email: string;
-  role: 'doctor' | 'manager' | 'nurse' | 'ceo' | 'receptionist';
+  role: 'doctor' | 'manager' | 'nurse' | 'ceo' | 'receptionist' | 'external_clinic';
   title: string;
   avatarBg: string;
   avatarUrl?: string;
@@ -98,7 +101,7 @@ export const SAY_CLINIC_USERS: UserAccount[] = [
     name: 'Ema Foltáni',
     email: 'foltani@sayclinic.sk',
     role: 'nurse',
-    title: 'Zdravotná sestra / Inštrumentárka',
+    title: 'Zdravotná sestra',
     avatarBg: 'bg-[#2D4A3E]',
     avatarUrl: '/avatars/foltani.jpg?v=2'
   },
@@ -107,9 +110,9 @@ export const SAY_CLINIC_USERS: UserAccount[] = [
     name: 'Sabina Lenhartová',
     email: 'lenhartova@sayclinic.sk',
     role: 'nurse',
-    title: 'Inštrumentárka / Sestra',
+    title: 'Zdravotná sestra',
     avatarBg: 'bg-[#2A4736]',
-    avatarUrl: '/avatars/nurse_scrub_cap.jpg'
+    avatarUrl: '/avatars/lenhartova.jpg?v=2'
   },
   {
     id: 'u8',
@@ -137,6 +140,105 @@ export const SAY_CLINIC_USERS: UserAccount[] = [
     title: 'Recepčná & Koordinátorka starostlivosti',
     avatarBg: 'bg-[#3D3A37]',
     avatarUrl: '/avatars/foltaniova.jpg?v=1'
+  },
+  {
+    id: 'u11',
+    name: 'MUDr. Martin Kasáč',
+    email: 'kasac@sayclinic.sk',
+    role: 'doctor',
+    title: 'Anesteziológ (OAIM)',
+    avatarBg: 'bg-[#1E293B]',
+    avatarUrl: '/avatars/anesteziolog.jpg?v=3'
+  },
+  {
+    id: 'u12',
+    name: 'MUDr. Vladimír Vrban',
+    email: 'vrban@sayclinic.sk',
+    role: 'doctor',
+    title: 'Anesteziológ (OAIM)',
+    avatarBg: 'bg-[#1E293B]',
+    avatarUrl: '/avatars/anesteziolog.jpg?v=3'
+  },
+  {
+    id: 'u13',
+    name: 'MUDr. Monika Gombošová',
+    email: 'gombosova@sayclinic.sk',
+    role: 'doctor',
+    title: 'Anesteziologička (OAIM)',
+    avatarBg: 'bg-[#334155]',
+    avatarUrl: '/avatars/anesteziolog.jpg?v=3'
+  },
+  {
+    id: 'u14',
+    name: 'MUDr. Martina Hudecová',
+    email: 'hudecova@sayclinic.sk',
+    role: 'doctor',
+    title: 'Anesteziologička (OAIM)',
+    avatarBg: 'bg-[#334155]',
+    avatarUrl: '/avatars/anesteziolog.jpg?v=3'
+  },
+  {
+    id: 'u15',
+    name: 'Katarína Otiepková',
+    email: 'otiepkova@sayclinic.sk',
+    role: 'nurse',
+    title: 'Inštrumentárka / Sestra',
+    avatarBg: 'bg-[#2A4736]',
+    avatarUrl: '/avatars/nurse_scrub_cap.jpg'
+  },
+  {
+    id: 'u16',
+    name: 'Erika Čunderlíková',
+    email: 'cunderlikova@sayclinic.sk',
+    role: 'nurse',
+    title: 'Inštrumentárka / Sestra',
+    avatarBg: 'bg-[#2A4736]',
+    avatarUrl: '/avatars/nurse_scrub_cap.jpg'
+  },
+  {
+    id: 'u17',
+    name: 'Izabela Rafanedisová',
+    email: 'rafanedisova@sayclinic.sk',
+    role: 'nurse',
+    title: 'Inštrumentárka / Sestra',
+    avatarBg: 'bg-[#2A4736]',
+    avatarUrl: '/avatars/nurse_scrub_cap.jpg'
+  },
+  {
+    id: 'u18',
+    name: 'Denisa Halajová',
+    email: 'halajova@sayclinic.sk',
+    role: 'nurse',
+    title: 'Anesteziologická sestra',
+    avatarBg: 'bg-[#1E3A5F]',
+    avatarUrl: '/avatars/anest_sestra.jpg?v=1'
+  },
+  {
+    id: 'u19',
+    name: 'Ivana Bešinová',
+    email: 'besinova@sayclinic.sk',
+    role: 'nurse',
+    title: 'Anesteziologická sestra',
+    avatarBg: 'bg-[#1E3A5F]',
+    avatarUrl: '/avatars/anest_sestra.jpg?v=1'
+  },
+  {
+    id: 'u20',
+    name: 'Anna Papánová',
+    email: 'papanova@sayclinic.sk',
+    role: 'nurse',
+    title: 'Anesteziologická sestra',
+    avatarBg: 'bg-[#1E3A5F]',
+    avatarUrl: '/avatars/anest_sestra.jpg?v=1'
+  },
+  {
+    id: 'u21',
+    name: 'Klinika Rudlová',
+    email: 'rudlova@sayclinic.sk',
+    role: 'external_clinic',
+    title: 'Operačné sály Rudlová',
+    avatarBg: 'bg-[#C5A059]',
+    avatarUrl: '/avatars/doctor_senior.jpg'
   }
 ];
 
@@ -149,7 +251,9 @@ const PRESET_PORTRAITS = [
   { label: 'iOS Memoji Foltániová (Sestra)', url: '/avatars/foltaniova.jpg?v=1' },
   { label: 'iOS Memoji Mecerodova (Manažment - Blond)', url: '/avatars/mecerodova.jpg?v=2' },
   { label: 'iOS Memoji Solivajsova (Recepcia - Blond)', url: '/avatars/solivajsova.jpg?v=2' },
-  { label: 'iOS Memoji Sestra (Operačná sála)', url: '/avatars/foltani.jpg?v=2' },
+  { label: 'iOS Memoji Sestra Foltáni', url: '/avatars/foltani.jpg?v=2' },
+  { label: 'iOS Memoji Sestra Lenhartová', url: '/avatars/lenhartova.jpg?v=2' },
+  { label: 'Klinika Rudlová', url: '/avatars/doctor_senior.jpg' },
   { label: 'Klinický portrét Lekár', url: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=400&auto=format&fit=crop' },
   { label: 'Klinický portrét Lekárka', url: 'https://images.unsplash.com/photo-1594824813689-c4391694d4d8?q=80&w=400&auto=format&fit=crop' },
 ];
@@ -168,6 +272,105 @@ function maskEmail(email: string): string {
   return `${masked}@${parts[1]}`;
 }
 
+export type TeamGroupId = 'anesthesiologists' | 'anesthesia_nurses' | 'instrumentalists';
+
+export interface TeamGroupConfig {
+  id: TeamGroupId;
+  name: string;
+  pluralName: string;
+  roleBadge: string;
+  roleDescription: string;
+  avatarUrl: string;
+  badge: string;
+  icon: string;
+}
+
+export const TEAM_GROUPS_CONFIG: Record<TeamGroupId, TeamGroupConfig> = {
+  anesthesiologists: {
+    id: 'anesthesiologists',
+    name: 'Anesteziológ (OAIM)',
+    pluralName: 'Anesteziológovia (OAIM)',
+    roleBadge: 'Tím OAIM • Lekári',
+    roleDescription: 'Špecialisti anestéziológie a resuscitácie',
+    avatarUrl: '/avatars/anesteziolog.jpg?v=3',
+    badge: 'Lekári OAIM',
+    icon: '👨‍⚕️'
+  },
+  anesthesia_nurses: {
+    id: 'anesthesia_nurses',
+    name: 'Anesteziologická sestra',
+    pluralName: 'Anesteziologické sestry',
+    roleBadge: 'Tím OAIM • Sestry',
+    roleDescription: 'Špecializované sestry anestézie a pooperačnej starostlivosti',
+    avatarUrl: '/avatars/anest_sestra.jpg?v=1',
+    badge: 'Anest. sestry',
+    icon: '💉'
+  },
+  instrumentalists: {
+    id: 'instrumentalists',
+    name: 'Inštrumentárky',
+    pluralName: 'Inštrumentárky',
+    roleBadge: 'Operačná sála • Sestry',
+    roleDescription: 'Inštrumentujúce a sálové zdravotné sestry',
+    avatarUrl: '/avatars/nurse_scrub_cap.jpg',
+    badge: 'Inštrumentárky',
+    icon: '✂️'
+  }
+};
+
+export function getUserGroupId(u: UserAccount): TeamGroupId | null {
+  const id = u.id;
+  const title = (u.title || '').toLowerCase();
+  const email = (u.email || '').toLowerCase();
+  const name = (u.name || '').toLowerCase();
+
+  // Ema Foltáni (u6) a Sabina Lenhartová (u7) sú klinické sestričky priamo na hlavnej obrazovke (nikdy nie v skupine)
+  if (id === 'u6' || id === 'u7' || email.includes('foltani@') || email.includes('lenhartova@')) {
+    return null;
+  }
+
+  // 1. Anesteziológovia:
+  if (
+    id === 'u8' || id === 'u11' || id === 'u12' || id === 'u13' || id === 'u14' ||
+    (u.role === 'doctor' && (title.includes('anesteziol') || title.includes('oaim'))) ||
+    email.includes('anesteziolog@') || email.includes('anestezia@') || email.includes('kasac@') || email.includes('vrban@') || email.includes('gombosova@') || email.includes('hudecova@')
+  ) {
+    return 'anesthesiologists';
+  }
+
+  // 2. Anesteziologické sestry (vrátane Anny Papánovej):
+  if (
+    id === 'u9' || id === 'u18' || id === 'u19' || id === 'u20' ||
+    ((title.includes('anesteziologick') || title.includes('anest.')) && (title.includes('sestra') || u.role === 'nurse')) ||
+    name.includes('anesteziologická sestra') ||
+    email.includes('anest.sestra@') || email.includes('anesteziologicka.sestra@') || email.includes('anesteziologickasestra@') || email.includes('halajova@') || email.includes('besinova@') || email.includes('papanova@')
+  ) {
+    return 'anesthesia_nurses';
+  }
+
+  // 3. Inštrumentárky (Katarína Otiepková u15, Erika Čunderlíková u16, Izabela Rafanedisová u17):
+  if (
+    id === 'u15' || id === 'u16' || id === 'u17' ||
+    title.includes('inštrument') || title.includes('instrument') ||
+    email.includes('otiepkova@') || email.includes('cunderlikova@') || email.includes('rafanedisova@')
+  ) {
+    return 'instrumentalists';
+  }
+
+  return null;
+}
+
+export function sortGroupMembers(members: UserAccount[]): UserAccount[] {
+  return [...members].sort((a, b) => {
+    // Služobné / všeobecné účty (u8, u9) na koniec zoznamu
+    const aIsGeneric = a.id === 'u8' || a.id === 'u9';
+    const bIsGeneric = b.id === 'u8' || b.id === 'u9';
+    if (aIsGeneric && !bIsGeneric) return 1;
+    if (!aIsGeneric && bIsGeneric) return -1;
+    return 0;
+  });
+}
+
 export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [users, setUsers] = useState<UserAccount[]>(() => {
     if (typeof window !== 'undefined') {
@@ -177,7 +380,20 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   });
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
   const [step, setStep] = useState<AuthStep>('select_user');
+  const [activeGroup, setActiveGroup] = useState<TeamGroupId | null>(null);
+  const [viewMode, setViewMode] = useState<'grouped' | 'all'>('grouped');
   const [loginMethodTab, setLoginMethodTab] = useState<'cards' | 'direct'>('cards');
+
+  // Klávesa ESC vráti používateľa z rozkliknutej skupiny späť do hlavného výberu
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activeGroup && step === 'select_user') {
+        setActiveGroup(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeGroup, step]);
 
   // Správa vlastných fotografií a účtov (Modal)
   const [photoModalUser, setPhotoModalUser] = useState<UserAccount | null>(null);
@@ -228,6 +444,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [isPasskeyAuthenticating, setIsPasskeyAuthenticating] = useState(false);
   const [isPasskeyRegistering, setIsPasskeyRegistering] = useState(false);
   const [ssoPickerModal, setSsoPickerModal] = useState<'google' | 'microsoft' | 'apple' | null>(null);
+  const [ssoCategoryFilter, setSsoCategoryFilter] = useState<'all' | 'direct' | 'anesthesiologists' | 'anesthesia_nurses' | 'instrumentalists'>('all');
 
   // Vynútená zmena predvoleného počiatočného hesla pre ostrú prevádzku
   const [forcePasswordChangeUser, setForcePasswordChangeUser] = useState<UserAccount | null>(null);
@@ -770,6 +987,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       if (u.id === 'u8' && (searchEmail === 'anesteziolog@sayclinic.sk' || searchEmail === 'anestezia@sayclinic.sk')) return true;
       if (u.id === 'u9' && (searchEmail === 'anest.sestra@sayclinic.sk' || searchEmail === 'anesteziologicka.sestra@sayclinic.sk' || searchEmail === 'anesteziologickasestra@sayclinic.sk')) return true;
       if (u.id === 'u10' && (searchEmail === 'foltaniova@sayclinic.sk' || searchEmail === 'viktoria.foltaniova@sayclinic.sk' || searchEmail === 'viktoria@sayclinic.sk')) return true;
+      if (u.id === 'u21' && (searchEmail === 'rudlova@sayclinic.sk' || searchEmail === 'klinika.rudlova@sayclinic.sk' || searchEmail === 'klinikarudlova@sayclinic.sk')) return true;
       return false;
     });
     if (!matchedUser) {
@@ -962,6 +1180,181 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     }
   };
 
+  const renderUserCard = (u: UserAccount) => {
+    const isPinEligible = DevicePinService.isEligibleForSameDayPinOnly(u.id);
+    return (
+      <div
+        key={u.id}
+        onClick={() => {
+          if (isPinEligible) {
+            setSelectedUser(u);
+            setStep('device_pin');
+          } else {
+            handleSelectUser(u);
+          }
+        }}
+        className="group flex flex-col items-center cursor-pointer transition-all duration-400 w-32 sm:w-36 text-center animate-in fade-in zoom-in-95 duration-200"
+      >
+        {/* LIQUID GLASS GULA AVATARA */}
+        <div className="relative mb-3.5">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 backdrop-blur-xl bg-gradient-to-b from-white/90 via-white/50 to-white/20 border border-white/90 shadow-[0_12px_28px_-6px_rgba(44,42,41,0.08),inset_0_2px_4px_rgba(255,255,255,0.95),inset_0_-2px_4px_rgba(197,160,89,0.18)] group-hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.32),inset_0_2px_6px_rgba(255,255,255,1)] group-hover:border-[#C5A059]/60 group-hover:scale-106 transition-all duration-400 flex items-center justify-center overflow-hidden">
+            {u.avatarUrl ? (
+              <img
+                src={u.avatarUrl}
+                alt={u.name}
+                className="w-full h-full rounded-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            ) : (
+              <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white shadow-inner">
+                <LiquidAvatar id={u.id} name={u.name} role={u.role} />
+              </div>
+            )}
+          </div>
+
+          {/* Tlačidlo úpravy avataru */}
+          <button
+            type="button"
+            onClick={(e) => openPhotoModal(u, e)}
+            title="Zmeniť profilový avatar"
+            className="absolute -bottom-1 -right-1 p-1.5 backdrop-blur-md bg-white/90 text-[#2C2A29] hover:bg-[#C5A059] hover:text-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.1)] border border-white transition-all transform group-hover:scale-110 cursor-pointer"
+          >
+            <Camera className="w-3 h-3" />
+          </button>
+        </div>
+
+        {/* MENO A POZÍCIA */}
+        <h3 className="text-xs sm:text-sm font-semibold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors leading-tight line-clamp-2">
+          {u.name}
+        </h3>
+        
+        {/* Glass rola štítok */}
+        <span className="mt-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-medium backdrop-blur-md bg-white/60 border border-white/80 text-[#8C857B] group-hover:text-[#2C2A29] group-hover:bg-white/90 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+          {u.title}
+        </span>
+
+        {/* Štítok typu účtu (Firemný @sayclinic.sk vs Osobný účet) */}
+        {PasskeyService.isCorporateAccount(u.id, u.email) ? (
+          <span className="mt-1 px-2 py-0.5 rounded-full text-[8px] font-semibold bg-[#FAF4E8] text-[#8C6D2B] border border-[#E8DCBE]">
+            Firemný @sayclinic.sk
+          </span>
+        ) : (
+          <span className="mt-1 px-2 py-0.5 rounded-full text-[8px] font-medium bg-[#F1F6F3] text-[#2D6647] border border-[#D2E4DA]">
+            Osobný účet
+          </span>
+        )}
+
+        {/* AK JE POUŽÍVATEĽ DNES OVERENÝ HESLOM NA TEJTO STANICI: RÝCHLY PIN BEZ HESLA */}
+        {isPinEligible ? (
+          <div className="mt-2.5 w-full space-y-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedUser(u);
+                setStep('device_pin');
+              }}
+              className="bg-gradient-to-r from-[#C5A059] to-[#9C7D3D] hover:from-[#B89248] hover:to-[#8A6C30] text-white w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
+              title="Dnes už overené heslom – stačí rýchly 4-miestny PIN"
+            >
+              <KeyRound className="w-3 h-3" />
+              <span>Rýchly PIN (dnes)</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectUser(u);
+              }}
+              className="text-[9px] text-[#8C857B] hover:text-[#2C2A29] underline transition-colors cursor-pointer w-full text-center"
+            >
+              alebo heslom
+            </button>
+          </div>
+        ) : (
+          /* ŠTANDARDNÉ TLAČIDLO PRE ZADANIE HESLA */
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSelectUser(u);
+            }}
+            className="mt-2.5 bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <span>Zadať heslo</span>
+            <span className="text-[#C5A059]">→</span>
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderGroupCard = (groupKey: TeamGroupId) => {
+    const config = TEAM_GROUPS_CONFIG[groupKey];
+    const members = users.filter(u => getUserGroupId(u) === groupKey);
+    if (members.length === 0) return null;
+
+    return (
+      <div
+        key={groupKey}
+        onClick={() => setActiveGroup(groupKey)}
+        className="group flex flex-col items-center cursor-pointer transition-all duration-400 w-32 sm:w-36 text-center animate-in fade-in zoom-in-95 duration-200"
+      >
+        {/* LIQUID GLASS GULA AVATARA SKUPINY S VIACVRSTVOVÝM EFEKTOM (STACK) */}
+        <div className="relative mb-3.5">
+          {/* Zadné vrstvené krúžky vytvárajúce dojem kôpky / tímu */}
+          <div className="absolute -top-1 -right-1 w-24 h-24 sm:w-28 sm:h-28 rounded-full border border-white/80 bg-white/40 -z-10 group-hover:-top-2 group-hover:-right-2 group-hover:scale-104 transition-all duration-400 shadow-xs" />
+          <div className="absolute -top-2 -right-2 w-24 h-24 sm:w-28 sm:h-28 rounded-full border border-[#C5A059]/30 bg-[#FAF4E8]/50 -z-20 group-hover:-top-3.5 group-hover:-right-3.5 group-hover:scale-108 transition-all duration-400" />
+
+          {/* Hlavná liquid glass guľa s reprezentatívnym memoji */}
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 backdrop-blur-xl bg-gradient-to-b from-white/95 via-white/60 to-white/30 border-2 border-white/95 shadow-[0_12px_28px_-6px_rgba(44,42,41,0.08),inset_0_2px_4px_rgba(255,255,255,0.95),inset_0_-2px_4px_rgba(197,160,89,0.22)] group-hover:shadow-[0_20px_45px_-5px_rgba(197,160,89,0.38),inset_0_2px_6px_rgba(255,255,255,1)] group-hover:border-[#C5A059] group-hover:scale-106 transition-all duration-400 flex items-center justify-center overflow-hidden">
+            <img
+              src={config.avatarUrl}
+              alt={config.name}
+              className="w-full h-full rounded-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          </div>
+
+          {/* Odznak počtu členov */}
+          <div
+            title={`${members.length} profilov v tíme`}
+            className="absolute -bottom-1 -right-1 px-2 py-0.5 backdrop-blur-md bg-[#2C2A29]/95 text-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.18)] border border-white/80 text-[9.5px] font-bold flex items-center gap-1 group-hover:bg-[#C5A059] group-hover:scale-110 transition-all"
+          >
+            <Users className="w-2.5 h-2.5 text-[#C5A059] group-hover:text-white" />
+            <span>{members.length}</span>
+          </div>
+        </div>
+
+        {/* NÁZOV SKUPINY */}
+        <h3 className="text-xs sm:text-sm font-semibold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors leading-tight line-clamp-2">
+          {config.name}
+        </h3>
+
+        {/* ŠTÍTOK ROLY */}
+        <span className="mt-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-medium backdrop-blur-md bg-white/70 border border-white/80 text-[#8C857B] group-hover:text-[#2C2A29] group-hover:bg-white/95 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+          {config.badge}
+        </span>
+
+        {/* POČET ČLENOV */}
+        <span className="mt-1 px-2 py-0.5 rounded-full text-[8px] font-semibold bg-[#FAF4E8] text-[#8C6D2B] border border-[#E8DCBE]">
+          {members.length} {members.length === 1 ? 'profil' : members.length < 5 ? 'profily' : 'profilov'} v tíme
+        </span>
+
+        {/* TLAČIDLO ROZKLIKU */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveGroup(groupKey);
+          }}
+          className="mt-2.5 bg-gradient-to-r from-[#2C2A29] via-[#3F3936] to-[#2C2A29] group-hover:from-[#C5A059] group-hover:to-[#9C7D3D] text-white w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs group-hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
+        >
+          <span>Rozkliknúť ({members.length})</span>
+          <ChevronRight className="w-3 h-3 text-[#C5A059] group-hover:text-white group-hover:translate-x-0.5 transition-transform" />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="relative min-h-[90vh] flex flex-col justify-center items-center py-10 px-4 sm:px-8 overflow-hidden select-none">
       
@@ -1012,14 +1405,43 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             {/* Vnútorný specular svetelný odlesk na vrchu karty */}
             <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent opacity-80" />
             
-            <div className="text-center mb-8">
-              <h2 className="text-xl sm:text-2xl font-light text-[#2C2A29] tracking-tight">
-                Prihlásenie do klinického systému
-              </h2>
-              <p className="text-xs text-[#8C857B] mt-1.5 font-normal tracking-wide">
-                Zvoľte svoj profil a zadajte prístupové heslo
-              </p>
-            </div>
+            {/* HLAVIČKA VÝBERU PROFILU: SPÄŤ LIŠTA AK JE ROZKLIKNUTÁ SKUPINA, INAK ŠTANDARDNÝ NADPIS */}
+            {activeGroup ? (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 pb-5 border-b border-[#E8E2D9]/70 animate-in fade-in duration-200">
+                <button
+                  type="button"
+                  onClick={() => setActiveGroup(null)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl backdrop-blur-md bg-white/80 hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] text-xs font-semibold shadow-xs hover:shadow-md transition-all cursor-pointer group"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#C5A059] transition-transform group-hover:-translate-x-1" />
+                  <span>← Späť na hlavný výber tímov</span>
+                </button>
+
+                <div className="text-center sm:text-right">
+                  <div className="inline-flex items-center gap-2">
+                    <span className="text-base">{TEAM_GROUPS_CONFIG[activeGroup].icon}</span>
+                    <h2 className="text-lg sm:text-xl font-light text-[#2C2A29] tracking-tight">
+                      {TEAM_GROUPS_CONFIG[activeGroup].pluralName}
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF4E8] text-[#8C6D2B] border border-[#E8DCBE]">
+                      {users.filter(u => getUserGroupId(u) === activeGroup).length} členov
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#8C857B] mt-1 font-normal tracking-wide">
+                    {TEAM_GROUPS_CONFIG[activeGroup].roleDescription} • Zvoľte svoj profil
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center mb-8">
+                <h2 className="text-xl sm:text-2xl font-light text-[#2C2A29] tracking-tight">
+                  Prihlásenie do klinického systému
+                </h2>
+                <p className="text-xs text-[#8C857B] mt-1.5 font-normal tracking-wide">
+                  Zvoľte svoj profil a zadajte prístupové heslo
+                </p>
+              </div>
+            )}
 
             {errorMsg && (
               <div className="max-w-md mx-auto mb-6 p-3 rounded-2xl bg-rose-50/90 border border-rose-200/80 text-rose-700 text-xs flex items-center gap-2">
@@ -1029,112 +1451,108 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             )}
 
             {/* KARTY ČLENOV TÍMU */}
-            <div className="flex flex-wrap justify-center items-start gap-6 sm:gap-8 md:gap-9">
-              {users.map(u => (
-                <div
-                  key={u.id}
-                  onClick={() => {
-                    if (DevicePinService.isEligibleForSameDayPinOnly(u.id)) {
-                      setSelectedUser(u);
-                      setStep('device_pin');
-                    } else {
-                      handleSelectUser(u);
-                    }
-                  }}
-                  className="group flex flex-col items-center cursor-pointer transition-all duration-400 w-32 sm:w-36 text-center"
-                >
-                  {/* LIQUID GLASS GULA AVATARA */}
-                  <div className="relative mb-3.5">
-                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 backdrop-blur-xl bg-gradient-to-b from-white/90 via-white/50 to-white/20 border border-white/90 shadow-[0_12px_28px_-6px_rgba(44,42,41,0.08),inset_0_2px_4px_rgba(255,255,255,0.95),inset_0_-2px_4px_rgba(197,160,89,0.18)] group-hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.32),inset_0_2px_6px_rgba(255,255,255,1)] group-hover:border-[#C5A059]/60 group-hover:scale-106 transition-all duration-400 flex items-center justify-center overflow-hidden">
-                      {u.avatarUrl ? (
-                        <img
-                          src={u.avatarUrl}
-                          alt={u.name}
-                          className="w-full h-full rounded-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white shadow-inner">
-                          <LiquidAvatar id={u.id} name={u.name} role={u.role} />
-                        </div>
-                      )}
-                    </div>
+            {activeGroup ? (
+              <div className="space-y-8 animate-in fade-in zoom-in-98 duration-300">
+                <div className="flex flex-wrap justify-center items-start gap-6 sm:gap-8 md:gap-9">
+                  {sortGroupMembers(users.filter(u => getUserGroupId(u) === activeGroup)).map(u => renderUserCard(u))}
+                </div>
 
-                    {/* Tlačidlo úpravy avataru */}
+                {/* RÝCHLE PREPÍNANIE MEDZI SKUPINAMI / NÁVRAT */}
+                <div className="pt-6 border-t border-[#E8E2D9]/60 flex flex-wrap items-center justify-center gap-2.5 text-xs">
+                  <span className="text-[#8C857B] font-medium">Prepnúť tím:</span>
+                  {(['anesthesiologists', 'anesthesia_nurses', 'instrumentalists'] as TeamGroupId[])
+                    .filter(g => g !== activeGroup)
+                    .map(otherGroup => {
+                      const otherCfg = TEAM_GROUPS_CONFIG[otherGroup];
+                      const otherCount = users.filter(u => getUserGroupId(u) === otherGroup).length;
+                      return (
+                        <button
+                          key={otherGroup}
+                          type="button"
+                          onClick={() => setActiveGroup(otherGroup)}
+                          className="px-3.5 py-1.5 rounded-xl backdrop-blur-md bg-white/70 hover:bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[#2C2A29] font-medium transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer group"
+                        >
+                          <span>{otherCfg.icon}</span>
+                          <span>{otherCfg.pluralName}</span>
+                          <span className="text-[10px] text-[#8C857B] font-mono group-hover:text-[#C5A059]">
+                            ({otherCount})
+                          </span>
+                        </button>
+                      );
+                    })}
+                  <span className="text-[#D1C9BD] hidden sm:inline">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveGroup(null)}
+                    className="px-3 py-1.5 text-[#8C857B] hover:text-[#2C2A29] underline underline-offset-2 transition-colors cursor-pointer"
+                  >
+                    Späť na všetkých členov (Esc)
+                  </button>
+                </div>
+              </div>
+            ) : viewMode === 'all' ? (
+              /* ZOBRAZENIE VŠETKÝCH 20 AVATAROV V JEDNOM ZOZNAME */
+              <div className="space-y-6">
+                <div className="flex flex-wrap justify-center items-start gap-6 sm:gap-8 md:gap-9">
+                  {users.map(u => renderUserCard(u))}
+                </div>
+              </div>
+            ) : (
+              /* ZOSKUPENÉ ZOBRAZENIE: 6 JEDNOTLIVCOV + 3 SKUPINOVÉ AVATARY */
+              <div className="space-y-6">
+                <div className="flex flex-wrap justify-center items-start gap-6 sm:gap-8 md:gap-9">
+                  {/* JEDNOTLIVCI (MUDr. Mráz, MUDr. Sroková, MUDr. Tran, Ing. Mecerodová, Mgr. Solivajsová, Viktória Foltániová) */}
+                  {users.filter(u => getUserGroupId(u) === null).map(u => renderUserCard(u))}
+
+                  {/* ROZKLIKÁVATEĽNÝ AVATAR: ANESTEZIOLÓG */}
+                  {renderGroupCard('anesthesiologists')}
+
+                  {/* ROZKLIKÁVATEĽNÝ AVATAR: ANESTEZIOLOGICKÁ SESTRA */}
+                  {renderGroupCard('anesthesia_nurses')}
+
+                  {/* ROZKLIKÁVATEĽNÝ AVATAR: INŠTRUMENTÁRKY */}
+                  {renderGroupCard('instrumentalists')}
+                </div>
+              </div>
+            )}
+
+            {/* PREPÍNAČ ZOBRAZENIA (ZOSKUPENÉ VS VŠETKY) */}
+            {!activeGroup && (
+              <div className="mt-8 pt-6 border-t border-[#E8E2D9]/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#8C857B]">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-[#5C554F]">Zobrazenie:</span>
+                  <div className="inline-flex p-0.5 rounded-xl bg-white/70 border border-[#E8E2D9] shadow-2xs">
                     <button
                       type="button"
-                      onClick={(e) => openPhotoModal(u, e)}
-                      title="Zmeniť profilový avatar"
-                      className="absolute -bottom-1 -right-1 p-1.5 backdrop-blur-md bg-white/90 text-[#2C2A29] hover:bg-[#C5A059] hover:text-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.1)] border border-white transition-all transform group-hover:scale-110"
+                      onClick={() => setViewMode('grouped')}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                        viewMode === 'grouped'
+                          ? 'bg-[#2C2A29] text-white shadow-xs'
+                          : 'text-[#8C857B] hover:text-[#2C2A29]'
+                      }`}
                     >
-                      <Camera className="w-3 h-3" />
+                      Zoskupené tímy ({users.filter(u => getUserGroupId(u) === null).length + 3})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('all')}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                        viewMode === 'all'
+                          ? 'bg-[#2C2A29] text-white shadow-xs'
+                          : 'text-[#8C857B] hover:text-[#2C2A29]'
+                      }`}
+                    >
+                      Všetci členovia ({users.length})
                     </button>
                   </div>
-
-                  {/* MENO A POZÍCIA */}
-                  <h3 className="text-xs sm:text-sm font-semibold text-[#2C2A29] group-hover:text-[#C5A059] transition-colors leading-tight line-clamp-2">
-                    {u.name}
-                  </h3>
-                  
-                  {/* Glass rola štítok */}
-                  <span className="mt-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-medium backdrop-blur-md bg-white/60 border border-white/80 text-[#8C857B] group-hover:text-[#2C2A29] group-hover:bg-white/90 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-                    {u.title}
-                  </span>
-
-                  {/* Štítok typu účtu (Firemný @sayclinic.sk vs Osobný účet) */}
-                  {PasskeyService.isCorporateAccount(u.id, u.email) ? (
-                    <span className="mt-1 px-2 py-0.5 rounded-full text-[8px] font-semibold bg-[#FAF4E8] text-[#8C6D2B] border border-[#E8DCBE]">
-                      Firemný @sayclinic.sk
-                    </span>
-                  ) : (
-                    <span className="mt-1 px-2 py-0.5 rounded-full text-[8px] font-medium bg-[#F1F6F3] text-[#2D6647] border border-[#D2E4DA]">
-                      Osobný účet
-                    </span>
-                  )}
-
-                  {/* AK JE POUŽÍVATEĽ DNES OVERENÝ HESLOM NA TEJTO STANICI: RÝCHLY PIN BEZ HESLA */}
-                  {DevicePinService.isEligibleForSameDayPinOnly(u.id) ? (
-                    <div className="mt-2.5 w-full space-y-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedUser(u);
-                          setStep('device_pin');
-                        }}
-                        className="bg-gradient-to-r from-[#C5A059] to-[#9C7D3D] hover:from-[#B89248] hover:to-[#8A6C30] text-white w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
-                        title="Dnes už overené heslom – stačí rýchly 4-miestny PIN"
-                      >
-                        <KeyRound className="w-3 h-3" />
-                        <span>Rýchly PIN (dnes)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectUser(u);
-                        }}
-                        className="text-[9px] text-[#8C857B] hover:text-[#2C2A29] underline transition-colors cursor-pointer w-full text-center"
-                      >
-                        alebo heslom
-                      </button>
-                    </div>
-                  ) : (
-                    /* ŠTANDARDNÉ TLAČIDLO PRE ZADANIE HESLA */
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectUser(u);
-                      }}
-                      className="mt-2.5 bg-gradient-to-r from-[#2C2A29] to-[#433E3C] hover:from-[#C5A059] hover:to-[#B38F46] text-white w-full py-1.5 px-2 rounded-xl text-[10px] font-semibold tracking-wider shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
-                    >
-                      <span>Zadať heslo</span>
-                      <span className="text-[#C5A059]">→</span>
-                    </button>
-                  )}
                 </div>
-              ))}
-            </div>
+
+                <div className="text-[11px] text-[#8C857B] font-normal flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-[#C5A059]" />
+                  <span>Rozkliknite avatar anesteziológa, anest. sestry alebo inštrumentárok pre výber osoby</span>
+                </div>
+              </div>
+            )}
 
 
           </div>
@@ -2586,9 +3004,76 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               </button>
             </div>
 
+            {/* KATEGÓRIE TÍMOV PRE RÝCHLE NÁJDENIE */}
+            <div className="px-6 pt-3.5 pb-2.5 border-b border-[#E8E2D9]/40 flex flex-wrap gap-1.5 bg-[#FAF8F5]/60">
+              <button
+                type="button"
+                onClick={() => setSsoCategoryFilter('all')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  ssoCategoryFilter === 'all'
+                    ? 'bg-[#2C2A29] text-white shadow-2xs'
+                    : 'bg-white text-[#8C857B] hover:text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                Všetci ({users.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSsoCategoryFilter('direct')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  ssoCategoryFilter === 'direct'
+                    ? 'bg-[#2C2A29] text-white shadow-2xs'
+                    : 'bg-white text-[#8C857B] hover:text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                Chirurgovia & Vedenie ({users.filter(u => getUserGroupId(u) === null).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSsoCategoryFilter('anesthesiologists')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  ssoCategoryFilter === 'anesthesiologists'
+                    ? 'bg-[#2C2A29] text-white shadow-2xs'
+                    : 'bg-white text-[#8C857B] hover:text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                👨‍⚕️ Anesteziológovia ({users.filter(u => getUserGroupId(u) === 'anesthesiologists').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSsoCategoryFilter('anesthesia_nurses')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  ssoCategoryFilter === 'anesthesia_nurses'
+                    ? 'bg-[#2C2A29] text-white shadow-2xs'
+                    : 'bg-white text-[#8C857B] hover:text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                💉 Anest. sestry ({users.filter(u => getUserGroupId(u) === 'anesthesia_nurses').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSsoCategoryFilter('instrumentalists')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  ssoCategoryFilter === 'instrumentalists'
+                    ? 'bg-[#2C2A29] text-white shadow-2xs'
+                    : 'bg-white text-[#8C857B] hover:text-[#2C2A29] border border-[#E8E2D9]'
+                }`}
+              >
+                ✂️ Inštrumentárky ({users.filter(u => getUserGroupId(u) === 'instrumentalists').length})
+              </button>
+            </div>
+
             {/* ZOZNAM ČLENOV */}
             <div className="p-6 max-h-[60vh] overflow-y-auto space-y-2.5">
-              {users.map(u => (
+              {users
+                .filter(u => {
+                  if (ssoCategoryFilter === 'direct') return getUserGroupId(u) === null;
+                  if (ssoCategoryFilter === 'anesthesiologists') return getUserGroupId(u) === 'anesthesiologists';
+                  if (ssoCategoryFilter === 'anesthesia_nurses') return getUserGroupId(u) === 'anesthesia_nurses';
+                  if (ssoCategoryFilter === 'instrumentalists') return getUserGroupId(u) === 'instrumentalists';
+                  return true;
+                })
+                .map(u => (
                 <button
                   key={u.id}
                   type="button"

@@ -15,17 +15,16 @@ export default function GlobalContextMenu({ children }: GlobalContextMenuProps) 
   const [position, setPosition] = useState<MenuPosition | null>(null);
   const [targetElement, setTargetElement] = useState<HTMLElement | null>(null);
 
-  // Funkcia na zachytenie pravého kliknutia
   const handleContextMenu = useCallback((e: MouseEvent) => {
-    // Ak už udalosť spracovalo špecifické kontextové menu (napr. na karte pacienta), neprepíšeme ho
     if (e.defaultPrevented) return;
     
-    e.preventDefault(); // Zrušíme štandardné menu prehliadača
-    setPosition({ x: e.pageX, y: e.pageY });
+    e.preventDefault();
+    const x = Math.min(e.clientX, window.innerWidth - 220);
+    const y = Math.min(e.clientY, window.innerHeight - 280);
+    setPosition({ x: Math.max(8, x), y: Math.max(8, y) });
     setTargetElement(e.target as HTMLElement);
   }, []);
 
-  // Funkcia na zatvorenie menu pri kliknutí inam alebo stlačení klávesy
   const handleClick = useCallback(() => {
     if (position) setPosition(null);
   }, [position]);
@@ -34,7 +33,6 @@ export default function GlobalContextMenu({ children }: GlobalContextMenuProps) 
     if (e.key === 'Escape' && position) setPosition(null);
   }, [position]);
 
-  // Pridáme globálne event listenery
   useEffect(() => {
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('click', handleClick);
@@ -47,10 +45,18 @@ export default function GlobalContextMenu({ children }: GlobalContextMenuProps) 
     };
   }, [handleContextMenu, handleClick, handleKeyDown]);
 
-  // Identifikácia kontextu podľa elementu
-  // (Môžete pridať logiku pre zistenie, či používateľ klikol na udalosť v kalendári)
   const isCalendarEvent = targetElement?.closest('[data-event-id]');
   const eventId = isCalendarEvent?.getAttribute('data-event-id');
+
+  const dispatchCalendarAction = (action: string) => {
+    if (!eventId) return;
+    window.dispatchEvent(
+      new CustomEvent('say_calendar_context_action', {
+        detail: { eventId, action },
+      })
+    );
+    setPosition(null);
+  };
 
   return (
     <>
@@ -58,52 +64,88 @@ export default function GlobalContextMenu({ children }: GlobalContextMenuProps) 
 
       {position && (
         <div
-          className="fixed z-[100] bg-white border border-[#E8E2D9] rounded-xl shadow-xl overflow-hidden text-xs text-[#2C2A29] flex flex-col w-48 animate-fadeIn"
+          className="fixed z-[100] bg-white border border-[#E8E2D9] rounded-xl shadow-2xl overflow-hidden text-xs text-[#2C2A29] flex flex-col w-56 animate-fadeIn"
           style={{ top: position.y, left: position.x }}
-          onClick={(e) => e.stopPropagation()} // Zabráni zatvoreniu pri kliknutí na samotné menu
+          onClick={(e) => e.stopPropagation()}
         >
-          {isCalendarEvent ? (
+          {isCalendarEvent && eventId ? (
             <>
-              {/* Možnosti špecifické pre udalosť v Kalendári */}
-              <div className="px-3 py-2 border-b border-[#E8E2D9] bg-[#FBF9F6] font-bold text-[10px] text-[#8C857B] uppercase">
-                Možnosti udalosti
+              <div className="px-3 py-2 border-b border-[#E8E2D9] bg-[#FBF9F6] font-bold text-[10px] text-[#8C857B] uppercase tracking-wider">
+                Akcie s termínom
               </div>
               <button 
-                className="px-4 py-2.5 hover:bg-[#C5A059] hover:text-white text-left transition-colors font-semibold"
-                onClick={() => {
-                  console.log('Zrušiť udalosť', eventId);
-                  // Tu by ste zavolali príslušnú funkciu na zrušenie
-                  setPosition(null);
-                }}
+                type="button"
+                className="px-3.5 py-2 hover:bg-[#FAF8F5] text-left transition-colors font-semibold flex items-center gap-2 cursor-pointer"
+                onClick={() => dispatchCalendarAction('detail')}
               >
-                ❌ Zrušiť termín
+                <span>🔍</span> Otvoriť detail termínu
               </button>
               <button 
-                className="px-4 py-2.5 hover:bg-[#C5A059] hover:text-white text-left transition-colors font-semibold"
-                onClick={() => {
-                  console.log('Zmeniť úhradu', eventId);
-                  // Tu by ste zavolali funkciu na zmenu úhrady
-                  setPosition(null);
-                }}
+                type="button"
+                className="px-3.5 py-2 hover:bg-[#FAF8F5] text-left transition-colors font-semibold flex items-center gap-2 cursor-pointer"
+                onClick={() => dispatchCalendarAction('edit')}
               >
-                💳 Prepnúť úhradu zálohy
+                <span>✏️</span> Upraviť termín
+              </button>
+              <button 
+                type="button"
+                className="px-3.5 py-2 hover:bg-[#FAF8F5] text-left transition-colors font-semibold flex items-center gap-2 cursor-pointer"
+                onClick={() => dispatchCalendarAction('folder')}
+              >
+                <span>📁</span> Otvoriť kartu pacienta
+              </button>
+              <button 
+                type="button"
+                className="px-3.5 py-2 hover:bg-[#FAF8F5] text-left transition-colors font-semibold flex items-center gap-2 cursor-pointer"
+                onClick={() => dispatchCalendarAction('deposit')}
+              >
+                <span>💳</span> Prepnúť úhradu zálohy
+              </button>
+              <button 
+                type="button"
+                className="px-3.5 py-2 hover:bg-[#FAF8F5] text-left transition-colors font-semibold flex items-center gap-2 cursor-pointer"
+                onClick={() => dispatchCalendarAction('duplicate')}
+              >
+                <span>📋</span> Duplikovať termín
+              </button>
+              <div className="border-t border-[#E8E2D9]/80 my-0.5" />
+              <button 
+                type="button"
+                className="px-3.5 py-2 hover:bg-amber-50 text-amber-800 text-left transition-colors font-semibold flex items-center gap-2 cursor-pointer"
+                onClick={() => dispatchCalendarAction('cancel')}
+              >
+                <span>❌</span> Zrušiť termín (Storno)
+              </button>
+              <button 
+                type="button"
+                className="px-3.5 py-2 hover:bg-rose-50 text-rose-700 text-left transition-colors font-semibold flex items-center gap-2 cursor-pointer"
+                onClick={() => dispatchCalendarAction('delete')}
+              >
+                <span>🗑️</span> Natrvalo zmazať
               </button>
             </>
           ) : (
             <>
-              {/* Globálne možnosti pre celú stránku */}
-              <div className="px-3 py-2 border-b border-[#E8E2D9] bg-[#FBF9F6] font-bold text-[10px] text-[#8C857B] uppercase">
+              <div className="px-3 py-2 border-b border-[#E8E2D9] bg-[#FBF9F6] font-bold text-[10px] text-[#8C857B] uppercase tracking-wider">
                 Rýchle akcie
               </div>
               <button 
-                className="px-4 py-2.5 hover:bg-[#C5A059] hover:text-white text-left transition-colors font-semibold"
-                onClick={() => { window.location.hash = '#home'; setPosition(null); }}
+                type="button"
+                className="px-4 py-2.5 hover:bg-[#C5A059] hover:text-white text-left transition-colors font-semibold cursor-pointer"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('say_navigate_tab', { detail: 'home' }));
+                  setPosition(null);
+                }}
               >
-                🏠 Návrat na domovskú obrazovku
+                🏠 Domovská obrazovka
               </button>
               <button 
-                className="px-4 py-2.5 hover:bg-[#C5A059] hover:text-white text-left transition-colors font-semibold"
-                onClick={() => { window.location.hash = '#calendar'; setPosition(null); }}
+                type="button"
+                className="px-4 py-2.5 hover:bg-[#C5A059] hover:text-white text-left transition-colors font-semibold cursor-pointer"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('say_navigate_tab', { detail: 'calendar' }));
+                  setPosition(null);
+                }}
               >
                 📅 Otvoriť Kalendár
               </button>

@@ -17,6 +17,7 @@ import InvoiceDetailModal from './finance/InvoiceDetailModal';
 import ClientFinanceDetailModal from './finance/ClientFinanceDetailModal';
 import MonthlyFinancialVisualizer from './finance/MonthlyFinancialVisualizer';
 import ClientLoyaltyModal from './ClientLoyaltyModal';
+import AddClientFinanceModal from './finance/AddClientFinanceModal';
 import {
   LoyaltyService,
   LOYALTY_TIERS,
@@ -49,7 +50,9 @@ import {
   RotateCcw,
   Trash2,
   Lock,
-  Award
+  Award,
+  UserPlus,
+  Filter
 } from 'lucide-react';
 import { UserAccount } from './LoginForm';
 import { PermissionsService } from '../services/permissionsService';
@@ -129,8 +132,18 @@ export default function FinanceCRM({
   }, [clientProfiles, invoices]);
 
   // Filtre a vyhľadávanie pre klientov
-  const [clientFilter, setClientFilter] = useState<'all' | 'planned' | 'operated' | 'due' | 'credit'>('all');
+  const [clientFilter, setClientFilter] = useState<'all' | 'planned' | 'operated' | 'due' | 'credit' | 'missing_advance' | 'missing_final'>('all');
+  const [doctorFilter, setDoctorFilter] = useState<string>('all');
+  const [billingStatusFilter, setBillingStatusFilter] = useState<'all' | 'advance_unpaid' | 'advance_paid' | 'balance_due' | 'settled'>('all');
+  const [dateRangeFilter, setDateRangeFilter] = useState<'all' | 'this_month' | 'next_month' | 'this_year' | 'custom'>('all');
+  const [customDateFrom, setCustomDateFrom] = useState('');
+  const [customDateTo, setCustomDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Modály pre správu klientov
+  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<PatientFinancialProfile | null>(null);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
 
   // Filtre pre faktúry
   const [invoiceTypeFilter, setInvoiceTypeFilter] = useState<'all' | 'advance' | 'standard'>('all');
@@ -375,17 +388,81 @@ export default function FinanceCRM({
     });
   }, [clientProfiles]);
 
-  // FILTROVANIE ZOZNAMU KLIENTOV
+  // Zoznam dostupných lekárov pre filter
+  const availableDoctors = useMemo(() => {
+    const defaultDocs = ['MUDr. Ján Mráz', 'MUDr. Tran', 'MUDr. Sroka', 'MUDr. Šebeňová'];
+    const docsFromProfiles = clientProfiles.map(p => p.doctorName).filter(Boolean);
+    const combined = Array.from(new Set([...defaultDocs, ...docsFromProfiles]));
+    return combined.sort();
+  }, [clientProfiles]);
+
+  // Vymazanie jedného klienta
+  const handleConfirmDeleteClient = () => {
+    if (!clientToDelete) return;
+    const remaining = FinanceBillingService.deleteClientProfile(clientToDelete.id);
+    setClientProfiles(remaining);
+    setClientToDelete(null);
+  };
+
+  // Vyčistenie všetkých klientov
+  const handleConfirmClearAllClients = () => {
+    FinanceBillingService.clearAllClientProfiles();
+    setClientProfiles([]);
+    setShowClearAllConfirm(false);
+  };
+
+  // FILTROVANIE ZOZNAMU KLIENTOV (Rozšírené o lekára, stav fakturácie, obdobie a čísla ZF/DF)
   const filteredClients = useMemo(() => {
+    const today = new Date();
+    const currentMonthKey = today.toISOString().slice(0, 7); // YYYY-MM
+    const nextMonthObj = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const nextMonthKey = nextMonthObj.toISOString().slice(0, 7);
+    const currentYearKey = String(today.getFullYear());
+
     return clientProfiles.filter(p => {
-      // Filter podľa kategórie
+      // 1. Filter podľa kategórie
       if (clientFilter === 'planned' && p.status !== 'planned') return false;
       if (clientFilter === 'operated' && p.status !== 'operated') return false;
       if (clientFilter === 'due' && p.balanceDue <= 0) return false;
       if (clientFilter === 'credit' && (p.clientCredit || 0) <= 0) return false;
+      if (clientFilter === 'missing_advance' && (p.advanceInvoiceNumber || p.status === 'operated')) return false;
+      if (clientFilter === 'missing_final' && (p.finalInvoiceNumber || p.status === 'planned')) return false;
 
-      // Vyhľadávanie bez diakritiky a s toleranciou preklepov
+      // 2. Filter podľa lekára / operatéra
+      if (doctorFilter !== 'all' && p.doctorName !== doctorFilter) {
+        return false;
+      }
+
+      // 3. Filter podľa stavu fakturácie a úhrad
+      if (billingStatusFilter === 'advance_unpaid') {
+        if (p.isAdvancePaid || p.isDepositPaid || p.depositRequired <= 0) return false;
+      } else if (billingStatusFilter === 'advance_paid') {
+        if (!p.isAdvancePaid && !p.isDepositPaid) return false;
+      } else if (billingStatusFilter === 'balance_due') {
+        if (p.balanceDue <= 0) return false;
+      } else if (billingStatusFilter === 'settled') {
+        if (p.balanceDue > 0 || (!p.isAdvancePaid && !p.isFinalPaid && p.totalPaid <= 0)) return false;
+      }
+
+      // 4. Filter podľa obdobia
+      if (dateRangeFilter === 'this_month') {
+        if (!p.procedureDate || !p.procedureDate.startsWith(currentMonthKey)) return false;
+      } else if (dateRangeFilter === 'next_month') {
+        if (!p.procedureDate || !p.procedureDate.startsWith(nextMonthKey)) return false;
+      } else if (dateRangeFilter === 'this_year') {
+        if (!p.procedureDate || !p.procedureDate.startsWith(currentYearKey)) return false;
+      } else if (dateRangeFilter === 'custom') {
+        if (customDateFrom && p.procedureDate < customDateFrom) return false;
+        if (customDateTo && p.procedureDate > customDateTo) return false;
+      }
+
+      // 5. Vyhľadávanie bez diakritiky a s toleranciou preklepov + čísla faktúr
       if (searchQuery.trim()) {
+        const query = searchQuery.trim().toLowerCase();
+        if (p.advanceInvoiceNumber && p.advanceInvoiceNumber.toLowerCase().includes(query)) return true;
+        if (p.finalInvoiceNumber && p.finalInvoiceNumber.toLowerCase().includes(query)) return true;
+        if (p.invoices && p.invoices.some(inv => inv.toLowerCase().includes(query))) return true;
+
         const matchName = matchesQuery(p.patientName, searchQuery).match;
         const matchProc = matchesQuery(p.procedureName, searchQuery).match;
         const matchDoc = matchesQuery(p.doctorName, searchQuery).match;
@@ -402,7 +479,7 @@ export default function FinanceCRM({
 
       return true;
     });
-  }, [clientProfiles, clientFilter, searchQuery]);
+  }, [clientProfiles, clientFilter, doctorFilter, billingStatusFilter, dateRangeFilter, customDateFrom, customDateTo, searchQuery]);
 
   // Zoznam všetkých evidovaných externých faktúr (ZF & DF z účtovníctva) z profilov klientov
   const trackedExternalInvoices = useMemo(() => {
@@ -905,9 +982,11 @@ export default function FinanceCRM({
 
           {/* OVLÁDACIA LIŠTA PRE ZOZNAM KLIENTOV (FILTRE, VYHĽADÁVANIE, TLAČIDLÁ) */}
           <div className="bg-white rounded-3xl p-5 border border-[#E8E2D9] shadow-xs space-y-4">
-            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
+            
+            {/* HORNÝ RIADOK: KATEGÓRIE A HLAVNÉ AKCIE */}
+            <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
               
-              {/* FILTRAČNÉ PILLSY */}
+              {/* FILTRAČNÉ PILLSY PODĽA STAVU KLIENTA */}
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
@@ -964,30 +1043,54 @@ export default function FinanceCRM({
                 >
                   🎁 S kreditom ({clientProfiles.filter(p => (p.clientCredit || 0) > 0).length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setClientFilter('missing_advance')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    clientFilter === 'missing_advance'
+                      ? 'bg-amber-800 text-white shadow-xs'
+                      : 'bg-amber-50/60 text-amber-900 hover:bg-amber-100/60 border border-amber-300'
+                  }`}
+                  title="Plánovaní klienti bez priradeného čísla zálohovej faktúry"
+                >
+                  ⏳ Bez ZF ({clientProfiles.filter(p => p.status === 'planned' && !p.advanceInvoiceNumber).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClientFilter('missing_final')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    clientFilter === 'missing_final'
+                      ? 'bg-purple-800 text-white shadow-xs'
+                      : 'bg-purple-50/60 text-purple-900 hover:bg-purple-100/60 border border-purple-300'
+                  }`}
+                  title="Odoperovaní klienti bez priradeného čísla definitívnej faktúry"
+                >
+                  📄 Bez DF ({clientProfiles.filter(p => p.status === 'operated' && !p.finalInvoiceNumber).length})
+                </button>
               </div>
 
-              {/* HĽADANIE A AKČNÉ TLAČIDLÁ */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1 md:w-72">
-                  <Search className="w-4 h-4 text-[#8C857B] absolute left-3 top-2.5 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Hľadať klienta (aj bez diakritiky), zákrok..."
-                    className="w-full bg-[#FBF9F6] border border-[#E8E2D9] pl-9 pr-8 py-2 rounded-xl text-xs text-[#2C2A29] focus:outline-none focus:border-[#C5A059]"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 top-2.5 text-[#8C857B] hover:text-[#2C2A29]"
-                      title="Zmazať"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+              {/* AKČNÉ TLAČIDLÁ */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsAddClientOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  title="Manuálne pridať klienta do evidencie financií"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>+ Pridať klienta</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowClearAllConfirm(true)}
+                  disabled={clientProfiles.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Vymazať všetkých doterajších klientov z finančného riadenia"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Vyčistiť zoznam</span>
+                </button>
 
                 <button
                   type="button"
@@ -996,9 +1099,124 @@ export default function FinanceCRM({
                   title="Export do CSV"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">CSV Export</span>
+                  <span className="hidden sm:inline">CSV</span>
                 </button>
               </div>
+            </div>
+
+            {/* DRUHÝ RIADOK: HĽADANIE A DETAILNÉ FILTRE (LEKÁR, STAV ÚHRADY, OBDOBIE) */}
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5 pt-1 border-t border-[#E8E2D9]/70">
+              
+              {/* VYHĽADÁVANIE */}
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-[#8C857B] absolute left-3 top-2.5 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Hľadať klienta, rodné číslo, zákrok, číslo ZF alebo DF..."
+                  className="w-full bg-[#FBF9F6] border border-[#E8E2D9] pl-9 pr-8 py-2 rounded-xl text-xs text-[#2C2A29] focus:outline-none focus:border-[#C5A059]"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-2.5 text-[#8C857B] hover:text-[#2C2A29]"
+                    title="Zmazať"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* FILTER PODĽA LEKÁRA */}
+              <div className="flex items-center gap-1.5 bg-[#FBF9F6] border border-[#E8E2D9] px-2.5 py-1.5 rounded-xl">
+                <span className="text-[10px] font-bold uppercase text-[#8C857B] shrink-0">Lekár:</span>
+                <select
+                  value={doctorFilter}
+                  onChange={(e) => setDoctorFilter(e.target.value)}
+                  className="bg-transparent text-xs font-semibold text-[#2C2A29] focus:outline-none cursor-pointer"
+                >
+                  <option value="all">Všetci lekári</option>
+                  {availableDoctors.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* FILTER PODĽA STAVU FAKTURÁCIE / ÚHRAD */}
+              <div className="flex items-center gap-1.5 bg-[#FBF9F6] border border-[#E8E2D9] px-2.5 py-1.5 rounded-xl">
+                <span className="text-[10px] font-bold uppercase text-[#8C857B] shrink-0">Stav úhrad:</span>
+                <select
+                  value={billingStatusFilter}
+                  onChange={(e) => setBillingStatusFilter(e.target.value as any)}
+                  className="bg-transparent text-xs font-semibold text-[#2C2A29] focus:outline-none cursor-pointer"
+                >
+                  <option value="all">Všetky stavy úhrad</option>
+                  <option value="advance_unpaid">⏳ Záloha neuhradená</option>
+                  <option value="advance_paid">✓ Záloha uhradená</option>
+                  <option value="balance_due">⚠️ Doplatok neuhradený</option>
+                  <option value="settled">✓ Kompletne vyrovnané</option>
+                </select>
+              </div>
+
+              {/* FILTER PODĽA OBDOBIA */}
+              <div className="flex items-center gap-1.5 bg-[#FBF9F6] border border-[#E8E2D9] px-2.5 py-1.5 rounded-xl">
+                <span className="text-[10px] font-bold uppercase text-[#8C857B] shrink-0">Obdobie:</span>
+                <select
+                  value={dateRangeFilter}
+                  onChange={(e) => setDateRangeFilter(e.target.value as any)}
+                  className="bg-transparent text-xs font-semibold text-[#2C2A29] focus:outline-none cursor-pointer"
+                >
+                  <option value="all">Všetky termíny</option>
+                  <option value="this_month">Tento mesiac</option>
+                  <option value="next_month">Nasledujúci mesiac</option>
+                  <option value="this_year">Tento rok</option>
+                  <option value="custom">Vlastný rozsah...</option>
+                </select>
+              </div>
+
+              {/* VLASTNÝ ROZSAH DÁTUMOV */}
+              {dateRangeFilter === 'custom' && (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={customDateFrom}
+                    onChange={(e) => setCustomDateFrom(e.target.value)}
+                    className="bg-[#FBF9F6] border border-[#E8E2D9] px-2 py-1.5 rounded-xl text-xs font-mono text-[#2C2A29]"
+                    title="Od dátumu"
+                  />
+                  <span className="text-[#8C857B] text-xs">–</span>
+                  <input
+                    type="date"
+                    value={customDateTo}
+                    onChange={(e) => setCustomDateTo(e.target.value)}
+                    className="bg-[#FBF9F6] border border-[#E8E2D9] px-2 py-1.5 rounded-xl text-xs font-mono text-[#2C2A29]"
+                    title="Do dátumu"
+                  />
+                </div>
+              )}
+
+              {/* TLAČIDLO PRE RESET FILTROV */}
+              {(doctorFilter !== 'all' || billingStatusFilter !== 'all' || dateRangeFilter !== 'all' || searchQuery.trim() || clientFilter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientFilter('all');
+                    setDoctorFilter('all');
+                    setBillingStatusFilter('all');
+                    setDateRangeFilter('all');
+                    setCustomDateFrom('');
+                    setCustomDateTo('');
+                    setSearchQuery('');
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FBF9F6] transition-colors shrink-0"
+                  title="Resetovať všetky filtre"
+                >
+                  Reset
+                </button>
+              )}
+
             </div>
 
             {/* HLAVNÁ TABUĽKA KLIENTOV */}
@@ -1190,6 +1408,14 @@ export default function FinanceCRM({
                               >
                                 <span>Detail</span>
                                 <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setClientToDelete(p)}
+                                className="p-1.5 rounded-lg bg-[#FBF9F6] hover:bg-rose-50 text-[#8C857B] hover:text-rose-600 transition-colors cursor-pointer border border-transparent hover:border-rose-200"
+                                title="Vymazať tohto klienta z evidencie financií"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </td>
@@ -2345,6 +2571,105 @@ export default function FinanceCRM({
         patientId={loyaltyModalPatient?.id}
         patientName={loyaltyModalPatient?.name || ''}
       />
+
+      {/* MODAL: PRIDANIE KLIENTA DO FINANCIÍ */}
+      <AddClientFinanceModal
+        isOpen={isAddClientOpen}
+        onClose={() => setIsAddClientOpen(false)}
+        patients={patients}
+        onClientAdded={(newProfile) => {
+          setClientProfiles(prev => [newProfile, ...prev]);
+        }}
+      />
+
+      {/* MODAL: POTVRDENIE VYMAZANIA JEDNÉHO KLIENTA */}
+      {clientToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-rose-200 shadow-2xl space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-brand font-bold text-[#2C2A29]">Vymazať klienta z financií?</h3>
+                <p className="text-xs text-[#8C857B]">Tento úkon odstráni finančný profil klienta.</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-[#FBF9F6] border border-[#E8E2D9] rounded-2xl text-xs space-y-1">
+              <p className="font-bold text-[#2C2A29]">{clientToDelete.patientName}</p>
+              <p className="text-[#8C857B]">{clientToDelete.procedureName} • {clientToDelete.procedureDate}</p>
+              <p className="text-[#8C857B]">Dohodnutá cena: <span className="font-mono font-bold text-[#2C2A29]">{clientToDelete.totalAgreedPrice.toLocaleString('sk-SK')} €</span></p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setClientToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-[#E8E2D9] text-[#2C2A29] text-xs font-bold hover:bg-[#FBF9F6] transition-colors cursor-pointer"
+              >
+                Zrušiť
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteClient}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors shadow-xs cursor-pointer"
+              >
+                Áno, vymazať
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: POTVRDENIE VYČISTENIA ZOZNAMU KLIENTOV */}
+      {showClearAllConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full border border-rose-200 shadow-2xl space-y-5">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-brand font-bold text-[#2C2A29]">
+                Vyčistiť zoznam klientov vo financiách?
+              </h3>
+              <p className="text-xs text-[#8C857B] leading-relaxed">
+                Tento krok vymaže všetkých doterajších {clientProfiles.length} klientov z finančného modulu.
+              </p>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-left text-xs text-emerald-950 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  Čistý režim financií:
+                </div>
+                <ul className="list-disc list-inside text-[11px] text-emerald-800 space-y-0.5 pl-1">
+                  <li>Žiadne fiktívne záznamy z Google Kalendára sa už automaticky neobnovia.</li>
+                  <li>Klientov budete môcť pridávať postupne manuálne tlačidlom <strong>+ Pridať klienta</strong>.</li>
+                  <li>Noví klienti pribudnú tiež automaticky po uzatvorení vyšetrenia priamo v SAY OS.</li>
+                  <li>Kartotéka pacientov a kalendár zostanú nedotknuté.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowClearAllConfirm(false)}
+                className="flex-1 py-3 rounded-xl border border-[#E8E2D9] text-[#2C2A29] text-xs font-bold hover:bg-[#FBF9F6] transition-colors cursor-pointer"
+              >
+                Zrušiť
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearAllClients}
+                className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors shadow-sm cursor-pointer"
+              >
+                Áno, vyčistiť zoznam
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: POTVRDENIE VYNULOVANIA PRE OSTRÚ PREVÁDZKU */}
       {showResetConfirmModal && (

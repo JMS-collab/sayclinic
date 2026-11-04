@@ -72,6 +72,46 @@ export const AuthService = {
           parsed['viktoria@sayclinic.sk'] = parsed['u10'];
           hasChanges = true;
         }
+        if (!parsed['martin.kasac@sayclinic.sk'] && parsed['u11']) {
+          parsed['martin.kasac@sayclinic.sk'] = parsed['u11'];
+          hasChanges = true;
+        }
+        if (!parsed['vladimir.vrban@sayclinic.sk'] && parsed['u12']) {
+          parsed['vladimir.vrban@sayclinic.sk'] = parsed['u12'];
+          hasChanges = true;
+        }
+        if (!parsed['monika.gombosova@sayclinic.sk'] && parsed['u13']) {
+          parsed['monika.gombosova@sayclinic.sk'] = parsed['u13'];
+          hasChanges = true;
+        }
+        if (!parsed['martina.hudecova@sayclinic.sk'] && parsed['u14']) {
+          parsed['martina.hudecova@sayclinic.sk'] = parsed['u14'];
+          hasChanges = true;
+        }
+        if (!parsed['katarina.otiepkova@sayclinic.sk'] && parsed['u15']) {
+          parsed['katarina.otiepkova@sayclinic.sk'] = parsed['u15'];
+          hasChanges = true;
+        }
+        if (!parsed['erika.cunderlikova@sayclinic.sk'] && parsed['u16']) {
+          parsed['erika.cunderlikova@sayclinic.sk'] = parsed['u16'];
+          hasChanges = true;
+        }
+        if (!parsed['izabela.rafanedisova@sayclinic.sk'] && parsed['u17']) {
+          parsed['izabela.rafanedisova@sayclinic.sk'] = parsed['u17'];
+          hasChanges = true;
+        }
+        if (!parsed['denisa.halajova@sayclinic.sk'] && parsed['u18']) {
+          parsed['denisa.halajova@sayclinic.sk'] = parsed['u18'];
+          hasChanges = true;
+        }
+        if (!parsed['ivana.besinova@sayclinic.sk'] && parsed['u19']) {
+          parsed['ivana.besinova@sayclinic.sk'] = parsed['u19'];
+          hasChanges = true;
+        }
+        if (!parsed['anna.papanova@sayclinic.sk'] && parsed['u20']) {
+          parsed['anna.papanova@sayclinic.sk'] = parsed['u20'];
+          hasChanges = true;
+        }
         if (hasChanges) {
           localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(parsed));
         }
@@ -108,6 +148,16 @@ export const AuthService = {
       initialCreds['viktoria.foltaniova@sayclinic.sk'] = initialCreds['u10'];
       initialCreds['viktoria@sayclinic.sk'] = initialCreds['u10'];
     }
+    if (initialCreds['u11']) initialCreds['martin.kasac@sayclinic.sk'] = initialCreds['u11'];
+    if (initialCreds['u12']) initialCreds['vladimir.vrban@sayclinic.sk'] = initialCreds['u12'];
+    if (initialCreds['u13']) initialCreds['monika.gombosova@sayclinic.sk'] = initialCreds['u13'];
+    if (initialCreds['u14']) initialCreds['martina.hudecova@sayclinic.sk'] = initialCreds['u14'];
+    if (initialCreds['u15']) initialCreds['katarina.otiepkova@sayclinic.sk'] = initialCreds['u15'];
+    if (initialCreds['u16']) initialCreds['erika.cunderlikova@sayclinic.sk'] = initialCreds['u16'];
+    if (initialCreds['u17']) initialCreds['izabela.rafanedisova@sayclinic.sk'] = initialCreds['u17'];
+    if (initialCreds['u18']) initialCreds['denisa.halajova@sayclinic.sk'] = initialCreds['u18'];
+    if (initialCreds['u19']) initialCreds['ivana.besinova@sayclinic.sk'] = initialCreds['u19'];
+    if (initialCreds['u20']) initialCreds['anna.papanova@sayclinic.sk'] = initialCreds['u20'];
 
     try {
       localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(initialCreds));

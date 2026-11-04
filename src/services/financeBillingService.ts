@@ -329,6 +329,26 @@ export class FinanceBillingService {
     return updated;
   }
 
+  // Vymazanie jedného profilu klienta z financií
+  public static deleteClientProfile(profileId: string): PatientFinancialProfile[] {
+    const all = this.getClientProfiles();
+    const filtered = all.filter(p => p.id !== profileId);
+    this.saveClientProfiles(filtered);
+    return filtered;
+  }
+
+  // Kompletné vyčistenie všetkých profilov klientov vo financiách (ostré vyčistenie od kalendárových/fiktívnych dát)
+  public static clearAllClientProfiles(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(this.STORAGE_KEY_CLIENT_PROFILES, JSON.stringify([]));
+      window.dispatchEvent(new CustomEvent('say_clinic_client_profiles_changed', { detail: [] }));
+      RealtimeSyncService.publish('client_financial_profiles', []);
+    } catch (e) {
+      console.error('Chyba pri čistení profilov klientov:', e);
+    }
+  }
+
   // Záznam platby od klienta (hotovosť, karta, prevod, odpočet z kreditu)
   public static recordClientPayment(profileId: string, amount: number, paymentMethod: PaymentMethod, note?: string): PatientFinancialProfile | null {
     const all = this.getClientProfiles();
@@ -557,35 +577,26 @@ export class FinanceBillingService {
     return `${prefix}${nextNum.toString().padStart(4, '0')}`;
   }
 
-  // Synchronizácia kalendárových udalostí do finančných profilov
-  // (optimalizované: indexované mapy namiesto vnorených lineárnych vyhľadávaní, sklad sa parsuje iba raz)
-  public static syncFromCalendarAndDatabase(events: CalendarEvent[], patients: Patient[]): PatientFinancialProfile[] {
+  // Synchronizácia a obohatenie existujúcich profilov (bez automatického generovania nových profilov z Google Kalendára)
+  // Profily sa do financií pridávajú VÝHRADNE manuálne alebo automaticky zo SAY OS ambulantných zápisov
+  public static syncFromCalendarAndDatabase(_events: CalendarEvent[], patients: Patient[]): PatientFinancialProfile[] {
     const currentProfiles = this.getClientProfiles();
+    if (currentProfiles.length === 0) return [];
+
     const updatedProfiles = [...currentProfiles];
     const norm = (s?: string) => (s || '').toLowerCase().trim();
-    const now = new Date();
 
-    // Index pacientov (prvý výskyt v poradí poľa, rovnako ako pôvodné Array.find)
-    const patientById = new Map<string, { idx: number; p: Patient }>();
-    const patientByName = new Map<string, { idx: number; p: Patient }>();
-    patients.forEach((p, idx) => {
+    // Index pacientov pre doplnenie chýbajúcich kontaktných údajov
+    const patientById = new Map<string, Patient>();
+    const patientByName = new Map<string, Patient>();
+    patients.forEach(p => {
       if (!p) return;
-      if (p.id && !patientById.has(p.id)) patientById.set(p.id, { idx, p });
+      if (p.id && !patientById.has(p.id)) patientById.set(p.id, p);
       const n = norm(p.name);
-      if (n && !patientByName.has(n)) patientByName.set(n, { idx, p });
+      if (n && !patientByName.has(n)) patientByName.set(n, p);
     });
 
-    // Index existujúcich profilov
-    const profByLinkedId = new Map<string, number>();
-    const profByNameDate = new Map<string, number>();
-    const indexProfile = (prof: PatientFinancialProfile, idx: number) => {
-      if (prof.linkedEventId && !profByLinkedId.has(prof.linkedEventId)) profByLinkedId.set(prof.linkedEventId, idx);
-      const key = `${(prof.patientName || '').toLowerCase()}|${prof.procedureDate}`;
-      if (!profByNameDate.has(key)) profByNameDate.set(key, idx);
-    };
-    updatedProfiles.forEach((prof, idx) => indexProfile(prof, idx));
-
-    // Skladová spotreba – načítaná raz a zoskupená podľa ID aj mena pacienta
+    // Skladová spotreba – načítaná raz a prepojená k existujúcim profilom
     const allLogs = InventoryService.getUsageLogs();
     const logsById = new Map<string, number[]>();
     const logsByName = new Map<string, number[]>();
@@ -602,114 +613,43 @@ export class FinanceBillingService {
         logsByName.set(n, arr);
       }
     });
-    const usageCache = new Map<string, { totalCost: number; itemsCount: number }>();
-    const getUsage = (patientName: string, patientId?: string) => {
-      const cacheKey = `${patientId || ''}|${norm(patientName)}`;
-      const cached = usageCache.get(cacheKey);
-      if (cached) return cached;
+
+    let hasChanges = false;
+    updatedProfiles.forEach(prof => {
+      // 1. Doplnenie kontaktov z kartotéky, ak chýbajú
+      const matched = (prof.patientId ? patientById.get(prof.patientId) : undefined) || patientByName.get(norm(prof.patientName));
+      if (matched) {
+        if (!prof.patientBirthNumber && matched.birthNumber) { prof.patientBirthNumber = matched.birthNumber; hasChanges = true; }
+        if (!prof.patientPhone && matched.phone) { prof.patientPhone = matched.phone; hasChanges = true; }
+        if (!prof.patientEmail && matched.email) { prof.patientEmail = matched.email; hasChanges = true; }
+        if (!prof.patientAddress && matched.address) { prof.patientAddress = matched.address; hasChanges = true; }
+      }
+
+      // 2. Aktualizácia skladovej spotreby materiálu
       const idxSet = new Set<number>([
-        ...(patientId ? logsById.get(patientId) || [] : []),
-        ...(logsByName.get(norm(patientName)) || []),
+        ...(prof.patientId ? logsById.get(prof.patientId) || [] : []),
+        ...(logsByName.get(norm(prof.patientName)) || [])
       ]);
       let totalCost = 0;
       idxSet.forEach(i => {
         const item = allLogs[i];
         totalCost += item.costAtUsage * item.quantity;
       });
-      const res = { totalCost, itemsCount: idxSet.size };
-      usageCache.set(cacheKey, res);
-      return res;
-    };
 
-    // Prechádzame kalendárové udalosti typu operácia a ošetrenie
-    events.forEach(evt => {
-      if (evt.type !== 'operacia' && evt.type !== 'osetrenie') return;
-      if (!evt.patientName || evt.patientName === 'Personál kliniky') return;
-      if (evt.id && (evt.id.startsWith('seed-') || evt.id.startsWith('demo-'))) return;
-
-      const pById = evt.patientId ? patientById.get(evt.patientId) : undefined;
-      const pByName = patientByName.get(norm(evt.patientName));
-      const matchedPatient = pById && pByName
-        ? (pById.idx <= pByName.idx ? pById.p : pByName.p)
-        : (pById?.p || pByName?.p);
-
-      const idxLinked = evt.id ? profByLinkedId.get(evt.id) : undefined;
-      const idxNameDate = profByNameDate.get(`${evt.patientName.toLowerCase()}|${evt.date}`);
-      const existingIdx = idxLinked !== undefined && idxNameDate !== undefined
-        ? Math.min(idxLinked, idxNameDate)
-        : (idxLinked ?? idxNameDate);
-      const existing = existingIdx !== undefined ? updatedProfiles[existingIdx] : undefined;
-
-      const isPast = new Date(evt.date) < now;
-      const status = isPast ? 'operated' : 'planned';
-      // Skutočná dohodnutá cena a záloha z kalendára (žiadne vymyslené sumy 3 800 € ani 800 €)
-      const agreedPrice = Math.max(0, Number(evt.totalPrice) || 0);
-      const depositReq = Math.max(0, Number(evt.depositAmount) || 0);
-      const depositPaid = evt.isDepositPaid ? (depositReq > 0 ? depositReq : 0) : 0;
-
-      // Zistíme reálnu spotrebu materiálu pre tohto pacienta
-      const materialUsage = getUsage(evt.patientName, evt.patientId);
-
-      if (!existing) {
-        const newProf: PatientFinancialProfile = {
-          id: `prof-${evt.id || Date.now()}`,
-          patientId: evt.patientId || matchedPatient?.id,
-          patientName: evt.patientName,
-          patientBirthNumber: matchedPatient?.birthNumber,
-          patientPhone: evt.patientPhone || matchedPatient?.phone,
-          patientEmail: evt.patientEmail || matchedPatient?.email,
-          patientAddress: matchedPatient?.address,
-          status,
-          procedureName: evt.title,
-          procedureDate: evt.date,
-          doctorName: evt.doctorName || evt.operator || 'MUDr. Ján Mráz',
-          roomName: evt.roomName,
-          anesthesiaType: evt.anesthesiaType,
-          totalAgreedPrice: agreedPrice,
-          depositRequired: depositReq,
-          depositPaid: depositPaid,
-          isDepositPaid: evt.isDepositPaid || false,
-          clientCredit: 0,
-          totalBilled: depositPaid > 0 ? depositPaid : 0,
-          totalPaid: depositPaid,
-          balanceDue: Math.max(0, agreedPrice - depositPaid),
-          materialCost: materialUsage.totalCost,
-          materialItemsCount: materialUsage.itemsCount,
-          netProcedureMargin: agreedPrice - materialUsage.totalCost,
-          marginPercentage: agreedPrice > 0 ? parseFloat((((agreedPrice - materialUsage.totalCost) / agreedPrice) * 100).toFixed(1)) : 0,
-          linkedEventId: evt.id,
-          invoices: [],
-          notes: evt.notes
-        };
-        updatedProfiles.push(newProf);
-        indexProfile(newProf, updatedProfiles.length - 1);
-      } else {
-        // Aktualizujeme spotrebu materiálu a linky
-        existing.materialCost = materialUsage.totalCost > 0 ? materialUsage.totalCost : existing.materialCost;
-        existing.materialItemsCount = materialUsage.itemsCount > 0 ? materialUsage.itemsCount : existing.materialItemsCount;
-        
-        // Ak v kalendári bola cena a zmenila sa
-        if (evt.totalPrice && evt.totalPrice !== existing.totalAgreedPrice) {
-          existing.totalAgreedPrice = evt.totalPrice;
-        } else if (!evt.totalPrice && existing.totalAgreedPrice === 3800 && (!existing.advanceInvoiceNumber && !existing.finalInvoiceNumber)) {
-          // Očistenie starých fiktívnych 3 800 €
-          existing.totalAgreedPrice = 0;
-          existing.depositRequired = 0;
-          if (existing.depositPaid === 800) existing.depositPaid = 0;
-          if (existing.totalPaid === 800) existing.totalPaid = 0;
-        }
-
-        existing.balanceDue = Math.max(0, existing.totalAgreedPrice - (existing.totalPaid || 0) - (existing.clientCredit || 0));
-        existing.netProcedureMargin = existing.totalAgreedPrice - existing.materialCost;
-        existing.marginPercentage = existing.totalAgreedPrice > 0 ? parseFloat((((existing.totalAgreedPrice - existing.materialCost) / existing.totalAgreedPrice) * 100).toFixed(1)) : 0;
-        if (evt.id) {
-          existing.linkedEventId = evt.id;
-          if (!profByLinkedId.has(evt.id)) profByLinkedId.set(evt.id, existingIdx!);
-        }
+      if (totalCost > 0 && totalCost !== prof.materialCost) {
+        prof.materialCost = totalCost;
+        prof.materialItemsCount = idxSet.size;
+        prof.netProcedureMargin = prof.totalAgreedPrice - prof.materialCost;
+        prof.marginPercentage = prof.totalAgreedPrice > 0
+          ? parseFloat((((prof.totalAgreedPrice - prof.materialCost) / prof.totalAgreedPrice) * 100).toFixed(1))
+          : 0;
+        hasChanges = true;
       }
     });
 
-    this.saveClientProfiles(updatedProfiles);
+    if (hasChanges) {
+      this.saveClientProfiles(updatedProfiles);
+    }
     return updatedProfiles;
   }
 
