@@ -1,28 +1,34 @@
 'use client';
 
 import React from 'react';
-import { MeicetAnalysisResult } from '@/types/meicet';
+import { MeicetAnalysisResult, SkincareTier } from '@/types/meicet';
 import { MeicetClinicalEducationService } from '@/services/meicetClinicalEducationService';
 
 interface MeicetReportPdfDocumentProps {
   report: MeicetAnalysisResult;
-  selectedTier?: 'high_end' | 'mid_end';
+  selectedTier?: SkincareTier;
 }
 
 export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPdfDocumentProps) {
   const { metrics, anamnesis, clinicalSynthesis, annualSchedule, skincareRoutine, scarProtocol, milestones } = report;
 
   const clinicalEdu = MeicetClinicalEducationService.getClinicalEducation(report);
+  const expertRoutine = skincareRoutine.expert || MeicetClinicalEducationService.generateExpertOptimalRoutine(report);
 
   const activeTier = selectedTier || skincareRoutine.selectedTier || 'high_end';
-  const routineData = activeTier === 'mid_end' && skincareRoutine.midEnd
-    ? skincareRoutine.midEnd
-    : (skincareRoutine.highEnd || skincareRoutine);
+  const routineData = activeTier === 'expert'
+    ? expertRoutine
+    : activeTier === 'mid_end' && skincareRoutine.midEnd
+      ? skincareRoutine.midEnd
+      : (skincareRoutine.highEnd || skincareRoutine);
+
   const morningProducts = routineData.morning || skincareRoutine.morning;
   const eveningProducts = routineData.evening || skincareRoutine.evening;
-  const tierTitle = activeTier === 'mid_end'
-    ? 'Mid-End (La Roche-Posay, CeraVe, Vichy)'
-    : 'High-End (SkinCeuticals)';
+  const tierTitle = activeTier === 'expert'
+    ? 'Clinical Optimum (Expertný EBM výber)'
+    : activeTier === 'mid_end'
+      ? 'Basic (La Roche-Posay, CeraVe, Vichy)'
+      : 'Premium (SkinCeuticals)';
 
   const formatDate = (isoStr?: string) => {
     if (!isoStr) return new Date().toLocaleDateString('sk-SK');
@@ -341,7 +347,7 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
         </div>
 
         <p className="text-[9px] text-[#8C857B] italic mt-2 border-t border-gray-100 pt-1">
-          * V cenníku kliniky SAY CLINIC sú k dispozícii obe línie: Basic (La Roche-Posay, CeraVe, Vichy) aj Premium (SkinCeuticals).
+          * Protokol SAY CLINIC poskytuje 3 línie: Basic (La Roche-Posay, CeraVe, Vichy), Premium (SkinCeuticals) a Clinical Optimum (expertný výber najlepších molekúl na trhu).
         </p>
       </div>
 

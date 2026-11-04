@@ -4,7 +4,9 @@ import {
   MeicetPathophysiologyIssue, 
   MeicetTherapeuticPhase, 
   MeicetActiveIngredientEducation, 
-  MeicetProcedureMechanismEducation 
+  MeicetProcedureMechanismEducation,
+  MeicetSkincareProduct,
+  MeicetSkincareTierRoutine
 } from '@/types/meicet';
 
 export class MeicetClinicalEducationService {
@@ -18,6 +20,323 @@ export class MeicetClinicalEducationService {
     }
 
     return this.synthesizeClinicalEducation(report);
+  }
+
+  /**
+   * Zostaví optimálny expertný balík CLINICAL OPTIMUM (to najlepšie pre pleť bez ohľadu na značku a sklad)
+   * na základe nameraných objektívnych Meicet hodnôt.
+   */
+  public static generateExpertOptimalRoutine(report: MeicetAnalysisResult): MeicetSkincareTierRoutine {
+    const { metrics, anamnesis } = report;
+
+    const morning: MeicetSkincareProduct[] = [];
+    const evening: MeicetSkincareProduct[] = [];
+
+    const isDehydrated = (metrics.hydration?.score || 50) < 55 || metrics.hydration?.tewlLevel === 'vysoká';
+    const hasVascularIssue = (metrics.redAreas?.score || 0) > 40 || metrics.redAreas?.rosaceaRisk;
+    const hasPhotoaging = (metrics.uvDamage?.score || 0) > 35 || (metrics.wrinkles?.score || 0) > 40;
+    const hasSebum = (metrics.sebumAndPorphyrins?.score || 0) > 45;
+
+    // AM KROK 1: Čistenie
+    if (isDehydrated || hasVascularIssue) {
+      morning.push({
+        step: 1,
+        category: 'Jemné čistenie & Bariéra',
+        brand: 'CeraVe',
+        productName: 'Hydrating Cleanser (Hydratačný čistiaci krém)',
+        activeIngredients: '3 esenciálne ceramidy + Kyselina hyalurónová',
+        keyActiveIngredient: 'Bio-identické ceramidy (1, 3, 6-II) + Glycerín',
+        whyItMatters: 'Fyziologický nepenivý čistič bez sulfátov. Odstraňuje nočný kožný maz bez toho, aby rozpustil lipidovú bariéru.',
+        frequencySchedule: 'Každé ráno',
+        usage: 'Naneste na navlhčenú pokožku, premasírujte a opláchnite vlažnou vodou.',
+        purpose: 'Šetrné ranné umytie bez podráždenia či narušenia TEWL.',
+        price: 14,
+        galenicForm: 'cream',
+        meicetJustification: 'Indikované pri citlivej pleti so sklonom k dehydratácii a erytému.',
+        isExternal: true,
+        pharmacyBrand: true,
+        externalProviderNote: 'Dostupné v každej lekárni'
+      });
+    } else {
+      morning.push({
+        step: 1,
+        category: 'Emolienčné čistenie',
+        brand: 'SkinCeuticals',
+        productName: 'Gentle Cleanser',
+        activeIngredients: 'Pomarančový olej + Alantoín + Emolienty',
+        keyActiveIngredient: 'Upokojujúci alantoín a hydratačné zmäkčovadlá',
+        whyItMatters: 'Jemne rozpúšťa nečistoty a zanecháva kožný film hebký a hydratovaný.',
+        frequencySchedule: 'Každé ráno',
+        usage: 'Vmasírujte do navlhčenej tváre a opláchnite.',
+        purpose: 'Vyčistenie a zjemnenie povrchu pokožky.',
+        price: 42,
+        galenicForm: 'cream',
+        meicetJustification: 'Overený klinický čistič pre maximálnu toleranciu.',
+        isExternal: false
+      });
+    }
+
+    // AM KROK 2: Špičkový antioxidant podľa pleti
+    if (hasVascularIssue) {
+      morning.push({
+        step: 2,
+        category: 'Lipidový nedráždivý antioxidant',
+        brand: 'Medik8',
+        productName: 'C-Tetra Luxe',
+        activeIngredients: '14% Tetrahexyldecyl Ascorbate + Vitamín E + Skvalán',
+        keyActiveIngredient: '14% Lipidový ester vitamínu C (nedráždivý pre kapiláry)',
+        whyItMatters: 'Na rozdiel od kyslej L-askorbovej nepôsobí dráždivo na vazodilatované cievky, no preniká hlboko do lipidovej dvojvrstvy a rozjasňuje pleť.',
+        frequencySchedule: 'Každé ráno 4-5 kvapiek',
+        usage: 'Aplikujte ráno po čistení na suchú pokožku tváre a krku.',
+        purpose: 'Fotoprotekcia, rozjasnenie a syntéza kolagénu bez začervenania.',
+        price: 68,
+        galenicForm: 'serum',
+        meicetJustification: 'Optimálna antioxidačná forma pre vaskulárne reaktívnu pokožku.',
+        isExternal: true,
+        pharmacyBrand: true,
+        externalProviderNote: 'Dostupné v špecializovaných salónoch a e-shope'
+      });
+    } else if (hasSebum) {
+      morning.push({
+        step: 2,
+        category: 'Antioxidant & Zmatnenie',
+        brand: 'SkinCeuticals',
+        productName: 'Phloretin CF Gel',
+        activeIngredients: '10% L-askorbová kyselina + 2% Floretín + 0.5% Kyselina ferulová',
+        keyActiveIngredient: '10% Čistý vitamín C + Floretín v ľahkom géli',
+        whyItMatters: 'Ideálna antioxidačná voľba pre zmiešanú pleť; chráni pred UV stresom a reguluje tvorbu mazu.',
+        frequencySchedule: 'Každé ráno 2 dávky pumpy',
+        usage: 'Aplikujte na vyčistenú suchú tvár.',
+        purpose: 'Zjednotenie tónu a ochrana pred fotostarnutím.',
+        price: 165,
+        galenicForm: 'gel',
+        meicetJustification: 'Indikované pri nerovnomernej pigmentácii a T-zóne.',
+        isExternal: false
+      });
+    } else {
+      morning.push({
+        step: 2,
+        category: 'Zlatý štandard antioxidantov',
+        brand: 'SkinCeuticals',
+        productName: 'C E Ferulic',
+        activeIngredients: '15% L-askorbová kyselina + 1% alfa-tokoferol + 0.5% kyselina ferulová',
+        keyActiveIngredient: 'Duke Formula: 15% Čistý Vitamín C + 0.5% Kyselina ferulová',
+        whyItMatters: 'Najviac citovaný patentovaný antioxidant na svete. Zvyšuje prirodzenú obranyschopnosť pokožky 8-násobne.',
+        frequencySchedule: 'Každé ráno 4-5 kvapiek',
+        usage: 'Aplikujte ráno na vyčistenú tvár a krk.',
+        purpose: '8-násobná neutralizácia voľných radikálov a syntéza prokolagénu.',
+        price: 175,
+        galenicForm: 'serum',
+        meicetJustification: 'Kľúčové pri fotopoškodení a suboptimálnom UV indexe.',
+        isExternal: false
+      });
+    }
+
+    // AM KROK 3: Protizápalový cievny stabilizátor / Hydratácia
+    if (hasVascularIssue) {
+      morning.push({
+        step: 3,
+        category: 'Protizápalová & Vaskulárna stabilizácia',
+        brand: 'Theramid',
+        productName: 'AZID 15% Azelaic Acid Treatment',
+        activeIngredients: '15% Kyselina azelaová + 1% Karnozín + 1% Koloidný ovos',
+        keyActiveIngredient: '15% Kyselina azelaová (inhibícia kalikreínu-5 a katelicidínov)',
+        whyItMatters: 'Dermatologický liek voľby bez predpisu na cievny erytém a rozaceu. Okamžite upokojuje reaktivitu ciev a zosvetľuje červené ložiská.',
+        frequencySchedule: 'Každé ráno a/alebo večer',
+        usage: 'Naneste malé množstvo na začervenané oblasti tváre pred krémom.',
+        purpose: 'Redukcia teleangiektázií a difúzneho erytému.',
+        price: 35,
+        galenicForm: 'fluid',
+        meicetJustification: 'Cielená liečba cievneho skóre Meicet.',
+        isExternal: true,
+        pharmacyBrand: true,
+        externalProviderNote: 'Dostupné v lekárňach a dermokozmetických e-shopoch'
+      });
+    } else {
+      morning.push({
+        step: 3,
+        category: 'Seboregulácia & Mikrocirkulácia',
+        brand: 'Geek & Gorgeous',
+        productName: 'B-Bomb 10% Niacinamide Serum',
+        activeIngredients: '10% Niacínamid + Zinok PCA + Sarkozín',
+        keyActiveIngredient: '10% Niacínamid (Vitamín B3)',
+        whyItMatters: 'Zvyšuje syntézu ceramidov o 34%, zmenšuje rozšírené póry a posilňuje odolnosť cievneho riečišťa.',
+        frequencySchedule: 'Každé ráno 3-4 kvapky',
+        usage: 'Aplikujte pred krémom.',
+        purpose: 'Zúženie pórov a vyváženie mazu.',
+        price: 9,
+        galenicForm: 'serum',
+        meicetJustification: 'Indikované pri rozšírených póroch a zhoršenom kožnom reliéfe.',
+        isExternal: true,
+        pharmacyBrand: true,
+        externalProviderNote: 'Dostupná dermokozmetika'
+      });
+    }
+
+    // AM KROK 4: Bariérová hydratácia
+    if (isDehydrated) {
+      morning.push({
+        step: 4,
+        category: 'Bio-identická obnova bariéry',
+        brand: 'SkinCeuticals',
+        productName: 'Triple Lipid Restore 2:4:2',
+        activeIngredients: '2% čisté ceramidy (1 & 3) + 4% cholesterol + 2% mastné kyseliny',
+        keyActiveIngredient: 'Patentovaný pomer 2:4:2 (Ceramidy : Cholesterol : Mastné kyseliny)',
+        whyItMatters: 'Kopíruje prirodzený medzibunkový tmel stratum corneum a hermeticky uzatvára transepidermálne odparovanie vody (TEWL).',
+        frequencySchedule: 'Každé ráno pred SPF',
+        usage: 'Zahrejte medzi prstami a jemne vmasírujte.',
+        purpose: 'Okamžitá rekonštrukcia lipidovej bariéry.',
+        price: 145,
+        galenicForm: 'cream',
+        meicetJustification: 'Kľúčové pri vysokom TEWL a narušenej kožnej bariére.',
+        isExternal: false
+      });
+    } else {
+      morning.push({
+        step: 4,
+        category: 'Upokojujúci ochranný fluid',
+        brand: 'La Roche-Posay',
+        productName: 'Toleriane Dermallergo Fluide',
+        activeIngredients: 'Sphingobioma + Neurosensine + Termálna voda',
+        keyActiveIngredient: 'Neurosensine (blokuje neurogénny zápal)',
+        whyItMatters: 'Ultraľahká emulzia v sterilnom balení, ktorá nezaťažuje póry a prináša celodenný komfort.',
+        frequencySchedule: 'Každé ráno pred SPF',
+        usage: 'Aplikujte na tvár a krk.',
+        purpose: 'Hydratácia a prevencia precitlivenosti.',
+        price: 23,
+        galenicForm: 'fluid',
+        meicetJustification: 'Ideálna ľahká hydratácia pre normálnu až zmiešanú pleť.',
+        isExternal: true,
+        pharmacyBrand: true,
+        externalProviderNote: 'Dostupné v lekárňach'
+      });
+    }
+
+    // AM KROK 5: Širokospektrálne SPF 50+ s Mexorylom 400
+    morning.push({
+      step: 5,
+      category: 'Špičková fotoprotekcia UV 400',
+      brand: 'La Roche-Posay',
+      productName: 'Anthelios UVMune 400 Invisible Fluid SPF 50+',
+      activeIngredients: 'Patentovaný filter Mexoryl 400 + Netlock technológia',
+      keyActiveIngredient: 'Mexoryl 400 (ochrana pred ultra-dlhým UVA žiarením 380–400 nm)',
+      whyItMatters: 'Najmodernejší UV filter na svete, ktorý kryje najzákernejšie lúče poškodzujúce kolagén a bunkovú DNA.',
+      frequencySchedule: 'Každé ráno ako finálny krok',
+      usage: 'Aplikujte 2 dĺžky prstov na celú tvár a krk 20 min pred odchodom von.',
+      purpose: 'Komplexná prevencia fotostarnutia a pigmentácií.',
+      price: 22,
+      galenicForm: 'fluid',
+      meicetJustification: 'Nevyhnutná celoročná ochrana pred UV lúčmi.',
+      isExternal: true,
+      pharmacyBrand: true,
+      externalProviderNote: 'Dostupné v každej lekárni'
+    });
+
+    // PM KROK 1: Večerné čistenie
+    evening.push({
+      step: 1,
+      category: 'Micelárne šetrné čistenie',
+      brand: 'Bioderma',
+      productName: 'Sensibio H2O Micelárna voda',
+      activeIngredients: 'Micely esterov mastných kyselín + D.A.F. patentovaný komplex',
+      keyActiveIngredient: 'Fyziologické micely s pH 5.5',
+      whyItMatters: 'Kultový dermatologický čistič, ktorý zachytáva mikročastice znečistenia a make-up bez trenia pokožky.',
+      frequencySchedule: 'Každý večer',
+      usage: 'Navlhčite bavlnený tampón a jemne očistite tvár a očné okolie.',
+      purpose: 'Šetrné rozpustenie nečistôt a SPF filtra.',
+      price: 15,
+      galenicForm: 'fluid',
+      meicetJustification: 'Nenarušuje cievny tonus a nezvyšuje reaktivitu.',
+      isExternal: true,
+      pharmacyBrand: true,
+      externalProviderNote: 'Dostupné v lekárňach'
+    });
+
+    // PM KROK 2: Bunkový turnover (Retinaldehyd vs Soolantra Rx)
+    if (anamnesis.clientConcerns?.some(c => c.toLowerCase().includes('rosacea')) && hasVascularIssue) {
+      evening.push({
+        step: 2,
+        category: 'Dermatologická liečba rozacey (Rx)',
+        brand: 'Galderma (Rx)',
+        productName: 'Soolantra 10 mg/g krém',
+        activeIngredients: 'Ivermektín 10 mg/g (1%)',
+        keyActiveIngredient: 'Ivermektín 1% (eliminácia Demodexu & protizápalový efekt)',
+        whyItMatters: 'Liek prvej voľby indikovaný lekárom. Zastavuje zápalové papuly a navracia pokožke pokojný cievny reliéf.',
+        frequencySchedule: '1x večer po dobu 12 týždňov',
+        titrationNotes: 'Liek je viazaný na lekársky predpis (Rp.) – predpisuje lekár kliniky.',
+        usage: 'Aplikujte veľkosť hrášku na tvár.',
+        purpose: 'Kauzálna liečba papulopustulóznej rozacey.',
+        price: 18,
+        galenicForm: 'rx',
+        meicetJustification: 'Indikované lekárom pri podozrení na rozaceu na základe Meicet.',
+        isExternal: true,
+        prescriptionOnly: true,
+        externalProviderNote: 'Liek viazaný na lekársky predpis (Rp.)'
+      });
+    } else {
+      evening.push({
+        step: 2,
+        category: 'Retinaldehyd novej generácie',
+        brand: 'Medik8',
+        productName: 'Crystal Retinal 3 (0.03%)',
+        activeIngredients: '0.03% Zapuzdrený retinaldehyd + Kyselina hyalurónová + Vitamín E',
+        keyActiveIngredient: '0.03% Retinaldehyd (1 konverzia na kyselinu retinovú)',
+        whyItMatters: 'Pôsobí 11-krát rýchlejšie ako klasický retinol, no bez podráždenia. Stimuluje novotvorbu kolagénu a má priamy antibakteriálny účinok.',
+        frequencySchedule: '1. a 2. týždeň 2x do týždňa, 3. a 4. týždeň obdeň, potom denne',
+        titrationNotes: 'Aplikujte výhradne večer na suchú pleť. V rannom protokole je povinné SPF 50+.',
+        usage: 'Aplikujte 2 pumpy večer na suchú očistenú pleť pred krémom.',
+        purpose: 'Bunková obnova, zjemnenie vrások a spevnenie dermis.',
+        price: 62,
+        galenicForm: 'serum',
+        meicetJustification: 'Ideálne na korekciu vrások a fotopoškodenia z Meicet analýzy.',
+        isExternal: true,
+        pharmacyBrand: true,
+        externalProviderNote: 'Dostupné v špecializovaných salónoch a e-shope'
+      });
+    }
+
+    // PM KROK 3: Hĺbková bariérová regenerácia
+    evening.push({
+      step: 3,
+      category: 'Intenzívny lipidový regenerátor',
+      brand: isDehydrated ? 'SkinCeuticals' : 'La Roche-Posay',
+      productName: isDehydrated ? 'Triple Lipid Restore 2:4:2' : 'Cicaplast Baume B5+',
+      activeIngredients: isDehydrated ? '2% ceramidy + 4% cholesterol + 2% mastné kyseliny' : '5% Pantenol + Madecassoside + Zinok',
+      keyActiveIngredient: isDehydrated ? 'Pomer bio-lipidov 2:4:2' : 'Pantenol (Vitamín B5) + Centella Asiatica',
+      whyItMatters: 'Uzamyká nočnú bunkovú regeneráciu, predchádza vysušeniu z retinoidu a tlmí mikrozápaly.',
+      frequencySchedule: 'Každý večer ako finálny krok',
+      usage: 'Jemne vmasírujte na tvár a krk.',
+      purpose: 'Hĺbková nočná oprava stratum corneum.',
+      price: isDehydrated ? 145 : 14,
+      galenicForm: isDehydrated ? 'cream' : 'balm',
+      meicetJustification: 'Prevencia nežiaducej iritácie pri aktívnej nočnej terapii.',
+      isExternal: !isDehydrated,
+      pharmacyBrand: !isDehydrated
+    });
+
+    const allProds = [...morning, ...evening];
+    const clinicProds = allProds.filter(p => !p.isExternal);
+    const extProds = allProds.filter(p => p.isExternal);
+
+    const totalEstimatedPrice = allProds.reduce((sum, p) => sum + (p.price || 0), 0);
+    const clinicEstimatedPrice = clinicProds.reduce((sum, p) => sum + (p.price || 0), 0);
+    const externalEstimatedPrice = extProds.reduce((sum, p) => sum + (p.price || 0), 0);
+
+    return {
+      tier: 'expert',
+      tierLabel: 'Clinical Optimum (Expert EBM)',
+      brandDescription: 'Nezávislý dermatologický výber najúčinnejších molekúl a textúr na trhu (Medik8, Theramid, SkinCeuticals, Rx) bez ohľadu na sklad',
+      totalEstimatedPrice,
+      clinicEstimatedPrice,
+      externalEstimatedPrice,
+      morning,
+      evening,
+      weeklyCare: [
+        '1x týždenne regeneračná bio-celulózová maska alebo intenzívna hydratácia',
+        'Pri zavádzaní retinoidu Medik8 prísne dodržiavať titračný harmonogram (začať 2x týždenne)',
+        'V prípade pocitu pnutia aplikovať lokálne SOS balzam (Cicaplast Baume B5+)'
+      ]
+    };
   }
 
   public static synthesizeClinicalEducation(report: MeicetAnalysisResult): MeicetClinicalEducation {

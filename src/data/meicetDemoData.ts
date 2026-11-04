@@ -1,5 +1,6 @@
-import { MeicetAnalysisResult, MeicetSkinMetrics, MeicetAnamnesisContext, MeicetSkincareProduct } from '@/types/meicet';
+import { MeicetAnalysisResult, MeicetSkinMetrics, MeicetAnamnesisContext, MeicetSkincareProduct, SkincareTier } from '@/types/meicet';
 import { getClinicPrice } from '@/data/clinicPriceList';
+import { MeicetClinicalEducationService } from '@/services/meicetClinicalEducationService';
 
 export interface QuickSkinConcernPreset {
   id: string;
@@ -140,7 +141,7 @@ export function createDemoMeicetResult(
   patientId: string = 'P1',
   patientName: string = 'Mária Kováčová',
   birthNumber: string = '885512/6789',
-  preferredTier: 'high_end' | 'mid_end' = 'high_end',
+  preferredTier: SkincareTier = 'high_end',
   selectedConcernIds?: string[],
   requestedSkinType?: string
 ): MeicetAnalysisResult {
@@ -733,6 +734,11 @@ export function createDemoMeicetResult(
         actualAge: computedAge
       };
 
+  const expertRoutine = MeicetClinicalEducationService.generateExpertOptimalRoutine({
+    metrics: dynamicMetrics,
+    anamnesis
+  } as any);
+
   return {
     id: `meicet-${Date.now()}`,
     patientId,
@@ -1133,19 +1139,24 @@ export function createDemoMeicetResult(
           'Každé ráno dôsledne chrániť pleť fluidom Anthelios UVMune 400 SPF 50+.'
         ]
       },
-      morning: preferredTier === 'mid_end' ? midEndMorning : highEndMorning,
-      evening: preferredTier === 'mid_end' ? midEndEvening : highEndEvening,
+      expert: expertRoutine,
+      morning: preferredTier === 'mid_end' ? midEndMorning : preferredTier === 'expert' ? expertRoutine.morning : highEndMorning,
+      evening: preferredTier === 'mid_end' ? midEndEvening : preferredTier === 'expert' ? expertRoutine.evening : highEndEvening,
       weeklyCare: preferredTier === 'mid_end'
         ? [
             'Po každom estetickom ošetrení aplikovať La Roche-Posay Cicaplast Baume B5+ na rýchlu obnovu bariéry.',
             'Každé ráno aplikovať Anthelios UVMune 400 SPF 50+.'
           ]
+        : preferredTier === 'expert'
+        ? expertRoutine.weeklyCare
         : [
             '7 dní pred laserom alebo peelingom vysadiť večerný Retinol 0.3.',
             'Po zákrokoch používať SkinCeuticals Epidermal Repair a Triple Lipid Restore 2:4:2.'
           ],
       seasonalTips: preferredTier === 'mid_end'
         ? 'V lete používajte ľahký Vichy Minéral 89 + La Roche-Posay Anthelios UVMune 400 SPF 50+. V zime pridajte výživný CeraVe Hydratačný krém a Cicaplast Baume B5+.'
+        : preferredTier === 'expert'
+        ? 'V lete chráňte pleť Duke antioxidačným vzorcom (C E Ferulic) a ľahkými textúrami. Na jeseň a v zime zaraďte večerný Medik8 Crystal Retinal a bariérové lipidy.'
         : 'V lete chráňte pleť kombináciou C E Ferulic + Advanced Brightening SPF 50+. Na jeseň a v zime zaraďte večerný Retinol 0.3 a Triple Lipid Restore 2:4:2.'
     },
     scarProtocol: {

@@ -32,7 +32,7 @@ import {
   Home,
   ArrowLeftRight
 } from 'lucide-react';
-import { MeicetAnalysisResult, MeicetTreatmentPlanItem, SkincareTier, MeicetSkincareProduct } from '@/types/meicet';
+import { MeicetAnalysisResult, MeicetTreatmentPlanItem, SkincareTier, MeicetSkincareProduct, MeicetSkincareTierRoutine } from '@/types/meicet';
 import { MeicetService } from '@/services/meicetService';
 import { MeicetReportPdfDocument } from './MeicetReportPdfDocument';
 import { CalendarEvent } from '@/data/calendarConfig';
@@ -324,30 +324,40 @@ export function MeicetViewer({
     return [...internalSkinTreatments, ...externalSkinTreatments];
   }, [internalSkinTreatments, externalSkinTreatments]);
 
-  // Aktívna skincare rutina podľa zvoleného tieru (Basic: La Roche-Posay / CeraVe / Vichy alebo Premium: SkinCeuticals)
-  const activeTierRoutine = selectedTier === 'mid_end'
-    ? (report.skincareRoutine?.midEnd || {
-        tier: 'mid_end',
-        tierLabel: 'Basic (La Roche-Posay, CeraVe, Vichy)',
-        brandDescription: 'Dostupná lekárenská starostlivosť z nášho cenníka – overená dermatologická tolerancia a obnova bariéry',
-        totalEstimatedPrice: 121,
-        morning: report.skincareRoutine?.morning || [],
-        evening: report.skincareRoutine?.evening || [],
-        weeklyCare: report.skincareRoutine?.weeklyCare || []
-      })
-    : (report.skincareRoutine?.highEnd || {
-        tier: 'high_end',
-        tierLabel: 'Premium (SkinCeuticals)',
-        brandDescription: 'Klinický luxus z cenníka – patentované zloženia s maximálnou koncentráciou antioxidantov a lipidov',
-        totalEstimatedPrice: 538,
-        morning: report.skincareRoutine?.morning || [],
-        evening: report.skincareRoutine?.evening || [],
-        weeklyCare: report.skincareRoutine?.weeklyCare || []
-      });
+  // Expertná optimálna rutina EBM (to najlepšie pre pleť bez ohľadu na značku a sklad)
+  const expertRoutine: any = React.useMemo(() => {
+    return report.skincareRoutine?.expert || MeicetClinicalEducationService.generateExpertOptimalRoutine(report);
+  }, [report]);
 
-  const currentMorning = activeTierRoutine.morning;
-  const currentEvening = activeTierRoutine.evening;
-  const currentWeeklyCare = activeTierRoutine.weeklyCare;
+  // Aktívna skincare rutina podľa zvoleného tieru:
+  // 1. Basic (mid_end): La Roche-Posay, CeraVe, Vichy
+  // 2. Premium (high_end): SkinCeuticals
+  // 3. Clinical Optimum (expert): To najlepšie pre pleť bez ohľadu na značku a sklad
+  const activeTierRoutine: MeicetSkincareTierRoutine = selectedTier === 'expert'
+    ? expertRoutine
+    : selectedTier === 'mid_end'
+      ? (report.skincareRoutine?.midEnd || {
+          tier: 'mid_end',
+          tierLabel: 'Basic (La Roche-Posay, CeraVe, Vichy)',
+          brandDescription: 'Dostupná lekárenská starostlivosť z nášho cenníka – overená dermatologická tolerancia a obnova bariéry',
+          totalEstimatedPrice: 121,
+          morning: report.skincareRoutine?.morning || [],
+          evening: report.skincareRoutine?.evening || [],
+          weeklyCare: report.skincareRoutine?.weeklyCare || []
+        })
+      : (report.skincareRoutine?.highEnd || {
+          tier: 'high_end',
+          tierLabel: 'Premium (SkinCeuticals)',
+          brandDescription: 'Klinický luxus z cenníka – patentované zloženia s maximálnou koncentráciou antioxidantov a lipidov',
+          totalEstimatedPrice: 538,
+          morning: report.skincareRoutine?.morning || [],
+          evening: report.skincareRoutine?.evening || [],
+          weeklyCare: report.skincareRoutine?.weeklyCare || []
+        });
+
+  const currentMorning: MeicetSkincareProduct[] = activeTierRoutine.morning || [];
+  const currentEvening: MeicetSkincareProduct[] = activeTierRoutine.evening || [];
+  const currentWeeklyCare: string[] = activeTierRoutine.weeklyCare || [];
 
   const allRoutineProducts = [...currentMorning, ...currentEvening];
   const productsToBuy = allRoutineProducts.filter(item => !item.alreadyOwned);
@@ -373,7 +383,8 @@ export function MeicetViewer({
       morning: newMorning,
       evening: newEvening,
       highEnd: selectedTier === 'high_end' ? updatedTierData : report.skincareRoutine?.highEnd,
-      midEnd: selectedTier === 'mid_end' ? updatedTierData : report.skincareRoutine?.midEnd
+      midEnd: selectedTier === 'mid_end' ? updatedTierData : report.skincareRoutine?.midEnd,
+      expert: selectedTier === 'expert' ? updatedTierData : (report.skincareRoutine?.expert || expertRoutine)
     };
 
     const updatedReport: MeicetAnalysisResult = {
@@ -542,7 +553,12 @@ export function MeicetViewer({
 
   const handleSelectTier = (tier: SkincareTier) => {
     setSelectedTier(tier);
-    const tierRoutine = tier === 'mid_end' ? report.skincareRoutine?.midEnd : report.skincareRoutine?.highEnd;
+    const tierRoutine = tier === 'expert'
+      ? (report.skincareRoutine?.expert || expertRoutine)
+      : tier === 'mid_end'
+        ? report.skincareRoutine?.midEnd
+        : report.skincareRoutine?.highEnd;
+
     if (onUpdateReport && tierRoutine) {
       onUpdateReport({
         ...report,
@@ -703,6 +719,12 @@ export function MeicetViewer({
     if (!onTransferToCosmeticsPOS) return;
     const internalMorning = currentMorning.filter(p => !p.isExternal && !p.alreadyOwned);
     const internalEvening = currentEvening.filter(p => !p.isExternal && !p.alreadyOwned);
+    const externalMorning = currentMorning.filter(p => p.isExternal && !p.alreadyOwned);
+    const externalEvening = currentEvening.filter(p => p.isExternal && !p.alreadyOwned);
+
+    const clinicPriceToPay = [...internalMorning, ...internalEvening].reduce((sum, p) => sum + (p.price || 0), 0);
+    const externalPriceToPay = [...externalMorning, ...externalEvening].reduce((sum, p) => sum + (p.price || 0), 0);
+
     const allProducts = [
       ...internalMorning.map(p => ({
         id: `prod-${selectedTier}-m-${p.step}`,
@@ -725,9 +747,24 @@ export function MeicetViewer({
     ];
     // Deduplikácia podľa názvu produktu (napr. rovnaký čistiaci gél)
     const uniqueProducts = Array.from(new Map(allProducts.map(p => [p.name, p])).values());
-    onTransferToCosmeticsPOS(uniqueProducts);
-    setPosTransferNotice(`Sada ${selectedTier === 'high_end' ? 'Premium (SkinCeuticals)' : 'Basic (La Roche-Posay / CeraVe / Vichy)'} (${uniqueProducts.length} položiek k úhrade, spolu ${currentTotalPrice} €${totalOwnedSaved > 0 ? `, ušetrené ${totalOwnedSaved} € za produkty, ktoré klient už má` : ''}) bola odoslaná do POS pokladne.`);
-    setTimeout(() => setPosTransferNotice(null), 5000);
+    if (uniqueProducts.length > 0) {
+      onTransferToCosmeticsPOS(uniqueProducts);
+    }
+
+    const tierName = selectedTier === 'expert' 
+      ? 'Clinical Optimum (Expert)' 
+      : selectedTier === 'high_end' 
+        ? 'Premium (SkinCeuticals)' 
+        : 'Basic (La Roche-Posay / CeraVe / Vichy)';
+
+    if (uniqueProducts.length > 0 && externalPriceToPay > 0) {
+      setPosTransferNotice(`Sada ${tierName}: do POS pokladne bolo odoslaných ${uniqueProducts.length} skladových produktov (${clinicPriceToPay} €). Zostávajúce položky (~${externalPriceToPay} €) sú určené na nákup v lekárni / e-shope.`);
+    } else if (uniqueProducts.length > 0) {
+      setPosTransferNotice(`Sada ${tierName} (${uniqueProducts.length} položiek k úhrade, spolu ${currentTotalPrice} €${totalOwnedSaved > 0 ? `, ušetrené ${totalOwnedSaved} € za produkty, ktoré klient už má` : ''}) bola odoslaná do POS pokladne.`);
+    } else {
+      setPosTransferNotice(`V sade ${tierName} sú všetky položky na nákup v lekárni / e-shope (~${externalPriceToPay} €). Do pokladne kliniky neboli pridané žiadne položky.`);
+    }
+    setTimeout(() => setPosTransferNotice(null), 6000);
   };
 
   const handlePrint = () => {
@@ -1250,14 +1287,15 @@ export function MeicetViewer({
               </div>
             </div>
 
-            {/* PREPÍNAČ TIEROV: BASIC vs PREMIUM */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#E8E2D9]">
+            {/* PREPÍNAČ TIEROV: BASIC vs PREMIUM vs CLINICAL OPTIMUM */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 pt-2 border-t border-[#E8E2D9]">
+              {/* 1. BASIC / LEKÁREŇ */}
               <button
                 type="button"
                 onClick={() => handleSelectTier('mid_end')}
-                className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center justify-between ${
+                className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
                   selectedTier === 'mid_end'
-                    ? 'border-sky-600 bg-sky-50/70 shadow-sm'
+                    ? 'border-sky-600 bg-sky-50/70 shadow-sm ring-1 ring-sky-500/20'
                     : 'border-[#E8E2D9] bg-[#FAF7F2] hover:border-sky-300'
                 }`}
               >
@@ -1274,7 +1312,7 @@ export function MeicetViewer({
                     Dostupná dermokozmetika s overenou znášanlivosťou z nášho cenníka
                   </p>
                 </div>
-                <div className="text-right shrink-0 ml-3">
+                <div className="text-right mt-3 pt-2 border-t border-sky-100">
                   <span className="text-xs text-[#8C837A] block">Kompletná sada</span>
                   <span className="text-lg font-serif font-bold text-sky-900">
                     {report.skincareRoutine?.midEnd?.totalEstimatedPrice || 121} €
@@ -1282,19 +1320,20 @@ export function MeicetViewer({
                 </div>
               </button>
 
+              {/* 2. PREMIUM / KLINICKÝ LUXUS */}
               <button
                 type="button"
                 onClick={() => handleSelectTier('high_end')}
-                className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center justify-between ${
+                className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
                   selectedTier === 'high_end'
-                    ? 'border-[#C5A059] bg-gradient-to-r from-[#FDFBF7] to-[#F5EFE4] shadow-sm'
+                    ? 'border-[#C5A059] bg-gradient-to-r from-[#FDFBF7] to-[#F5EFE4] shadow-sm ring-1 ring-[#C5A059]/30'
                     : 'border-[#E8E2D9] bg-[#FAF7F2] hover:border-[#C5A059]/50'
                 }`}
               >
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded-md bg-[#2C2A29] text-[#E8C882] text-[10px] font-bold uppercase border border-[#C5A059]">
-                      👑 PREMIUM / KLINICKÝ LUXUS
+                      👑 PREMIUM / LUXUS
                     </span>
                     <span className="text-sm font-serif font-bold text-[#2C2A29]">
                       SkinCeuticals
@@ -1304,11 +1343,47 @@ export function MeicetViewer({
                     Patentované klinické séra C E Ferulic, H.A. Intensifier a Triple Lipid Restore 2:4:2
                   </p>
                 </div>
-                <div className="text-right shrink-0 ml-3">
+                <div className="text-right mt-3 pt-2 border-t border-[#E8DFC9]">
                   <span className="text-xs text-[#8C837A] block">Kompletná sada</span>
                   <span className="text-lg font-serif font-bold text-[#8C6D2D]">
                     {report.skincareRoutine?.highEnd?.totalEstimatedPrice || 538} €
                   </span>
+                </div>
+              </button>
+
+              {/* 3. CLINICAL OPTIMUM / EXPERT */}
+              <button
+                type="button"
+                onClick={() => handleSelectTier('expert')}
+                className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  selectedTier === 'expert'
+                    ? 'border-emerald-600 bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-white shadow-sm ring-1 ring-emerald-500/30'
+                    : 'border-[#E8E2D9] bg-[#FAF7F2] hover:border-emerald-400'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-700 text-white text-[10px] font-bold uppercase shadow-2xs">
+                      ⭐ CLINICAL OPTIMUM
+                    </span>
+                    <span className="text-sm font-serif font-bold text-[#2C2A29]">
+                      To najlepšie pre pleť
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#5A524C] mt-1">
+                    Nezávislý EBM výber najúčinnejších molekúl (Medik8, Theramid, SkinCeuticals, Rx) bez ohľadu na sklad
+                  </p>
+                </div>
+                <div className="text-right mt-3 pt-2 border-t border-emerald-100 flex items-end justify-between">
+                  <span className="text-[10px] text-emerald-800 font-medium">
+                    {expertRoutine.clinicEstimatedPrice ? `Klinika: ${expertRoutine.clinicEstimatedPrice} €` : ''}
+                  </span>
+                  <div>
+                    <span className="text-xs text-[#8C837A] block">Kompletná sada</span>
+                    <span className="text-lg font-serif font-bold text-emerald-800">
+                      {expertRoutine.totalEstimatedPrice || 245} €
+                    </span>
+                  </div>
                 </div>
               </button>
             </div>
