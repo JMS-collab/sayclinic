@@ -441,6 +441,16 @@ export default function Home() {
             delete parsed['P1'];
             delete parsed['P2'];
             delete parsed['P3'];
+            for (const [pId, pList] of Object.entries(parsed)) {
+              if (Array.isArray(pList)) {
+                const seen = new Set<string>();
+                parsed[pId] = pList.filter((p: any) => {
+                  if (!p || !p.id || seen.has(p.id)) return false;
+                  seen.add(p.id);
+                  return true;
+                });
+              }
+            }
             localStorage.setItem('say_clinic_patient_plans', JSON.stringify(parsed));
           }
         }

@@ -291,12 +291,35 @@ export default function PatientDatabase({
     return () => unsub();
   }, []);
 
+  // Pomocná funkcia na deduplikáciu plánov podľa ID (zabraňuje React key konfliktom)
+  const deduplicatePlans = (plans: PatientPlan[]): PatientPlan[] => {
+    if (!Array.isArray(plans)) return [];
+    const seen = new Set<string>();
+    const result: PatientPlan[] = [];
+    for (const p of plans) {
+      if (p && p.id && !seen.has(p.id)) {
+        seen.add(p.id);
+        result.push(p);
+      }
+    }
+    return result;
+  };
+
   const [allPatientPlans, setAllPatientPlans] = useState<Record<string, PatientPlan[]>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('say_clinic_patient_plans');
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') {
+            const cleaned: Record<string, PatientPlan[]> = {};
+            for (const [pId, plans] of Object.entries(parsed)) {
+              if (Array.isArray(plans)) {
+                cleaned[pId] = deduplicatePlans(plans as PatientPlan[]);
+              }
+            }
+            return cleaned;
+          }
         } catch (e) {
           console.error('Chyba načítania plánov pacienta:', e);
         }
@@ -308,7 +331,9 @@ export default function PatientDatabase({
   const handleSaveNewPlan = (newPlan: PatientPlan) => {
     if (!selectedPatient) return;
     const patientPlans = allPatientPlans[selectedPatient.id] || [];
-    const updated = [newPlan, ...patientPlans];
+    // Ak už plán s týmto ID existuje, nahradíme ho a presunieme na začiatok, aby nevznikali duplikáty v UI
+    const filtered = patientPlans.filter(p => p && p.id !== newPlan.id);
+    const updated = [newPlan, ...filtered];
     const newAll = {
       ...allPatientPlans,
       [selectedPatient.id]: updated
@@ -324,9 +349,23 @@ export default function PatientDatabase({
     if (!selectedPatient) return;
     const patientPlans = allPatientPlans[selectedPatient.id] || [];
     const exists = patientPlans.some(p => p.id === updatedPlan.id);
-    const updated = exists
-      ? patientPlans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
-      : [updatedPlan, ...patientPlans];
+    let updated: PatientPlan[];
+    if (exists) {
+      let replaced = false;
+      updated = patientPlans.reduce<PatientPlan[]>((acc, p) => {
+        if (p.id === updatedPlan.id) {
+          if (!replaced) {
+            acc.push(updatedPlan);
+            replaced = true;
+          }
+        } else {
+          acc.push(p);
+        }
+        return acc;
+      }, []);
+    } else {
+      updated = [updatedPlan, ...patientPlans];
+    }
     const newAll = {
       ...allPatientPlans,
       [selectedPatient.id]: updated
@@ -643,7 +682,16 @@ export default function PatientDatabase({
 
     const unsubPlans = RealtimeSyncService.subscribe('patient_plans', (updated) => {
       if (updated && typeof updated === 'object') {
-        setAllPatientPlans(prev => ({ ...prev, ...updated }));
+        setAllPatientPlans(prev => {
+          const merged = { ...prev, ...updated };
+          const cleaned: Record<string, PatientPlan[]> = {};
+          for (const [pId, plans] of Object.entries(merged)) {
+            if (Array.isArray(plans)) {
+              cleaned[pId] = deduplicatePlans(plans as PatientPlan[]);
+            }
+          }
+          return cleaned;
+        });
       }
     });
 
@@ -3631,7 +3679,8 @@ export default function PatientDatabase({
                   {activeFolder === 'plany' && (
                     <div className="space-y-6">
                       {(() => {
-                        const patientPlans = allPatientPlans[selectedPatient.id] || [];
+                        const rawPatientPlans = allPatientPlans[selectedPatient.id] || [];
+                        const patientPlans = deduplicatePlans(rawPatientPlans);
                         const defaultPreset = PRESET_PATIENT_PLANS.face_sequential_transformation;
                         const synthesizedDefaultPlan: PatientPlan = {
                           id: `plan-default-${selectedPatient.id}`,
@@ -3670,11 +3719,11 @@ export default function PatientDatabase({
                                   <span>🏥</span>
                                   <span>Chirurgický Pre-Op & Post-Op Plán ({patientPlans.length > 0 ? `${patientPlans.length} uložené` : 'Aktívna šablóna'}):</span>
                                 </span>
-                                {patientPlans.map((pl) => {
+                                {patientPlans.map((pl, idx) => {
                                   const isSel = currentActivePlan && currentActivePlan.id === pl.id;
                                   return (
                                     <button
-                                      key={pl.id}
+                                      key={`${pl.id}-${idx}`}
                                       onClick={() => setSelectedPlanId(pl.id)}
                                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                                         isSel

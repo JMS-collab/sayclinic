@@ -166,8 +166,12 @@ export class MeicetService {
       });
     }
 
+    const planId = result.id.startsWith('plan-')
+      ? result.id
+      : (result.id.startsWith('meicet-') ? `plan-${result.id}` : `plan-meicet-${result.id}`);
+
     return {
-      id: `plan-meicet-${result.id}`,
+      id: planId,
       patientId: result.patientId,
       patientName: result.patientName,
       patientBirthNumber: result.patientBirthNumber,
