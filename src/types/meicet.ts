@@ -79,6 +79,8 @@ export interface MeicetTreatmentPlanItem {
   status: 'planned' | 'booked' | 'completed';
   calendarEventId?: string;
   isMeicetScan?: boolean;
+  isExternal?: boolean; // procedúra mimo portfólia SAY CLINIC
+  externalProviderNote?: string; // napr. 'Externé dermatologické pracovisko'
 }
 
 export interface MeicetSeasonalSchedule {
@@ -122,6 +124,10 @@ export interface MeicetSkincareProduct {
   purpose: string;
   price?: number;
   meicetJustification: string; // odkaz na Meicet skóre (napr. na zníženie TEWL a pórov)
+  isExternal?: boolean; // produkt mimo priamej ponuky kliniky
+  prescriptionOnly?: boolean; // liek na lekársky predpis (Rp.)
+  pharmacyBrand?: boolean; // voľnopredajná lekárenská dermokozmetika
+  externalProviderNote?: string;
 }
 
 export interface MeicetScarCareProtocol {

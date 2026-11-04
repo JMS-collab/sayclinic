@@ -194,12 +194,23 @@ export function createDemoMeicetResult(
     normalizedSkin === 'citliva' || 
     normalizedSkin === 'citlivá' ||
     (!requestedSkinType && !selectedConcernIds) ||
-    (selectedConcernIds && (selectedConcernIds.includes('redness_vascular') || selectedConcernIds.includes('barrier_dehydration')));
+    (!requestedSkinType && selectedConcernIds && (
+      selectedConcernIds.includes('dehydration_barrier') || 
+      selectedConcernIds.includes('redness_rosacea') ||
+      selectedConcernIds.includes('redness_vascular') || 
+      selectedConcernIds.includes('barrier_dehydration')
+    )) ||
+    (selectedConcernIds && (
+      selectedConcernIds.includes('dehydration_barrier') || 
+      selectedConcernIds.includes('redness_rosacea') ||
+      selectedConcernIds.includes('redness_vascular') || 
+      selectedConcernIds.includes('barrier_dehydration')
+    ));
 
   const isOily = normalizedSkin === 'mastna_aknozna' || normalizedSkin === 'mastna' || normalizedSkin === 'mastná';
   const isPureDry = normalizedSkin === 'sucha' || normalizedSkin === 'suchá';
 
-  let currentSkinType: 'suchá' | 'mastná' | 'zmiešaná' | 'normálna' | 'citlivá' | 'citlivá a suchá' = 'zmiešaná';
+  let currentSkinType: 'suchá' | 'mastná' | 'zmiešaná' | 'normálna' | 'citlivá' | 'citlivá a suchá' = 'citlivá a suchá';
   if (isSensitiveDry) {
     currentSkinType = 'citlivá a suchá';
   } else if (isOily) {
@@ -208,6 +219,8 @@ export function createDemoMeicetResult(
     currentSkinType = 'suchá';
   } else if (normalizedSkin === 'normalna' || normalizedSkin === 'normálna') {
     currentSkinType = 'normálna';
+  } else if (normalizedSkin === 'zmiesana' || normalizedSkin === 'zmiešaná') {
+    currentSkinType = 'zmiešaná';
   }
 
   const anamnesis: MeicetAnamnesisContext = {

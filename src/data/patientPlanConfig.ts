@@ -43,6 +43,8 @@ export interface ScheduledTreatment {
   calendarEventId?: string;
   stepOrder?: number;
   isSkinTreatment?: boolean; // Rozlíšenie medzi ošetrením pleti (SAY Skincare) a sekvenčným plánom (Ročný plán)
+  isExternal?: boolean; // Výkon mimo portfólia SAY CLINIC (informatívny)
+  externalProviderNote?: string;
 }
 
 export interface PreOpInstruction {

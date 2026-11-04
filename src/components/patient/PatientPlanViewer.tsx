@@ -265,6 +265,8 @@ export default function PatientPlanViewer({
     patientExplanation: string;
     clinicalGuideline: string;
     recoveryTime: string;
+    isExternal?: boolean;
+    externalProviderNote?: string;
   } | null>(null);
 
   // Stav pre AI & EBM prepočítanie celého ročného plánu podľa vybratých operácií a výkonov
@@ -704,7 +706,9 @@ export default function PatientPlanViewer({
       notes: '',
       patientExplanation: '',
       clinicalGuideline: 'ASPS & ERAS® Evidence-Based Clinical Practice Guideline',
-      recoveryTime: '7 – 14 dní podľa typu výkonu'
+      recoveryTime: '7 – 14 dní podľa typu výkonu',
+      isExternal: false,
+      externalProviderNote: ''
     });
   };
 
@@ -727,7 +731,9 @@ export default function PatientPlanViewer({
       notes: treatment.notes || '',
       patientExplanation: treatment.patientExplanation || matchedEbm?.patientExplanation || '',
       clinicalGuideline: treatment.clinicalGuideline || matchedEbm?.clinicalGuideline || 'ASPS & ERAS® Evidence-Based Guideline',
-      recoveryTime: treatment.recoveryTime || matchedEbm?.recoveryTimePatient || '7 – 10 dní'
+      recoveryTime: treatment.recoveryTime || matchedEbm?.recoveryTimePatient || '7 – 10 dní',
+      isExternal: Boolean(treatment.isExternal),
+      externalProviderNote: treatment.externalProviderNote || ''
     });
   };
 
@@ -751,6 +757,8 @@ export default function PatientPlanViewer({
           priority: treatmentModal.priority,
           status: treatmentModal.status,
           isSkinTreatment: treatmentModal.isSkinTreatment || treatmentModal.category === 'skin_care' || treatmentModal.category === 'laser',
+          isExternal: Boolean(treatmentModal.isExternal),
+          externalProviderNote: treatmentModal.externalProviderNote?.trim() || undefined,
           notes: treatmentModal.notes.trim() || undefined,
           patientExplanation: treatmentModal.patientExplanation.trim() || undefined,
           clinicalGuideline: treatmentModal.clinicalGuideline.trim() || undefined,
@@ -771,6 +779,8 @@ export default function PatientPlanViewer({
         priority: treatmentModal.priority,
         status: treatmentModal.status,
         isSkinTreatment: treatmentModal.isSkinTreatment || treatmentModal.category === 'skin_care' || treatmentModal.category === 'laser',
+        isExternal: Boolean(treatmentModal.isExternal),
+        externalProviderNote: treatmentModal.externalProviderNote?.trim() || undefined,
         notes: treatmentModal.notes.trim() || undefined,
         patientExplanation: treatmentModal.patientExplanation.trim() || undefined,
         clinicalGuideline: treatmentModal.clinicalGuideline.trim() || undefined,
@@ -1400,7 +1410,8 @@ export default function PatientPlanViewer({
                       }
                       return item;
                     });
-                    onOpenInCosmeticsPOS(allItems, plan.patientId);
+                    const internalItems = allItems.filter(item => !(item as any).isExternal);
+                    onOpenInCosmeticsPOS(internalItems, plan.patientId);
                   }}
                   className="px-3.5 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
                   title="Vložiť zvolené produkty do pokladničného košíka na recepcii"
@@ -2146,7 +2157,12 @@ export default function PatientPlanViewer({
             </div>
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-xs font-mono font-bold text-[#2C2A29] bg-[#FAF8F5] px-3 py-1.5 rounded-xl border border-[#E8E2D9]">
-                Celková kalkulácia: {plan.annualTreatments?.reduce((sum, t) => sum + (t.estimatedPrice || 0), 0)} €
+                Celková kalkulácia SAY CLINIC: {plan.annualTreatments?.filter(t => !t.isExternal).reduce((sum, t) => sum + (t.estimatedPrice || 0), 0)} €
+                {plan.annualTreatments?.some(t => t.isExternal) && (
+                  <span className="text-[10px] text-stone-500 font-normal ml-1.5">
+                    (+ externé výkony mimo kliniky)
+                  </span>
+                )}
               </span>
               <button
                 type="button"
@@ -2313,6 +2329,7 @@ export default function PatientPlanViewer({
                 treatment.category === 'scar_care' ? '🩹 Terapia jaziev' :
                 '✨ Prístrojová & Pleťová terapia';
 
+              const isExt = Boolean(treatment.isExternal);
               const matchedEbm = resolveSelectedProcedures(undefined, [treatment], treatment.name)[0];
               const displayExplanation = treatment.patientExplanation || matchedEbm?.patientExplanation;
               const displayGuideline = treatment.clinicalGuideline || matchedEbm?.clinicalGuideline;
@@ -2322,6 +2339,7 @@ export default function PatientPlanViewer({
                 <div 
                   key={treatment.id}
                   className={`border rounded-xl p-4.5 transition-all space-y-2.5 ${
+                    isExt ? 'bg-stone-100/90 border-stone-300' :
                     treatment.status === 'completed' ? 'bg-gray-50 border-gray-200 opacity-75' :
                     treatment.status === 'booked' ? 'bg-sky-50/60 border-sky-200' :
                     'bg-[#FAF8F5]/40 border-[#E8E2D9] hover:border-[#C5A059]'
@@ -2336,6 +2354,11 @@ export default function PatientPlanViewer({
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${categoryColor}`}>
                           {categoryName}
                         </span>
+                        {isExt && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider bg-stone-600 text-stone-100 border-stone-700">
+                            🌐 Mimo ponuky SAY CLINIC
+                          </span>
+                        )}
                         <span className="text-[11px] font-bold text-[#2C2A29] bg-stone-200/80 px-2 py-0.5 rounded">
                           📅 {treatment.seasonOrMonth}
                         </span>
@@ -2383,6 +2406,12 @@ export default function PatientPlanViewer({
                         </p>
                       )}
 
+                      {isExt && treatment.externalProviderNote && (
+                        <p className="text-[11px] text-stone-700 italic bg-white/80 p-2 rounded-lg border border-stone-300 ml-8">
+                          🌐 <strong>Poznámka k externému poskytovateľovi:</strong> {treatment.externalProviderNote}
+                        </p>
+                      )}
+
                       {displayExplanation && (
                         <div className="bg-emerald-50/75 border border-emerald-200/80 p-2.5 rounded-lg ml-8 space-y-0.5">
                           <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-900 flex items-center gap-1">
@@ -2408,8 +2437,8 @@ export default function PatientPlanViewer({
                     <div className="flex flex-col items-end gap-2 shrink-0">
                       <div className="flex items-center gap-2">
                         {treatment.estimatedPrice ? (
-                          <span className="text-sm font-mono font-bold text-[#2C2A29]">
-                            {treatment.estimatedPrice} €
+                          <span className={`text-sm font-mono font-bold ${isExt ? 'text-stone-600' : 'text-[#2C2A29]'}`}>
+                            {isExt ? `~${treatment.estimatedPrice} € (odhad mimo kliniky)` : `${treatment.estimatedPrice} €`}
                           </span>
                         ) : (
                           <span className="text-xs text-[#8C857B] italic">V cene operácie</span>
@@ -2456,15 +2485,21 @@ export default function PatientPlanViewer({
                       </div>
 
                       <div className="flex flex-wrap items-center gap-1.5 print:hidden">
-                        {onScheduleTreatment && (
-                          <button
-                            onClick={() => onScheduleTreatment(treatment)}
-                            className="text-xs bg-sky-700 hover:bg-sky-800 text-white px-2.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Naplánovať tento zákrok priamo do klinického kalendára"
-                          >
-                            <CalendarPlus className="w-3.5 h-3.5" />
-                            <span>Rezervovať v kalendári</span>
-                          </button>
+                        {isExt ? (
+                          <span className="text-[10px] font-semibold text-stone-600 bg-stone-200/80 px-2.5 py-1.5 rounded-lg border border-stone-300">
+                            🌐 Mimo kalendára SAY CLINIC
+                          </span>
+                        ) : (
+                          onScheduleTreatment && (
+                            <button
+                              onClick={() => onScheduleTreatment(treatment)}
+                              className="text-xs bg-sky-700 hover:bg-sky-800 text-white px-2.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Naplánovať tento zákrok priamo do klinického kalendára"
+                            >
+                              <CalendarPlus className="w-3.5 h-3.5" />
+                              <span>Rezervovať v kalendári</span>
+                            </button>
+                          )
                         )}
 
                         {/* Vyklikanie stavu kroku */}
@@ -3510,6 +3545,36 @@ export default function PatientPlanViewer({
                   <label htmlFor="isSkinTreatmentCheck" className="text-xs text-[#2C2A29] font-medium cursor-pointer">
                     Zaradiť tento výkon aj do prehľadu ošetrení pleti v <strong>1. SAY Skincare</strong> (vhodné pre lasery, mezoterapie, peelingy)
                   </label>
+                </div>
+
+                <div className="bg-stone-50 p-3 rounded-xl border border-stone-300 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isExternalTreatmentCheck"
+                      checked={Boolean(treatmentModal.isExternal)}
+                      onChange={e => setTreatmentModal({ ...treatmentModal, isExternal: e.target.checked })}
+                      className="w-4 h-4 rounded text-stone-600 cursor-pointer"
+                    />
+                    <label htmlFor="isExternalTreatmentCheck" className="text-xs text-stone-900 font-bold cursor-pointer flex items-center gap-1.5">
+                      <span>🌐 Externý výkon mimo portfólia SAY CLINIC</span>
+                      <span className="text-[10px] text-stone-500 font-normal">(Nezapočítava sa do celkovej tržby kliniky a neobjednáva sa do pokladne POS)</span>
+                    </label>
+                  </div>
+                  {treatmentModal.isExternal && (
+                    <div className="pt-1.5 pl-6">
+                      <label className="text-[10px] font-bold uppercase text-stone-600 block mb-1">
+                        Poznámka o externom poskytovateľovi / type výkonu:
+                      </label>
+                      <input
+                        type="text"
+                        value={treatmentModal.externalProviderNote || ''}
+                        onChange={e => setTreatmentModal({ ...treatmentModal, externalProviderNote: e.target.value })}
+                        placeholder="napr. Výkon realizovaný v špecializovanom dermatologickom centre / externe"
+                        className="w-full border border-stone-300 bg-white rounded-lg p-2 text-xs text-stone-800"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div>

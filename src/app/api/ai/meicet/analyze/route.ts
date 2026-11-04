@@ -85,7 +85,8 @@ DÔLEŽITÉ KLINICKÉ ŠPECIFIKÁ SAY CLINIC (STRIKTNE DODRŽIAVAJ):
      * Medicínsky peeling BioRePeel / PRX-T33 (90 €)
      * Lekársky chemický peeling TCA (110 €)
      * Dermapen 4 / Lekársky microneedling s mezo-sérom (140 €)
-   - STRIKTNÝ ZÁKAZ: NIKDY neodporúčaj HydraFacial, IPL fotorejuvenizáciu ani základný ovocný/AHA peeling!
+   - PROCEDÚRY & PRODUKTY MIMO PORTFÓLIA (EXTERNÉ):
+     Ak je pre pacienta medicínsky indikovaný výkon alebo liek mimo priameho portfólia SAY CLINIC (napr. HydraFacial vákuové hydro-čistenie, IPL, Morpheus8 RF, Soolantra krém 10 mg/g na rosaceu [Rx], Skinoren krém na akné/komedóny [Rx], Rozex gél [Rx]), môžeš ho uviesť, ale MUSÍŠ pri ňom nastaviť isExternal: true a do externalProviderNote doplniť stručnú poznámku (napr. 'Výkon mimo portfólia SAY CLINIC - indikovaný u externého poskytovateľa' alebo 'Liek na predpis viazaný na recept'). Pre všetky bežné procedúry SAY CLINIC nastav isExternal: false.
    - STRIKTNÉ ODDELENIE OD CHIRURGIE: Tento modul je čisto pre pleť a neinvazívnu/injekčnú estetiku. Nemiešaj sem plastické operácie ani chirurgické pooperačné jazvy.
 
 2. SKINCARE RUTINA V DVOCH ÚROVNIACH Z NÁŠHO CENNÍKA:

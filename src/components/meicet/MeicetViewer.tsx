@@ -68,6 +68,15 @@ const SKIN_TREATMENT_IDS = [
   'microneedling_dermapen',
 ];
 
+const EXTERNAL_TREATMENT_IDS = [
+  'ext_hydrafacial',
+  'ext_ipl_photorejuvenation',
+  'ext_morpheus8_rf',
+  'ext_aha_fruit_peel',
+  'ext_emsculpt_stimulation',
+  'ext_cryolipolysis'
+];
+
 export function MeicetViewer({
   report,
   onClose,
@@ -211,13 +220,26 @@ export function MeicetViewer({
 
   const { anamnesis, skincareRoutine } = report;
 
-  // Zoznam povolených pleťových ošetrení z živého cenníka (bez IPL, bez HydraFacial, bez AHA peelingu)
-  const availableSkinTreatments: ClinicPriceItem[] = React.useMemo(() => {
+  // Interné procedúry SAY CLINIC
+  const internalSkinTreatments: ClinicPriceItem[] = React.useMemo(() => {
     const allLive = getLiveClinicPriceList();
     return SKIN_TREATMENT_IDS
       .map(id => allLive.find(item => item.id === id))
       .filter((item): item is ClinicPriceItem => Boolean(item));
   }, []);
+
+  // Externé procedúry mimo portfólia SAY CLINIC
+  const externalSkinTreatments: ClinicPriceItem[] = React.useMemo(() => {
+    const allLive = getLiveClinicPriceList();
+    return EXTERNAL_TREATMENT_IDS
+      .map(id => allLive.find(item => item.id === id))
+      .filter((item): item is ClinicPriceItem => Boolean(item));
+  }, []);
+
+  // Všetky dostupné na výber
+  const availableSkinTreatments: ClinicPriceItem[] = React.useMemo(() => {
+    return [...internalSkinTreatments, ...externalSkinTreatments];
+  }, [internalSkinTreatments, externalSkinTreatments]);
 
   // Aktívna skincare rutina podľa zvoleného tieru (Basic: La Roche-Posay / CeraVe / Vichy alebo Premium: SkinCeuticals)
   const activeTierRoutine = selectedTier === 'mid_end'
@@ -252,7 +274,8 @@ export function MeicetViewer({
     ...(annualSchedule?.q3_autumn || []),
     ...(annualSchedule?.q4_winter || []),
   ];
-  const totalAnnualProceduresPrice = allAnnualProcedures.reduce((sum, item: any) => sum + (item.price ?? item.estimatedPrice ?? 0), 0);
+  const internalAnnualProcedures = allAnnualProcedures.filter((item: any) => !item.isExternal);
+  const totalAnnualProceduresPrice = internalAnnualProcedures.reduce((sum, item: any) => sum + (item.price ?? item.estimatedPrice ?? 0), 0);
 
   const handleSelectTier = (tier: SkincareTier) => {
     setSelectedTier(tier);
@@ -301,7 +324,9 @@ export function MeicetViewer({
       intervalWeeks: 4,
       downtime: isLaser ? '2 - 5 dní' : '0 - 24 hodín',
       priority: 'vysoká',
-      status: 'planned'
+      status: 'planned',
+      isExternal: Boolean(found.isExternal),
+      externalProviderNote: found.externalProviderNote
     };
 
     const updatedSchedule = {
@@ -377,11 +402,13 @@ export function MeicetViewer({
     }
   };
 
-  // Preniesť zvolenú skincare rutinu do pokladne POS
+  // Preniesť zvolenú skincare rutinu do pokladne POS (výhradne interné produkty SAY CLINIC)
   const handleTransferToPOS = () => {
     if (!onTransferToCosmeticsPOS) return;
+    const internalMorning = currentMorning.filter(p => !p.isExternal);
+    const internalEvening = currentEvening.filter(p => !p.isExternal);
     const allProducts = [
-      ...currentMorning.map(p => ({
+      ...internalMorning.map(p => ({
         id: `prod-${selectedTier}-m-${p.step}`,
         name: p.productName,
         brand: p.brand,
@@ -390,7 +417,7 @@ export function MeicetViewer({
         tier: selectedTier,
         quantity: 1
       })),
-      ...currentEvening.map(p => ({
+      ...internalEvening.map(p => ({
         id: `prod-${selectedTier}-e-${p.step}`,
         name: p.productName,
         brand: p.brand,
@@ -936,34 +963,67 @@ export function MeicetViewer({
               </div>
 
               <div className="p-4 space-y-3">
-                {currentMorning.map((stepItem) => (
-                  <div key={stepItem.step} className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8E2D9] flex items-start gap-3.5">
-                    <div className="w-7 h-7 rounded-full bg-amber-500 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                      {stepItem.step}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-md">
-                          {stepItem.category}
-                        </span>
-                        {stepItem.price && (
-                          <span className="text-xs font-serif font-bold text-[#2C2A29]">
-                            {stepItem.price} €
-                          </span>
+                {currentMorning.map((stepItem) => {
+                  const isExt = Boolean(stepItem.isExternal);
+                  const isRx = Boolean(stepItem.prescriptionOnly);
+                  return (
+                    <div 
+                      key={stepItem.step} 
+                      className={`p-4 rounded-xl border flex items-start gap-3.5 transition-all ${
+                        isExt 
+                          ? 'bg-stone-100/80 border-stone-300' 
+                          : 'bg-[#FAF7F2] border-[#E8E2D9]'
+                      }`}
+                    >
+                      <div className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 ${
+                        isExt ? 'bg-stone-500 text-white' : 'bg-amber-500 text-white'
+                      }`}>
+                        {stepItem.step}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                              isExt 
+                                ? 'text-stone-700 bg-stone-200/80' 
+                                : 'text-amber-800 bg-amber-100/80'
+                            }`}>
+                              {stepItem.category}
+                            </span>
+                            {isExt && (
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                isRx 
+                                  ? 'bg-rose-50 text-rose-800 border-rose-300' 
+                                  : 'bg-stone-200 text-stone-700 border-stone-300'
+                              }`}>
+                                {isRx ? '💊 Liek na predpis (Rp.)' : '🌐 Lekáreň / Mimo kliniky'}
+                              </span>
+                            )}
+                          </div>
+                          {stepItem.price && (
+                            <span className={`text-xs font-serif font-bold ${isExt ? 'text-stone-600' : 'text-[#2C2A29]'}`}>
+                              {isExt ? `~${stepItem.price} € (lekáreň)` : `${stepItem.price} €`}
+                            </span>
+                          )}
+                        </div>
+                        <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1">
+                          {stepItem.brand} – {stepItem.productName}
+                        </h5>
+                        <p className={`text-[11px] font-medium mt-0.5 ${isExt ? 'text-stone-600' : 'text-[#8C6D2D]'}`}>
+                          Aktívne látky: {(stepItem as any).keyIngredients || stepItem.activeIngredients}
+                        </p>
+                        <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
+                          {(stepItem as any).usageNotes || stepItem.usage}
+                        </p>
+                        {isExt && (stepItem.externalProviderNote || isRx) && (
+                          <p className="text-[10px] italic text-stone-500 mt-1 bg-white/70 p-1 rounded border border-stone-200">
+                            ℹ️ {stepItem.externalProviderNote || (isRx ? 'Vyžaduje lekársky predpis (Rp.), zakúpiť v lekárni' : 'Zakúpiť v lekárni alebo drogérii')}
+                          </p>
                         )}
                       </div>
-                      <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1">
-                        {stepItem.brand} – {stepItem.productName}
-                      </h5>
-                      <p className="text-[11px] text-[#8C6D2D] font-medium mt-0.5">
-                        Aktívne látky: {(stepItem as any).keyIngredients || stepItem.activeIngredients}
-                      </p>
-                      <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
-                        {(stepItem as any).usageNotes || stepItem.usage}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -989,34 +1049,67 @@ export function MeicetViewer({
               </div>
 
               <div className="p-4 space-y-3">
-                {currentEvening.map((stepItem) => (
-                  <div key={stepItem.step} className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8E2D9] flex items-start gap-3.5">
-                    <div className="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                      {stepItem.step}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800 bg-indigo-100/80 px-2 py-0.5 rounded-md">
-                          {stepItem.category}
-                        </span>
-                        {stepItem.price && (
-                          <span className="text-xs font-serif font-bold text-[#2C2A29]">
-                            {stepItem.price} €
-                          </span>
+                {currentEvening.map((stepItem) => {
+                  const isExt = Boolean(stepItem.isExternal);
+                  const isRx = Boolean(stepItem.prescriptionOnly);
+                  return (
+                    <div 
+                      key={stepItem.step} 
+                      className={`p-4 rounded-xl border flex items-start gap-3.5 transition-all ${
+                        isExt 
+                          ? 'bg-stone-100/80 border-stone-300' 
+                          : 'bg-[#FAF7F2] border-[#E8E2D9]'
+                      }`}
+                    >
+                      <div className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 ${
+                        isExt ? 'bg-stone-500 text-white' : 'bg-indigo-600 text-white'
+                      }`}>
+                        {stepItem.step}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                              isExt 
+                                ? 'text-stone-700 bg-stone-200/80' 
+                                : 'text-indigo-800 bg-indigo-100/80'
+                            }`}>
+                              {stepItem.category}
+                            </span>
+                            {isExt && (
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                isRx 
+                                  ? 'bg-rose-50 text-rose-800 border-rose-300' 
+                                  : 'bg-stone-200 text-stone-700 border-stone-300'
+                              }`}>
+                                {isRx ? '💊 Liek na predpis (Rp.)' : '🌐 Lekáreň / Mimo kliniky'}
+                              </span>
+                            )}
+                          </div>
+                          {stepItem.price && (
+                            <span className={`text-xs font-serif font-bold ${isExt ? 'text-stone-600' : 'text-[#2C2A29]'}`}>
+                              {isExt ? `~${stepItem.price} € (lekáreň)` : `${stepItem.price} €`}
+                            </span>
+                          )}
+                        </div>
+                        <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1">
+                          {stepItem.brand} – {stepItem.productName}
+                        </h5>
+                        <p className={`text-[11px] font-medium mt-0.5 ${isExt ? 'text-stone-600' : 'text-[#8C6D2D]'}`}>
+                          Aktívne látky: {(stepItem as any).keyIngredients || stepItem.activeIngredients}
+                        </p>
+                        <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
+                          {(stepItem as any).usageNotes || stepItem.usage}
+                        </p>
+                        {isExt && (stepItem.externalProviderNote || isRx) && (
+                          <p className="text-[10px] italic text-stone-500 mt-1 bg-white/70 p-1 rounded border border-stone-200">
+                            ℹ️ {stepItem.externalProviderNote || (isRx ? 'Vyžaduje lekársky predpis (Rp.), zakúpiť v lekárni' : 'Zakúpiť v lekárni alebo drogérii')}
+                          </p>
                         )}
                       </div>
-                      <h5 className="font-serif font-bold text-sm text-[#2C2A29] mt-1">
-                        {stepItem.brand} – {stepItem.productName}
-                      </h5>
-                      <p className="text-[11px] text-[#8C6D2D] font-medium mt-0.5">
-                        Aktívne látky: {(stepItem as any).keyIngredients || stepItem.activeIngredients}
-                      </p>
-                      <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
-                        {(stepItem as any).usageNotes || stepItem.usage}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1097,13 +1190,22 @@ export function MeicetViewer({
                 <select
                   value={selectedNewTreatmentId}
                   onChange={e => setSelectedNewTreatmentId(e.target.value)}
-                  className="px-2.5 py-2 rounded-lg bg-white border border-[#D4C5B1] text-xs font-bold text-[#2C2A29] max-w-[260px]"
+                  className="px-2.5 py-2 rounded-lg bg-white border border-[#D4C5B1] text-xs font-bold text-[#2C2A29] max-w-[290px]"
                 >
-                  {availableSkinTreatments.map(item => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.price} €)
-                    </option>
-                  ))}
+                  <optgroup label="⭐ Portfólio SAY CLINIC">
+                    {internalSkinTreatments.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} ({item.price} €)
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🌐 Mimo portfólia (Externé)">
+                    {externalSkinTreatments.map(item => (
+                      <option key={item.id} value={item.id} className="text-stone-500 bg-stone-50">
+                        ⚪ {item.name} (~{item.price} €)
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
 
                 <button
@@ -1155,9 +1257,16 @@ export function MeicetViewer({
                     <h4 className="font-serif font-bold text-base">{season.title}</h4>
                     <p className="text-[11px] text-white/85 mt-0.5">{season.subtitle}</p>
                   </div>
-                  <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white text-xs font-bold">
-                    {(season.items || []).reduce((sum: number, i: any) => sum + (i.price ?? i.estimatedPrice ?? 0), 0)} €
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white text-xs font-bold">
+                      {(season.items || []).filter((i: any) => !i.isExternal).reduce((sum: number, i: any) => sum + (i.price ?? i.estimatedPrice ?? 0), 0)} €
+                    </span>
+                    {(season.items || []).some((i: any) => i.isExternal) && (
+                      <span className="text-[10px] text-white/80 bg-white/10 px-2 py-0.5 rounded-full border border-white/20">
+                        + externé
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="p-4 space-y-3 flex-1">
@@ -1168,12 +1277,24 @@ export function MeicetViewer({
                   ) : (
                     season.items.map((item: any) => {
                       const isBooked = bookedTreatments[item.id];
+                      const isExt = Boolean(item.isExternal);
                       return (
-                        <div key={item.id} className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8E2D9] hover:border-[#C5A059] transition-all">
+                        <div 
+                          key={item.id} 
+                          className={`p-4 rounded-xl border transition-all ${
+                            isExt 
+                              ? 'bg-stone-100/90 border-stone-300' 
+                              : 'bg-[#FAF7F2] border-[#E8E2D9] hover:border-[#C5A059]'
+                          }`}
+                        >
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <span className="inline-block px-2 py-0.5 rounded-md bg-[#2C2A29] text-[#E8C882] text-[10px] font-bold uppercase tracking-wider mb-1">
-                                {item.seasonOrMonth} • {item.targetArea}
+                              <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                                isExt 
+                                  ? 'bg-stone-600 text-stone-100' 
+                                  : 'bg-[#2C2A29] text-[#E8C882]'
+                              }`}>
+                                {isExt ? '🌐 Mimo ponuky SAY CLINIC • ' : ''}{item.seasonOrMonth} • {item.targetArea}
                               </span>
                               <h5 className="font-serif font-bold text-sm text-[#2C2A29]">
                                 {item.name}
@@ -1181,11 +1302,11 @@ export function MeicetViewer({
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <div className="text-right">
-                                <span className="text-base font-serif font-bold text-[#8C6D2D] block">
-                                  {(item as any).price ?? (item as any).estimatedPrice ?? 0} €
+                                <span className={`text-base font-serif font-bold block ${isExt ? 'text-stone-600' : 'text-[#8C6D2D]'}`}>
+                                  {isExt ? `~${(item as any).price ?? (item as any).estimatedPrice ?? 0} €` : `${(item as any).price ?? (item as any).estimatedPrice ?? 0} €`}
                                 </span>
-                                <span className="text-[10px] text-[#8C837A]">
-                                  Rekonvalescencia: {(item as any).downtime || (item as any).recovery || 'Bez obmedzenia'}
+                                <span className="text-[10px] text-[#8C837A] block">
+                                  {isExt ? 'odhadom mimo kliniky' : `Rekonvalescencia: ${(item as any).downtime || (item as any).recovery || 'Bez obmedzenia'}`}
                                 </span>
                               </div>
                               {onUpdateReport && (
@@ -1205,35 +1326,47 @@ export function MeicetViewer({
                             {item.reasoning}
                           </p>
 
+                          {isExt && item.externalProviderNote && (
+                            <p className="text-[10px] text-stone-600 italic bg-white/80 p-1.5 rounded-md border border-stone-200 mt-2">
+                              ℹ️ {item.externalProviderNote}
+                            </p>
+                          )}
+
                           <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-[#E8E2D9]">
                             <span className="text-[11px] font-medium text-[#6B635B]">
                               Počet sedení: <strong>{item.sessionsCount}x</strong>
                               {item.intervalWeeks ? ` (interval ${item.intervalWeeks} týž.)` : ''}
                             </span>
 
-                            {onScheduleTreatment && (
-                              <button
-                                type="button"
-                                onClick={() => handleScheduleItem(item)}
-                                disabled={isBooked}
-                                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                                  isBooked
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                    : 'bg-[#2C2A29] hover:bg-[#3A3836] text-white'
-                                }`}
-                              >
-                                {isBooked ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5" />
-                                    <span>Zapísané v kalendári</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CalendarPlus className="w-3.5 h-3.5 text-[#C5A059]" />
-                                    <span>Objednať do kalendára</span>
-                                  </>
-                                )}
-                              </button>
+                            {isExt ? (
+                              <span className="text-[10px] font-semibold text-stone-600 bg-stone-200/80 px-2.5 py-1 rounded-md border border-stone-300">
+                                🌐 Mimo pokladne & kalendára SAY CLINIC
+                              </span>
+                            ) : (
+                              onScheduleTreatment && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleScheduleItem(item)}
+                                  disabled={isBooked}
+                                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                                    isBooked
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                      : 'bg-[#2C2A29] hover:bg-[#3A3836] text-white'
+                                  }`}
+                                >
+                                  {isBooked ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Zapísané v kalendári</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CalendarPlus className="w-3.5 h-3.5 text-[#C5A059]" />
+                                      <span>Objednať do kalendára</span>
+                                    </>
+                                  )}
+                                </button>
+                              )
                             )}
                           </div>
                         </div>

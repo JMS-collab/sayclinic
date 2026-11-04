@@ -25,6 +25,9 @@ export interface ClinicPriceItem {
   categoryLabel: string;
   description?: string;
   isSurgery?: boolean;
+  isExternal?: boolean;
+  externalProviderNote?: string;
+  prescriptionOnly?: boolean;
 }
 
 export interface ClinicPackageItem {
@@ -1484,6 +1487,162 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
     currency: '€',
     category: 'compression_garments',
     categoryLabel: 'Kompresná bielizeň (Lipoelastic) 👗'
+  },
+
+  // -----------------------------------------------------------------------
+  // 13. EXTERNÉ PROCEDÚRY & PRODUKTY (MIMO PORTFÓLIA SAY CLINIC - INFORMATÍVNE)
+  // -----------------------------------------------------------------------
+  // A) Prístrojové ošetrenia & peelingy mimo SAY CLINIC
+  {
+    id: 'ext_hydrafacial',
+    name: 'HydraFacial / AquaPeel (hĺbkové prístrojové čistenie)',
+    price: 110,
+    currency: '€',
+    category: 'laser_devices',
+    categoryLabel: 'Mimo portfólia (Externé) 🌐',
+    description: 'Vákuové hydro-čistenie a infúzia sér (nie je v ponuke SAY CLINIC - odporúčaná alternatíva je BioRePeel / CoolPeel)',
+    isExternal: true,
+    externalProviderNote: 'Externé dermatologické / kozmetické pracovisko'
+  },
+  {
+    id: 'ext_ipl_photorejuvenation',
+    name: 'IPL Fotorejuvenizácia (intenzívne pulzné svetlo)',
+    price: 130,
+    currency: '€',
+    category: 'laser_devices',
+    categoryLabel: 'Mimo portfólia (Externé) 🌐',
+    description: 'Širokospektrálne svetlo na pigmentácie a cievky (v SAY CLINIC preferujeme selektívny Cievny laser a CoolPeel CO2)',
+    isExternal: true,
+    externalProviderNote: 'Externé laserové centrum'
+  },
+  {
+    id: 'ext_morpheus8_rf',
+    name: 'Morpheus8 / Frakčná mikroihličková rádiofrekvencia',
+    price: 450,
+    currency: '€',
+    category: 'laser_devices',
+    categoryLabel: 'Mimo portfólia (Externé) 🌐',
+    description: 'Frakčná RF na spevnenie podkožia (v SAY CLINIC dosahujeme remodeláciu kolagénu cez CoolPeel CO2 laser + Sculptra / Profhilo)',
+    isExternal: true,
+    externalProviderNote: 'Externé pracovisko estetickej medicíny'
+  },
+  {
+    id: 'ext_aha_fruit_peel',
+    name: 'Klasický ovocný AHA peeling (kyselina glykolová)',
+    price: 60,
+    currency: '€',
+    category: 'laser_devices',
+    categoryLabel: 'Mimo portfólia (Externé) 🌐',
+    description: 'Základná chemická exfoliácia (v SAY CLINIC využívame medicínsky BioRePeel / PRX-T33 a TCA peeling)',
+    isExternal: true,
+    externalProviderNote: 'Externé kozmetické štúdio / salón'
+  },
+  {
+    id: 'ext_emsculpt_stimulation',
+    name: 'Emsculpt / Elektromagnetická stimulácia svalov',
+    price: 150,
+    currency: '€',
+    category: 'body_contouring_liposuction',
+    categoryLabel: 'Mimo portfólia (Externé) 🌐',
+    description: 'Neinvazívne budovanie svalov brucha / zadku HIFEM technológiou (mimo chirurgického portfólia SAY CLINIC)',
+    isExternal: true,
+    externalProviderNote: 'Externé centrum tvarovania postavy'
+  },
+  {
+    id: 'ext_cryolipolysis',
+    name: 'Kryolipolýza (neinvazívne zmrazenie tukových vankúšikov)',
+    price: 180,
+    currency: '€',
+    category: 'body_contouring_liposuction',
+    categoryLabel: 'Mimo portfólia (Externé) 🌐',
+    description: 'Lokálna redukcia tuku chladom (v SAY CLINIC preferujeme chirurgickú liposukciu)',
+    isExternal: true,
+    externalProviderNote: 'Externé pracovisko'
+  },
+
+  // B) Dermatologické lieky na predpis (Rp.)
+  {
+    id: 'ext_soolantra_cream_rx',
+    name: 'Soolantra 10 mg/g krém (ivermektín - 30 g)',
+    price: 35,
+    currency: '€',
+    category: 'skincare_cosmetics',
+    categoryLabel: 'Lekáreň na predpis (Rp.) 💊',
+    description: 'Lokálne antiparazitikum a protizápalový liek na papulopustulóznu rosaceu (výdaj viazaný na lekársky predpis)',
+    isExternal: true,
+    prescriptionOnly: true,
+    externalProviderNote: 'Lekáreň (výdaj na lekársky predpis)'
+  },
+  {
+    id: 'ext_skinoren_cream',
+    name: 'Skinoren 200 mg/g krém (kyselina azelaová - 30 g)',
+    price: 18,
+    currency: '€',
+    category: 'skincare_cosmetics',
+    categoryLabel: 'Lekáreň (Voľnopredajný liek) 💊',
+    description: 'Kyselina azelaová s komedolytickým a protizápalovým účinkom na akné a pozápalové erytémy',
+    isExternal: true,
+    prescriptionOnly: false,
+    externalProviderNote: 'Lekáreň (voľnopredajné liečivo)'
+  },
+  {
+    id: 'ext_rozex_gel_rx',
+    name: 'Rozex 7.5 mg/g gél (metronidazol - 30 g)',
+    price: 15,
+    currency: '€',
+    category: 'skincare_cosmetics',
+    categoryLabel: 'Lekáreň na predpis (Rp.) 💊',
+    description: 'Lokálne chemoterapeutikum na liečbu zápalového erytému a rosacey (výdaj na lekársky predpis)',
+    isExternal: true,
+    prescriptionOnly: true,
+    externalProviderNote: 'Lekáreň (výdaj na lekársky predpis)'
+  },
+  {
+    id: 'ext_aknemycin_plus_rx',
+    name: 'Aknemycin Plus roztok (erytromycín + tretinoín - 25 ml)',
+    price: 22,
+    currency: '€',
+    category: 'skincare_cosmetics',
+    categoryLabel: 'Lekáreň na predpis (Rp.) 💊',
+    description: 'Kombinovaný roztok na akné a reguláciu keratinizácie (výdaj na lekársky predpis)',
+    isExternal: true,
+    prescriptionOnly: true,
+    externalProviderNote: 'Lekáreň (výdaj na lekársky predpis)'
+  },
+
+  // C) Populárne lekárenské značky a dermokozmetika mimo priamej distribúcie
+  {
+    id: 'ext_bioderma_sensibio_ar',
+    name: 'Bioderma Sensibio AR krém proti začervenaniu (40 ml)',
+    price: 21,
+    currency: '€',
+    category: 'skincare_cosmetics',
+    categoryLabel: 'Lekáreň (Dermokozmetika) 🧴',
+    description: 'Patent Rosactiv™ pôsobiaci na biologické faktory začervenania pokožky',
+    isExternal: true,
+    externalProviderNote: 'Lekáreň / dermocentra'
+  },
+  {
+    id: 'ext_avene_antirougeurs',
+    name: 'Avène Antirougeurs upokojujúci denný krém SPF 30 (40 ml)',
+    price: 24,
+    currency: '€',
+    category: 'skincare_cosmetics',
+    categoryLabel: 'Lekáreň (Dermokozmetika) 🧴',
+    description: 'Termálna voda Avène a extrakt z Pongamie na upokojenie reaktívnych kapilár',
+    isExternal: true,
+    externalProviderNote: 'Lekáreň'
+  },
+  {
+    id: 'ext_medik8_crystal_retinal',
+    name: 'Medik8 Crystal Retinal 3 (30 ml)',
+    price: 68,
+    currency: '€',
+    category: 'skincare_cosmetics',
+    categoryLabel: 'Externá kozmetika (Medik8) 🧴',
+    description: 'Enkapsulovaný retinaldehyd novej generácie pre pacientov preferujúcich značku Medik8',
+    isExternal: true,
+    externalProviderNote: 'Autorizovaný predajca Medik8'
   }
 ];
 
