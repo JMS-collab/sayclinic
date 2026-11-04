@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
       gender = 'žena',
       anamnesis = {},
       customDoctorNotes = '',
-      preferredTier = 'high_end'
+      preferredTier = 'high_end',
+      skinType = 'citliva_sucha'
     } = body;
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -40,7 +41,9 @@ export async function POST(req: NextRequest) {
         patientId,
         patientName,
         patientBirthNumber,
-        preferredTier === 'mid_end' ? 'mid_end' : 'high_end'
+        preferredTier === 'mid_end' ? 'mid_end' : 'high_end',
+        undefined,
+        skinType
       );
       if (customDoctorNotes) {
         fallbackResult.doctorNotes = `${fallbackResult.doctorNotes}\n\nDoplňujúce poznámky lekára: ${customDoctorNotes}`;
@@ -113,7 +116,7 @@ VÝSTUP MUSÍ BYŤ VÝHRADNE ČISTÝ JSON V ŠTRUKTÚRE MeicetAnalysisResult:
     "skinScoreOverall": number (0-100),
     "skinAge": number,
     "actualAge": number,
-    "skinType": "suchá" | "mastná" | "zmiešaná" | "normálna" | "citlivá",
+    "skinType": "suchá" | "mastná" | "zmiešaná" | "normálna" | "citlivá" | "citlivá a suchá",
     "fitzpatrickPhototype": "I" | "II" | "III" | "IV" | "V" | "VI",
     "hydration": { "score": number, "percentile": number, "status": string, "description": string, "clinicalSignificance": string, "tewlLevel": "nízka" | "stredná" | "vysoká", "moistureZoneNote": string },
     "pores": { "score": number, "percentile": number, "status": string, "description": string, "clinicalSignificance": string, "poreCountEstimate": number, "predominantZone": string },
@@ -238,6 +241,7 @@ VÝSTUP MUSÍ BYŤ VÝHRADNE ČISTÝ JSON V ŠTRUKTÚRE MeicetAnalysisResult:
 - Rodné číslo: ${patientBirthNumber}
 - Chronologický vek: ${actualAge} rokov
 - Pohlavie: ${gender}
+- Zvolený typ pleti / primárna sťažnosť klienta: ${skinType} (STRIKTNÉ PRAVIDLO: ak je sťažnosť alebo zistenie citlivá a suchá pleť, musíš ju kategorizovať ako 'citlivá a suchá' alebo 'citlivá', NIKDY nie 'zmiešaná'!)
 - Anamnéza pacienta (známe údaje): ${JSON.stringify(anamnesis, null, 2)}
 - Špecifické poznámky lekára: ${customDoctorNotes || 'Žiadne doplňujúce poznámky.'}
 - Názov zdrojového súboru: ${pdfFileName}
@@ -319,7 +323,9 @@ Extrahuj skutočné hodnoty z reportu alebo snímky spektier a vygeneruj fináln
         patientId,
         patientName,
         patientBirthNumber,
-        preferredTier === 'mid_end' ? 'mid_end' : 'high_end'
+        preferredTier === 'mid_end' ? 'mid_end' : 'high_end',
+        undefined,
+        skinType
       );
       if (anamnesis && Object.keys(anamnesis).length > 0) {
         fallbackResult.anamnesis = { ...fallbackResult.anamnesis, ...anamnesis };

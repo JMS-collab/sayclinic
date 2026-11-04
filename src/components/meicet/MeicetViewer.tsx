@@ -283,16 +283,11 @@ export function MeicetViewer({
       q4_winter: 'Zima (Q4)'
     };
 
-    const mappedCategory: MeicetTreatmentPlanItem['category'] =
-      found.category === 'laser'
-        ? 'laser'
-        : found.category === 'peeling_needling'
-        ? 'peel'
-        : found.subcategory?.toLowerCase().includes('botulotox') || found.subcategory?.toLowerCase().includes('kyselina')
-        ? 'injectables'
-        : 'biostimulation';
+    const isLaser = (found.category as string) === 'laser' || found.id.toLowerCase().includes('laser');
+    const isInjectable = (found.category as string).includes('injekc') || found.id.includes('botox') || found.id.includes('rejuran') || found.id.includes('profhilo');
+    const mappedCategory: MeicetTreatmentPlanItem['category'] = isLaser ? 'laser' : isInjectable ? 'injectable' : 'skin_care';
 
-    const newItem: MeicetTreatmentPlanItem = {
+    const newItem: any = {
       id: `proc-${found.id}-${Date.now()}`,
       seasonOrMonth: seasonLabels[selectedSeasonKey],
       category: mappedCategory,
@@ -300,10 +295,13 @@ export function MeicetViewer({
       targetArea: 'Tvár / Dekolt',
       reasoning: found.description || 'Cielené klinické ošetrenie pleti podľa diagnostiky Meicet Pro-A.',
       price: found.price,
+      estimatedPrice: found.price,
+      frequency: '1 sedenie',
       sessionsCount: 1,
       intervalWeeks: 4,
-      downtime: found.category === 'laser' ? '2 - 5 dní' : '0 - 24 hodín',
-      priority: 'high'
+      downtime: isLaser ? '2 - 5 dní' : '0 - 24 hodín',
+      priority: 'vysoká',
+      status: 'planned'
     };
 
     const updatedSchedule = {
@@ -328,7 +326,7 @@ export function MeicetViewer({
   ) => {
     const updatedSchedule = {
       ...annualSchedule,
-      [seasonKey]: (annualSchedule[seasonKey] || []).filter(item => item.id !== itemId)
+      [seasonKey]: (annualSchedule[seasonKey] || []).filter((item: any) => item.id !== itemId)
     };
     if (onUpdateReport) {
       onUpdateReport({
@@ -688,7 +686,7 @@ export function MeicetViewer({
               Bezpečnostné upozornenia & Kontraindikácie
             </span>
             <ul className="text-[11px] text-amber-950 space-y-1">
-              {clinicalSynthesis.contraindicationsAndAlerts.map((alert, i) => (
+              {((clinicalSynthesis as any).contraindicationsAndAlerts || (clinicalSynthesis as any).riskAlerts || []).map((alert: any, i: number) => (
                 <li key={i} className="leading-snug">• {alert}</li>
               ))}
             </ul>
@@ -958,10 +956,10 @@ export function MeicetViewer({
                         {stepItem.brand} – {stepItem.productName}
                       </h5>
                       <p className="text-[11px] text-[#8C6D2D] font-medium mt-0.5">
-                        Aktívne látky: {stepItem.keyIngredients}
+                        Aktívne látky: {(stepItem as any).keyIngredients || stepItem.activeIngredients}
                       </p>
                       <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
-                        {stepItem.usageNotes}
+                        {(stepItem as any).usageNotes || stepItem.usage}
                       </p>
                     </div>
                   </div>
@@ -1011,10 +1009,10 @@ export function MeicetViewer({
                         {stepItem.brand} – {stepItem.productName}
                       </h5>
                       <p className="text-[11px] text-[#8C6D2D] font-medium mt-0.5">
-                        Aktívne látky: {stepItem.keyIngredients}
+                        Aktívne látky: {(stepItem as any).keyIngredients || stepItem.activeIngredients}
                       </p>
                       <p className="text-xs text-[#5A524C] mt-1.5 leading-relaxed">
-                        {stepItem.usageNotes}
+                        {(stepItem as any).usageNotes || stepItem.usage}
                       </p>
                     </div>
                   </div>
@@ -1046,11 +1044,11 @@ export function MeicetViewer({
                 Čomu sa prísne vyhnúť (Kontraindikované zložky)
               </h4>
               <ul className="space-y-1.5 text-xs text-rose-950">
-                {(skincareRoutine?.ingredientsToAvoid || [
+                {((skincareRoutine as any)?.ingredientsToAvoid || [
                   'Agresívne mechanické abrazívne peelingy s ostrými čiastočkami',
                   'Vysokopercentný denaturovaný alkohol',
                   'Kyseliny a retinoidy 7 dní pred laserom'
-                ]).map((avoid, idx) => (
+                ]).map((avoid: string, idx: number) => (
                   <li key={idx} className="flex items-start gap-2">
                     <span className="text-rose-600 font-bold">✕</span>
                     <span>{avoid}</span>
@@ -1158,7 +1156,7 @@ export function MeicetViewer({
                     <p className="text-[11px] text-white/85 mt-0.5">{season.subtitle}</p>
                   </div>
                   <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white text-xs font-bold">
-                    {(season.items || []).reduce((sum, i: any) => sum + (i.price ?? i.estimatedPrice ?? 0), 0)} €
+                    {(season.items || []).reduce((sum: number, i: any) => sum + (i.price ?? i.estimatedPrice ?? 0), 0)} €
                   </span>
                 </div>
 
@@ -1168,7 +1166,7 @@ export function MeicetViewer({
                       Žiadne naplánované ošetrenia v tomto kvartáli. Pridajte zákrok vyššie.
                     </div>
                   ) : (
-                    season.items.map(item => {
+                    season.items.map((item: any) => {
                       const isBooked = bookedTreatments[item.id];
                       return (
                         <div key={item.id} className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8E2D9] hover:border-[#C5A059] transition-all">

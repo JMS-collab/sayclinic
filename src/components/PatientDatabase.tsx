@@ -349,14 +349,23 @@ export default function PatientDatabase({
   } | undefined>(undefined);
   const [storedEvents, setStoredEvents] = useState<CalendarEvent[]>(calendarEvents);
 
-  const handleScheduleTreatmentFromPlan = (treatment: ScheduledTreatment) => {
+  const handleScheduleTreatmentFromPlan = (treatment: ScheduledTreatment | Partial<CalendarEvent>) => {
     setSchedulingSourceRecord(null);
-    setSchedulingInitialDetails({
-      title: treatment.name,
-      eventType: treatment.category === 'surgery' ? 'operacia' : treatment.category === 'laser' ? 'osetrenie' : 'kontrola',
-      notes: `Zákrok z plánu pacienta: ${treatment.name} (${treatment.seasonOrMonth}). Oblasť: ${treatment.targetArea}. ${treatment.notes || ''}`,
-      targetDate: new Date().toISOString().split('T')[0]
-    });
+    if ('seasonOrMonth' in treatment) {
+      setSchedulingInitialDetails({
+        title: treatment.name,
+        eventType: treatment.category === 'surgery' ? 'operacia' : treatment.category === 'laser' ? 'osetrenie' : 'kontrola',
+        notes: `Zákrok z plánu pacienta: ${treatment.name} (${treatment.seasonOrMonth}). Oblasť: ${treatment.targetArea}. ${treatment.notes || ''}`,
+        targetDate: new Date().toISOString().split('T')[0]
+      });
+    } else {
+      setSchedulingInitialDetails({
+        title: treatment.title || 'Ošetrenie z plánu pleti',
+        eventType: 'osetrenie',
+        notes: treatment.notes || 'Plánované ošetrenie pleti',
+        targetDate: treatment.date || new Date().toISOString().split('T')[0]
+      });
+    }
     setIsSchedulingEvent(true);
   };
 

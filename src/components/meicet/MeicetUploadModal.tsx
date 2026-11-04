@@ -49,6 +49,7 @@ export function MeicetUploadModal({
   const [clientConcerns, setClientConcerns] = useState<string>('');
   const [customDoctorNotes, setCustomDoctorNotes] = useState<string>('');
   const [preferredTier, setPreferredTier] = useState<'high_end' | 'mid_end'>('high_end');
+  const [skinType, setSkinType] = useState<string>('citliva_sucha');
 
   // Stav generovania a spracovania
   const [isProcessing, setIsProcessing] = useState(false);
@@ -155,7 +156,7 @@ export function MeicetUploadModal({
 
   // Vyskúšať so vzorovým reportom Meicet Pro-A
   const handleUseDemoMeicet = () => {
-    const demo = createDemoMeicetResult(patient.id, patient.name, patient.birthNumber, preferredTier);
+    const demo = createDemoMeicetResult(patient.id, patient.name, patient.birthNumber, preferredTier, undefined, skinType);
     setSelectedFile(new File(['dummy meicet pdf content'], 'Meicet_ProA_ISEMECO_Report_2026.pdf', { type: 'application/pdf' }));
     setFileBase64('data:application/pdf;base64,JVBERi0xLjQKJSD...');
     setErrorMsg(null);
@@ -217,7 +218,8 @@ export function MeicetUploadModal({
           gender: 'žena',
           anamnesis: anamnesisPayload,
           customDoctorNotes,
-          preferredTier
+          preferredTier,
+          skinType
         })
       });
 
@@ -238,7 +240,7 @@ export function MeicetUploadModal({
     } catch (err: any) {
       console.error('Chyba pri AI analýze Meicet:', err);
       // Bezpečný fallback s demo dátami upravenými pre tohto konkrétneho pacienta
-      const fallback = createDemoMeicetResult(patient.id, patient.name, patient.birthNumber, preferredTier);
+      const fallback = createDemoMeicetResult(patient.id, patient.name, patient.birthNumber, preferredTier, undefined, skinType);
       fallback.pdfSourceFilename = selectedFile?.name || 'Meicet_ProA_Upload.pdf';
       fallback.anamnesis = {
         ...fallback.anamnesis,
@@ -390,6 +392,81 @@ export function MeicetUploadModal({
                 <span>{errorMsg}</span>
               </div>
             )}
+          </div>
+
+          {/* VÝBER TYPU PLETI (ZISTENÝ PRÍSTROJOM MEICET / SŤAŽNOSŤ KLIENTA) */}
+          <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#FAF8F5] to-amber-50/40 border border-[#C5A059]/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-[#2C2A29] flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#C5A059]" />
+                <span>Typ pleti (zistený Meicetom / udávaný klientom)</span>
+              </label>
+              <span className="text-[10px] font-semibold text-[#8C857B] bg-white px-2 py-0.5 rounded border border-[#E8E2D9]">
+                Kľúčové pre správne zaradenie
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {[
+                {
+                  id: 'citliva_sucha',
+                  title: '💧 Citlivá & Suchá',
+                  desc: 'Oslabená bariéra, TEWL & cievny erytém',
+                  badge: 'Odporúčané'
+                },
+                {
+                  id: 'sucha',
+                  title: '🌵 Suchá pleť',
+                  desc: 'Dehydratácia, pnutie, nízka tvorba mazu',
+                  badge: null
+                },
+                {
+                  id: 'zmiesana',
+                  title: '⚖️ Zmiešaná pleť',
+                  desc: 'Mastnejšia T-zóna, normálne líca',
+                  badge: null
+                },
+                {
+                  id: 'mastna_aknozna',
+                  title: '🌿 Mastná / Aknózna',
+                  desc: 'Zvýšený maz, komedóny, porfyríny',
+                  badge: null
+                },
+                {
+                  id: 'normalna',
+                  title: '✨ Normálna pleť',
+                  desc: 'Vyvážená hydratácia a kožný maz',
+                  badge: null
+                },
+                {
+                  id: 'zrela',
+                  title: '⏳ Zrelá pleť',
+                  desc: 'Fotostarnutie, úbytok elasticity a vrásky',
+                  badge: null
+                }
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSkinType(item.id)}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                    skinType === item.id
+                      ? 'bg-white border-[#C5A059] ring-2 ring-[#C5A059]/40 shadow-xs'
+                      : 'bg-white/60 border-[#E8E2D9] hover:bg-white text-[#8C857B]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="font-bold text-xs text-[#2C2A29]">{item.title}</span>
+                    {item.badge && (
+                      <span className="text-[9px] font-bold text-[#C5A059] bg-[#FAF8F5] px-1.5 py-0.2 rounded border border-[#C5A059]/30">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-[#8C857B] leading-tight line-clamp-1">{item.desc}</p>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* 2. ANAMNÉZA PACIENTA & CHIRURGICKÝ KONTEXT */}

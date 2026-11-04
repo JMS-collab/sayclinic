@@ -10,7 +10,7 @@ export interface MeicetSkinMetrics {
   skinScoreOverall: number; // 0 - 100
   skinAge: number; // estimated skin age from Meicet AI
   actualAge: number; // chronological age
-  skinType: 'suchá' | 'mastná' | 'zmiešaná' | 'normálna' | 'citlivá';
+  skinType: 'suchá' | 'mastná' | 'zmiešaná' | 'normálna' | 'citlivá' | 'citlivá a suchá';
   fitzpatrickPhototype: 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI';
   
   // Specific multispectral metrics

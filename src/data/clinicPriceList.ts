@@ -1257,6 +1257,15 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
     description: 'Enkapsulovaný čistý retinol na stimuláciu obnovy buniek a vyhladenie textúry'
   },
   {
+    id: 'sc_phyto_corrective',
+    name: 'SkinCeuticals Phyto Corrective Gel (30 ml)',
+    price: 78,
+    currency: '€',
+    category: 'skincare_cosmetics',
+    categoryLabel: 'Skincare & Kozmetika 🧴',
+    description: 'Upokojujúce hydratačné gélové sérum s botanickými extraktmi na redukciu začervenania, cievneho erytému a upokojenie reaktívnej pleti'
+  },
+  {
     id: 'lrp_cicaplast_b5_100ml',
     name: 'La Roche-Posay Cicaplast Baume B5+ (100 ml)',
     price: 18,
