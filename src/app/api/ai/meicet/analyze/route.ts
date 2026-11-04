@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
     const {
       pdfBase64,
       pdfFileName = 'Meicet_ProA_Report.pdf',
-      patientId = 'P1',
-      patientName = 'Mária Kováčová',
-      patientBirthNumber = '885512/6789',
+      patientId = 'P-unknown',
+      patientName = 'Pacient',
+      patientBirthNumber = '',
       actualAge = 38,
       gender = 'žena',
       anamnesis = {},

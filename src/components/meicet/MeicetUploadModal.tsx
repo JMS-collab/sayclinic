@@ -55,67 +55,66 @@ export function MeicetUploadModal({
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Automatické extrahovanie anamnézy zo záznamov pacienta pri otvorení
-  useEffect(() => {
-    if (!isOpen || !patient) return;
+  // Sledovanie inicializácie modalu pre konkrétneho pacienta, aby sa neprepísali zmeny používateľa pri písaní
+  const initializedPatientIdRef = useRef<string | null>(null);
 
-    // 1. Zisťovanie operácií z lekárskych záznamov
+  // Automatické extrahovanie anamnézy zo skutočných záznamov pacienta pri otvorení modalu
+  useEffect(() => {
+    if (!isOpen) {
+      initializedPatientIdRef.current = null;
+      return;
+    }
+    // Inicializujeme IBA RAZ pri otvorení pre daného pacienta - zabráni resetovaniu pri písaní
+    if (!patient || initializedPatientIdRef.current === patient.id) {
+      return;
+    }
+    initializedPatientIdRef.current = patient.id;
+
+    // 1. Zisťovanie skutočných operácií a výkonov z reálnych lekárskych záznamov
     const detectedSurgeries: string[] = [];
     const detectedAesthetics: string[] = [];
     const detectedScars: string[] = [];
 
-    patientRecords.forEach(rec => {
-      const text = `${rec.title} ${rec.content} ${rec.type}`.toLowerCase();
+    (patientRecords || []).forEach(rec => {
+      const text = `${rec.title || ''} ${rec.content || ''} ${rec.type || ''}`.toLowerCase();
       if (text.includes('blefaro') || text.includes('vieč')) {
-        detectedSurgeries.push(`Blefaroplastika horných viečok (${rec.date || 'v minulosti'})`);
-        detectedScars.push(`Pooperačná jazva viečok v sulcus palpebralis superior (${rec.date || '6 mesiacov'})`);
+        detectedSurgeries.push(`Blefaroplastika (${rec.date || 'v záznamoch'})`);
       }
       if (text.includes('augment') || text.includes('prsník') || text.includes('implant')) {
-        detectedSurgeries.push(`Augmentácia prsníkov (${rec.date || 'v minulosti'})`);
-        detectedScars.push(`Submamárna jazva po augmentácii`);
+        detectedSurgeries.push(`Augmentácia prsníkov (${rec.date || 'v záznamoch'})`);
       }
       if (text.includes('facelift') || text.includes('lifting')) {
-        detectedSurgeries.push(`Facelift / Necklift`);
-        detectedScars.push(`Periaurikulárna jazva po facelifte`);
+        detectedSurgeries.push(`Facelift (${rec.date || 'v záznamoch'})`);
       }
       if (text.includes('botox') || text.includes('botulo') || text.includes('dysport')) {
-        detectedAesthetics.push(`Aplikácia botulotoxínu glabela/čelo (${rec.date || 'pred 5 mesiacmi'})`);
+        detectedAesthetics.push(`Aplikácia botulotoxínu (${rec.date || 'v záznamoch'})`);
       }
       if (text.includes('výplň') || text.includes('kyselina hyalurón') || text.includes('filler')) {
-        detectedAesthetics.push(`Aplikácia dermálnych výplní HA (${rec.date || 'pred rokom'})`);
+        detectedAesthetics.push(`Aplikácia dermálnych výplní HA (${rec.date || 'v záznamoch'})`);
       }
       if (text.includes('laser') || text.includes('resurfacing')) {
-        detectedAesthetics.push(`Laserový resurfacing / peeling (${rec.date})`);
+        detectedAesthetics.push(`Laserové ošetrenie (${rec.date || 'v záznamoch'})`);
+      }
+      if (text.includes('jazv')) {
+        detectedScars.push(`Jazva (${rec.title || rec.date || 'v záznamoch'})`);
       }
     });
 
-    if (detectedSurgeries.length > 0) {
-      setPastSurgeries(Array.from(new Set(detectedSurgeries)).join(', '));
-    } else {
-      setPastSurgeries(patient.name === 'Ján Novák' ? 'Blefaroplastika horných viečok (05/2026)' : 'Blefaroplastika horných viečok (pred 6 mesiacmi, SAY CLINIC)');
-    }
+    // PREDVYPLNÍME VÝHRADNE SKUTOČNÉ DÁTA Z KARTY - ŽIADNE FIKTÍVNE ÚDAJE
+    setPastSurgeries(detectedSurgeries.length > 0 ? Array.from(new Set(detectedSurgeries)).join(', ') : '');
 
-    if (patient.allergies && patient.allergies.length > 0) {
+    // Alergie berieme IBA z reálnej karty pacienta, inak prázdne
+    if (patient.allergies && Array.isArray(patient.allergies) && patient.allergies.length > 0) {
       setAllergiesText(patient.allergies.join(', '));
     } else {
-      setAllergiesText('Penicilín (kožný exantém), Nikel');
+      setAllergiesText('');
     }
 
-    if (detectedAesthetics.length > 0) {
-      setPreviousAesthetics(Array.from(new Set(detectedAesthetics)).join(', '));
-    } else {
-      setPreviousAesthetics('Botulotoxín glabela pred 5 mesiacmi (efekt doznieva), mezoterapia NCTF');
-    }
-
-    if (detectedScars.length > 0) {
-      setScarDescription(Array.from(new Set(detectedScars)).join('; '));
-    } else {
-      setScarDescription('Jazvy horných viečok po blefaroplastike, pretrvávajúce mierne ružovkasté sfarbenie (fáza maturácie)');
-    }
-
-    setClientConcerns('Pocit suchej a stiahnutej pleti, vrásky okolo očí, obavy z pigmentácií a ochrana jazvy pred letom.');
-    setCustomDoctorNotes('Kombinovať Meicet Pro-A nález so sezónnym plánom a indikovať cievny laser na cievny erytém a jazvu viečka.');
-  }, [isOpen, patient, patientRecords]);
+    setPreviousAesthetics(detectedAesthetics.length > 0 ? Array.from(new Set(detectedAesthetics)).join(', ') : '');
+    setScarDescription(detectedScars.length > 0 ? Array.from(new Set(detectedScars)).join('; ') : '');
+    setClientConcerns('');
+    setCustomDoctorNotes('');
+  }, [isOpen, patient?.id]);
 
   if (!isOpen) return null;
 

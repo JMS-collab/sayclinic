@@ -3600,6 +3600,7 @@ export default function PatientDatabase({
                       <MeicetModule
                         patient={selectedPatient}
                         selectedPatient={selectedPatient}
+                        patientRecords={getVisiblePatientRecords(selectedPatient.id)}
                         onScheduleTreatment={handleScheduleTreatmentFromPlan}
                         onTransferToCosmeticsPOS={!isRudlovaOnly ? ((items) => onNavigateToCosmetics?.(selectedPatient, items)) : undefined}
                         onOpenInCosmeticsPOS={!isRudlovaOnly ? ((items) => onNavigateToCosmetics?.(selectedPatient, items)) : undefined}
