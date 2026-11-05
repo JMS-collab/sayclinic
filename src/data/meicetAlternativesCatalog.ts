@@ -676,6 +676,42 @@ export const SKINCARE_ALTERNATIVES_CATALOG: SkincareAlternativeCategory[] = [
         isExternal: true,
         pharmacyBrand: false,
         externalProviderNote: 'Klinická kozmeceutika iS Clinical'
+      },
+      {
+        id: 'boj-relief-sun-rice',
+        category: 'Hydratačné organické K-Beauty SPF',
+        brand: 'Beauty of Joseon',
+        productName: 'Relief Sun : Rice + Probiotics SPF 50+ PA++++',
+        activeIngredients: '30% Ryžový extrakt + Fermentované obilné probiotiká + 2% Niacínamid + Moderné organické filtre (Uvinul A Plus, Tinosorb M, Uvinul T 150, Iscotrizinol)',
+        keyActiveIngredient: '30% Extrakt z ryže & Fermentované probiotiká (Oryza Sativa + Lactobacillus Ferment)',
+        whyItMatters: 'Kultový kórejský fotoprotekčný krém s mimoriadnou kozmetickou eleganciou. Nezanecháva biely film ani lepkavý pocit, neštípe v očiach a vďaka probiotikám a ryži upokojuje a hĺbkovo hydratuje kožnú bariéru.',
+        frequencySchedule: 'Každé ráno ako finálny krok rannej rutiny.',
+        usage: 'Naneste dostatočné množstvo (cca 2 dĺžky prstov) na celú tvár, krk a dekolt 15-20 minút pred expozíciou.',
+        purpose: 'Vysoká širokospektrálna ochrana pred UVA/UVB s komfortom ľahkého hydratačného krému.',
+        price: 18,
+        galenicForm: 'cream',
+        meicetJustification: 'Vhodné pri normálnej, dehydratovanej alebo mierne citlivej pleti hľadajúcej nemastný, komfortný finiš bez bieleho filmu.',
+        isExternal: true,
+        pharmacyBrand: false,
+        externalProviderNote: 'Kórejská dermokozmetika (K-Beauty)'
+      },
+      {
+        id: 'boj-matte-sun-stick',
+        category: 'Matujúca tyčinka na reaplikáciu SPF',
+        brand: 'Beauty of Joseon',
+        productName: 'Matte Sun Stick : Mugwort + Camelia SPF 50+ PA++++',
+        activeIngredients: 'Silica powder (oxid kremičitý) + Extrakt z paliny (Artemisia Capillaris) + Zelený čaj (Camellia Sinensis)',
+        keyActiveIngredient: 'Mikronizovaný kremičitý púder (absorpcia kožného mazu) & Palina (upokojenie začervenania)',
+        whyItMatters: 'Praktický stick formát vyvinutý v spolupráci s chemickou kozmetickou expertkou. Umožňuje bezdotykovú hygienickú reaplikáciu fotoprotekcie počas dňa priamo cez make-up bez rozmazania a s okamžitým zmatnením.',
+        frequencySchedule: 'Kedykoľvek počas dňa na reaplikáciu každé 2-3 hodiny.',
+        usage: 'Pretrite zóny tváre náchylné na lesk a spálenie (čelo, nos, lícne kosti).',
+        purpose: 'Zmatňujúca reaplikácia SPF bez mastnoty a bez narušenia make-upu.',
+        price: 19,
+        galenicForm: 'balm',
+        meicetJustification: 'Ideálne pre pacientov so zvýšenou sekréciou kožného mazu v T-zóne vyžadujúcich reaplikáciu počas dňa.',
+        isExternal: true,
+        pharmacyBrand: false,
+        externalProviderNote: 'Kórejská dermokozmetika (K-Beauty)'
       }
     ]
   },
