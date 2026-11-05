@@ -80,7 +80,7 @@ DÔLEŽITÉ KLINICKÉ ŠPECIFIKÁ SAY CLINIC (STRIKTNE DODRŽIAVAJ):
      * Rejuran Healer PN 2 ml celá tvár (290 €), Rejuran I očné okolie 1 ml (190 €), Rejuran S atrofické jazvičky po akné 1 ml (190 €)
      * Crystal Hydro PDRN 2 ml (210 €), PhilArt / Nucleofill 2 ml (300 €)
      * Profhilo bioremodelácia 2 ml (290 €), Skinbooster 1 ml (300 €)
-     * Sculptra PLLA (450 €), Radiesse CaHA 1,5 ml (390 €)
+     * Sculptra PLLA (450 €)
      * Exozómy ASCE+ / ExoCoBio tvár (320 €)
    - LEKÁRSKE PEELINGY & MICRONEEDLING:
      * Medicínsky peeling BioRePeel / PRX-T33 (90 €)

@@ -38,6 +38,7 @@ import { MeicetReportPdfDocument } from './MeicetReportPdfDocument';
 import { CalendarEvent } from '@/data/calendarConfig';
 import { generatePdfFilename, exportElementToPdf, generatePdfBase64 } from '@/lib/pdfGenerator';
 import { getLiveClinicPriceList, ClinicPriceItem } from '@/data/clinicPriceList';
+import { InventoryService } from '@/services/inventoryService';
 import { MeicetClinicalEducationCard } from './MeicetClinicalEducationCard';
 import { MeicetClinicalEducationService } from '@/services/meicetClinicalEducationService';
 import { MeicetProductContextMenu } from './MeicetProductContextMenu';
@@ -77,7 +78,6 @@ const SKIN_TREATMENT_IDS = [
   'philart_2ml',
   'profhilo_2ml',
   'sculptra_1vial',
-  'radiesse_1_5ml',
   'exosomes_asce',
   'biorepeel_face',
   'chemical_peel_tca',
@@ -136,10 +136,14 @@ export function MeicetViewer({
     isOpen: boolean;
     product: MeicetSkincareProduct | null;
     routineType: 'morning' | 'evening';
+    mode?: 'swap' | 'add';
+    targetStepNumber?: number;
   }>({
     isOpen: false,
     product: null,
-    routineType: 'morning'
+    routineType: 'morning',
+    mode: 'swap',
+    targetStepNumber: 1
   });
 
   const [titrationEditModal, setTitrationEditModal] = useState<{
@@ -426,17 +430,99 @@ export function MeicetViewer({
     }
   };
 
-  // 1. Nahradenie produktu za iný
+  // 1. Nahradenie alebo pridanie nového produktu do rutiny
   const handleSwapSkincareProduct = (
     newProduct: MeicetSkincareProduct,
-    routineType: 'morning' | 'evening'
+    routineType: 'morning' | 'evening',
+    mode: 'swap' | 'add' = 'swap'
   ) => {
-    if (routineType === 'morning') {
-      const updated = currentMorning.map(p => p.step === newProduct.step ? newProduct : p);
-      updateSkincareRoutine(updated, currentEvening);
+    if (mode === 'add') {
+      if (routineType === 'morning') {
+        const nextStep = currentMorning.length + 1;
+        updateSkincareRoutine([...currentMorning, { ...newProduct, step: nextStep }], currentEvening);
+      } else {
+        const nextStep = currentEvening.length + 1;
+        updateSkincareRoutine(currentMorning, [...currentEvening, { ...newProduct, step: nextStep }]);
+      }
     } else {
-      const updated = currentEvening.map(p => p.step === newProduct.step ? newProduct : p);
-      updateSkincareRoutine(currentMorning, updated);
+      if (routineType === 'morning') {
+        const updated = currentMorning.map(p => p.step === newProduct.step ? newProduct : p);
+        updateSkincareRoutine(updated, currentEvening);
+      } else {
+        const updated = currentEvening.map(p => p.step === newProduct.step ? newProduct : p);
+        updateSkincareRoutine(currentMorning, updated);
+      }
+    }
+  };
+
+  // Naskladnenie produktu do skladu SAY CLINIC a cenníka
+  const handleStockProductToClinicInventory = (targetProduct: MeicetSkincareProduct) => {
+    try {
+      const retailPrice = targetProduct.price || 45;
+      const costPrice = Math.round(retailPrice * 0.6); // 60% nákupná cena
+
+      // 1. Zápis do InventoryService
+      InventoryService.addItem({
+        id: `inv-cosm-${Date.now()}`,
+        name: `${targetProduct.brand} - ${targetProduct.productName}`,
+        category: 'skincare',
+        quantity: 5,
+        minQuantity: 2,
+        optimalQuantity: 8,
+        costPerUnit: costPrice,
+        unit: 'bal',
+        location: 'Príručný sklad - Skincare vitrína',
+        supplier: targetProduct.brand,
+        lotNumber: `LOT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        expirationDate: new Date(Date.now() + 730 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      });
+
+      // 2. Zaradenie do živého cenníka (say_clinic_pricelist_v2 v localStorage)
+      if (typeof window !== 'undefined') {
+        try {
+          const storedPriceList = window.localStorage.getItem('say_clinic_pricelist_v2');
+          let liveList = storedPriceList ? JSON.parse(storedPriceList) : [];
+          if (!Array.isArray(liveList) || liveList.length === 0) {
+            liveList = getLiveClinicPriceList();
+          }
+
+          const existingIdx = liveList.findIndex(
+            (it: any) => it.name.toLowerCase() === `${targetProduct.brand} - ${targetProduct.productName}`.toLowerCase()
+          );
+
+          if (existingIdx === -1) {
+            const newPriceItem: ClinicPriceItem = {
+              id: `cosm_${targetProduct.brand.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}`,
+              name: `${targetProduct.brand} - ${targetProduct.productName}`,
+              price: retailPrice,
+              currency: 'EUR',
+              category: 'skincare_cosmetics',
+              categoryLabel: 'Kozmeceutika & Skincare',
+              description: targetProduct.whyItMatters || 'Kozmeceutika zo skladu SAY CLINIC'
+            };
+            liveList.push(newPriceItem);
+            window.localStorage.setItem('say_clinic_pricelist_v2', JSON.stringify(liveList));
+          }
+        } catch (e) {
+          console.warn('Nepodarilo sa aktualizovať localStorage cenníka:', e);
+        }
+      }
+
+      // 3. Aktualizovať rutinu v reporte – zmeniť produkt z isExternal: true na isExternal: false
+      const internalize = (p: MeicetSkincareProduct) => 
+        (p.productName.toLowerCase() === targetProduct.productName.toLowerCase() && p.brand.toLowerCase() === targetProduct.brand.toLowerCase())
+          ? { ...p, isExternal: false, pharmacyBrand: false, externalProviderNote: undefined }
+          : p;
+
+      const updatedMorning = currentMorning.map(internalize);
+      const updatedEvening = currentEvening.map(internalize);
+      updateSkincareRoutine(updatedMorning, updatedEvening);
+
+      // 4. Notifikácia lekárovi
+      setPosTransferNotice(`📦 Produkt "${targetProduct.brand} – ${targetProduct.productName}" bol úspešne pridaný na sklad SAY CLINIC (5 ks na sklade) a zaradený do cenníka.`);
+      setTimeout(() => setPosTransferNotice(null), 8000);
+    } catch (err) {
+      console.error('Chyba pri naskladňovaní produktu:', err);
     }
   };
 
@@ -1191,7 +1277,7 @@ export function MeicetViewer({
               Portfólio kliniky SAY (Klinicky overené metódy)
             </span>
             <p className="text-[11px] text-emerald-950 leading-snug">
-              Plán využíva výhradne reálne dostupné procedúry kliniky: <strong>Cievny laser</strong>, <strong>Frakčný CO2 laser / CoolPeel</strong>, <strong>Injekčné biostimulátory a polynukleotidy (Rejuran, Profhilo, Sculptra, Radiesse, Botox, HA)</strong> a <strong>Lekársky peeling (BioRePeel, TCA) & Dermapen 4</strong>.
+              Plán využíva výhradne reálne dostupné procedúry kliniky: <strong>Cievny laser</strong>, <strong>Frakčný CO2 laser / CoolPeel</strong>, <strong>Injekčné výplne a biostimulátory (Restylane, Teosyal Redensity II, Rejuran, Profhilo, Botox)</strong> a <strong>Lekársky microneedling Dermapen 4</strong>.
             </p>
           </div>
         </div>
@@ -1690,6 +1776,24 @@ export function MeicetViewer({
                     </div>
                   );
                 })}
+
+                {/* Tlačidlo pridania nového kroku do rannej rutiny */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductSwapModal({
+                      isOpen: true,
+                      product: null,
+                      routineType: 'morning',
+                      mode: 'add',
+                      targetStepNumber: currentMorning.length + 1
+                    });
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl border border-dashed border-amber-300 hover:border-amber-500 bg-amber-50/40 hover:bg-amber-50 text-amber-900 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs mt-1"
+                >
+                  <Plus className="w-4 h-4 text-amber-600" />
+                  <span>Pridať krok do rannej rutiny (+ Krok {currentMorning.length + 1})</span>
+                </button>
               </div>
             </div>
 
@@ -1870,6 +1974,24 @@ export function MeicetViewer({
                     </div>
                   );
                 })}
+
+                {/* Tlačidlo pridania nového kroku do večernej rutiny */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductSwapModal({
+                      isOpen: true,
+                      product: null,
+                      routineType: 'evening',
+                      mode: 'add',
+                      targetStepNumber: currentEvening.length + 1
+                    });
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl border border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/40 hover:bg-indigo-50 text-indigo-950 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs mt-1"
+                >
+                  <Plus className="w-4 h-4 text-indigo-600" />
+                  <span>Pridať krok do večernej rutiny (+ Krok {currentEvening.length + 1})</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1930,7 +2052,7 @@ export function MeicetViewer({
                   Ročný harmonogram ošetrení pleti ({allAnnualProcedures.length} zákrokov | Spolu {totalAnnualProceduresPrice} €)
                 </h3>
                 <p className="text-xs text-[#6B635B] mt-0.5">
-                  Cievny laser • Frakčný CO2 laser / CoolPeel • Botox, HA, Rejuran, Profhilo, Sculptra, Radiesse • BioRePeel, TCA peeling & Dermapen 4
+                  Cievny laser • Frakčný CO2 laser / CoolPeel • Botox, HA (Restylane / Teosyal), Rejuran, Profhilo • Dermapen 4
                 </p>
               </div>
 
@@ -2334,6 +2456,11 @@ export function MeicetViewer({
             handleToggleProductAlreadyOwned(productContextMenu.product, productContextMenu.routineType);
           }
         }}
+        onAddToClinicStock={() => {
+          if (productContextMenu.product) {
+            handleStockProductToClinicInventory(productContextMenu.product);
+          }
+        }}
         onRemoveProduct={() => {
           if (productContextMenu.product) {
             handleRemoveSkincareProduct(productContextMenu.product, productContextMenu.routineType);
@@ -2346,9 +2473,12 @@ export function MeicetViewer({
         onClose={() => setProductSwapModal(prev => ({ ...prev, isOpen: false }))}
         currentProduct={productSwapModal.product}
         routineType={productSwapModal.routineType}
+        mode={productSwapModal.mode || 'swap'}
+        targetStepNumber={productSwapModal.targetStepNumber}
         onSelectAlternative={(newProduct) => {
-          handleSwapSkincareProduct(newProduct, productSwapModal.routineType);
+          handleSwapSkincareProduct(newProduct, productSwapModal.routineType, productSwapModal.mode || 'swap');
         }}
+        onStockProduct={handleStockProductToClinicInventory}
       />
 
       <MeicetTitrationEditModal

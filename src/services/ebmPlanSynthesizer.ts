@@ -1022,20 +1022,20 @@ export const EBM_PROCEDURE_CATALOG: EbmProcedureDefinition[] = [
   },
   {
     id: 'collagen_stimulator',
-    label: 'Kolagénové biostimulátory (Radiesse 390 € / Sculptra 450 €)',
-    shortLabel: 'Kolagénový stimulátor (Sculptra / Radiesse)',
+    label: 'Kolagénové biostimulátory (Sculptra 450 €)',
+    shortLabel: 'Kolagénový stimulátor (Sculptra PLLA)',
     icon: '💉',
     group: 'injectable_bio',
     category: 'injectable',
     defaultPrice: 450,
     recommendedTimingOrder: 48,
     recommendedSeasonOrStep: 'Priebežne',
-    targetArea: 'Spodná tretina tváre, kontúra sánky, krk a ruky',
+    targetArea: 'Spodná tretina tváre, kontúra sánky, líca a spánky',
     frequencyOrAnesthesia: 'Kanylárna aplikácia s lidokaínom',
     recoveryTimePatient: '1 – 2 dni',
-    clinicalNotes: 'Hydroxylapatit vápenatý (CaHA) alebo kyselina poly-L-mliečna stimulujúca dlhodobú neokolagenézu.',
+    clinicalNotes: 'Kyselina poly-L-mliečna (PLLA) stimulujúca dlhodobú neokolagenézu a obnovu objemu.',
     patientExplanation: 'Látka naštartuje masívnu tvorbu vášho vlastného kolagénu, ktorý postupne spevňuje a zahusťuje ochabnutú kožu.',
-    clinicalGuideline: 'Consensus Guidelines for Calcium Hydroxylapatite (Radiesse) Dilution and Vectoring',
+    clinicalGuideline: 'Consensus Guidelines for Poly-L-Lactic Acid (Sculptra) Vectoring and Rejuvenation',
     preOpSpecifics: {},
     postOpSpecifics: {
       earlyCare: 'Pravidlo masáže 5x5x5 (jemná masáž 5 minút, 5x denne počas 5 dní pri Sculptre).'
@@ -1306,7 +1306,7 @@ export function resolveSelectedProcedures(
     const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'polynucleotides_profhilo');
     if (p) matched.set(p.id, p);
   }
-  if (combinedText.includes('radiesse') || combinedText.includes('sculptra') || combinedText.includes('kolagénov')) {
+  if (combinedText.includes('sculptra') || combinedText.includes('kolagénov') || combinedText.includes('plla')) {
     const p = EBM_PROCEDURE_CATALOG.find(x => x.id === 'collagen_stimulator');
     if (p) matched.set(p.id, p);
   }

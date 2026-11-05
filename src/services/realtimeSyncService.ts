@@ -26,6 +26,7 @@ export type SyncCollection =
   | 'audit_logs'
   | 'loyalty_transactions'
   | 'loyalty_overrides'
+  | 'patient_depot'
   | 'operative_notes';
 
 interface CollectionMapping {
@@ -129,6 +130,10 @@ const COLLECTION_MAP: Record<SyncCollection, CollectionMapping> = {
   loyalty_overrides: {
     storageKey: 'say_clinic_loyalty_overrides_v1',
     eventName: 'say_clinic_loyalty_changed',
+  },
+  patient_depot: {
+    storageKey: 'say_clinic_patient_material_depot',
+    eventName: 'say_clinic_patient_depot_changed',
   },
   operative_notes: {
     storageKey: 'say_clinic_operative_notes',

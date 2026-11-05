@@ -8,7 +8,8 @@ import {
   Sun, 
   Moon, 
   FlaskConical, 
-  CheckCircle2 
+  CheckCircle2,
+  PackagePlus
 } from 'lucide-react';
 import { MeicetSkincareProduct } from '@/types/meicet';
 
@@ -22,6 +23,7 @@ interface MeicetProductContextMenuProps {
   onSwapProduct: () => void;
   onEditTitration: () => void;
   onToggleAlreadyOwned: () => void;
+  onAddToClinicStock?: () => void;
   onRemoveProduct: () => void;
 }
 
@@ -35,6 +37,7 @@ export const MeicetProductContextMenu: React.FC<MeicetProductContextMenuProps> =
   onSwapProduct,
   onEditTitration,
   onToggleAlreadyOwned,
+  onAddToClinicStock,
   onRemoveProduct
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -174,6 +177,29 @@ export const MeicetProductContextMenu: React.FC<MeicetProductContextMenuProps> =
             </div>
           </div>
         </button>
+
+        {onAddToClinicStock && (
+          <button
+            type="button"
+            onClick={() => {
+              onAddToClinicStock();
+              onClose();
+            }}
+            className="w-full text-left px-3 py-2 rounded-xl hover:bg-[#FAF7F2] text-[#8C6D2D] transition-colors flex items-center gap-2.5 font-medium cursor-pointer group"
+          >
+            <div className="w-6 h-6 rounded-lg bg-[#C5A059]/20 text-[#8C6D2D] flex items-center justify-center shrink-0 group-hover:bg-[#C5A059] group-hover:text-white transition-colors">
+              <PackagePlus className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <div className="font-bold text-[#2C2A29] group-hover:text-[#8C6D2D]">
+                {product.isExternal ? '📦 Pridať produkt na sklad kliniky' : '📦 Naskladniť do skladu SAY CLINIC'}
+              </div>
+              <div className="text-[10px] text-[#8C837A]">
+                {product.isExternal ? 'Zaradiť do skladu (5 ks), cenníka a pokladne' : 'Pridať ďalšie kusy do skladu kliniky'}
+              </div>
+            </div>
+          </button>
+        )}
 
         <div className="border-t border-[#E8E2D9] my-1" />
 

@@ -67,6 +67,17 @@ export const FITZPATRICK_DATA: Record<FitzpatrickType, FitzpatrickInfo> = {
   }
 };
 
+export type BodyMapView = 'front' | 'back' | 'face';
+
+export interface DermLesionCoords {
+  x: number; // 0 - 100% relatívna poloha na siluete
+  y: number; // 0 - 100% relatívna poloha na siluete
+  view: BodyMapView;
+  regionName?: string; // napr. 'Chrbát Th6 vpravo'
+}
+
+export type LesionRiskLevel = 'low' | 'moderate' | 'high';
+
 export interface DermLesion {
   id: string;
   location: string;
@@ -79,6 +90,13 @@ export interface DermLesion {
   dermoscopyFeatures: string[];
   conclusion: 'Benígny melanocytový névus' | 'Atypický (dysplastický) névus' | 'Suspektný malígny melanóm' | 'Suspektný bazocelulárny karcinóm (BCC)' | 'Suspektný spinocelulárny karcinóm (SCC)' | 'Seboroická keratóza' | 'Vaskulárna lézia (hemangióm)' | 'Dermatofibróm' | 'Iný benígny nález';
   recommendation: 'Pravidelné sledovanie (digitálna kontrola o 12 mes.)' | 'Kontrola o 3-6 mesiacov (krátkodobé digitálne sledovanie)' | 'Preventívna chirurgická excízia s bioptickým overením (histológia)' | 'Laserová ablácia / vaporizácia' | 'Kryodeštrukcia tekutým dusíkom' | 'Exstirpácia / kyretáž' | 'Bez nutnosti intervencie';
+  
+  // Smart rozšírenia & Body Map
+  coords?: DermLesionCoords;
+  tdsScore?: number;
+  riskLevel?: LesionRiskLevel;
+  driveFolderUrl?: string;
+  clinicalNotes?: string;
 }
 
 export interface DermDiagnosisItem {
@@ -213,7 +231,10 @@ export const INITIAL_DERMATOLOGY_DATA: DermatologyExamData = {
       evolution: 'Stabilný bez zmeny',
       dermoscopyFeatures: ['Typická pravidelná pigmentová sieť', 'Centrálne zhluky globúl'],
       conclusion: 'Benígny melanocytový névus',
-      recommendation: 'Pravidelné sledovanie (digitálna kontrola o 12 mes.)'
+      recommendation: 'Pravidelné sledovanie (digitálna kontrola o 12 mes.)',
+      coords: { x: 58, y: 28, view: 'back', regionName: 'Chrbát paravertebrálne vpravo' },
+      tdsScore: 1.5,
+      riskLevel: 'low'
     },
     {
       id: 'lesion-2',
@@ -226,7 +247,10 @@ export const INITIAL_DERMATOLOGY_DATA: DermatologyExamData = {
       evolution: 'Stabilný bez zmeny',
       dermoscopyFeatures: ['Typická pravidelná pigmentová sieť'],
       conclusion: 'Benígny melanocytový névus',
-      recommendation: 'Pravidelné sledovanie (digitálna kontrola o 12 mes.)'
+      recommendation: 'Pravidelné sledovanie (digitálna kontrola o 12 mes.)',
+      coords: { x: 62, y: 23, view: 'front', regionName: 'Hrudník pod ľavou kľúčnou kosťou' },
+      tdsScore: 1.5,
+      riskLevel: 'low'
     }
   ],
 
@@ -299,7 +323,10 @@ export const DERMATOLOGY_PRESETS: DermPreset[] = [
           evolution: 'Rast / zväčšenie',
           dermoscopyFeatures: ['Atypická nepravidelná sieť', 'Periférne pigmentové globuly a bodky', 'Bezštruktúrne ružové areály'],
           conclusion: 'Atypický (dysplastický) névus',
-          recommendation: 'Preventívna chirurgická excízia s bioptickým overením (histológia)'
+          recommendation: 'Preventívna chirurgická excízia s bioptickým overením (histológia)',
+          coords: { x: 42, y: 32, view: 'back', regionName: 'Chrbát paravertebrálne vľavo' },
+          tdsScore: 5.6,
+          riskLevel: 'high'
         }
       ],
       localTherapy: 'Léziu mechanicky nedráždiť, nevystavovať UV žiareniu, neškrabať.',
@@ -368,5 +395,183 @@ export const DERMATOLOGY_PRESETS: DermPreset[] = [
       regimeRecommendations: 'Krátka vlažná sprcha (nie horúci kúpeľ), bavlnený voľný odev, nestrihať nechty do špičky. Eliminácia prachových roztočov v spálni.',
       nextCheckup: 'Kontrolné vyšetrenie o 3 týždne na prehodnotenie ústupu akútneho zápalu.'
     }
+  }
+];
+
+// =========================================================================
+// SMART DERMOSCOPY: STOLZ TOTAL DERMOSCOPY SCORE (TDS) CALCULATOR
+// =========================================================================
+
+export interface TDSEvaluation {
+  score: number;
+  risk: LesionRiskLevel;
+  badgeLabel: string;
+  badgeColorClass: string;
+  recommendationNote: string;
+  formulaDetails: string;
+}
+
+export function calculateTDS(lesion: Partial<DermLesion>): TDSEvaluation {
+  // 1. Asymmetry (0, 1, 2) * 1.3
+  let aVal = 0;
+  if (lesion.asymmetry === 'Asymetria v 1 osi') aVal = 1;
+  else if (lesion.asymmetry === 'Asymetria v 2 osiach') aVal = 2;
+  const aScore = aVal * 1.3;
+
+  // 2. Borders (0 to 8 segments, approximation from select) * 0.1
+  let bVal = 0;
+  if (lesion.borders === 'Mierne nepravidelné') bVal = 3;
+  else if (lesion.borders === 'Zúbkované / neostré / rozpité') bVal = 6;
+  const bScore = bVal * 0.1;
+
+  // 3. Color (1 to 6 colors) * 0.5
+  let cVal = 1;
+  if (lesion.color === 'Polychrómna (hnedá, čierna, ružová)') cVal = 3;
+  else if (lesion.color === 'Čierna' || lesion.color === 'Ružovo-červená / vaskulárna') cVal = 2;
+  const cScore = cVal * 0.5;
+
+  // 4. Differential structures (1 to 5) * 0.5
+  const featCount = lesion.dermoscopyFeatures?.length || 1;
+  const dVal = Math.min(5, Math.max(1, featCount));
+  const dScore = dVal * 0.5;
+
+  let totalScore = Math.round((aScore + bScore + cScore + dScore) * 100) / 100;
+
+  // Manual override if clinically malignant or indicated for excision
+  const isExc = lesion.recommendation?.includes('excízia') || lesion.conclusion === 'Suspektný malígny melanóm';
+  const isAtypical = lesion.conclusion === 'Atypický (dysplastický) névus' || lesion.recommendation?.includes('3-6');
+
+  let risk: LesionRiskLevel = 'low';
+  let badgeLabel = 'Benígny nález (Nízke riziko)';
+  let badgeColorClass = 'bg-emerald-50 text-emerald-700 border-emerald-300';
+  let recommendationNote = 'Doporučená štandardná digitálna kontrola o 12 mesiacov.';
+
+  if (isExc || totalScore > 5.45) {
+    risk = 'high';
+    badgeLabel = 'Vysoké riziko / Malígne podozrenie';
+    badgeColorClass = 'bg-rose-50 text-rose-700 border-rose-300';
+    recommendationNote = 'Indikovaná profylaktická chirurgická excízia s histopatologickým vyšetrením.';
+  } else if (isAtypical || totalScore >= 4.75) {
+    risk = 'moderate';
+    badgeLabel = 'Suspektný / Dysplastický névus';
+    badgeColorClass = 'bg-amber-50 text-amber-700 border-amber-300';
+    recommendationNote = 'Indikované krátkodobé digitálne sledovanie dermatoskopiou o 3 až 6 mesiacov.';
+  }
+
+  const formulaDetails = `TDS = (A: ${aVal} × 1.3) + (B: ${bVal} × 0.1) + (C: ${cVal} × 0.5) + (D: ${dVal} × 0.5) = ${totalScore.toFixed(2)}`;
+
+  return {
+    score: totalScore,
+    risk,
+    badgeLabel,
+    badgeColorClass,
+    recommendationNote,
+    formulaDetails
+  };
+}
+
+// =========================================================================
+// SMART TEXT SYNTHESIS: LOKÁLNY GENERÁTOR ODBORNÉHO DERMATOLOGICKÉHO NÁLEZU
+// =========================================================================
+
+export function generateSmartFinding(data: DermatologyExamData): {
+  morphology: string;
+  dermoscopySummary: string;
+  regime: string;
+} {
+  const lesionCount = data.examinedLesions.length;
+  const highRiskLesions = data.examinedLesions.filter(l => l.riskLevel === 'high' || l.recommendation.includes('excízia'));
+  const moderateLesions = data.examinedLesions.filter(l => l.riskLevel === 'moderate' || l.recommendation.includes('3-6'));
+  const fototypInfo = FITZPATRICK_DATA[data.fitzpatrick];
+
+  // 1. Morphology
+  let morphology = `Kožný kryt fototypu ${data.fitzpatrick} (${fototypInfo.name}), ${data.skinHydration.toLowerCase()}, turgor ${data.skinTurgor.toLowerCase()}. `;
+  if (data.skinPhotodamage.includes('Glogau I') || data.skinPhotodamage.includes('Mierne')) {
+    morphology += `Fotostarnutie primerané veku, bez hrubých aktinických zmien. `;
+  } else {
+    morphology += `Prítomné známky fotopoškodenia: ${data.skinPhotodamage.toLowerCase()}. `;
+  }
+
+  if (lesionCount === 0) {
+    morphology += `Pokožka kľudná, bez akútneho zápalového exantému, diseminované bežné benígne melanocytové névy bez známok atypie.`;
+  } else {
+    morphology += `Prítomné diseminované melanocytové névy (${data.neviCountCategory}). Podrobne vyšetrených ${lesionCount} pigmentových lézií.`;
+  }
+
+  // 2. Dermoscopy Summary
+  let dermoscopySummary = `Celotelové digitálne dermatoskopické vyšetrenie (${data.skinDistribution.toLowerCase()}). `;
+  if (highRiskLesions.length > 0) {
+    const locs = highRiskLesions.map(l => `${l.location} (${l.sizeMm})`).join(', ');
+    dermoscopySummary += `Zistená suspektná lézia vyžadujúca chirurgickú excíziu s histológiou: ${locs}. Vykazuje známky štrukturálnej atypie (TDS > 5.45 / asymetrická pigmentácia). Ostatné névy vykazujú stabilný benígny pigmentový vzorec.`;
+  } else if (moderateLesions.length > 0) {
+    const locs = moderateLesions.map(l => `${l.location} (${l.sizeMm})`).join(', ');
+    dermoscopySummary += `Zistené dysplastické prejavy vyžadujúce krátkodobé digitálne sledovanie: ${locs}. Bez jednoznačných známok malígnej transformácie, indikovaná digitálna fotodokumentácia o 3-6 mes.`;
+  } else {
+    dermoscopySummary += `Všetky vyšetrené pigmentové lézie majú typickú benígnu retikulárnu či globulárnu štruktúru bez známok atypie či malígneho melanómu.`;
+  }
+
+  // 3. Regime
+  let regime = `Fotoprotekcia: celoročné používanie širokospektrálnych filtrov SPF 50+ na exponované oblasti, vyhýbať sa poludňajšiemu slnku (11:00-15:00), zákaz solárií. Poučenie o samovyšetrovaní kože 1x mesačne podľa pravidla ABCDE.`;
+  if (highRiskLesions.length > 0) {
+    regime += ` Pozornosť venovať suspektnej lézii do termínu excízie – mechanicky netraumatizovať, neškrabať.`;
+  }
+
+  return {
+    morphology,
+    dermoscopySummary,
+    regime
+  };
+}
+
+// =========================================================================
+// SMART THERAPY BUNDLES (PREDPRIPRAVENÉ BALÍČKY LIEČBY)
+// =========================================================================
+
+export interface DermTherapyPackage {
+  id: string;
+  name: string;
+  category: string;
+  localTherapy: string;
+  systemicTherapy: string;
+  dermocosmetics: string;
+  regime: string;
+}
+
+export const DERM_THERAPY_PACKAGES: DermTherapyPackage[] = [
+  {
+    id: 'pkg_acne',
+    name: 'Akné protokol (Kyselina azelaová + Retinoid)',
+    category: 'Akné & Seborea',
+    localTherapy: 'Ráno: Kyselina azelaová 15% gél lokálne na postihnuté miesta. Večer: Adapalen 0.1% krém v tenkej vrstve na vyčistenú a suchú pleť. Pri zapálených pustulách lokálne Klindamycín emulzia.',
+    systemicTherapy: 'Bez systémovej liečby. (Pri zhoršení zvážiť cielenú tetracyklínovú ATB clonu na 6-8 týždňov).',
+    dermocosmetics: 'Čistiaci gél s kyselinou salicylovou a zinkom (SAY Cleanser), nemastný zmatňujúci hydratačný krém SPF 50+ s niacínamidom na deň.',
+    regime: 'Prísny zákaz mechanického vytláčania lézií (riziko jazvenia a PIH). Šetrné osušovanie bavlneným uterákom, obmedziť mliečne produkty a potraviny s vysokým glykemickým indexom.'
+  },
+  {
+    id: 'pkg_rosacea',
+    name: 'Rosacea protokol (Ivermektín + Metronidazol)',
+    category: 'Cievne dermatózy',
+    localTherapy: 'Ráno: Metronidazol 0.75% gél v tenkej vrstve. Večer: Ivermektín 10 mg/g krém (Soolantra) na líca a nos.',
+    systemicTherapy: 'Bez nutnosti systémovej liečby.',
+    dermocosmetics: 'Hypoalergénne čistiace mlieko bez parfumácie, termálna voda v spreji na okamžité upokojenie flushingu, minerálny fluid SPF 50+ s oxidom zinočnatým.',
+    regime: 'Eliminovať vazodilatačné spúšťače: horúce nápoje, pikantné jedlá, alkohol, sauna, prudké zmeny teplôt a silný vietor. Vynechať mechanické peelingy a alkoholové toniká.'
+  },
+  {
+    id: 'pkg_atopy',
+    name: 'Atopická dermatitída / Ekzém (Bariérový protokol)',
+    category: 'Ekzémy & Dermatitídy',
+    localTherapy: 'Akútne zapálené ložiská: Mometazon furoát 0.1% krém 1x denne večer maximálne 5-7 dní. Udržiavacia fáza: Takrolimus 0.1% masť 2x týždenne na predchádzanie relapsov. Emolienciá nanášať do 3 minút po kúpeli.',
+    systemicTherapy: 'Pri nočnom svrbení: Levocetirizín 5 mg 1 tbl večer per os.',
+    dermocosmetics: 'Relipidačný sprchový olej bez mydla (Syndet), balzam s obsahom ceramidov a termálnej vody aplikovať minimálne 2x denne celotelovo.',
+    regime: 'Krátka vlažná sprcha namiesto horúceho kúpeľa, bavlnené voľné oblečenie, nestrihať nechty do špičky. Udržiavať primeranú vlhkosť vzduchu v domácnosti.'
+  },
+  {
+    id: 'pkg_screening',
+    name: 'Preventívny onkodermatologický balíček (Fotoprotekcia SPF 50+)',
+    category: 'Prevencia & Skríning',
+    localTherapy: 'Lokálna farmakoterapia t.č. nie je potrebná.',
+    systemicTherapy: 'Bez indikácie systémovej terapie.',
+    dermocosmetics: 'Širokospektrálna fotoprotekcia SPF 50+ (UVA + UVB + HEV blue light ochrana). Celotelové hydratačné telové mlieko s kyselinou hyalurónovou a pantenolom.',
+    regime: 'Pravidelné domáce samovyšetrenie kože podľa pravidla ABCDE raz mesačne. Striktná ochrana pred UV žiarením, nosenie pokrývky hlavy a UV400 okuliarov. Zákaz návštevy solárií.'
   }
 ];

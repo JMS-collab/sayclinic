@@ -67,7 +67,7 @@ export function FacialMusclesOverlay({
       id: 'temporalis_left',
       latinName: 'm. temporalis (sin.)',
       slovakName: 'Spánkový sval (ľavý)',
-      clinicalNote: 'Hlboká spánková jama; aplikácia kyseliny hyalurónovej / Radiesse na periost.',
+      clinicalNote: 'Hlboká spánková jama; aplikácia kyseliny hyalurónovej (Restylane Volyme) na periost.',
       path: 'M 194,168 C 210,164 228,172 234,195 L 226,258 C 214,260 200,248 190,215 C 188,190 190,174 194,168 Z',
       striations: [
         'M 198,172 L 224,256',
@@ -81,7 +81,7 @@ export function FacialMusclesOverlay({
       id: 'temporalis_right',
       latinName: 'm. temporalis (dx.)',
       slovakName: 'Spánkový sval (pravý)',
-      clinicalNote: 'Hlboká spánková jama; aplikácia kyseliny hyalurónovej / Radiesse na periost.',
+      clinicalNote: 'Hlboká spánková jama; aplikácia kyseliny hyalurónovej (Restylane Volyme) na periost.',
       path: 'M 406,168 C 390,164 372,172 366,195 L 374,258 C 386,260 400,248 410,215 C 412,190 410,174 406,168 Z',
       striations: [
         'M 402,172 L 376,256',

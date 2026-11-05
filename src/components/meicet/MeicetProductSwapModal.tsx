@@ -10,7 +10,8 @@ import {
   Plus, 
   Sparkles, 
   Building2, 
-  Pill 
+  Pill,
+  PackagePlus
 } from 'lucide-react';
 import { MeicetSkincareProduct } from '@/types/meicet';
 import { SKINCARE_ALTERNATIVES_CATALOG } from '@/data/meicetAlternativesCatalog';
@@ -20,7 +21,10 @@ interface MeicetProductSwapModalProps {
   onClose: () => void;
   currentProduct: MeicetSkincareProduct | null;
   routineType: 'morning' | 'evening';
+  mode?: 'swap' | 'add';
+  targetStepNumber?: number;
   onSelectAlternative: (newProduct: MeicetSkincareProduct) => void;
+  onStockProduct?: (product: MeicetSkincareProduct) => void;
 }
 
 export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
@@ -28,8 +32,14 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
   onClose,
   currentProduct,
   routineType,
-  onSelectAlternative
+  mode = 'swap',
+  targetStepNumber,
+  onSelectAlternative,
+  onStockProduct
 }) => {
+  const isAddMode = mode === 'add';
+  const effectiveStep = isAddMode ? (targetStepNumber || 1) : (currentProduct?.step || 1);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTextureFilter, setSelectedTextureFilter] = useState<string>('all');
   const [isCustomMode, setIsCustomMode] = useState(false);
@@ -38,15 +48,16 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
   const [customBrand, setCustomBrand] = useState('');
   const [customName, setCustomName] = useState('');
   const [customCategory, setCustomCategory] = useState(currentProduct?.category || 'Sérum / Krém');
-  const [customPrice, setCustomPrice] = useState<string>('35');
+  const [customPrice, setCustomPrice] = useState<string>('45');
   const [customActiveIngredient, setCustomActiveIngredient] = useState('');
   const [customWhyItMatters, setCustomWhyItMatters] = useState('');
   const [customFrequency, setCustomFrequency] = useState('1x denne');
   const [customTitration, setCustomTitration] = useState('');
   const [customIsExternal, setCustomIsExternal] = useState(true);
   const [customIsRx, setCustomIsRx] = useState(false);
+  const [customAlsoStock, setCustomAlsoStock] = useState(false);
 
-  if (!isOpen || !currentProduct) return null;
+  if (!isOpen || (!currentProduct && !isAddMode)) return null;
 
   // Zozbierať všetky alternatívy z katalógu
   const allAlternatives = SKINCARE_ALTERNATIVES_CATALOG.flatMap(cat => 
@@ -75,7 +86,7 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
 
   const handleSelectProduct = (alt: typeof allAlternatives[0]) => {
     const updatedProduct: MeicetSkincareProduct = {
-      step: currentProduct.step,
+      step: effectiveStep,
       category: alt.category,
       productName: alt.productName,
       brand: alt.brand,
@@ -87,7 +98,7 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
       usage: alt.usage,
       purpose: alt.purpose,
       price: alt.price,
-      meicetJustification: alt.meicetJustification || currentProduct.meicetJustification,
+      meicetJustification: alt.meicetJustification || currentProduct?.meicetJustification || 'Indikované na základe spektrálnej analýzy pleti.',
       isExternal: alt.isExternal,
       prescriptionOnly: alt.prescriptionOnly,
       pharmacyBrand: alt.pharmacyBrand,
@@ -105,8 +116,8 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
     if (!customName.trim() || !customBrand.trim()) return;
 
     const newProduct: MeicetSkincareProduct = {
-      step: currentProduct.step,
-      category: customCategory || currentProduct.category,
+      step: effectiveStep,
+      category: customCategory || currentProduct?.category || 'Sérum / Krém',
       productName: customName.trim(),
       brand: customBrand.trim(),
       activeIngredients: customActiveIngredient.trim() || 'Dermatologický komplex',
@@ -118,11 +129,15 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
       purpose: 'Personalizovaná dermokozmetická starostlivosť.',
       price: customPrice ? parseFloat(customPrice) : undefined,
       meicetJustification: 'Indikované na základe individuálnej konzultácie s lekárom.',
-      isExternal: customIsExternal,
+      isExternal: customAlsoStock ? false : customIsExternal,
       prescriptionOnly: customIsRx,
-      pharmacyBrand: customIsExternal && !customIsRx,
+      pharmacyBrand: customIsExternal && !customIsRx && !customAlsoStock,
       alreadyOwned: false
     };
+
+    if (customAlsoStock && onStockProduct) {
+      onStockProduct(newProduct);
+    }
 
     onSelectAlternative(newProduct);
     onClose();
@@ -139,17 +154,21 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="px-2.5 py-0.5 rounded-md bg-[#C5A059]/20 text-[#8C6D2D] font-bold text-[10px] uppercase tracking-wider">
-                Smart Product Swap
+                {isAddMode ? 'Pridanie nového kroku' : 'Smart Product Swap'}
               </span>
               <span className="text-xs text-[#8C837A]">
-                {routineType === 'morning' ? '☀️ Ranná rutina' : '🌙 Večerná rutina'} • Krok {currentProduct.step}
+                {routineType === 'morning' ? '☀️ Ranná rutina' : '🌙 Večerná rutina'} • Krok {effectiveStep}
               </span>
             </div>
             <h3 className="font-serif font-bold text-xl text-[#2C2A29]">
-              Zmeniť produkt za dermatologickú alternatívu
+              {isAddMode ? 'Pridať nový produkt do rutiny' : 'Zmeniť produkt za dermatologickú alternatívu'}
             </h3>
             <p className="text-xs text-[#6B635B] mt-0.5">
-              Aktuálne zvolené: <strong className="text-[#2C2A29]">{currentProduct.brand} – {currentProduct.productName}</strong> ({currentProduct.price ? `${currentProduct.price} €` : 'neuvedená cena'})
+              {isAddMode ? (
+                'Vyberte produkt z lekárskeho katalógu (SkinCeuticals, ZO Skin Health, iS Clinical, Skinbetter, Medik8...) alebo zadajte vlastný.'
+              ) : currentProduct ? (
+                <>Aktuálne zvolené: <strong className="text-[#2C2A29]">{currentProduct.brand} – {currentProduct.productName}</strong> ({currentProduct.price ? `${currentProduct.price} €` : 'neuvedená cena'})</>
+              ) : null}
             </p>
           </div>
 
@@ -360,44 +379,64 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs">
-                  <input
-                    type="checkbox"
-                    checked={customIsExternal}
-                    onChange={(e) => setCustomIsExternal(e.target.checked)}
-                    className="rounded text-[#C5A059]"
-                  />
-                  <span>Produkt mimo kliniky (lekáreň / drogéria)</span>
-                </label>
+              <div className="flex flex-col gap-2 pt-2">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs">
+                    <input
+                      type="checkbox"
+                      checked={customIsExternal}
+                      onChange={(e) => setCustomIsExternal(e.target.checked)}
+                      className="rounded text-[#C5A059]"
+                    />
+                    <span>Produkt mimo kliniky (lekáreň / e-shop)</span>
+                  </label>
 
-                <label className="flex items-center gap-2 cursor-pointer text-xs">
-                  <input
-                    type="checkbox"
-                    checked={customIsRx}
-                    onChange={(e) => {
-                      setCustomIsRx(e.target.checked);
-                      if (e.target.checked) setCustomIsExternal(true);
-                    }}
-                    className="rounded text-rose-600"
-                  />
-                  <span className="text-rose-800 font-bold">Liek na lekársky predpis (Rp.)</span>
-                </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs">
+                    <input
+                      type="checkbox"
+                      checked={customIsRx}
+                      onChange={(e) => {
+                        setCustomIsRx(e.target.checked);
+                        if (e.target.checked) setCustomIsExternal(true);
+                      }}
+                      className="rounded text-rose-600"
+                    />
+                    <span className="text-rose-800 font-bold">Liek na lekársky predpis (Rp.)</span>
+                  </label>
+                </div>
+
+                {onStockProduct && (
+                  <label className="flex items-center gap-2 cursor-pointer text-xs p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 mt-1">
+                    <input
+                      type="checkbox"
+                      checked={customAlsoStock}
+                      onChange={(e) => {
+                        setCustomAlsoStock(e.target.checked);
+                        if (e.target.checked) setCustomIsExternal(false);
+                      }}
+                      className="rounded text-[#C5A059]"
+                    />
+                    <div className="flex items-center gap-1.5 text-[#8C6D2D] font-bold">
+                      <PackagePlus className="w-3.5 h-3.5" />
+                      <span>📦 Zároveň vytvoriť položku v sklade SAY CLINIC (5 ks na sklad) a v cenníku</span>
+                    </div>
+                  </label>
+                )}
               </div>
 
               <div className="pt-4 flex justify-end gap-3 border-t border-[#E8E2D9]">
                 <button
                   type="button"
                   onClick={() => setIsCustomMode(false)}
-                  className="px-4 py-2 rounded-xl border border-[#E8E2D9] text-xs font-semibold hover:bg-[#FAF7F2]"
+                  className="px-4 py-2 rounded-xl border border-[#E8E2D9] text-xs font-semibold hover:bg-[#FAF7F2] cursor-pointer"
                 >
                   Späť do katalógu
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#C5A059] hover:bg-[#B38F48] text-white text-xs font-bold shadow-sm"
+                  className="px-5 py-2 rounded-xl bg-[#C5A059] hover:bg-[#B38F48] text-white text-xs font-bold shadow-sm cursor-pointer"
                 >
-                  Použiť a nahradiť krok {currentProduct.step}
+                  {isAddMode ? `Pridať ako krok ${effectiveStep}` : `Použiť a nahradiť krok ${effectiveStep}`}
                 </button>
               </div>
             </form>
@@ -406,8 +445,9 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredAlternatives.map((alt) => {
                 const isSelected = 
-                  alt.brand.toLowerCase() === currentProduct.brand.toLowerCase() && 
-                  alt.productName.toLowerCase() === currentProduct.productName.toLowerCase();
+                  Boolean(currentProduct) &&
+                  alt.brand.toLowerCase() === currentProduct!.brand.toLowerCase() && 
+                  alt.productName.toLowerCase() === currentProduct!.productName.toLowerCase();
 
                 return (
                   <div
@@ -480,11 +520,44 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
                       )}
                     </div>
 
-                    {/* TLAČIDLO VÝBERU */}
-                    <div className="mt-4 pt-3 border-t border-[#E8E2D9] flex items-center justify-between">
-                      <span className="text-[10px] text-[#8C837A]">
-                        {alt.isExternal ? 'Externý nákup / lekáreň' : 'Klinické portfólio SAY CLINIC'}
-                      </span>
+                    {/* TLAČIDLO VÝBERU A NASKLADNENIA */}
+                    <div className="mt-4 pt-3 border-t border-[#E8E2D9] flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-[#8C837A]">
+                          {alt.isExternal ? 'Externý nákup / lekáreň' : 'Klinické portfólio SAY CLINIC'}
+                        </span>
+
+                        {alt.isExternal && onStockProduct && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const prodToStock: MeicetSkincareProduct = {
+                                step: effectiveStep,
+                                category: alt.category,
+                                productName: alt.productName,
+                                brand: alt.brand,
+                                activeIngredients: alt.activeIngredients,
+                                keyActiveIngredient: alt.keyActiveIngredient,
+                                whyItMatters: alt.whyItMatters,
+                                frequencySchedule: alt.frequencySchedule,
+                                usage: alt.usage,
+                                purpose: alt.purpose,
+                                price: alt.price,
+                                isExternal: false,
+                                meicetJustification: alt.meicetJustification || 'Dermatologická indikácia z Meicet diagnostiky.',
+                                galenicForm: alt.galenicForm as any
+                              };
+                              onStockProduct(prodToStock);
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#FAF7F2] hover:bg-[#C5A059]/20 text-[#8C6D2D] border border-[#E8DFC9] flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Zaradiť tento produkt do skladu a cenníka SAY CLINIC (5 ks na sklad)"
+                          >
+                            <PackagePlus className="w-3 h-3" />
+                            <span>Zaradiť na sklad</span>
+                          </button>
+                        )}
+                      </div>
 
                       <button
                         type="button"
@@ -500,6 +573,11 @@ export const MeicetProductSwapModal: React.FC<MeicetProductSwapModalProps> = ({
                           <>
                             <Check className="w-3.5 h-3.5" />
                             Aktuálne zvolený
+                          </>
+                        ) : isAddMode ? (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            Pridať do rutiny (krok {effectiveStep})
                           </>
                         ) : (
                           <>

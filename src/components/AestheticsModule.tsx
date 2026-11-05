@@ -31,10 +31,23 @@ import {
   RefreshCw,
   Layers,
   Award,
-  Compass
+  Compass,
+  PackageCheck,
+  Package,
+  Search,
+  Stethoscope,
+  CheckSquare,
+  Square,
+  Info,
+  ShieldAlert,
+  ArrowRight,
+  MoreVertical,
+  Copy,
+  Target,
+  Edit3
 } from 'lucide-react';
 import { Patient, MedicalRecord } from './PatientDatabase';
-import { InventoryService } from '../services/inventoryService';
+import { InventoryService, PatientMaterialDepotItem } from '../services/inventoryService';
 import { FinanceBillingService } from '../services/financeBillingService';
 import { LoyaltyService } from '../services/loyaltyService';
 import ClientLoyaltyModal from './ClientLoyaltyModal';
@@ -47,7 +60,13 @@ import {
   DrawingToolType 
 } from './Sculpture2DViewer';
 import { Sculpture3DViewer } from './Sculpture3DViewer';
-import { getClinicPrice } from '../data/clinicPriceList';
+import { getClinicPrice, CLINIC_PRICE_LIST, ClinicPriceItem } from '../data/clinicPriceList';
+
+export const AESTHETIC_DOCTORS = [
+  'MUDr. Ján Mráz',
+  'MUDr. Zuzana Sroková, MPH',
+  'MUDr. Minh Tuong Tran'
+];
 
 export interface AestheticMaterial {
   id: string;
@@ -106,38 +125,96 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     defaultPrice: getClinicPrice('hyaluronic_acid_05ml', 180),
     recommendedTechnique: 'Jemná hydratácia pier / vrások'
   },
+  // --- RESTYLANE PORTFOLIO (Galderma NASHA & OBT) ---
+  {
+    id: 'restylane_classic',
+    name: 'Restylane 1ml (Lidocaine)',
+    type: 'filler',
+    categoryLabel: 'Výplň vrások (HA 1ml)',
+    color: '#E11D48',
+    defaultUnit: 'ml',
+    defaultUnits: 0.2,
+    defaultPrice: getClinicPrice('ha_1ml', 290),
+    recommendedTechnique: 'NASHA technológia, stredná dermis / lineárna technika'
+  },
+  {
+    id: 'restylane_lyft',
+    name: 'Restylane Lyft 1ml (Zygoma & Líca)',
+    type: 'filler',
+    categoryLabel: 'Objem & Lifting (HA 1ml)',
+    color: '#DB2777',
+    defaultUnit: 'ml',
+    defaultUnits: 0.2,
+    defaultPrice: getClinicPrice('ha_1ml', 290),
+    recommendedTechnique: 'Bolus na periost / kanyla 25G líca, zygoma a brada'
+  },
   {
     id: 'restylane_kysse',
-    name: 'Restylane Kysse 1ml (Pery)',
+    name: 'Restylane Kysse 1ml (Pery & Periorál)',
     type: 'filler',
     categoryLabel: 'Výplň pier (HA 1ml)',
     color: '#EC4899',
     defaultUnit: 'ml',
     defaultUnits: 0.1,
-    defaultPrice: getClinicPrice('hyaluronic_acid_1ml', 290),
+    defaultPrice: getClinicPrice('ha_1ml', 290),
     recommendedTechnique: 'OBT mikrodepozity kontúry a tela pier'
   },
   {
-    id: 'juvederm_voluma',
-    name: 'Juvederm Voluma 1ml (Líca & Brada)',
+    id: 'restylane_volyme',
+    name: 'Restylane Volyme 1ml (Objem tváre & Spánky)',
     type: 'filler',
-    categoryLabel: 'Objemová výplň (HA 1ml)',
-    color: '#DB2777',
+    categoryLabel: 'Volumizácia (HA 1ml)',
+    color: '#C026D3',
     defaultUnit: 'ml',
     defaultUnits: 0.2,
-    defaultPrice: getClinicPrice('hyaluronic_acid_1ml', 290),
-    recommendedTechnique: 'Bolus na periost / kanyla líca a brada'
+    defaultPrice: getClinicPrice('ha_1ml', 290),
+    recommendedTechnique: 'OBT hlboká volumizácia líc a spánkových depresií'
   },
   {
-    id: 'skinbooster',
-    name: 'Skinbooster 1ml',
+    id: 'restylane_defyne',
+    name: 'Restylane Defyne 1ml (Hlboké ryhy & Sánka)',
+    type: 'filler',
+    categoryLabel: 'Dynamická výplň (HA 1ml)',
+    color: '#9333EA',
+    defaultUnit: 'ml',
+    defaultUnits: 0.2,
+    defaultPrice: getClinicPrice('ha_1ml', 290),
+    recommendedTechnique: 'OBT dynamická projekcia brady a nasolabiálnych rýh'
+  },
+  {
+    id: 'restylane_refyne',
+    name: 'Restylane Refyne 1ml (Dynamické línie)',
+    type: 'filler',
+    categoryLabel: 'Pružná výplň (HA 1ml)',
+    color: '#A855F7',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1,
+    defaultPrice: getClinicPrice('ha_1ml', 290),
+    recommendedTechnique: 'OBT stredná dermis pre mimicky flexibilné línie'
+  },
+  {
+    id: 'restylane_skinboosters',
+    name: 'Restylane Skinboosters Vital 1ml',
     type: 'meso',
-    categoryLabel: 'Hĺbková hydratácia',
+    categoryLabel: 'Hĺbková hydratácia dermis',
     color: '#06B6D4',
     defaultUnit: 'ml',
     defaultUnits: 0.1,
     defaultPrice: getClinicPrice('skinbooster_1ml', 300),
-    recommendedTechnique: 'Mikropapulárna aplikácia do papilárnej dermis'
+    recommendedTechnique: 'NASHA mikropapuly do strednej až hlbokej dermis'
+  },
+
+  // --- TEOXANE ---
+  {
+    id: 'teosyal_redensity2',
+    name: 'Teosyal PureSense Redensity II 1ml (Kruhy pod očami)',
+    type: 'filler',
+    categoryLabel: 'Periorbitálna výplň (HA 1ml)',
+    color: '#F43F5E',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1,
+    defaultPrice: 300,
+    recommendedTechnique: 'Supraperiostálna aplikácia kanylou 27G / ihlou do sulcus infraorbitalis (Tear Trough)'
   },
   {
     id: 'rejuran_healer',
@@ -228,17 +305,6 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
     recommendedTechnique: 'Hlboký subkutánny vejárovitý nános kanylou'
   },
   {
-    id: 'radiesse',
-    name: 'Radiesse (+) 1.5ml',
-    type: 'biostimulator',
-    categoryLabel: 'CaHA Vektoring',
-    color: '#D97706',
-    defaultUnit: 'ml',
-    defaultUnits: 0.3,
-    defaultPrice: getClinicPrice('radiesse_1_5ml', 390),
-    recommendedTechnique: 'Kanylový vejárovitý vektoring na periost / subkutis'
-  },
-  {
     id: 'hyaluronidase',
     name: 'Aplikácia hyaluronidázy 150UI',
     type: 'meso',
@@ -298,9 +364,13 @@ export const PRESET_MATERIALS: AestheticMaterial[] = [
 export interface AestheticTemplate {
   id: string;
   title: string;
-  category: 'botox' | 'filler' | 'meso' | 'biostimulator';
+  category: 'botox' | 'filler' | 'pdrn' | 'meso' | 'exosomes' | 'microneedling' | 'laser' | 'biostimulator';
   productName: string;
   price: number;
+  doctor?: string; // 'MUDr. Ján Mráz' | 'MUDr. Zuzana Sroková, MPH' | 'MUDr. Minh Tuong Tran' | 'all'
+  defaultTotalVolume?: number;
+  defaultUsedVolume?: number;
+  defaultUnit?: string;
   type: 'point' | 'fanning' | 'threads';
   color: string;
   description: string;
@@ -316,6 +386,10 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     category: 'botox',
     productName: 'Dysport 300IU',
     price: getClinicPrice('botox_1_area', 120),
+    doctor: 'all',
+    defaultTotalVolume: 300,
+    defaultUsedVolume: 50,
+    defaultUnit: 'Speywood',
     type: 'point',
     color: '#3B82F6',
     description: 'Izolované ošetrenie glabelárneho komplexu (m. procerus a m. corrugator bilaterálne).',
@@ -394,6 +468,10 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     category: 'botox',
     productName: 'Dysport 300IU',
     price: getClinicPrice('botox_1_area', 120),
+    doctor: 'all',
+    defaultTotalVolume: 300,
+    defaultUsedVolume: 50,
+    defaultUnit: 'Speywood',
     type: 'point',
     color: '#3B82F6',
     description: 'Horizontálne vrásky čela (m. frontalis) so zachovaním prirodzenej polohy obočia.',
@@ -472,6 +550,10 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     category: 'botox',
     productName: 'Dysport 300IU',
     price: getClinicPrice('botox_1_area', 120),
+    doctor: 'all',
+    defaultTotalVolume: 300,
+    defaultUsedVolume: 50,
+    defaultUnit: 'Speywood',
     type: 'point',
     color: '#3B82F6',
     description: 'Periorbitálne vrásky laterálneho kútika oka (m. orbicularis oculi).',
@@ -491,6 +573,10 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     category: 'botox',
     productName: 'Dysport 300IU',
     price: getClinicPrice('botox_2_areas', 200),
+    doctor: 'MUDr. Ján Mráz',
+    defaultTotalVolume: 300,
+    defaultUsedVolume: 100,
+    defaultUnit: 'Speywood',
     type: 'point',
     color: '#3B82F6',
     description: 'Najčastejšie kombinované ošetrenie čela a glately s cenovým zvýhodnením.',
@@ -511,6 +597,10 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     category: 'botox',
     productName: 'Dysport 300IU',
     price: getClinicPrice('botox_3_areas', 280),
+    doctor: 'MUDr. Ján Mráz',
+    defaultTotalVolume: 300,
+    defaultUsedVolume: 150,
+    defaultUnit: 'Speywood',
     type: 'point',
     color: '#3B82F6',
     description: 'Kompletná horná tretina tváre: čelo, glabela a očné vejáriky (komplexný vyhladzujúci balík).',
@@ -535,6 +625,10 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     category: 'filler',
     productName: 'Restylane Kysse 1ml',
     price: getClinicPrice('hyaluronic_acid_1ml', 290),
+    doctor: 'MUDr. Ján Mráz',
+    defaultTotalVolume: 1.0,
+    defaultUsedVolume: 1.0,
+    defaultUnit: 'ml',
     type: 'point',
     color: '#EC4899',
     description: 'Prirodzená definícia kontúr, Amorovho luku a zväčšenie objemu tela pier.',
@@ -555,6 +649,10 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     category: 'meso',
     productName: 'Profhilo H+L 2ml',
     price: getClinicPrice('profhilo_2ml', 290),
+    doctor: 'all',
+    defaultTotalVolume: 2.0,
+    defaultUsedVolume: 2.0,
+    defaultUnit: 'ml',
     type: 'point',
     color: '#10B981',
     description: '10 bioestetických bodov (5 vľavo, 5 vpravo) pre hĺbkovú hydratáciu a elasticitu tváre.',
@@ -578,6 +676,10 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     category: 'meso',
     productName: 'Rejuran Healer (2ml Polynukleotidy)',
     price: getClinicPrice('rejuran_healer_2ml', 290),
+    doctor: 'MUDr. Zuzana Sroková, MPH',
+    defaultTotalVolume: 2.0,
+    defaultUsedVolume: 2.0,
+    defaultUnit: 'ml',
     type: 'point',
     color: '#0EA5E9',
     description: 'Intradermálna aplikácia polynukleotidov (PN) pre bunkovú opravu dermis, redukciu pórov a spevnenie pleti.',
@@ -590,50 +692,84 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     ]
   },
   {
-    id: 'radiesse_vectoring',
-    title: 'Radiesse (+) 1.5ml – Vektoring sánky & Lifting',
-    category: 'biostimulator',
-    productName: 'Radiesse (+) 1.5ml',
-    price: getClinicPrice('radiesse_1_5ml', 390),
-    type: 'fanning',
-    color: '#D97706',
-    description: 'CaHA kanylový lifting kontúr dolnej čeľuste, kútikov a zygomy.',
-    recommendations: '• Kľudový režim, nemasírovať ošetrené zóny 7 dní.\n• Kontrola o 3-4 týždne.',
+    id: 'restylane_lyft_cheeks',
+    title: 'Restylane Lyft 1ml – Líca, Zygoma & Kontúry',
+    category: 'filler',
+    productName: 'Restylane Lyft 1ml',
+    price: getClinicPrice('ha_1ml', 290),
+    doctor: 'MUDr. Zuzana Sroková, MPH',
+    defaultTotalVolume: 1.0,
+    defaultUsedVolume: 1.0,
+    defaultUnit: 'ml',
+    type: 'point',
+    color: '#DB2777',
+    description: 'Hlboká volumizácia lícnych kostí (zygoma), obnova mladistvého objemu strednej tretiny a lifting pomocou technológie NASHA.',
+    recommendations: '• 48 hodín bez tlaku na líca, spať na chrbte.\n• Vyhnúť sa saune, alkoholu a ťažkej námahe 72 hodín.',
     vectors: [
-      {
-        id: 'tpl_r1',
-        type: 'fanning',
-        view: 'front',
-        color: '#D97706',
-        startPoint: { x: 215, y: 450 },
-        endPoint: { x: 270, y: 480 },
-        fanningRays: [
-          { x: 260, y: 460 },
-          { x: 270, y: 480 },
-          { x: 255, y: 500 }
-        ],
-        zoneName: 'Mandibulárny vektoring Ľ',
-        productName: 'Radiesse (+) 1.5ml',
-        details: '0.75ml kanyla 25G',
-        createdAt: '10:00'
-      },
-      {
-        id: 'tpl_r2',
-        type: 'fanning',
-        view: 'front',
-        color: '#D97706',
-        startPoint: { x: 385, y: 450 },
-        endPoint: { x: 330, y: 480 },
-        fanningRays: [
-          { x: 340, y: 460 },
-          { x: 330, y: 480 },
-          { x: 345, y: 500 }
-        ],
-        zoneName: 'Mandibulárny vektoring P',
-        productName: 'Radiesse (+) 1.5ml',
-        details: '0.75ml kanyla 25G',
-        createdAt: '10:00'
-      }
+      { id: 'tpl_rl1', type: 'point', view: 'front', color: '#DB2777', startPoint: { x: 235, y: 340 }, zoneName: 'Zygomatická oblasť Ľ (apex)', productName: 'Restylane Lyft 1ml', details: '0.25ml bolus na kosť', units: 0.25, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_rl2', type: 'point', view: 'front', color: '#DB2777', startPoint: { x: 255, y: 360 }, zoneName: 'Malar bone Ľ', productName: 'Restylane Lyft 1ml', details: '0.25ml bolus na kosť', units: 0.25, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_rl3', type: 'point', view: 'front', color: '#DB2777', startPoint: { x: 365, y: 340 }, zoneName: 'Zygomatická oblasť P (apex)', productName: 'Restylane Lyft 1ml', details: '0.25ml bolus na kosť', units: 0.25, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_rl4', type: 'point', view: 'front', color: '#DB2777', startPoint: { x: 345, y: 360 }, zoneName: 'Malar bone P', productName: 'Restylane Lyft 1ml', details: '0.25ml bolus na kosť', units: 0.25, unitsUnit: 'ml', createdAt: '10:00' }
+    ]
+  },
+  {
+    id: 'teosyal_redensity2_teartrough',
+    title: 'Teosyal PureSense Redensity II 1ml – Kruhy pod očami & Tear Trough',
+    category: 'filler',
+    productName: 'Teosyal PureSense Redensity II 1ml',
+    price: 300,
+    doctor: 'MUDr. Zuzana Sroková, MPH',
+    defaultTotalVolume: 1.0,
+    defaultUsedVolume: 0.8,
+    defaultUnit: 'ml',
+    type: 'point',
+    color: '#F43F5E',
+    description: 'Špecializovaný dermo-reštrukturalizačný gél na slzné ryhy a kruhy pod očami. Minimálne viaže vodu, eliminuje riziko ranných opuchov (Tyndallov efekt).',
+    recommendations: '• 24h jemný suchý chladivý obklad, nepretierať a nemasírovať očné okolie.\n• Spať s vyvýšenou hlavou.\n• Zvyšných 0.2ml je možné odložiť do skladu kliniky pre pacientku na mikrodokorekciu o 3-4 týždne.',
+    vectors: [
+      { id: 'tpl_tr1', type: 'point', view: 'front', color: '#F43F5E', startPoint: { x: 260, y: 310 }, zoneName: 'Slzná ryha (Tear trough) Ľ', productName: 'Teosyal PureSense Redensity II 1ml', details: '0.4ml kanyla 27G na periost', units: 0.4, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_tr2', type: 'point', view: 'front', color: '#F43F5E', startPoint: { x: 340, y: 310 }, zoneName: 'Slzná ryha (Tear trough) P', productName: 'Teosyal PureSense Redensity II 1ml', details: '0.4ml kanyla 27G na periost', units: 0.4, unitsUnit: 'ml', createdAt: '10:00' }
+    ]
+  },
+  {
+    id: 'restylane_defyne_jaw',
+    title: 'Restylane Defyne 1ml – Brada & Mandibulárna línia',
+    category: 'filler',
+    productName: 'Restylane Defyne 1ml',
+    price: getClinicPrice('ha_1ml', 290),
+    doctor: 'MUDr. Minh Tuong Tran',
+    defaultTotalVolume: 1.0,
+    defaultUsedVolume: 1.0,
+    defaultUnit: 'ml',
+    type: 'point',
+    color: '#9333EA',
+    description: 'Dynamická definícia kontúry sánky a projekcie brady technológiou OBT, ktorá zachováva prirodzený pohyb pri mimike.',
+    recommendations: '• 48 hodín bez tlaku na bradu a čeľusť.\n• Vyhnúť sa saune a alkoholu.',
+    vectors: [
+      { id: 'tpl_rd1', type: 'point', view: 'front', color: '#9333EA', startPoint: { x: 300, y: 520 }, zoneName: 'Pogonion (projekcia brady)', productName: 'Restylane Defyne 1ml', details: '0.5ml bolus na kosť', units: 0.5, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_rd2', type: 'point', view: 'front', color: '#9333EA', startPoint: { x: 250, y: 495 }, zoneName: 'Pre-jowl sulcus Ľ', productName: 'Restylane Defyne 1ml', details: '0.25ml', units: 0.25, unitsUnit: 'ml', createdAt: '10:00' },
+      { id: 'tpl_rd3', type: 'point', view: 'front', color: '#9333EA', startPoint: { x: 350, y: 495 }, zoneName: 'Pre-jowl sulcus P', productName: 'Restylane Defyne 1ml', details: '0.25ml', units: 0.25, unitsUnit: 'ml', createdAt: '10:00' }
+    ]
+  },
+  {
+    id: 'botox_masseter_jaw',
+    title: 'Botox Masseter – Zúženie tváre & Bruxizmus',
+    category: 'botox',
+    productName: 'Dysport 300IU (Masseter)',
+    price: getClinicPrice('botox_masseter', 300),
+    doctor: 'MUDr. Minh Tuong Tran',
+    defaultTotalVolume: 300,
+    defaultUsedVolume: 100,
+    defaultUnit: 'Speywood',
+    type: 'point',
+    color: '#2563EB',
+    description: 'Hlboká intramuskulárna aplikácia do žuvacieho svalu (m. masseter) pre zoštíhlenie dolnej tretiny a úľavu od nočného zatínania.',
+    recommendations: '• 4 hodiny po aplikácii neľahať si.\n• Vyhnúť sa žuvačkám a veľmi tvrdej strave prvé 3 dni.\n• Nástup zoštíhľujúceho efektu do 3-4 týždňov.',
+    vectors: [
+      { id: 'tpl_m1', type: 'point', view: 'front', color: '#2563EB', startPoint: { x: 220, y: 470 }, zoneName: 'Masseter Ľ (hlavný bolus)', productName: 'Dysport 300IU', details: '25 Speywood U', units: 25, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_m2', type: 'point', view: 'front', color: '#2563EB', startPoint: { x: 230, y: 490 }, zoneName: 'Masseter Ľ (dolný bod)', productName: 'Dysport 300IU', details: '25 Speywood U', units: 25, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_m3', type: 'point', view: 'front', color: '#2563EB', startPoint: { x: 380, y: 470 }, zoneName: 'Masseter P (hlavný bolus)', productName: 'Dysport 300IU', details: '25 Speywood U', units: 25, unitsUnit: 'Speywood', createdAt: '10:00' },
+      { id: 'tpl_m4', type: 'point', view: 'front', color: '#2563EB', startPoint: { x: 370, y: 490 }, zoneName: 'Masseter P (dolný bod)', productName: 'Dysport 300IU', details: '25 Speywood U', units: 25, unitsUnit: 'Speywood', createdAt: '10:00' }
     ]
   },
   {
@@ -642,6 +778,10 @@ export const PRESET_PROCEDURES: AestheticTemplate[] = [
     category: 'biostimulator',
     productName: 'Sculptra (1 fľaštička)',
     price: getClinicPrice('sculptra_1vial', 450),
+    doctor: 'MUDr. Ján Mráz',
+    defaultTotalVolume: 1.0,
+    defaultUsedVolume: 1.0,
+    defaultUnit: 'fľaštička',
     type: 'fanning',
     color: '#C5A059',
     description: 'Biostimulačný nános PLLA pre obnovu objemu a pevnosti hlbokých vrstiev kože.',
@@ -695,6 +835,14 @@ export interface TreatmentLineItem {
   category?: string;
   templateId?: string;
   templateTitle?: string;
+  totalVolume?: number;
+  usedVolume?: number;
+  remainingVolume?: number;
+  unit?: string;
+  storeRemainingToDepot?: boolean;
+  doctorName?: string;
+  isFromDepot?: boolean;
+  depotOriginId?: string;
 }
 
 export interface AestheticSession {
@@ -850,9 +998,103 @@ export function AestheticsModule({
   });
 
   const [appliedTemplateTitles, setAppliedTemplateTitles] = useState<string[]>([]);
+  const [lastActiveTemplateId, setLastActiveTemplateId] = useState<string | null>(null);
+  const [saveTemplateMode, setSaveTemplateMode] = useState<'update' | 'new'>('update');
+  const [selectedTemplateToOverwriteId, setSelectedTemplateToOverwriteId] = useState<string>('');
   const [showAllTemplatesModal, setShowAllTemplatesModal] = useState(false);
   const [showMaterialsManagerModal, setShowMaterialsManagerModal] = useState(false);
   const [templateFilterCategory, setTemplateFilterCategory] = useState<string>('all');
+
+  // OŠETRUJÚCI LEKÁR (PREDVOĽBA PRE ŠABLÓNY A OŠETRENIE)
+  const [selectedDoctor, setSelectedDoctor] = useState<string>('MUDr. Ján Mráz');
+
+  // ZOSTATKY MATERIÁLU PACIENTKY V SKLADE (KLIENTSKÝ DEPOZIT)
+  const [patientDepotItems, setPatientDepotItems] = useState<PatientMaterialDepotItem[]>([]);
+
+  // KATALÓG: ŠABLÓNY vs CENNÍK
+  const [catalogTab, setCatalogTab] = useState<'templates' | 'pricelist'>('templates');
+  const [catalogSearch, setCatalogSearch] = useState<string>('');
+  const [catalogCategory, setCatalogCategory] = useState<string>('all');
+
+  const refreshPatientDepot = React.useCallback(() => {
+    if (currentPatient?.id) {
+      const active = InventoryService.getActivePatientDepot(currentPatient.id);
+      setPatientDepotItems(active);
+    } else {
+      setPatientDepotItems([]);
+    }
+  }, [currentPatient?.id]);
+
+  useEffect(() => {
+    refreshPatientDepot();
+    const handleDepotChange = () => refreshPatientDepot();
+    window.addEventListener('say_clinic_patient_depot_changed', handleDepotChange);
+    return () => window.removeEventListener('say_clinic_patient_depot_changed', handleDepotChange);
+  }, [refreshPatientDepot]);
+
+  // Filtrovanie šablón podľa lekára, kategórie a vyhľadávania
+  const doctorTemplates = React.useMemo(() => {
+    return templatesList.filter(tpl => {
+      const matchesDoctor = !tpl.doctor || tpl.doctor === 'all' || tpl.doctor === selectedDoctor;
+      if (!matchesDoctor) return false;
+      if (catalogCategory !== 'all') {
+        if (catalogCategory === 'pdrn') {
+          if (tpl.category !== 'pdrn' && tpl.category !== 'meso') return false;
+        } else if (catalogCategory === 'filler') {
+          if (tpl.category !== 'filler') return false;
+        } else if (catalogCategory === 'botox') {
+          if (tpl.category !== 'botox') return false;
+        } else if (tpl.category !== catalogCategory) {
+          return false;
+        }
+      }
+      if (catalogSearch.trim()) {
+        const q = catalogSearch.toLowerCase();
+        return tpl.title.toLowerCase().includes(q) || tpl.productName.toLowerCase().includes(q) || (tpl.description && tpl.description.toLowerCase().includes(q));
+      }
+      return true;
+    });
+  }, [templatesList, selectedDoctor, catalogCategory, catalogSearch]);
+
+  // Filtrovanie cenníka kliniky pre estetické výkony
+  const filteredPriceList = React.useMemo(() => {
+    const list = CLINIC_PRICE_LIST.filter(item => {
+      // Striktne len relevantná estetika (injekčná estetika & prístroje priradené k estetike)
+      if (item.category !== 'injectables_aesthetics') return false;
+
+      const nameLower = item.name.toLowerCase();
+      const descLower = (item.description || '').toLowerCase();
+      const idLower = item.id.toLowerCase();
+
+      // Striktne vylúčenie Radiesse a Juvéderm
+      if (nameLower.includes('radiesse') || idLower.includes('radiesse')) return false;
+      if (nameLower.includes('juvéderm') || nameLower.includes('juvederm') || idLower.includes('juvederm')) return false;
+
+      if (catalogCategory !== 'all') {
+        if (catalogCategory === 'filler' && !nameLower.includes('restylane') && !nameLower.includes('teosyal') && !nameLower.includes('kyselina') && !nameLower.includes('výplň') && !idLower.includes('ha_') && !idLower.includes('hyaluronidase')) return false;
+        if (catalogCategory === 'botox' && !nameLower.includes('botox') && !nameLower.includes('dysport')) return false;
+        if (catalogCategory === 'refill' && !nameLower.includes('doplnenie') && !nameLower.includes('dopich') && !idLower.includes('addition')) return false;
+        if (catalogCategory === 'pdrn' && !nameLower.includes('rejuran') && !nameLower.includes('pdrn') && !nameLower.includes('polynukleotid') && !nameLower.includes('profhilo') && !nameLower.includes('philart')) return false;
+        if (catalogCategory === 'exosomes' && !nameLower.includes('exozóm') && !nameLower.includes('asce')) return false;
+        if (catalogCategory === 'microneedling' && !nameLower.includes('dermapen') && !nameLower.includes('microneedling')) return false;
+        if (catalogCategory === 'laser' && !nameLower.includes('co2') && !nameLower.includes('coolpeel') && !idLower.includes('co2')) return false;
+      }
+
+      if (catalogSearch.trim()) {
+        const q = catalogSearch.toLowerCase();
+        return nameLower.includes(q) || descLower.includes(q) || item.categoryLabel.toLowerCase().includes(q);
+      }
+      return true;
+    });
+
+    // Zaručená deduplikácia podľa unikátneho ID
+    const seenIds = new Set<string>();
+    return list.filter(item => {
+      if (seenIds.has(item.id)) return false;
+      seenIds.add(item.id);
+      return true;
+    });
+  }, [catalogCategory, catalogSearch]);
   
   // MODÁLNE OKNÁ PRE NOVÉ ŠABLÓNY A MATERIÁLY
   const [showSaveCustomTemplateModal, setShowSaveCustomTemplateModal] = useState(false);
@@ -862,6 +1104,42 @@ export function AestheticsModule({
   // EDITÁCIA EXISTUJÚCICH ŠABLÓN A MATERIÁLOV
   const [editingTemplate, setEditingTemplate] = useState<AestheticTemplate | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<AestheticMaterial | null>(null);
+
+  // KONTEXTOVÉ MENU PRE ŠABLÓNU (PRAVÝ KLIK)
+  const [templateContextMenu, setTemplateContextMenu] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    template: AestheticTemplate | null;
+  }>({
+    isOpen: false,
+    x: 0,
+    y: 0,
+    template: null
+  });
+
+  // REŽIM ÚPRAVY BODOV ŠABLÓNY NA SOCHE TVÁRE
+  const [templatePointsEditing, setTemplatePointsEditing] = useState<AestheticTemplate | null>(null);
+  const [patientVectorsBackup, setPatientVectorsBackup] = useState<Vector2DItem[] | null>(null);
+
+  // FORMULÁR PRE DETAILNÚ EDITÁCIU ŠABLÓNY
+  const [editTemplateForm, setEditTemplateForm] = useState<{
+    id: string;
+    title: string;
+    category: AestheticTemplate['category'];
+    productName: string;
+    price: number;
+    doctor: string;
+    defaultTotalVolume: number;
+    defaultUsedVolume: number;
+    defaultUnit: string;
+    type: 'point' | 'fanning' | 'threads';
+    color: string;
+    description: string;
+    recommendations: string;
+    vectors: Vector2DItem[];
+    isCustom?: boolean;
+  } | null>(null);
 
   // FORMULÁR PRE PRIDANIE NOVEJ LÁTKY
   const [newMatName, setNewMatName] = useState('');
@@ -885,7 +1163,13 @@ export function AestheticsModule({
     {
       id: 'li_initial',
       title: 'Dysport, m. frontalis bilat., 4 vpichy strana, celkovo 50IU',
-      price: 120
+      price: 120,
+      totalVolume: 50,
+      usedVolume: 50,
+      remainingVolume: 0,
+      unit: 'Speywood',
+      storeRemainingToDepot: false,
+      doctorName: 'MUDr. Ján Mráz'
     }
   ]);
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent');
@@ -1064,6 +1348,217 @@ export function AestheticsModule({
     }
   };
 
+  // OTVORENIE KONTEXTOVÉHO MENU ŠABLÓNY (PRAVÝ KLIK ALEBO IKONA)
+  const handleOpenTemplateContextMenu = (e: React.MouseEvent, tpl: AestheticTemplate) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const menuWidth = 250;
+    const menuHeight = 240;
+    const x = Math.min(e.clientX, window.innerWidth - menuWidth - 16);
+    const y = Math.min(e.clientY, window.innerHeight - menuHeight - 16);
+    setTemplateContextMenu({
+      isOpen: true,
+      x: Math.max(16, x),
+      y: Math.max(16, y),
+      template: tpl
+    });
+  };
+
+  // OTVORENIE MODÁLU PRE EDITÁCIU ŠABLÓNY
+  const handleOpenEditTemplate = (tpl: AestheticTemplate) => {
+    setEditTemplateForm({
+      id: tpl.id,
+      title: tpl.title,
+      category: tpl.category,
+      productName: tpl.productName,
+      price: tpl.price,
+      doctor: tpl.doctor || 'all',
+      defaultTotalVolume: tpl.defaultTotalVolume ?? (tpl.category === 'botox' ? 300 : 1.0),
+      defaultUsedVolume: tpl.defaultUsedVolume ?? (tpl.category === 'botox' ? 50 : 1.0),
+      defaultUnit: tpl.defaultUnit ?? (tpl.category === 'botox' ? 'Speywood' : 'ml'),
+      type: tpl.type || 'point',
+      color: tpl.color || '#3B82F6',
+      description: tpl.description || '',
+      recommendations: tpl.recommendations || DEFAULT_RECOMMENDATIONS,
+      vectors: tpl.vectors ? tpl.vectors.map(v => ({ ...v })) : [],
+      isCustom: tpl.isCustom
+    });
+    setEditingTemplate(tpl);
+  };
+
+  // ULOŽENIE UPRAVENEJ ŠABLÓNY Z FORMULÁRA
+  const handleSaveEditedTemplate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTemplateForm || !editTemplateForm.title.trim()) return;
+
+    const updatedTemplates = templatesList.map(t => {
+      if (t.id === editTemplateForm.id) {
+        return {
+          ...t,
+          title: editTemplateForm.title.trim(),
+          category: editTemplateForm.category,
+          productName: editTemplateForm.productName,
+          price: Number(editTemplateForm.price) || 0,
+          doctor: editTemplateForm.doctor,
+          defaultTotalVolume: Number(editTemplateForm.defaultTotalVolume) || 1.0,
+          defaultUsedVolume: Number(editTemplateForm.defaultUsedVolume) || 1.0,
+          defaultUnit: editTemplateForm.defaultUnit,
+          type: editTemplateForm.type,
+          color: editTemplateForm.color,
+          description: editTemplateForm.description.trim(),
+          recommendations: editTemplateForm.recommendations.trim(),
+          vectors: editTemplateForm.vectors
+        };
+      }
+      return t;
+    });
+
+    saveTemplatesToStorage(updatedTemplates);
+    setToastMsg(`✅ Šablóna "${editTemplateForm.title}" bola úspešne upravená.`);
+    setTimeout(() => setToastMsg(null), 3000);
+    setEditingTemplate(null);
+    setEditTemplateForm(null);
+  };
+
+  // SPUSTENIE REŽIMU ÚPRAVY BODOV ŠABLÓNY NA SOCHE TVÁRE
+  const handleStartEditingTemplatePointsOnFace = (tpl: AestheticTemplate) => {
+    setPatientVectorsBackup([...vectors]);
+    const tplVectors = (tpl.vectors || []).map((v, i) => ({
+      ...v,
+      id: `pt_${tpl.id}_${Date.now()}_${i}`
+    }));
+    setVectors(tplVectors);
+    setTemplatePointsEditing(tpl);
+    setActiveColor(tpl.color);
+    if (tpl.vectors && tpl.vectors.length > 0 && tpl.vectors[0].view) {
+      setActiveSculptureView(tpl.vectors[0].view);
+    }
+    setToastMsg(`🎯 Aktivovaný režim úpravy bodov šablóny: "${tpl.title}". Klikajte do tváre a zmeny uložte.`);
+    setTimeout(() => setToastMsg(null), 4000);
+  };
+
+  // ULOŽENIE BODOV ZO SOCHY DO ŠABLÓNY
+  const handleSaveTemplatePointsFromFace = () => {
+    if (!templatePointsEditing) return;
+
+    const newTemplateVectors: Vector2DItem[] = vectors.map((v, i) => ({
+      ...v,
+      id: `tpl_${templatePointsEditing.id}_pt${i + 1}`,
+      productName: templatePointsEditing.productName,
+      color: templatePointsEditing.color
+    }));
+
+    const updatedTemplates = templatesList.map(t => {
+      if (t.id === templatePointsEditing.id) {
+        return {
+          ...t,
+          ...templatePointsEditing,
+          vectors: newTemplateVectors
+        };
+      }
+      return t;
+    });
+
+    saveTemplatesToStorage(updatedTemplates);
+
+    // Ponechaj novo upravené body na tvári, aby lekár videl výsledok
+    setPatientVectorsBackup(null);
+    setLastActiveTemplateId(templatePointsEditing.id);
+    setSelectedTemplateToOverwriteId(templatePointsEditing.id);
+    setAppliedTemplateTitles(prev => prev.includes(templatePointsEditing.title) ? prev : [...prev, templatePointsEditing.title]);
+
+    setToastMsg(`✅ Body šablóny "${templatePointsEditing.title}" boli úspešne uložené (${newTemplateVectors.length} bodov).`);
+    setTimeout(() => setToastMsg(null), 3500);
+    setTemplatePointsEditing(null);
+  };
+
+  // PRIAME ULOŽENIE / PREPÍSANIE BODOV V EXISTUJÚCEJ ŠABLÓNE (Z TVÁRE)
+  const handleOverwriteTemplatePoints = (targetIdOrTitle?: string | null) => {
+    if (vectors.length === 0) {
+      alert('Na tvári sa nenachádzajú žiadne body na uloženie.');
+      return;
+    }
+
+    // Nájdi šablónu podľa zadaného ID / Title, alebo naposledy aktívnej
+    let target = templatesList.find(t => 
+      t.id === targetIdOrTitle || 
+      t.title === targetIdOrTitle
+    );
+
+    if (!target && lastActiveTemplateId) {
+      target = templatesList.find(t => t.id === lastActiveTemplateId);
+    }
+
+    if (!target && appliedTemplateTitles.length > 0) {
+      target = templatesList.find(t => t.title === appliedTemplateTitles[appliedTemplateTitles.length - 1]);
+    }
+
+    if (!target && templatesList.length > 0) {
+      target = templatesList[0];
+    }
+
+    if (!target) {
+      alert('Nepodarilo sa nájsť šablónu na prepísanie.');
+      return;
+    }
+
+    // Priprav čisté vektory pre šablónu
+    const cleanVectors: Vector2DItem[] = vectors.map((v, i) => ({
+      ...v,
+      id: `tpl_${target.id}_pt${i + 1}`,
+      productName: target.productName,
+      color: target.color
+    }));
+
+    const updatedTemplates = templatesList.map(t => {
+      if (t.id === target.id) {
+        return {
+          ...t,
+          vectors: cleanVectors
+        };
+      }
+      return t;
+    });
+
+    saveTemplatesToStorage(updatedTemplates);
+    setLastActiveTemplateId(target.id);
+    setSelectedTemplateToOverwriteId(target.id);
+    setAppliedTemplateTitles(prev => prev.includes(target.title) ? prev : [...prev, target.title]);
+    setToastMsg(`✅ Body boli úspešne uložené do šablóny "${target.title}" (${cleanVectors.length} bodov)!`);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
+
+  // ZRUŠENIE REŽIMU ÚPRAVY BODOV ZO SOCHY
+  const handleCancelTemplatePointsEditing = () => {
+    if (patientVectorsBackup !== null) {
+      setVectors(patientVectorsBackup);
+      setPatientVectorsBackup(null);
+    } else {
+      setVectors([]);
+    }
+    setTemplatePointsEditing(null);
+    setToastMsg('Úprava bodov šablóny bola zrušená.');
+    setTimeout(() => setToastMsg(null), 2500);
+  };
+
+  // DUPLIKOVANIE ŠABLÓNY
+  const handleDuplicateTemplate = (tpl: AestheticTemplate) => {
+    const duplicate: AestheticTemplate = {
+      ...tpl,
+      id: `tpl_custom_${Date.now()}`,
+      title: `${tpl.title} (kópia)`,
+      isCustom: true,
+      vectors: (tpl.vectors || []).map((v, i) => ({
+        ...v,
+        id: `tpl_dup_${Date.now()}_${i}`
+      }))
+    };
+    const updated = [duplicate, ...templatesList];
+    saveTemplatesToStorage(updated);
+    setToastMsg(`✅ Šablóna bola zduplikovaná: "${duplicate.title}"`);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
   // ODSTRÁNENIE APLIKOVANEJ ŠABLÓNY Z AKTUÁLNEHO SEDENIA
   const handleRemoveAppliedTemplate = (tplTitle: string) => {
     const tpl = templatesList.find(t => t.title === tplTitle);
@@ -1101,14 +1596,27 @@ export function AestheticsModule({
       ? `${tpl.productName}, ${tpl.description}`
       : `${tpl.productName}, ${tpl.title.replace(/Botox |Výplň |Kyselina Hyalurónová – /gi, '')}`;
 
+    const defaultTot = tpl.defaultTotalVolume !== undefined ? tpl.defaultTotalVolume : (tpl.category === 'botox' ? 50 : 1.0);
+    const defaultUsed = tpl.defaultUsedVolume !== undefined ? tpl.defaultUsedVolume : defaultTot;
+    const defaultUnit = tpl.defaultUnit || (tpl.category === 'botox' ? 'Speywood' : 'ml');
+
     const newLineItem: TreatmentLineItem = {
       id: `li_${tpl.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       title: lineItemTitle,
       price: tpl.price,
       category: tpl.category,
       templateId: tpl.id,
-      templateTitle: tpl.title
+      templateTitle: tpl.title,
+      totalVolume: defaultTot,
+      usedVolume: defaultUsed,
+      remainingVolume: Math.max(0, Math.round((defaultTot - defaultUsed) * 100) / 100),
+      unit: defaultUnit,
+      storeRemainingToDepot: false,
+      doctorName: selectedDoctor
     };
+
+    setLastActiveTemplateId(tpl.id);
+    setSelectedTemplateToOverwriteId(tpl.id);
 
     if (mode === 'replace') {
       setVectors(freshVectors);
@@ -1134,8 +1642,63 @@ export function AestheticsModule({
     }
 
     setShowAllTemplatesModal(false);
-    setToastMsg(`Aplikovaná šablóna: "${tpl.title}" (+${tpl.price} €)`);
+    setToastMsg(`✅ Aplikovaná šablóna: "${tpl.title}" (+${tpl.price} €)`);
     setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  // PRIDANIE POLOŽKY Z OFICIÁLNEHO CENNÍKA SAY CLINIC
+  const handleAddPriceListItem = (item: ClinicPriceItem) => {
+    const isBotox = item.name.toLowerCase().includes('botox') || item.name.toLowerCase().includes('dysport');
+    let defVol = 1.0;
+    let defUnit = 'ml';
+    if (isBotox) {
+      defVol = item.name.includes('3 oblasti') ? 150 : item.name.includes('2 oblasti') ? 100 : 50;
+      defUnit = 'Speywood';
+    } else if (item.name.includes('0,5ml') || item.name.includes('0.5ml')) {
+      defVol = 0.5;
+    } else if (item.name.includes('2ml')) {
+      defVol = 2.0;
+    } else if (item.name.includes('1,5ml') || item.name.includes('1.5ml')) {
+      defVol = 1.5;
+    }
+
+    const newLineItem: TreatmentLineItem = {
+      id: `li_pl_${item.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      title: item.name,
+      price: item.price,
+      category: item.category,
+      totalVolume: defVol,
+      usedVolume: defVol,
+      remainingVolume: 0,
+      unit: defUnit,
+      storeRemainingToDepot: false,
+      doctorName: selectedDoctor
+    };
+
+    setLineItems(prev => [...prev, newLineItem]);
+    setToastMsg(`✅ Inkorporované z cenníka: "${item.name}" (${item.price} €)`);
+    setTimeout(() => setToastMsg(null), 2500);
+  };
+
+  // UPLATNENIE ZOSTATKU MATERIÁLU ZO SKLADU PACIENTKY
+  const handleApplyDepotItem = (depot: PatientMaterialDepotItem) => {
+    const newLineItem: TreatmentLineItem = {
+      id: `li_depot_${depot.id}_${Date.now()}`,
+      title: `${depot.materialName} (Uplatnený zostatok zo skladu kliniky)`,
+      price: 0,
+      totalVolume: depot.remainingVolume,
+      usedVolume: depot.remainingVolume,
+      remainingVolume: 0,
+      unit: depot.unit,
+      lot: depot.lotNumber,
+      doctorName: selectedDoctor,
+      isFromDepot: true,
+      depotOriginId: depot.id
+    };
+
+    setLineItems(prev => [...prev, newLineItem]);
+    setToastMsg(`📦 Uplatnený zostatok ${depot.remainingVolume} ${depot.unit} ${depot.materialName} zo dňa ${depot.dateCreated}`);
+    setTimeout(() => setToastMsg(null), 3500);
   };
 
   // Uloženie nákresu zo sochy ako vlastnej šablóny
@@ -1184,10 +1747,20 @@ export function AestheticsModule({
 
   // Pridanie riadku ošetrenia (napr. Sculptra 10 ml líca, spánky)
   const handleAddLineItem = (title?: string, price?: number) => {
+    const isBotox = activeMaterial.type === 'botox';
+    const defVol = isBotox ? 50 : 1.0;
+    const defUnit = activeMaterial.defaultUnit || (isBotox ? 'Speywood' : 'ml');
+
     const newItem: TreatmentLineItem = {
       id: `li_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       title: title || `${activeMaterial.name}, individuálna aplikácia`,
-      price: price !== undefined ? price : activeMaterial.defaultPrice
+      price: price !== undefined ? price : activeMaterial.defaultPrice,
+      totalVolume: defVol,
+      usedVolume: defVol,
+      remainingVolume: 0,
+      unit: defUnit,
+      storeRemainingToDepot: false,
+      doctorName: selectedDoctor
     };
     setLineItems(prev => [...prev, newItem]);
   };
@@ -1202,7 +1775,7 @@ export function AestheticsModule({
     setLineItems(prev => prev.filter(item => item.id !== id));
   };
 
-  // Uloženie ošetrenia do karty pacienta
+  // Uloženie ošetrenia do karty pacienta, skladu a klientskeho depozitu
   const handleSaveSession = () => {
     if (vectors.length === 0 && lineItems.length === 0) {
       alert('Pred uložením zadajte aspoň jednu položku ošetrenia alebo vyznačte body na soche.');
@@ -1219,7 +1792,7 @@ export function AestheticsModule({
       patientId: currentPatient.id,
       date: todayStr,
       formattedDate,
-      doctor: 'MUDr. Ján Mráz',
+      doctor: selectedDoctor,
       protocolNumber: sessionProtocolNo,
       title: lineItems.length > 0 ? lineItems[0].title : `Estetické ošetrenie (${vectors.length} bodov)`,
       vectors: [...vectors],
@@ -1246,21 +1819,54 @@ export function AestheticsModule({
       setSessions(updated);
       setSelectedHistorySessionId(newSession.id);
 
-      // 1. Odpísanie materiálu zo skladu (z riadkov ošetrenia alebo z nakreslených bodov)
+      let savedToDepotCount = 0;
+
+      // 1. Odpísanie materiálu zo skladu & správa klientskeho depozitu
       if (lineItems.length > 0) {
         lineItems.forEach(item => {
-          InventoryService.logMaterialUsage({
-            patientId: currentPatient.id,
-            patientName: currentPatient.name,
-            patientBirthNumber: currentPatient.birthNumber,
-            sourceType: 'estetika',
-            procedureName: item.title,
-            itemName: item.title.split(',')[0],
-            category: 'estetika',
-            quantity: 1,
-            performerName: 'MUDr. Ján Mráz',
-            notes: `Cena výkonu: ${item.price} € (${sessionProtocolNo})`
-          });
+          // A. Odpísanie zo všeobecného skladu kliniky (ak to nie je starší zostatok zo skladu)
+          if (!item.isFromDepot) {
+            InventoryService.logMaterialUsage({
+              patientId: currentPatient.id,
+              patientName: currentPatient.name,
+              patientBirthNumber: currentPatient.birthNumber,
+              sourceType: 'estetika',
+              procedureName: item.title,
+              itemName: item.title.split(',')[0],
+              category: 'estetika',
+              quantity: item.usedVolume !== undefined ? item.usedVolume : 1,
+              unit: item.unit || 'ks',
+              lotNumber: item.lot,
+              performerName: selectedDoctor,
+              notes: `Cena: ${item.price} € • Minuté: ${item.usedVolume ?? 1} ${item.unit || ''} (Protokol ${sessionProtocolNo})`
+            });
+          }
+
+          // B. Uloženie nevyčerpaného zostatku do klientskeho depozitu pacientky
+          if (item.remainingVolume && item.remainingVolume > 0 && item.storeRemainingToDepot) {
+            InventoryService.addPatientDepotItem({
+              patientId: currentPatient.id,
+              patientName: currentPatient.name,
+              patientBirthNumber: currentPatient.birthNumber,
+              materialName: item.title.split(',')[0],
+              category: item.category || 'estetika',
+              lotNumber: item.lot || '',
+              totalVolume: item.totalVolume || 1.0,
+              usedVolume: item.usedVolume || (item.totalVolume ? item.totalVolume - item.remainingVolume : 0),
+              remainingVolume: item.remainingVolume,
+              unit: item.unit || 'ml',
+              doctorName: selectedDoctor,
+              storageLocation: 'Chladnička zákrokovňa - box Klienti',
+              sessionId: newSession.id,
+              notes: `Ošetrenie z ${formattedDate} (${sessionProtocolNo})`
+            });
+            savedToDepotCount++;
+          }
+
+          // C. Ak bol uplatnený zostatok zo skladu z minulých návštev, označíme ho za spotrebovaný
+          if (item.isFromDepot && item.depotOriginId) {
+            InventoryService.consumeDepotItem(item.depotOriginId, item.usedVolume || item.totalVolume || 1, newSession.id);
+          }
         });
       } else if (vectors.length > 0) {
         const groupedProducts = new Map<string, number>();
@@ -1278,20 +1884,31 @@ export function AestheticsModule({
             itemName: pName,
             category: 'estetika',
             quantity: 1,
-            performerName: 'MUDr. Ján Mráz',
+            performerName: selectedDoctor,
             notes: `Aplikované v ${count} bodoch (${sessionProtocolNo})`
           });
         });
       }
 
-      // 2. Uloženie do zdravotného záznamu pacienta
-      const lineItemsSummaryText = lineItems.map(it => `• ${it.title} (${it.price} €)`).join('\n');
+      // Aktualizácia klientskeho depozitu
+      refreshPatientDepot();
+
+      // 2. Uloženie do zdravotného záznamu pacienta s presným rozpisom objemov
+      const lineItemsSummaryText = lineItems.map(it => {
+        let volText = '';
+        if (it.totalVolume !== undefined) {
+          volText = ` [Balenie: ${it.totalVolume}${it.unit || 'ml'}, Minuté: ${it.usedVolume}${it.unit || 'ml'}${it.remainingVolume && it.remainingVolume > 0 ? `, Odložený zostatok: ${it.remainingVolume}${it.unit || 'ml'}` : ''}]`;
+        }
+        if (it.isFromDepot) volText = ' [Uplatnený zostatok zo skladu]';
+        return `• ${it.title}${volText} (${it.price} €)`;
+      }).join('\n');
+
       const recordText = `ESTETICKÉ OŠETRENIE TVÁRE (SAY CLINIC)
 Dátum: ${formattedDate}
 Číslo protokolu: ${sessionProtocolNo}
-Ošetrujúci lekár: MUDr. Ján Mráz
+Ošetrujúci lekár: ${selectedDoctor}
 
-Aplikované látky a výkony:
+Aplikované látky, minutý objem a zostatky:
 ${lineItemsSummaryText || 'Individuálny nákres'}
 
 Medzisúčet: ${subtotal.toFixed(2)} €
@@ -1310,7 +1927,7 @@ ${sessionNextStep}`;
         typeColor: 'bg-pink-100 text-pink-800',
         diagnosis: 'Estetická dermatológia a korektívna chirurgia',
         date: formattedDate,
-        doctor: 'MUDr. Ján Mráz',
+        doctor: selectedDoctor,
         title: `Estetika: ${lineItems[0]?.title || 'Estetické ošetrenie'} (${finalTotalPrice} €)`,
         content: recordText
       };
@@ -1329,7 +1946,7 @@ ${sessionNextStep}`;
         patientPhone: currentPatient.phone,
         patientEmail: currentPatient.email,
         patientAddress: currentPatient.address,
-        doctorName: 'MUDr. Ján Mráz',
+        doctorName: selectedDoctor,
         sourceModule: 'aesthetics',
         procedureTitle: newSession.title,
         protocolNumber: sessionProtocolNo,
@@ -1365,13 +1982,13 @@ ${sessionNextStep}`;
         onSessionCompleted({
           date: todayStr,
           patientName: currentPatient.name,
-          doctorName: 'MUDr. Ján Mráz',
+          doctorName: selectedDoctor,
           serviceType: `Estetika: ${newSession.title}`,
           amount: finalTotalPrice
         });
       }
 
-      setToastMsg(`✅ Zápis v karte • Odpísané zo skladu • Čakajúci účet v POS (${finalTotalPrice.toFixed(2)} €)`);
+      setToastMsg(`✅ Uložené • Odpísané zo skladu ${savedToDepotCount > 0 ? `• Odložený zostatok pre pacientku v sklade (${savedToDepotCount} položiek)` : ''} • POS účet (${finalTotalPrice.toFixed(2)} €)`);
       setTimeout(() => setToastMsg(null), 4500);
     } catch (e) {
       console.error(e);
@@ -1640,537 +2257,787 @@ ${sessionNextStep}`;
       </div>
 
       {/* ========================================================================= */}
-      {/* 1. REŽIM EDITOR: ŠABLÓNY, VÝPOČET CENY A 2D SOCHA V STREDE               */}
+      {/* 1. REŽIM EDITOR: SIDE-BY-SIDE POHĽAD (VĽAVO TVÁR, VPRAVO LEKÁR, ŠABLÓNY, CENNÍK & ROZPIS) */}
       {/* ========================================================================= */}
       {activeTab === 'editor' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start animate-in fade-in duration-150">
           
-          {/* LIŠTA ŠABLÓN: VÝBER ŠABLÓNY -> NANESENIE BODOV -> VÝPOČET CENY */}
-          <div className="p-4 bg-white/95 rounded-3xl border border-[#E8E2D9] shadow-xs space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Bookmark className="w-4 h-4 text-[#C5A059]" />
-                <span className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider">
-                  Šablóny procedúr & Automatický výpočet ceny:
-                </span>
-                <span className="text-[10px] text-[#8C857B] bg-[#FAF8F5] px-2 py-0.5 rounded-full border border-[#E8E2D9]">
-                  Kliknutím aplikujete body a sumu
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowSaveCustomTemplateModal(true)}
-                  disabled={vectors.length === 0}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[11px] font-bold text-[#2C2A29] transition-all disabled:opacity-40 cursor-pointer shadow-2xs"
-                  title="Uložiť aktuálne nakreslené body na soche ako novú opakovateľnú šablónu"
-                >
-                  <BookmarkPlus className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>Uložiť nákres</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowAllTemplatesModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-[11px] font-bold transition-all cursor-pointer shadow-xs"
-                >
-                  <Settings className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>Katalóg & Správa šablón ({templatesList.length})</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Rýchle tlačidlá najčastejších šablón */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {templatesList.slice(0, 8).map((tpl) => {
-                const isApplied = appliedTemplateTitles.includes(tpl.title);
-                return (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    onClick={() => {
-                      if (isApplied) {
-                        handleRemoveAppliedTemplate(tpl.title);
-                      } else {
-                        handleApplyTemplate(tpl, 'append');
-                      }
-                    }}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-2 border ${
-                      isApplied
-                        ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-xs ring-2 ring-[#C5A059]'
-                        : 'bg-[#FAF8F5] hover:bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
-                    }`}
-                    title={isApplied ? `Kliknutím odstránite šablónu "${tpl.title}" z tohto ošetrenia` : tpl.description}
-                  >
-                    <span style={{ backgroundColor: tpl.color }} className="w-2 h-2 rounded-full shrink-0" />
-                    <span>{tpl.title}</span>
-                    <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${
-                      isApplied ? 'bg-[#C5A059] text-white' : 'bg-white border border-[#E8E2D9] text-[#2C2A29]'
-                    }`}>
-                      {tpl.price} €
-                    </span>
-                    {isApplied && (
-                      <span className="text-[10px] text-[#C5A059] hover:text-red-400 font-bold ml-0.5">✕</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Aktuálny rozpis ceny a aplikovaných šablón */}
-            {appliedTemplateTitles.length > 0 && (
-              <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] flex items-center justify-between text-xs flex-wrap gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B]">
-                    Aplikované šablóny:
-                  </span>
-                  {appliedTemplateTitles.map((t, idx) => (
-                    <span key={idx} className="px-2.5 py-1 rounded-lg bg-white border border-[#E8E2D9] font-medium text-[#2C2A29] flex items-center gap-1.5 shadow-2xs">
-                      <span>{t}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAppliedTemplate(t)}
-                        className="text-[#8C857B] hover:text-red-500 rounded-sm cursor-pointer p-0.5 hover:bg-red-50 transition-colors"
-                        title={`Odstrániť aplikovanú šablónu "${t}" z ošetrenia`}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </span>
-                  ))}
-                  {appliedTemplateTitles.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm('Odstrániť všetky aplikované šablóny z tohto ošetrenia?')) {
-                          appliedTemplateTitles.forEach(t => handleRemoveAppliedTemplate(t));
-                        }
-                      }}
-                      className="text-[11px] text-red-600 hover:text-red-700 font-semibold underline ml-1 cursor-pointer"
-                    >
-                      Odstrániť všetky
-                    </button>
-                  )}
+          {/* ĽAVÁ STRANA: SOCHA TVÁRE (2D / 3D) S KRESLENÍM BODOV */}
+          <div className="lg:col-span-5 xl:col-span-5 space-y-4 lg:sticky lg:top-4">
+            
+            {/* ZLATÁ LIŠTA: REŽIM ÚPRAVY BODOV ŠABLÓNY */}
+            {templatePointsEditing && (
+              <div className="w-full p-3.5 rounded-3xl bg-[#2C2A29] text-white border-2 border-[#C5A059] shadow-xl flex items-center justify-between gap-3 flex-wrap animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-[#C5A059]/20 border border-[#C5A059]/40 flex items-center justify-center text-[#C5A059] shrink-0">
+                    <Target className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-bold text-white uppercase tracking-wider">Režim úpravy bodov:</span>
+                      <span className="text-xs font-bold text-[#C5A059]">"{templatePointsEditing.title}"</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-gray-200 font-mono font-bold">
+                        {vectors.length} {vectors.length === 1 ? 'bod' : vectors.length < 5 ? 'body' : 'bodov'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-300 mt-0.5">
+                      Klikaním do tváre pridávate/posúvate body. Pravým klikom na bod na tvári upravíte dávku alebo bod vymažete.
+                    </p>
+                  </div>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[#8C857B] text-[11px]">Medzisúčet:</span>
-                  <span className="font-bold font-mono text-sm text-[#2C2A29] bg-white px-2.5 py-1 rounded-lg border border-[#C5A059]/40">
-                    {subtotal.toFixed(2)} €
-                  </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleCancelTemplatePointsEditing}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    Zrušiť
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveTemplatePointsFromFace}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#C5A059] hover:bg-[#d6b26d] text-[#2C2A29] transition-all shadow-md cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Uložiť body do šablóny</span>
+                  </button>
                 </div>
               </div>
             )}
-          </div>
 
-          {/* RÝCHLE PREPARÁTY PRE VOĽNÉ DOKRESLOVANIE & SPRÁVA LÁTOK */}
-          <div className="p-3 bg-white/90 rounded-2xl border border-[#E8E2D9] shadow-2xs">
-            <div className="flex items-center justify-between mb-2 px-1 flex-wrap gap-2">
-              <span className="text-[11px] font-bold text-[#8C857B] uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#C5A059]" />
-                Látky & Materiály pre aplikáciu bodov:
-              </span>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-[#8C857B]">
-                  Vybraný: <strong className="text-[#2C2A29]">{activeMaterial.name}</strong> ({activeMaterial.defaultPrice} €)
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowMaterialsManagerModal(true)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-[#FAF8F5] border border-[#E8E2D9] hover:border-[#C5A059] text-[10px] font-bold text-[#2C2A29] transition-all cursor-pointer shadow-2xs"
-                  title="Pridať nové látky alebo upraviť ceny"
-                >
-                  <Settings className="w-3 h-3 text-[#C5A059]" />
-                  <span>Správa látok & Cien</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-              {materialsList.map((mat, idx) => {
-                const isSelected = selectedMaterialIdx === idx;
-                return (
+            <div className="rounded-3xl p-4 bg-white/95 border border-[#E8E2D9] shadow-sm flex flex-col items-center">
+              
+              {/* Horná lišta sochy */}
+              <div className="w-full flex items-center justify-between pb-3 border-b border-[#E8E2D9] mb-3 text-xs flex-wrap gap-2">
+                {/* 2D ⇄ 3D Prepínač */}
+                <div className="flex items-center p-1 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] shadow-2xs">
                   <button
-                    key={mat.id}
                     type="button"
-                    onClick={() => handleSelectMaterial(idx)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
-                      isSelected
-                        ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-md ring-2 ring-[#C5A059]'
-                        : 'bg-[#FAF8F5] hover:bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                    onClick={() => setSculptureMode('2d')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      sculptureMode === '2d'
+                        ? 'bg-[#2C2A29] text-white shadow-xs'
+                        : 'text-[#8C857B] hover:text-[#2C2A29]'
                     }`}
                   >
-                    <div className="flex items-center justify-between w-full mb-1">
-                      <span 
-                        style={{ backgroundColor: mat.color }} 
-                        className="w-2.5 h-2.5 rounded-full shadow-xs" 
-                      />
-                      <span className={`text-[9px] uppercase font-bold font-mono ${isSelected ? 'text-[#F5E4B8]' : 'text-[#8C857B]'}`}>
-                        {mat.defaultPrice} €
-                      </span>
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold truncate leading-tight">{mat.name}</div>
-                      <div className={`text-[10px] truncate mt-0.5 ${isSelected ? 'text-gray-300' : 'text-[#8C857B]'}`}>
-                        {mat.categoryLabel}
-                      </div>
-                    </div>
+                    <Layers className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>2D Schéma</span>
                   </button>
-                );
-              })}
-            </div>
-          </div>
+                  <button
+                    type="button"
+                    onClick={() => setSculptureMode('3d')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      sculptureMode === '3d'
+                        ? 'bg-[#2C2A29] text-white shadow-xs'
+                        : 'text-[#8C857B] hover:text-[#2C2A29]'
+                    }`}
+                  >
+                    <Compass className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>3D Model 360°</span>
+                  </button>
+                </div>
 
-          {/* HLAVNÁ ČASŤ: 2D SOCHA V STREDE */}
-          <div className="rounded-3xl p-4 sm:p-6 bg-white/95 border border-[#E8E2D9] shadow-sm flex flex-col items-center">
-            
-            <div className="w-full flex items-center justify-between pb-3 border-b border-[#E8E2D9] mb-3 text-xs flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-[#2C2A29] flex items-center gap-1.5">
-                  <span style={{ backgroundColor: activeMaterial.color }} className="w-3 h-3 rounded-full" />
-                  {activeMaterial.name}
-                </span>
-                <span className="text-[#8C857B]">·</span>
-                <span className="text-[#8C857B]">{activeMaterial.recommendedTechnique}</span>
-              </div>
-
-              {/* 2D ⇄ 3D PREPÍNAČ REŽIMU SOCHY */}
-              <div className="flex items-center p-1 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => setSculptureMode('2d')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    sculptureMode === '2d'
-                      ? 'bg-[#2C2A29] text-white shadow-xs'
-                      : 'text-[#8C857B] hover:text-[#2C2A29]'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>2D Schéma</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSculptureMode('3d')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    sculptureMode === '3d'
-                      ? 'bg-[#2C2A29] text-white shadow-xs'
-                      : 'text-[#8C857B] hover:text-[#2C2A29]'
-                  }`}
-                >
-                  <Compass className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>3D Model 360°</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[#8C857B]">Počet bodov na soche:</span>
-                <span className="font-bold text-[#2C2A29] bg-[#FAF8F5] px-2 py-0.5 rounded-lg border border-[#E8E2D9]">
-                  {vectors.length} bodov
-                </span>
-              </div>
-            </div>
-
-            {/* Samotná Socha (2D alebo 3D podľa prepínača) */}
-            <div className="w-full max-w-3xl flex flex-col items-center">
-              {sculptureMode === '2d' ? (
-                <Sculpture2DViewer
-                  vectors={vectors}
-                  onVectorsChange={setVectors}
-                  activeTool={activeTool}
-                  onSelectTool={setActiveTool}
-                  activeColor={activeColor}
-                  onSelectColor={setActiveColor}
-                  currentProduct={{
-                    name: activeMaterial.name,
-                    lot: '',
-                    type: activeMaterial.type
-                  }}
-                  selectedVectorId={selectedVectorId}
-                  onSelectVector={setSelectedVectorId}
-                  activeView={activeSculptureView}
-                  onViewChange={setActiveSculptureView}
-                  readOnly={false}
-                />
-              ) : (
-                <Sculpture3DViewer
-                  vectors={vectors}
-                  onVectorsChange={setVectors}
-                  activeTool={activeTool as any}
-                  onSelectTool={setActiveTool as any}
-                  activeColor={activeColor}
-                  onSelectColor={setActiveColor}
-                  currentProduct={{
-                    name: activeMaterial.name,
-                    type: activeMaterial.type,
-                    unit: activeMaterial.defaultUnit
-                  }}
-                  selectedVectorId={selectedVectorId}
-                  onSelectVector={setSelectedVectorId}
-                  onAddMuscleProcedure={(muscle) => {
-                    handleAddLineItem(`${muscle.latinName} (${muscle.slovakName}) - ${activeMaterial.name} [${muscle.defaultDose}]`, activeMaterial.defaultPrice);
-                  }}
-                  onAddFatPadProcedure={(pad) => {
-                    handleAddLineItem(`${pad.slovakName} (${pad.layerLabel}) - ${pad.recommendedMaterial} [${pad.defaultDose}]`, activeMaterial.defaultPrice);
-                  }}
-                  readOnly={false}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* POLOŽKY OŠETRENIA, VÝPOČET CENY, ZĽAVA A A4 ZHRNUTIE */}
-          <div className="rounded-3xl p-5 bg-white border border-[#E8E2D9] shadow-xs space-y-4">
-            
-            <div className="flex items-center justify-between border-b border-[#E8E2D9] pb-3 flex-wrap gap-2">
-              <div>
-                <h3 className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-[#C5A059]" />
-                  Aplikované výkony a látky (Rozpis pre A4 report & vyúčtovanie)
-                </h3>
-                <p className="text-[11px] text-[#8C857B] mt-0.5">
-                  Presný názov a cena, ktoré sa vytlačia na klientsky A4 report (napr. Dysport, m. frontalis bilat., 4 vpichy strana, celkovo 50IU)
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleAddLineItem()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-xs font-bold text-[#2C2A29] transition-all cursor-pointer shadow-2xs"
-                >
-                  <Plus className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>Pridať vlastný riadok</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleAddLineItem(`${activeMaterial.name}, aplikácia`, activeMaterial.defaultPrice)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] hover:border-[#C5A059] text-xs font-bold text-[#2C2A29] transition-all cursor-pointer"
-                >
-                  <span>+ Pridať {activeMaterial.name} ({activeMaterial.defaultPrice} €)</span>
-                </button>
-              </div>
-            </div>
-
-            {/* EDITOVATEĽNÝ ZOZNAM POLOŽIEK */}
-            <div className="space-y-2">
-              {lineItems.map((item, idx) => (
-                <div
-                  key={item.id}
-                  className="p-3 rounded-2xl border border-[#E8E2D9] hover:border-[#C5A059]/60 bg-[#FAF8F5]/50 flex items-center justify-between gap-3 transition-colors"
-                >
-                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                    <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                      {idx + 1}
-                    </span>
-                    <input
-                      type="text"
-                      value={item.title}
-                      onChange={(e) => handleUpdateLineItem(item.id, { title: e.target.value })}
-                      placeholder="Napr. Dysport, m. frontalis bilat., 4 vpichy strana, celkovo 50IU"
-                      className="w-full text-xs font-semibold text-[#2C2A29] bg-white px-3 py-2 rounded-xl border border-[#E8E2D9] focus:outline-hidden focus:border-[#C5A059]"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="5"
-                        value={item.price}
-                        onChange={(e) => handleUpdateLineItem(item.id, { price: Number(e.target.value) || 0 })}
-                        className="w-24 text-xs font-bold font-mono text-[#2C2A29] bg-white p-2 pr-6 rounded-xl border border-[#E8E2D9] focus:outline-hidden focus:border-[#C5A059] text-right"
-                      />
-                      <span className="absolute right-2 top-2 text-xs font-bold text-[#8C857B]">€</span>
-                    </div>
-
+                {/* Počet bodov & Vyčistiť */}
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[#2C2A29] bg-[#FAF8F5] px-2.5 py-1 rounded-xl border border-[#E8E2D9] text-[11px]">
+                    {vectors.length} bodov
+                  </span>
+                  {vectors.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => handleDeleteLineItem(item.id)}
-                      className="p-2 rounded-xl text-[#8C857B] hover:text-red-500 hover:bg-red-50 cursor-pointer transition-colors"
-                      title="Odstrániť túto položku"
+                      onClick={() => {
+                        if (confirm('Naozaj chcete vyčistiť všetky body z tváre?')) {
+                          setVectors([]);
+                          setSelectedVectorId(null);
+                        }
+                      }}
+                      className="p-1.5 rounded-xl text-[#8C857B] hover:text-red-500 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors cursor-pointer"
+                      title="Vyčistiť body na tvári"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {lineItems.length === 0 && (
-                <div className="p-4 text-center text-xs text-[#8C857B] bg-[#FAF8F5] rounded-2xl border border-dashed border-[#E8E2D9]">
-                  Zatiaľ nie sú pridané žiadne položky. Vyberte šablónu hore alebo kliknite na &quot;Pridať vlastný riadok&quot;.
-                </div>
-              )}
-            </div>
-
-            {/* SEKCIA ZĽAVA & FINANČNÝ ROZPIS */}
-            <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-              
-              {/* Voľba zľavy */}
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label className="text-[11px] font-bold text-[#8C857B] uppercase tracking-wider flex items-center gap-1.5">
-                    <Percent className="w-3.5 h-3.5 text-[#C5A059]" />
-                    Zľava pre klienta:
-                  </label>
-
-                  {currentPatientLoyalty && (
-                    <button
-                      type="button"
-                      onClick={() => setShowLoyaltyModal(true)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer hover:opacity-90 transition-all ${currentPatientLoyalty.tierDef.badgeBg} ${currentPatientLoyalty.tierDef.badgeText} ${currentPatientLoyalty.tierDef.badgeBorder}`}
-                      title="Kliknutím otvoríte detail a nastavenie vernostného systému klienta"
-                    >
-                      <Award className="w-3 h-3" />
-                      <span>
-                        Vernostný status: {currentPatientLoyalty.tierDef.name.toUpperCase()} ({currentPatientLoyalty.tierDef.discountPercent}%) • 365d: {currentPatientLoyalty.eligibleSpend365d.toFixed(0)} €
-                      </span>
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
-                
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {[0, 5, 10, 15, 20].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => {
-                        setDiscountType('percent');
-                        setDiscountValue(pct);
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        discountType === 'percent' && discountValue === pct
-                          ? 'bg-[#2C2A29] text-white shadow-2xs'
-                          : 'bg-white text-[#2C2A29] border border-[#E8E2D9] hover:border-[#C5A059]'
-                      }`}
-                    >
-                      {pct === 0 ? 'Bez zľavy' : `-${pct} %`}
-                    </button>
-                  ))}
+              </div>
 
-                  <div className="flex items-center gap-1 ml-1">
-                    <input
-                      type="number"
-                      min="0"
-                      value={discountValue}
-                      onChange={(e) => setDiscountValue(Number(e.target.value) || 0)}
-                      placeholder="Suma"
-                      className="w-16 p-1.5 text-xs font-bold font-mono bg-white rounded-xl border border-[#E8E2D9] focus:outline-hidden text-center"
-                    />
+              {/* Informácia o aktívnom materiáli pre voľné dokresľovanie bodov */}
+              <div className="w-full flex items-center justify-between px-1 mb-2 text-xs">
+                <div className="flex items-center gap-2 truncate">
+                  <span style={{ backgroundColor: activeMaterial.color }} className="w-2.5 h-2.5 rounded-full shrink-0" />
+                  <span className="font-bold text-[#2C2A29] truncate">{activeMaterial.name}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMaterialsManagerModal(true)}
+                  className="text-[10px] font-bold text-[#8C857B] hover:text-[#2C2A29] flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Settings className="w-3 h-3 text-[#C5A059]" />
+                  <span>Správa látok</span>
+                </button>
+              </div>
+
+              {/* Samotná socha (2D alebo 3D) */}
+              <div className="w-full flex flex-col items-center">
+                {sculptureMode === '2d' ? (
+                  <Sculpture2DViewer
+                    vectors={vectors}
+                    onVectorsChange={setVectors}
+                    activeTool={activeTool}
+                    onSelectTool={setActiveTool}
+                    activeColor={activeColor}
+                    onSelectColor={setActiveColor}
+                    currentProduct={{
+                      name: activeMaterial.name,
+                      lot: '',
+                      type: activeMaterial.type
+                    }}
+                    selectedVectorId={selectedVectorId}
+                    onSelectVector={setSelectedVectorId}
+                    activeView={activeSculptureView}
+                    onViewChange={setActiveSculptureView}
+                    readOnly={false}
+                  />
+                ) : (
+                  <Sculpture3DViewer
+                    vectors={vectors}
+                    onVectorsChange={setVectors}
+                    activeTool={activeTool as any}
+                    onSelectTool={setActiveTool as any}
+                    activeColor={activeColor}
+                    onSelectColor={setActiveColor}
+                    currentProduct={{
+                      name: activeMaterial.name,
+                      type: activeMaterial.type,
+                      unit: activeMaterial.defaultUnit
+                    }}
+                    selectedVectorId={selectedVectorId}
+                    onSelectVector={setSelectedVectorId}
+                    onAddFatPadProcedure={(pad) => {
+                      handleAddLineItem(`${pad.slovakName} (${pad.layerLabel}) - ${pad.recommendedMaterial} [${pad.defaultDose}]`, activeMaterial.defaultPrice);
+                    }}
+                    readOnly={false}
+                  />
+                )}
+              </div>
+
+              {/* RÝCHLE ULOŽENIE NÁKRESU Z TVÁRE DO ŠABLÓNY */}
+              <div className="w-full mt-3 pt-3 border-t border-[#E8E2D9] flex items-center justify-between gap-2 flex-wrap text-xs">
+                {(() => {
+                  const activeTpl = templatesList.find(t => 
+                    (lastActiveTemplateId && t.id === lastActiveTemplateId) || 
+                    (appliedTemplateTitles.length > 0 && t.title === appliedTemplateTitles[appliedTemplateTitles.length - 1])
+                  );
+
+                  if (activeTpl && vectors.length > 0) {
+                    return (
+                      <>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Bookmark className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
+                          <div className="min-w-0">
+                            <span className="text-[10px] text-[#8C857B] block leading-none">Aktívna šablóna:</span>
+                            <span className="text-[11px] font-bold text-[#2C2A29] truncate block max-w-[160px]" title={activeTpl.title}>
+                              {activeTpl.title}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleOverwriteTemplatePoints(activeTpl.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-[11px] font-bold transition-all shadow-xs cursor-pointer"
+                            title={`Uložiť ${vectors.length} bodov z tváre priamo do šablóny "${activeTpl.title}"`}
+                          >
+                            <Save className="w-3.5 h-3.5 text-[#C5A059]" />
+                            <span>Uložiť do šablóny</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTemplateToOverwriteId(activeTpl.id);
+                              setSaveTemplateMode('update');
+                              setShowSaveCustomTemplateModal(true);
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-gray-50 border border-[#E8E2D9] text-[10px] font-semibold text-[#8C857B] hover:text-[#2C2A29] transition-all cursor-pointer"
+                            title="Možnosti uloženia (zvoliť inú šablónu alebo vytvoriť novú)"
+                          >
+                            Možnosti...
+                          </button>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <span className="text-[11px] text-[#8C857B]">
+                        {vectors.length > 0 ? `${vectors.length} bodov na tvári` : 'Nový nákres na tvári?'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (templatesList.length > 0) {
+                            setSelectedTemplateToOverwriteId(templatesList[0].id);
+                          }
+                          setSaveTemplateMode(templatesList.length > 0 ? 'update' : 'new');
+                          setShowSaveCustomTemplateModal(true);
+                        }}
+                        disabled={vectors.length === 0}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[11px] font-bold text-[#2C2A29] shadow-2xs transition-all disabled:opacity-40 cursor-pointer"
+                        title="Uložiť body do existujúcej alebo novej šablóny"
+                      >
+                        <Save className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>Uložiť do šablóny</span>
+                      </button>
+                    </>
+                  );
+                })()}
+              </div>
+
+            </div>
+          </div>
+
+          {/* PRAVÁ STRANA: OŠETRUJÚCI LEKÁR, ŠABLÓNY, CENNÍK & INKORPOROVANÝ ROZPIS */}
+          <div className="lg:col-span-7 xl:col-span-7 space-y-4">
+            
+            {/* 1. HLAVIČKA: VÝBER LEKÁRA & ZOSTATOK PACIENTKY V SKLADE */}
+            <div className="p-4 bg-white/95 rounded-3xl border border-[#E8E2D9] shadow-xs space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#2C2A29] to-[#433E3C] text-[#C5A059] flex items-center justify-center shrink-0">
+                    <Stethoscope className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B] block">
+                      Aplikujúci lekár (Filtruje šablóny & cenník):
+                    </span>
                     <select
-                      value={discountType}
-                      onChange={(e) => setDiscountType(e.target.value as 'percent' | 'fixed')}
-                      className="p-1.5 text-xs font-bold bg-white rounded-xl border border-[#E8E2D9] focus:outline-hidden cursor-pointer"
+                      value={selectedDoctor}
+                      onChange={(e) => setSelectedDoctor(e.target.value)}
+                      className="text-sm font-bold text-[#2C2A29] bg-transparent focus:outline-hidden cursor-pointer hover:text-[#C5A059] transition-colors"
                     >
-                      <option value="percent">%</option>
-                      <option value="fixed">€</option>
+                      {AESTHETIC_DOCTORS.map(doc => (
+                        <option key={doc} value={doc}>{doc}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllTemplatesModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[11px] font-bold text-[#2C2A29] transition-all cursor-pointer shadow-2xs"
+                  >
+                    <Settings className="w-3 h-3 text-[#C5A059]" />
+                    <span>Katalóg šablón ({templatesList.length})</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Súhrn: Medzisúčet, Zľava, Výsledná cena */}
-              <div className="bg-white p-3.5 rounded-2xl border border-[#E8E2D9] space-y-1 text-xs">
-                <div className="flex justify-between items-center text-[#8C857B]">
-                  <span>Medzisúčet položiek:</span>
-                  <span className="font-mono font-semibold text-[#2C2A29]">{subtotal.toFixed(2)} €</span>
+              {/* UPOZORNENIE: ZOSTATOK MATERIÁLU PACIENTKY V SKLADE */}
+              {patientDepotItems.length > 0 && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#FAF8F5] via-[#FFFBF2] to-[#FAF8F5] border-2 border-[#C5A059] shadow-xs animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-[#C5A059] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                        <PackageCheck className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
+                            Odložený zostatok pacientky v sklade:
+                          </span>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        </div>
+                        <div className="text-xs font-bold text-[#2C2A29] truncate">
+                          {patientDepotItems.map(d => `${d.remainingVolume} ${d.unit} ${d.materialName}`).join(' • ')}
+                        </div>
+                        <div className="text-[10px] text-[#8C857B] truncate">
+                          Uskladnené: {patientDepotItems[0].dateCreated} (Lekár: {patientDepotItems[0].doctorName})
+                          {patientDepotItems[0].lotNumber ? ` • Šarža: ${patientDepotItems[0].lotNumber}` : ''}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleApplyDepotItem(patientDepotItems[0])}
+                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#C5A059] to-[#B38F46] hover:from-[#B38F46] text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5 hover:scale-[1.02] shrink-0"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Uplatniť zostatok zo skladu (0 €)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 2. KATALÓG: ŠABLÓNY LEKÁRA vs CENNÍK KLINIKY (ZOZNAM NA PRIAMU INKORPORÁCIU) */}
+            <div className="p-4 bg-white/95 rounded-3xl border border-[#E8E2D9] shadow-xs space-y-3">
+              {/* Prepínač záložiek & Vyhľadávanie */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center p-1 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9]">
+                  <button
+                    type="button"
+                    onClick={() => setCatalogTab('templates')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      catalogTab === 'templates'
+                        ? 'bg-[#2C2A29] text-white shadow-xs'
+                        : 'text-[#8C857B] hover:text-[#2C2A29]'
+                    }`}
+                  >
+                    <Bookmark className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Šablóny lekára ({doctorTemplates.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCatalogTab('pricelist')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      catalogTab === 'pricelist'
+                        ? 'bg-[#2C2A29] text-white shadow-xs'
+                        : 'text-[#8C857B] hover:text-[#2C2A29]'
+                    }`}
+                  >
+                    <DollarSign className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Cenník kliniky ({filteredPriceList.length})</span>
+                  </button>
                 </div>
 
-                {discountAmount > 0 && (
-                  <div className="flex justify-between items-center text-[#10B981] font-semibold">
-                    <span>Zľava {discountType === 'percent' ? `(${discountValue} %)` : '(pevná)'}:</span>
-                    <span className="font-mono font-bold">- {discountAmount.toFixed(2)} €</span>
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="w-3.5 h-3.5 text-[#8C857B] absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    placeholder={catalogTab === 'templates' ? "Hľadať šablónu (napr. čelo, pery)..." : "Hľadať v cenníku SAY CLINIC..."}
+                    className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#FAF8F5] rounded-xl border border-[#E8E2D9] focus:outline-hidden focus:border-[#C5A059] text-[#2C2A29]"
+                  />
+                </div>
+              </div>
+
+              {/* Kategórie filter pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                {[
+                  { id: 'all', label: 'Všetky' },
+                  { id: 'filler', label: 'Výplne' },
+                  { id: 'botox', label: 'Botox' },
+                  { id: 'refill', label: 'Dopich' },
+                  { id: 'pdrn', label: 'PDRN' },
+                  { id: 'exosomes', label: 'Exozómy' },
+                  { id: 'microneedling', label: 'Microneedling' },
+                  { id: 'laser', label: 'CO2 Laser' }
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCatalogCategory(cat.id)}
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      catalogCategory === cat.id
+                        ? 'bg-[#2C2A29] text-white shadow-2xs'
+                        : 'bg-[#FAF8F5] text-[#8C857B] hover:bg-white hover:text-[#2C2A29] border border-[#E8E2D9]'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ZOZNAM ŠABLÓN LEKÁRA (Kliknutím inkorporuje na klienta) */}
+              {catalogTab === 'templates' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                  {doctorTemplates.map((tpl, idx) => {
+                    const isApplied = appliedTemplateTitles.includes(tpl.title);
+                    return (
+                      <button
+                        key={`doc-tpl-${tpl.id}-${idx}`}
+                        type="button"
+                        onClick={() => {
+                          if (isApplied) {
+                            handleRemoveAppliedTemplate(tpl.title);
+                          } else {
+                            handleApplyTemplate(tpl, 'append');
+                          }
+                        }}
+                        onContextMenu={(e) => handleOpenTemplateContextMenu(e, tpl)}
+                        title="Kliknutím aplikujete na tvár. Pravý klik: Upraviť šablónu, body a parametre"
+                        className={`group/card p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          isApplied
+                            ? 'bg-[#2C2A29] text-white border-[#2C2A29] shadow-sm ring-2 ring-[#C5A059]'
+                            : 'bg-[#FAF8F5]/80 hover:bg-white text-[#2C2A29] border-[#E8E2D9] hover:border-[#C5A059]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <span style={{ backgroundColor: tpl.color }} className="w-2.5 h-2.5 rounded-full shrink-0" />
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isApplied ? 'text-gray-300' : 'text-[#8C857B]'}`}>
+                              {tpl.category}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-lg ${
+                              isApplied ? 'bg-[#C5A059] text-white' : 'bg-white border border-[#E8E2D9] text-[#2C2A29]'
+                            }`}>
+                              {tpl.price} €
+                            </span>
+                            <span
+                              role="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenTemplateContextMenu(e, tpl);
+                              }}
+                              className={`p-1 rounded-lg transition-colors opacity-70 group-hover/card:opacity-100 ${
+                                isApplied ? 'hover:bg-white/20 text-white' : 'hover:bg-black/5 text-[#8C857B] hover:text-[#2C2A29]'
+                              }`}
+                              title="Možnosti šablóny (pravý klik alebo klik)"
+                            >
+                              <MoreVertical className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-xs font-bold leading-snug line-clamp-1">{tpl.title}</div>
+                        <div className={`text-[10px] mt-0.5 flex items-center justify-between ${isApplied ? 'text-gray-300' : 'text-[#8C857B]'}`}>
+                          <span>{tpl.productName} ({tpl.vectors?.length ?? 0} bodov)</span>
+                          <span className="font-semibold">{isApplied ? '✓ Aplikované (klik = zrušiť)' : '+ Pridať na klienta'}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {doctorTemplates.length === 0 && (
+                    <div className="col-span-2 p-4 text-center text-xs text-[#8C857B] bg-[#FAF8F5] rounded-2xl border border-dashed border-[#E8E2D9]">
+                      Pre vybraného lekára ({selectedDoctor}) a filter sa nenašli žiadne šablóny.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ZOZNAM POLOŽIEK CENNÍKA (Kliknutím inkorporuje na klienta) */}
+              {catalogTab === 'pricelist' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                  {filteredPriceList.map((item, idx) => (
+                    <button
+                      key={`aesthetics-price-${item.id}-${idx}`}
+                      type="button"
+                      onClick={() => handleAddPriceListItem(item)}
+                      className="p-2.5 rounded-2xl border border-[#E8E2D9] hover:border-[#C5A059] bg-[#FAF8F5]/80 hover:bg-white text-left transition-all cursor-pointer flex flex-col justify-between group shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C857B]">
+                          {item.categoryLabel}
+                        </span>
+                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-white border border-[#E8E2D9] text-[#2C2A29] group-hover:border-[#C5A059]">
+                          {item.price} €
+                        </span>
+                      </div>
+                      <div className="text-xs font-bold text-[#2C2A29] line-clamp-1 group-hover:text-[#C5A059] transition-colors">
+                        {item.name}
+                      </div>
+                      <div className="text-[10px] text-[#8C857B] mt-0.5 flex items-center justify-between">
+                        <span className="truncate max-w-[200px]">{item.description || 'Výkon podľa cenníka'}</span>
+                        <span className="font-semibold text-[#C5A059] shrink-0">+ Inkorporovať</span>
+                      </div>
+                    </button>
+                  ))}
+                  {filteredPriceList.length === 0 && (
+                    <div className="col-span-2 p-4 text-center text-xs text-[#8C857B] bg-[#FAF8F5] rounded-2xl border border-dashed border-[#E8E2D9]">
+                      V cenníku sa nenašli žiadne položky zodpovedajúce hľadaniu.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 3. INKORPOROVANÝ ROZPIS VÝKONOV & MATERIÁLU KLIENTA (Live editovateľný zoznam s minútym objemom a zostatkom) */}
+            <div className="rounded-3xl p-4 bg-white border border-[#E8E2D9] shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-[#E8E2D9] pb-2.5 flex-wrap gap-2">
+                <div>
+                  <h3 className="text-xs font-bold text-[#2C2A29] uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-[#C5A059]" />
+                    Inkorporované výkony a materiál klienta ({lineItems.length}):
+                  </h3>
+                  <p className="text-[10px] text-[#8C857B]">
+                    Zadajte minutý objem a zostatok pre odloženie do skladu
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAddLineItem()}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-[11px] font-bold text-[#2C2A29] transition-all cursor-pointer shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Pridať vlastný riadok</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Zoznam live položiek */}
+              <div className="space-y-2.5">
+                {lineItems.map((item, idx) => {
+                  const totVol = Number(item.totalVolume ?? 1.0);
+                  const usedVol = Number(item.usedVolume ?? totVol);
+                  const remVol = Math.max(0, Math.round((totVol - usedVol) * 100) / 100);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3 rounded-2xl border border-[#E8E2D9] hover:border-[#C5A059]/60 bg-[#FAF8F5]/60 space-y-2 transition-all shadow-2xs"
+                    >
+                      {/* Riadok 1: Názov, cena a mazanie */}
+                      <div className="flex items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="w-5 h-5 rounded-full bg-[#2C2A29] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(e) => handleUpdateLineItem(item.id, { title: e.target.value })}
+                            placeholder="Názov výkonu alebo aplikovaného materiálu"
+                            className="w-full text-xs font-semibold text-[#2C2A29] bg-white px-2.5 py-1.5 rounded-xl border border-[#E8E2D9] focus:outline-hidden focus:border-[#C5A059]"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              step="5"
+                              value={item.price}
+                              onChange={(e) => handleUpdateLineItem(item.id, { price: Number(e.target.value) || 0 })}
+                              className="w-20 text-xs font-bold font-mono text-[#2C2A29] bg-white p-1.5 pr-5 rounded-xl border border-[#E8E2D9] focus:outline-hidden focus:border-[#C5A059] text-right"
+                            />
+                            <span className="absolute right-2 top-1.5 text-xs font-bold text-[#8C857B]">€</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteLineItem(item.id)}
+                            className="p-1.5 rounded-xl text-[#8C857B] hover:text-red-500 hover:bg-red-50 cursor-pointer transition-colors"
+                            title="Odstrániť položku"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Riadok 2: Evidencia objemu (Celkovo, Minuté, Zostatok, Odložiť do skladu) */}
+                      <div className="p-2 bg-white rounded-xl border border-[#E8E2D9] flex items-center justify-between gap-3 text-xs flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Celkový objem balenia */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-[#8C857B]">Balenie:</span>
+                            <input
+                              type="number"
+                              step="0.05"
+                              min="0"
+                              value={item.totalVolume ?? 1.0}
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 0;
+                                const currentUsed = item.usedVolume ?? val;
+                                const newRem = Math.max(0, Math.round((val - currentUsed) * 100) / 100);
+                                handleUpdateLineItem(item.id, { 
+                                  totalVolume: val, 
+                                  remainingVolume: newRem,
+                                  storeRemainingToDepot: newRem > 0 ? (item.storeRemainingToDepot ?? true) : false
+                                });
+                              }}
+                              className="w-14 px-1.5 py-1 text-xs font-mono font-bold text-[#2C2A29] bg-[#FAF8F5] rounded-lg border border-[#E8E2D9] focus:outline-hidden text-center"
+                            />
+                            <select
+                              value={item.unit || 'ml'}
+                              onChange={(e) => handleUpdateLineItem(item.id, { unit: e.target.value })}
+                              className="text-[10px] font-bold bg-[#FAF8F5] px-1 py-1 rounded-lg border border-[#E8E2D9] focus:outline-hidden cursor-pointer"
+                            >
+                              <option value="ml">ml</option>
+                              <option value="Speywood">Speywood U</option>
+                              <option value="IU">IU</option>
+                              <option value="fľaštička">fľaštička</option>
+                              <option value="ampulka">ampulka</option>
+                            </select>
+                          </div>
+
+                          <span className="text-[#E8E2D9]">|</span>
+
+                          {/* Minutý objem */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-[#2C2A29]">Minuté:</span>
+                            <input
+                              type="number"
+                              step="0.05"
+                              min="0"
+                              value={item.usedVolume ?? (item.totalVolume ?? 1.0)}
+                              onChange={(e) => {
+                                const used = Number(e.target.value) || 0;
+                                const tot = item.totalVolume ?? 1.0;
+                                const newRem = Math.max(0, Math.round((tot - used) * 100) / 100);
+                                handleUpdateLineItem(item.id, { 
+                                  usedVolume: used, 
+                                  remainingVolume: newRem,
+                                  storeRemainingToDepot: newRem > 0 ? (item.storeRemainingToDepot ?? true) : false
+                                });
+                              }}
+                              className="w-14 px-1.5 py-1 text-xs font-mono font-bold text-[#2C2A29] bg-[#FAF8F5] rounded-lg border border-[#C5A059] focus:outline-hidden text-center"
+                            />
+                            <span className="text-[10px] text-[#8C857B]">{item.unit || 'ml'}</span>
+                          </div>
+
+                          <span className="text-[#E8E2D9]">|</span>
+
+                          {/* Vypočítaný zostatok */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-[#8C857B]">Zostatok:</span>
+                            <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-lg ${
+                              remVol > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'text-[#8C857B]'
+                            }`}>
+                              {remVol} {item.unit || 'ml'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Možnosť odložiť do skladu pre pacientku */}
+                        {remVol > 0 && (
+                          <label className="flex items-center gap-1.5 cursor-pointer bg-emerald-50/70 hover:bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={item.storeRemainingToDepot ?? true}
+                              onChange={(e) => handleUpdateLineItem(item.id, { storeRemainingToDepot: e.target.checked })}
+                              className="w-3.5 h-3.5 accent-emerald-600 rounded cursor-pointer"
+                            />
+                            <span className="text-[10px] font-bold text-emerald-800">
+                              📦 Odložiť do skladu pre pacientku
+                            </span>
+                          </label>
+                        )}
+
+                        {item.isFromDepot && (
+                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                            ✓ Uplatnené zo skladu
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {lineItems.length === 0 && (
+                  <div className="p-4 text-center text-xs text-[#8C857B] bg-[#FAF8F5] rounded-2xl border border-dashed border-[#E8E2D9]">
+                    Zatiaľ nie sú inkorporované žiadne položky. Vyberte šablónu alebo položku z cenníka hore.
                   </div>
                 )}
+              </div>
 
-                <div className="flex justify-between items-center pt-2 border-t border-[#E8E2D9]">
-                  <span className="font-bold uppercase tracking-wider text-[#2C2A29]">
-                    Spolu výsledná cena:
-                  </span>
-                  <span className="text-base font-bold font-mono text-[#2C2A29] bg-[#FAF8F5] px-3 py-1 rounded-xl border border-[#C5A059]/40 shadow-2xs">
-                    {finalTotalPrice.toFixed(2)} €
-                  </span>
+              {/* 4. SÚHRN: ZĽAVA, CELKOVÁ CENA & AKCIE */}
+              <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#E8E2D9] space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
+                  {/* Zľava */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase text-[#8C857B]">Zľava:</span>
+                    {[0, 5, 10, 15, 20].map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => {
+                          setDiscountType('percent');
+                          setDiscountValue(pct);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                          discountType === 'percent' && discountValue === pct
+                            ? 'bg-[#2C2A29] text-white shadow-2xs'
+                            : 'bg-white text-[#2C2A29] border border-[#E8E2D9]'
+                        }`}
+                      >
+                        {pct === 0 ? '0%' : `-${pct}%`}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Sumár */}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-[10px] text-[#8C857B] block">Medzisúčet: {subtotal.toFixed(2)} €</span>
+                      {discountAmount > 0 && (
+                        <span className="text-[10px] font-bold text-emerald-600 block">- {discountAmount.toFixed(2)} € zľava</span>
+                      )}
+                    </div>
+                    <div className="text-base font-bold font-mono text-[#2C2A29] bg-white px-3 py-1 rounded-xl border border-[#C5A059] shadow-2xs">
+                      {finalTotalPrice.toFixed(2)} €
+                    </div>
+                  </div>
                 </div>
+
+                {/* Odporúčania a postup */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-[#E8E2D9]">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-[#8C857B] uppercase flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-[#10B981]" />
+                      Odporúčania po zákroku:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={sessionRecommendations}
+                      onChange={(e) => setSessionRecommendations(e.target.value)}
+                      className="w-full text-[11px] p-2 rounded-xl bg-white border border-[#E8E2D9] text-[#2C2A29] focus:outline-hidden resize-none"
+                      placeholder="Inštrukcie pre domáci režim..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-[#8C857B] uppercase flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-[#3B82F6]" />
+                      Ďalšia kontrola / Návšteva:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={sessionNextStep}
+                      onChange={(e) => setSessionNextStep(e.target.value)}
+                      className="w-full text-[11px] p-2 rounded-xl bg-white border border-[#E8E2D9] text-[#2C2A29] focus:outline-hidden resize-none"
+                      placeholder="Kontrola o 14 dní..."
+                    />
+                  </div>
+                </div>
+
+                {/* Tlačidlá akcie */}
+                <div className="flex items-center justify-between pt-2 border-t border-[#E8E2D9] flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('report')}
+                    className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Náhľad A4 reportu</span>
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePrint}
+                      className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-xs font-bold text-[#2C2A29] shadow-2xs transition-all cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span className="hidden sm:inline">Tlačiť A4</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveSession}
+                      className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C5A059] to-[#B38F46] hover:from-[#B38F46] hover:to-[#9E7B35] text-white text-xs font-bold shadow-md shadow-[#C5A059]/20 transition-all hover:scale-[1.02] cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Uložiť ošetrenie do karty</span>
+                    </button>
+                  </div>
+                </div>
+
               </div>
 
-            </div>
-
-            {/* ODPORÚČANIA A TERMÍN KONTROLY */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] space-y-1.5">
-                <label className="text-[11px] font-bold text-[#8C857B] flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
-                  Odporúčania po zákroku:
-                </label>
-                <textarea
-                  rows={3}
-                  value={sessionRecommendations}
-                  onChange={(e) => setSessionRecommendations(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl bg-white border border-[#E8E2D9] text-[#2C2A29] focus:outline-hidden resize-none"
-                  placeholder="Inštrukcie pre domáci režim..."
-                />
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D9] space-y-1.5">
-                <label className="text-[11px] font-bold text-[#8C857B] flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-[#3B82F6]" />
-                  Ďalší postup & Plánovaný termín:
-                </label>
-                <textarea
-                  rows={3}
-                  value={sessionNextStep}
-                  onChange={(e) => setSessionNextStep(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl bg-white border border-[#E8E2D9] text-[#2C2A29] focus:outline-hidden resize-none"
-                  placeholder="Kontrola o 14 dní..."
-                />
-              </div>
-            </div>
-
-            {/* Akcie na konci formulára */}
-            <div className="flex items-center justify-between pt-2 border-t border-[#E8E2D9] flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => setActiveTab('report')}
-                className="text-xs text-[#8C857B] hover:text-[#2C2A29] font-semibold flex items-center gap-1.5 cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Náhľad pred tlačou A4</span>
-              </button>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white border border-[#E8E2D9] hover:border-[#C5A059] text-xs font-bold text-[#2C2A29] shadow-2xs transition-all cursor-pointer"
-                >
-                  <Printer className="w-4 h-4 text-[#C5A059]" />
-                  <span>Tlačiť A4 report</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleDownloadPdf}
-                  disabled={isExportingPdf}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#2C2A29] hover:bg-[#C5A059] text-white text-xs font-bold shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-                >
-                  <Download className="w-4 h-4 text-[#C5A059]" />
-                  <span>{isExportingPdf ? 'Pripravujem PDF...' : 'Stiahnuť A4 PDF'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveSession}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#C5A059] to-[#B38F46] hover:from-[#B38F46] hover:to-[#9E7B35] text-white text-xs font-bold shadow-md shadow-[#C5A059]/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Uložiť ošetrenie do karty pacienta</span>
-                </button>
-              </div>
             </div>
 
           </div>
+
         </div>
       )}
 
@@ -2433,8 +3300,8 @@ ${sessionNextStep}`;
 
               <div>
                 <span className="text-[10px] uppercase font-bold text-[#8C857B] block">Ošetrujúci lekár:</span>
-                <div className="font-bold text-sm text-[#2C2A29]">MUDr. Ján Mráz</div>
-                <div className="text-[11px] text-[#8C857B]">Špecializácia: Plastická chirurgia & Estetika</div>
+                <div className="font-bold text-sm text-[#2C2A29]">{selectedDoctor}</div>
+                <div className="text-[11px] text-[#8C857B]">Špecializácia: Plastická chirurgia & Estetická medicína</div>
                 <div className="text-[11px] text-[#8C857B]">Pracovisko: SAY CLINIC Banská Bystrica</div>
               </div>
             </div>
@@ -2443,7 +3310,7 @@ ${sessionNextStep}`;
             <div className="space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#2C2A29] flex items-center gap-1.5 pb-1 border-b border-[#E8E2D9]">
                 <span className="w-2 h-2 rounded-full bg-[#C5A059]" />
-                1. Aplikované látky a výkony:
+                1. Aplikované látky, minutý objem a zostatky:
               </h3>
 
               {lineItems.length > 0 ? (
@@ -2451,10 +3318,25 @@ ${sessionNextStep}`;
                   <div className="divide-y divide-[#E8E2D9]">
                     {lineItems.map((item, idx) => (
                       <div key={item.id || idx} className="p-3.5 flex items-start justify-between gap-4">
-                        <div className="space-y-0.5">
+                        <div className="space-y-1">
                           <div className="font-bold text-xs text-[#2C2A29] leading-snug">
                             • {item.title}
                           </div>
+                          {item.totalVolume !== undefined && (
+                            <div className="text-[10px] text-[#8C857B] flex items-center gap-2 flex-wrap">
+                              <span>Minutý objem: <strong className="text-[#2C2A29]">{item.usedVolume ?? item.totalVolume} {item.unit || 'ml'}</strong> (z celkového balenia {item.totalVolume} {item.unit || 'ml'})</span>
+                              {item.remainingVolume && item.remainingVolume > 0 && item.storeRemainingToDepot && (
+                                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 font-bold">
+                                  📦 Uskladnený zostatok pre klientku: {item.remainingVolume} {item.unit || 'ml'}
+                                </span>
+                              )}
+                              {item.isFromDepot && (
+                                <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 font-bold">
+                                  ✓ Uplatnený zostatok zo skladu
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="font-bold font-mono text-xs text-[#2C2A29] shrink-0 text-right">
                           {(Number(item.price) || 0).toFixed(2)} €
@@ -2525,7 +3407,7 @@ ${sessionNextStep}`;
 
               <div className="text-center">
                 <div className="w-48 border-b border-[#2C2A29] mb-1.5" />
-                <div className="font-bold text-[#2C2A29]">MUDr. Ján Mráz</div>
+                <div className="font-bold text-[#2C2A29]">{selectedDoctor}</div>
                 <div>Pečiatka a podpis lekára</div>
               </div>
             </div>
@@ -2699,7 +3581,8 @@ ${sessionNextStep}`;
                 .map((tpl) => (
                   <div
                     key={tpl.id}
-                    className="p-3.5 rounded-2xl border border-[#E8E2D9] hover:border-[#C5A059] bg-[#FAF8F5]/60 hover:bg-white transition-all flex items-start justify-between gap-3"
+                    onContextMenu={(e) => handleOpenTemplateContextMenu(e, tpl)}
+                    className="p-3.5 rounded-2xl border border-[#E8E2D9] hover:border-[#C5A059] bg-[#FAF8F5]/60 hover:bg-white transition-all flex items-start justify-between gap-3 group/row"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -2736,6 +3619,25 @@ ${sessionNextStep}`;
                       </div>
 
                       <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenTemplateContextMenu(e, tpl)}
+                          className="p-1.5 rounded-lg text-[#8C857B] hover:text-[#C5A059] hover:bg-[#FAF8F5] cursor-pointer transition-colors"
+                          title="Možnosti šablóny (pravý klik)"
+                        >
+                          <MoreVertical className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAllTemplatesModal(false);
+                            handleOpenEditTemplate(tpl);
+                          }}
+                          className="p-1.5 rounded-lg text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5] cursor-pointer transition-colors"
+                          title={`Upraviť šablónu a body "${tpl.title}"`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteTemplate(tpl.id)}
@@ -2812,7 +3714,7 @@ ${sessionNextStep}`;
                       required
                       value={newMatName}
                       onChange={(e) => setNewMatName(e.target.value)}
-                      placeholder="Napr. Juvederm Volite 1ml"
+                      placeholder="Napr. Restylane Lyft 1ml alebo Teosyal Redensity II"
                       className="w-full p-2 bg-white rounded-xl border border-[#E8E2D9] text-xs font-semibold"
                     />
                   </div>
@@ -2982,7 +3884,7 @@ ${sessionNextStep}`;
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 3: ULOŽIŤ AKTUÁLNY NÁKRES AKO VLASTNÚ ŠABLÓNU                      */}
+      {/* MODAL 3: ULOŽIŤ NÁKRES DO EXISTUJÚCEJ ALEBO NOVEJ ŠABLÓNY                 */}
       {/* ========================================================================= */}
       {showSaveCustomTemplateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in print:hidden">
@@ -2991,7 +3893,7 @@ ${sessionNextStep}`;
             <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D9]">
               <div className="flex items-center gap-2">
                 <BookmarkPlus className="w-5 h-5 text-[#C5A059]" />
-                <h3 className="text-sm font-bold text-[#2C2A29]">Uložiť vlastnú šablónu</h3>
+                <h3 className="text-sm font-bold text-[#2C2A29]">Uložiť body do šablóny</h3>
               </div>
               <button
                 type="button"
@@ -3002,52 +3904,130 @@ ${sessionNextStep}`;
               </button>
             </div>
 
-            <form onSubmit={handleSaveCustomTemplate} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold text-[#8C857B] mb-1">Názov šablóny:</label>
-                <input
-                  type="text"
-                  required
-                  value={customTemplateTitle}
-                  onChange={(e) => setCustomTemplateTitle(e.target.value)}
-                  placeholder="Napr. Môj protokol pery + brada"
-                  className="w-full p-2.5 rounded-xl border border-[#E8E2D9] bg-white font-semibold text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
-                />
-              </div>
+            {/* Prepínač: Prepísať existujúcu vs Vytvoriť novú */}
+            <div className="flex items-center p-1 bg-[#FAF8F5] rounded-xl border border-[#E8E2D9]">
+              <button
+                type="button"
+                onClick={() => setSaveTemplateMode('update')}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  saveTemplateMode === 'update'
+                    ? 'bg-[#2C2A29] text-white shadow-2xs'
+                    : 'text-[#8C857B] hover:text-[#2C2A29]'
+                }`}
+              >
+                Prepísať existujúcu
+              </button>
+              <button
+                type="button"
+                onClick={() => setSaveTemplateMode('new')}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  saveTemplateMode === 'new'
+                    ? 'bg-[#2C2A29] text-white shadow-2xs'
+                    : 'text-[#8C857B] hover:text-[#2C2A29]'
+                }`}
+              >
+                Vytvoriť novú
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-[#8C857B] mb-1">Cena ošetrenia (€):</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="10"
-                  required
-                  value={customTemplatePrice}
-                  onChange={(e) => setCustomTemplatePrice(Number(e.target.value) || 0)}
-                  className="w-full p-2.5 rounded-xl border border-[#E8E2D9] bg-white font-bold font-mono text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
-                />
-              </div>
+            {saveTemplateMode === 'update' ? (
+              <div className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#8C857B] mb-1">Vyberte cieľovú šablónu:</label>
+                  <select
+                    value={selectedTemplateToOverwriteId || (lastActiveTemplateId || (templatesList[0]?.id ?? ''))}
+                    onChange={(e) => setSelectedTemplateToOverwriteId(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-[#E8E2D9] bg-white font-bold text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059] cursor-pointer"
+                  >
+                    {templatesList.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.title} ({t.vectors.length} pôvodných bodov, {t.price} €)
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] text-[11px] text-[#8C857B]">
-                Bude uložených <strong className="text-[#2C2A29]">{vectors.length}</strong> vyznačených bodov s aktívnym preparátom <strong className="text-[#2C2A29]">{activeMaterial.name}</strong>.
-              </div>
+                <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] text-[11px] text-[#8C857B] space-y-1">
+                  <div>
+                    Do vybranej šablóny sa uloží aktuálnych <strong className="text-[#2C2A29]">{vectors.length}</strong> vyznačených bodov z tváre.
+                  </div>
+                  <div className="text-[10px] text-[#C5A059] font-medium">
+                    Pôvodné body v šablóne budú nahradené týmto novým nákresom.
+                  </div>
+                </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E8E2D9]">
-                <button
-                  type="button"
-                  onClick={() => setShowSaveCustomTemplateModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-[#8C857B] hover:bg-[#FAF8F5] cursor-pointer"
-                >
-                  Zrušiť
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-[#2C2A29] hover:bg-[#C5A059] text-white shadow-sm transition-all cursor-pointer"
-                >
-                  Uložiť šablónu
-                </button>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E8E2D9]">
+                  <button
+                    type="button"
+                    onClick={() => setShowSaveCustomTemplateModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-[#8C857B] hover:bg-[#FAF8F5] cursor-pointer"
+                  >
+                    Zrušiť
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const targetId = selectedTemplateToOverwriteId || lastActiveTemplateId || templatesList[0]?.id;
+                      if (targetId) {
+                        handleOverwriteTemplatePoints(targetId);
+                        setShowSaveCustomTemplateModal(false);
+                      }
+                    }}
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-[#2C2A29] hover:bg-[#C5A059] text-white shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Save className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Prepísať body v šablóne</span>
+                  </button>
+                </div>
               </div>
-            </form>
+            ) : (
+              <form onSubmit={handleSaveCustomTemplate} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#8C857B] mb-1">Názov novej šablóny:</label>
+                  <input
+                    type="text"
+                    required
+                    value={customTemplateTitle}
+                    onChange={(e) => setCustomTemplateTitle(e.target.value)}
+                    placeholder="Napr. Môj protokol pery + brada"
+                    className="w-full p-2.5 rounded-xl border border-[#E8E2D9] bg-white font-semibold text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#8C857B] mb-1">Cena ošetrenia (€):</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10"
+                    required
+                    value={customTemplatePrice}
+                    onChange={(e) => setCustomTemplatePrice(Number(e.target.value) || 0)}
+                    className="w-full p-2.5 rounded-xl border border-[#E8E2D9] bg-white font-bold font-mono text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E2D9] text-[11px] text-[#8C857B]">
+                  Bude uložených <strong className="text-[#2C2A29]">{vectors.length}</strong> vyznačených bodov s aktívnym preparátom <strong className="text-[#2C2A29]">{activeMaterial.name}</strong>.
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E8E2D9]">
+                  <button
+                    type="button"
+                    onClick={() => setShowSaveCustomTemplateModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-[#8C857B] hover:bg-[#FAF8F5] cursor-pointer"
+                  >
+                    Zrušiť
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-[#2C2A29] hover:bg-[#C5A059] text-white shadow-sm transition-all cursor-pointer"
+                  >
+                    Vytvoriť novú šablónu
+                  </button>
+                </div>
+              </form>
+            )}
 
           </div>
         </div>
@@ -3065,6 +4045,497 @@ ${sessionNextStep}`;
             setDiscountValue(updated.tierDef.discountPercent);
           }}
         />
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: DETAILNÁ ÚPRAVA ŠABLÓNY A BODOV                                 */}
+      {/* ========================================================================= */}
+      {editingTemplate && editTemplateForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in print:hidden">
+          <div className="bg-white rounded-3xl border border-[#E8E2D9] shadow-2xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D9]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-[#C5A059]/15 flex items-center justify-center text-[#C5A059]">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#2C2A29]">
+                    Úprava šablóny: <span className="text-[#C5A059]">{editTemplateForm.title}</span>
+                  </h3>
+                  <p className="text-[11px] text-[#8C857B]">
+                    Zmeňte názov, lekára, preparát, cenu, predvolené objemy alebo aplikačné body
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingTemplate(null);
+                  setEditTemplateForm(null);
+                }}
+                className="p-1 rounded-xl text-[#8C857B] hover:text-[#2C2A29] hover:bg-[#FAF8F5] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Formulár */}
+            <form onSubmit={handleSaveEditedTemplate} className="space-y-4 overflow-y-auto flex-1 pr-1 text-xs">
+              
+              {/* Názov a Kategória */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Názov šablóny:</label>
+                  <input
+                    type="text"
+                    required
+                    value={editTemplateForm.title}
+                    onChange={(e) => setEditTemplateForm(prev => prev ? ({ ...prev, title: e.target.value }) : null)}
+                    className="w-full p-2.5 bg-white rounded-xl border border-[#E8E2D9] font-bold text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Kategória:</label>
+                  <select
+                    value={editTemplateForm.category}
+                    onChange={(e) => setEditTemplateForm(prev => prev ? ({ ...prev, category: e.target.value as any }) : null)}
+                    className="w-full p-2.5 bg-white rounded-xl border border-[#E8E2D9] font-semibold text-[#2C2A29] cursor-pointer focus:outline-hidden focus:border-[#C5A059]"
+                  >
+                    <option value="filler">Výplň (Kyselina hyalurónová)</option>
+                    <option value="botox">Botulotoxín</option>
+                    <option value="pdrn">PDRN & Polynukleotidy</option>
+                    <option value="meso">Bioremodelácia / Mezoterapia</option>
+                    <option value="exosomes">Exozómy</option>
+                    <option value="microneedling">Microneedling</option>
+                    <option value="laser">CO2 Laser</option>
+                    <option value="biostimulator">Biostimulátor kolagénu</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Lekár a Preparát */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Ošetrujúci lekár:</label>
+                  <select
+                    value={editTemplateForm.doctor}
+                    onChange={(e) => setEditTemplateForm(prev => prev ? ({ ...prev, doctor: e.target.value }) : null)}
+                    className="w-full p-2.5 bg-white rounded-xl border border-[#E8E2D9] font-semibold text-[#2C2A29] cursor-pointer focus:outline-hidden focus:border-[#C5A059]"
+                  >
+                    <option value="all">Všetci lekári (spoločná šablóna)</option>
+                    {AESTHETIC_DOCTORS.map(doc => (
+                      <option key={doc} value={doc}>{doc}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Preparát / Produkt:</label>
+                  <input
+                    type="text"
+                    required
+                    value={editTemplateForm.productName}
+                    onChange={(e) => setEditTemplateForm(prev => prev ? ({ ...prev, productName: e.target.value }) : null)}
+                    placeholder="Napr. Restylane Kysse 1 ml"
+                    className="w-full p-2.5 bg-white rounded-xl border border-[#E8E2D9] font-semibold text-[#2C2A29] focus:outline-hidden focus:border-[#C5A059]"
+                  />
+                </div>
+              </div>
+
+              {/* Cena, Objemy a Jednotka */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-[#FAF8F5] rounded-2xl border border-[#E8E2D9]">
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Cena (€):</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="5"
+                    required
+                    value={editTemplateForm.price}
+                    onChange={(e) => setEditTemplateForm(prev => prev ? ({ ...prev, price: Number(e.target.value) || 0 }) : null)}
+                    className="w-full p-2 bg-white rounded-xl border border-[#E8E2D9] font-bold font-mono text-[#2C2A29] text-right focus:outline-hidden focus:border-[#C5A059]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Celé balenie:</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={editTemplateForm.defaultTotalVolume}
+                    onChange={(e) => setEditTemplateForm(prev => prev ? ({ ...prev, defaultTotalVolume: Number(e.target.value) || 0 }) : null)}
+                    className="w-full p-2 bg-white rounded-xl border border-[#E8E2D9] font-bold font-mono text-[#2C2A29] text-right focus:outline-hidden focus:border-[#C5A059]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Predvolene minuté:</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={editTemplateForm.defaultUsedVolume}
+                    onChange={(e) => setEditTemplateForm(prev => prev ? ({ ...prev, defaultUsedVolume: Number(e.target.value) || 0 }) : null)}
+                    className="w-full p-2 bg-white rounded-xl border border-[#E8E2D9] font-bold font-mono text-[#2C2A29] text-right focus:outline-hidden focus:border-[#C5A059]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Jednotka:</label>
+                  <select
+                    value={editTemplateForm.defaultUnit}
+                    onChange={(e) => setEditTemplateForm(prev => prev ? ({ ...prev, defaultUnit: e.target.value }) : null)}
+                    className="w-full p-2 bg-white rounded-xl border border-[#E8E2D9] font-semibold text-[#2C2A29] cursor-pointer focus:outline-hidden focus:border-[#C5A059]"
+                  >
+                    <option value="ml">ml</option>
+                    <option value="Speywood">Speywood</option>
+                    <option value="IU">IU</option>
+                    <option value="amp">ampulka</option>
+                    <option value="sedenie">sedenie</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Farba a Typ aplikácie */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Farba bodov šablóny:</label>
+                  <div className="flex items-center gap-1.5 pt-1">
+                    {['#3B82F6', '#EC4899', '#10B981', '#C5A059', '#8B5CF6', '#F59E0B', '#EF4444', '#06B6D4'].map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setEditTemplateForm(prev => prev ? ({ ...prev, color: c }) : null)}
+                        style={{ backgroundColor: c }}
+                        className={`w-6 h-6 rounded-full cursor-pointer transition-all ${
+                          editTemplateForm.color === c ? 'ring-2 ring-offset-2 ring-[#2C2A29] scale-110' : 'opacity-80 hover:opacity-100'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Typ aplikácie:</label>
+                  <div className="flex items-center gap-2">
+                    {[
+                      { id: 'point', label: 'Bodový vpich' },
+                      { id: 'fanning', label: 'Vejár (kanyla)' },
+                      { id: 'threads', label: 'Lineárne vlákna' }
+                    ].map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setEditTemplateForm(prev => prev ? ({ ...prev, type: t.id as any }) : null)}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          editTemplateForm.type === t.id
+                            ? 'bg-[#2C2A29] text-white shadow-xs'
+                            : 'bg-[#FAF8F5] text-[#8C857B] hover:text-[#2C2A29] border border-[#E8E2D9]'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Popis a aplikačné zóny */}
+              <div>
+                <label className="block text-[10px] font-bold text-[#8C857B] mb-1">Popis / Zóny aplikácie (pre klienta):</label>
+                <input
+                  type="text"
+                  value={editTemplateForm.description}
+                  onChange={(e) => setEditTemplateForm(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
+                  placeholder="Napr. m. corrugator a m. procerus, celkovo 50 Speywood U"
+                  className="w-full p-2.5 bg-white rounded-xl border border-[#E8E2D9] text-xs font-medium focus:outline-hidden focus:border-[#C5A059]"
+                />
+              </div>
+
+              {/* SEKCIA: APLIKAČNÉ BODY ŠABLÓNY */}
+              <div className="p-3.5 rounded-2xl border border-[#E8E2D9] bg-[#FAF8F5]/60 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-[#C5A059]" />
+                    <span className="font-bold text-xs text-[#2C2A29]">
+                      Aplikačné body šablóny ({editTemplateForm.vectors.length}):
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newPt: Vector2DItem = {
+                          id: `tpl_pt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                          type: editTemplateForm.type,
+                          view: 'front',
+                          color: editTemplateForm.color,
+                          startPoint: { x: 300, y: 280 },
+                          zoneName: 'Nový bod',
+                          productName: editTemplateForm.productName,
+                          details: `${editTemplateForm.category === 'botox' ? '10 Speywood' : '0.05 ml'}`,
+                          units: editTemplateForm.category === 'botox' ? 10 : 0.05,
+                          unitsUnit: editTemplateForm.defaultUnit,
+                          createdAt: '12:00'
+                        };
+                        setEditTemplateForm(prev => prev ? ({ ...prev, vectors: [...prev.vectors, newPt] }) : null);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-bold bg-white hover:bg-gray-50 border border-[#E8E2D9] text-[#2C2A29] cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 text-[#C5A059]" />
+                      <span>Pridať bod</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Spustenie priamej úpravy na soche tváre
+                        const tplToEdit: AestheticTemplate = {
+                          ...editingTemplate!,
+                          ...editTemplateForm
+                        };
+                        setEditingTemplate(null);
+                        setEditTemplateForm(null);
+                        handleStartEditingTemplatePointsOnFace(tplToEdit);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-[10px] font-bold bg-[#2C2A29] hover:bg-[#C5A059] text-white cursor-pointer shadow-xs transition-colors"
+                      title="Otvorí sochu tváre a umožní klikať priamo do tváre"
+                    >
+                      <Target className="w-3 h-3 text-[#C5A059]" />
+                      <span>Upraviť body na soche tváre</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Zoznam bodov */}
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {editTemplateForm.vectors.map((vec, vIdx) => (
+                    <div
+                      key={`edit-vec-${vec.id || vIdx}`}
+                      className="p-2.5 rounded-xl border border-[#E8E2D9] bg-white text-xs flex items-center justify-between gap-3 shadow-2xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span
+                          style={{ backgroundColor: editTemplateForm.color }}
+                          className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
+                        />
+                        <span className="font-mono font-bold text-[11px] text-[#8C857B] shrink-0">
+                          #{vIdx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <input
+                            type="text"
+                            value={vec.zoneName || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditTemplateForm(prev => {
+                                if (!prev) return null;
+                                const newVecs = [...prev.vectors];
+                                newVecs[vIdx] = { ...newVecs[vIdx], zoneName: val };
+                                return { ...prev, vectors: newVecs };
+                              });
+                            }}
+                            placeholder="Názov zóny (napr. m. frontalis)"
+                            className="w-full text-xs font-semibold text-[#2C2A29] bg-transparent focus:outline-hidden border-b border-transparent focus:border-[#C5A059]"
+                          />
+                          <div className="flex items-center gap-2 text-[10px] text-[#8C857B] mt-0.5">
+                            <span className="uppercase font-mono font-bold px-1.5 py-0.2 rounded-md bg-[#FAF8F5] border border-[#E8E2D9]">
+                              {vec.view === 'front' ? 'Čelný' : vec.view.includes('profile') ? 'Profil' : '3/4 pohľad'}
+                            </span>
+                            <span>{vec.type === 'fanning' ? 'Vejár' : vec.type === 'threads' ? 'Lineár' : 'Vpich'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1 bg-[#FAF8F5] px-2 py-1 rounded-xl border border-[#E8E2D9]">
+                          <span className="text-[10px] text-[#8C857B]">Dávka:</span>
+                          <input
+                            type="number"
+                            step={editTemplateForm.category === 'botox' ? '5' : '0.01'}
+                            min="0"
+                            value={vec.units ?? ''}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setEditTemplateForm(prev => {
+                                if (!prev) return null;
+                                const newVecs = [...prev.vectors];
+                                newVecs[vIdx] = { 
+                                  ...newVecs[vIdx], 
+                                  units: val, 
+                                  details: `${val} ${prev.defaultUnit}` 
+                                };
+                                return { ...prev, vectors: newVecs };
+                              });
+                            }}
+                            className="w-12 text-xs font-bold font-mono text-[#2C2A29] bg-transparent focus:outline-hidden text-right"
+                          />
+                          <span className="text-[10px] font-bold text-[#8C857B]">{editTemplateForm.defaultUnit}</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditTemplateForm(prev => {
+                              if (!prev) return null;
+                              return {
+                                ...prev,
+                                vectors: prev.vectors.filter((_, idx) => idx !== vIdx)
+                              };
+                            });
+                          }}
+                          className="p-1.5 rounded-lg text-[#8C857B] hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                          title="Odstrániť tento bod zo šablóny"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {editTemplateForm.vectors.length === 0 && (
+                    <div className="p-3 text-center text-xs text-[#8C857B] bg-white rounded-xl border border-dashed border-[#E8E2D9]">
+                      Šablóna zatiaľ nemá žiadne body. Kliknite na "Upraviť body na soche tváre" pre interaktívne nanesenie.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Tlačidlá modálu */}
+              <div className="flex items-center justify-between pt-3 border-t border-[#E8E2D9]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingTemplate(null);
+                    setEditTemplateForm(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-[#8C857B] hover:bg-[#FAF8F5] cursor-pointer"
+                >
+                  Zrušiť
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-[#2C2A29] hover:bg-[#C5A059] text-white shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Uložiť zmeny v šablóne</span>
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* KONTEXTOVÉ MENU PRE ŠABLÓNU (PRAVÝ KLIK)                                */}
+      {/* ========================================================================= */}
+      {templateContextMenu.isOpen && templateContextMenu.template && (
+        <div
+          className="fixed inset-0 z-50 bg-black/10 backdrop-blur-2xs"
+          onClick={() => setTemplateContextMenu(prev => ({ ...prev, isOpen: false }))}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setTemplateContextMenu(prev => ({ ...prev, isOpen: false }));
+          }}
+        >
+          <div
+            style={{
+              position: 'fixed',
+              left: templateContextMenu.x,
+              top: templateContextMenu.y
+            }}
+            className="bg-[#2C2A29] text-white rounded-2xl border border-[#C5A059]/40 shadow-2xl py-1.5 min-w-[240px] text-xs font-semibold animate-in fade-in zoom-in-95 z-50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-3.5 py-2 border-b border-white/10 flex items-center justify-between gap-2">
+              <span className="font-bold text-[#C5A059] truncate max-w-[180px]">
+                {templateContextMenu.template.title}
+              </span>
+              <span
+                style={{ backgroundColor: templateContextMenu.template.color }}
+                className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+              />
+            </div>
+
+            {/* PRIAME ULOŽENIE BODOV Z TVÁRE DO TEJTO ŠABLÓNY */}
+            {vectors.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const tpl = templateContextMenu.template;
+                  setTemplateContextMenu(prev => ({ ...prev, isOpen: false }));
+                  if (tpl) handleOverwriteTemplatePoints(tpl.id);
+                }}
+                className="w-full px-3.5 py-2.5 text-left bg-[#C5A059]/15 hover:bg-[#C5A059]/30 text-[#E8C882] flex items-center gap-2.5 cursor-pointer transition-colors font-bold border-b border-white/10"
+              >
+                <Save className="w-4 h-4 text-[#C5A059] shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-white">Uložiť body z tváre do tejto šablóny</div>
+                  <div className="text-[10px] text-[#C5A059] font-normal">Prepíše body šablóny aktuálnym nákresom ({vectors.length} bodov)</div>
+                </div>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                const tpl = templateContextMenu.template;
+                setTemplateContextMenu(prev => ({ ...prev, isOpen: false }));
+                if (tpl) handleOpenEditTemplate(tpl);
+              }}
+              className="w-full px-3.5 py-2 text-left hover:bg-white/10 flex items-center gap-2.5 cursor-pointer transition-colors text-gray-200 hover:text-white"
+            >
+              <Pencil className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Upraviť šablónu & parametre</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const tpl = templateContextMenu.template;
+                setTemplateContextMenu(prev => ({ ...prev, isOpen: false }));
+                if (tpl) handleStartEditingTemplatePointsOnFace(tpl);
+              }}
+              className="w-full px-3.5 py-2 text-left hover:bg-white/10 flex items-center gap-2.5 cursor-pointer transition-colors text-gray-200 hover:text-white"
+            >
+              <Target className="w-3.5 h-3.5 text-blue-400" />
+              <span>Upraviť body na soche tváre</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const tpl = templateContextMenu.template;
+                setTemplateContextMenu(prev => ({ ...prev, isOpen: false }));
+                if (tpl) handleDuplicateTemplate(tpl);
+              }}
+              className="w-full px-3.5 py-2 text-left hover:bg-white/10 flex items-center gap-2.5 cursor-pointer transition-colors text-gray-200 hover:text-white"
+            >
+              <Copy className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Duplikovať šablónu</span>
+            </button>
+
+            <div className="my-1 border-t border-white/10" />
+
+            <button
+              type="button"
+              onClick={() => {
+                const tpl = templateContextMenu.template;
+                setTemplateContextMenu(prev => ({ ...prev, isOpen: false }));
+                if (tpl) handleDeleteTemplate(tpl.id);
+              }}
+              className="w-full px-3.5 py-2 text-left hover:bg-red-500/20 text-red-400 hover:text-red-300 flex items-center gap-2.5 cursor-pointer transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Vymazať šablónu</span>
+            </button>
+          </div>
+        </div>
       )}
 
     </div>

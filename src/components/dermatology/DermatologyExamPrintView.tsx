@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { DermatologyExamData, FITZPATRICK_DATA } from './dermatologyTypes';
+import { DermatologyExamData, FITZPATRICK_DATA, calculateTDS } from './dermatologyTypes';
 
 interface DermatologyExamPrintViewProps {
   data: DermatologyExamData;
@@ -13,8 +13,8 @@ export default function DermatologyExamPrintView({
   const fitzInfo = FITZPATRICK_DATA[data.fitzpatrick];
 
   return (
-    <div className="space-y-6 text-[#2C2A29]">
-      {/* 1. DIAGNOSTICKÝ BLOK MKCH-10 S PODPOROU PRE VIACERÉ DIAGNÓZY */}
+    <div className="space-y-5 text-[#2C2A29]">
+      {/* 1. DIAGNOSTICKÝ BLOK MKCH-10 */}
       <div className="border border-[#E8E2D9] rounded-xl p-3.5 bg-[#FBF9F6]">
         <div className="flex justify-between items-center mb-2">
           <span className="text-[9px] uppercase font-bold text-[#C5A059] tracking-wider">
@@ -33,7 +33,7 @@ export default function DermatologyExamPrintView({
           <div>
             <span className="text-[9px] text-[#8C857B] uppercase font-bold mr-1.5">Hlavná diagnóza:</span>
             <span className="text-xs font-bold text-[#2C2A29]">
-              {data.primaryDiagnosis.name || 'Preventívne dermatoskopické vyšetrenie'}
+              {data.primaryDiagnosis.name || 'Preventívne celotelové dermatoskopické vyšetrenie'}
             </span>
           </div>
         </div>
@@ -61,7 +61,7 @@ export default function DermatologyExamPrintView({
       </div>
 
       {/* 2. FITZPATRICK FOTOTYP & ANAMNÉZA */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         {/* FITZPATRICK BOX */}
         <div className="border border-[#C5A059]/40 rounded-xl p-3 bg-[#FBF9F6] space-y-1.5">
           <div className="flex items-center justify-between">
@@ -88,15 +88,15 @@ export default function DermatologyExamPrintView({
         {/* DERMATOLOGICKÁ & SOLÁRNA ANAMNÉZA */}
         <div className="md:col-span-2 border border-[#E8E2D9] rounded-xl p-3 bg-[#FBF9F6] text-[10px] space-y-1.5">
           <p className="text-[9px] uppercase font-bold text-[#C5A059] tracking-wider border-b border-[#E8E2D9] pb-1">
-            Anamnestické údaje
+            Anamnestické údaje & Slnečná expozícia
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
             <div>
               <strong className="text-[#8C857B] uppercase text-[8px] block">OA dermatologická:</strong>
-              <span className="text-[#2C2A29]">{data.dermatologicOA || 'Bez údajov'}</span>
+              <span className="text-[#2C2A29]">{data.dermatologicOA || 'Negatívna'}</span>
             </div>
             <div>
-              <strong className="text-[#8C857B] uppercase text-[8px] block">Rodinná anamnéza (melanóm):</strong>
+              <strong className="text-[#8C857B] uppercase text-[8px] block">Rodinná onko anamnéza:</strong>
               <span className="text-[#2C2A29]">{data.familyMelanoma || 'Negatívna'}</span>
             </div>
             <div>
@@ -163,7 +163,7 @@ export default function DermatologyExamPrintView({
         </div>
       </div>
 
-      {/* 4. DERMATOSKOPICKÉ VYŠETRENIE & ABCDE TABUĽKA LÉZIÍ */}
+      {/* 4. DERMATOSKOPICKÉ VYŠETRENIE, BODY MAP & ABCDE / TDS TABUĽKA */}
       <div className="border border-[#E8E2D9] rounded-xl p-3.5 bg-white space-y-3 print-avoid-break">
         <div className="flex justify-between items-center border-b border-[#E8E2D9] pb-1.5">
           <p className="text-[9px] uppercase font-bold text-[#C5A059] tracking-wider">
@@ -178,55 +178,79 @@ export default function DermatologyExamPrintView({
           {data.dermoscopySummary || 'Pri dermatoskopickom vyšetrení zistené benígne melanocytové névy s typickou retikulárnou alebo globulárnou sieťou.'}
         </p>
 
-        {/* TABUĽKA SAMOSTATNE SLEDOVANÝCH LÉZIÍ */}
+        {/* TABUĽKA SAMOSTATNE SLEDOVANÝCH LÉZIÍ S TDS SKÓRE */}
         {data.examinedLesions.length > 0 && (
           <div className="pt-2">
-            <span className="text-[8px] text-[#8C857B] uppercase font-bold block mb-1.5">
-              Protokol podrobne vyšetrených lézií (Kritériá ABCDE):
-            </span>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-[8px] text-[#8C857B] uppercase font-bold">
+                Protokol vyšetrených lézií (Kritériá ABCDE & Stolz TDS skóre):
+              </span>
+              <span className="text-[8px] text-[#8C857B] font-mono">
+                Fotodokumentácia archivovaná na disku SAY CLINIC
+              </span>
+            </div>
+
             <div className="border border-[#E8E2D9] rounded-xl overflow-hidden text-[10px]">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#2C2A29] text-white text-[9px] uppercase tracking-wider">
                     <th className="p-2 font-bold w-6 text-center">#</th>
-                    <th className="p-2 font-bold">Lokalizácia</th>
+                    <th className="p-2 font-bold">Lokalizácia (Body Map)</th>
                     <th className="p-2 font-bold">Rozmer</th>
-                    <th className="p-2 font-bold">ABCDE kritériá</th>
-                    <th className="p-2 font-bold">Dermatoskopický záver</th>
-                    <th className="p-2 font-bold">Manažment / Odporúčanie</th>
+                    <th className="p-2 font-bold">ABCDE & Štruktúry</th>
+                    <th className="p-2 font-bold text-center">TDS Skóre</th>
+                    <th className="p-2 font-bold">Záver & Manažment</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8E2D9]">
-                  {data.examinedLesions.map((lesion, i) => (
-                    <tr key={lesion.id || i} className={i % 2 === 0 ? 'bg-white' : 'bg-[#FBF9F6]'}>
-                      <td className="p-2 text-center font-bold text-[#C5A059]">{i + 1}</td>
-                      <td className="p-2 font-bold text-[#2C2A29]">{lesion.location}</td>
-                      <td className="p-2 font-mono whitespace-nowrap">{lesion.sizeMm || '---'}</td>
-                      <td className="p-2 text-[9px] leading-tight">
-                        <div><strong className="text-[#8C857B]">A:</strong> {lesion.asymmetry}</div>
-                        <div><strong className="text-[#8C857B]">B:</strong> {lesion.borders}</div>
-                        <div><strong className="text-[#8C857B]">C:</strong> {lesion.color}</div>
-                        <div><strong className="text-[#8C857B]">E:</strong> {lesion.evolution}</div>
-                        {lesion.dermoscopyFeatures.length > 0 && (
-                          <div className="mt-1 text-[#C5A059] font-medium">
-                            {lesion.dermoscopyFeatures.join(', ')}
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-2 font-bold text-[#2C2A29] text-[10px]">
-                        {lesion.conclusion}
-                      </td>
-                      <td className="p-2 text-[10px]">
-                        <span className={`inline-block px-1.5 py-0.5 rounded font-medium ${
-                          lesion.recommendation.includes('excízia') 
-                            ? 'bg-rose-100 text-rose-800 font-bold border border-rose-200' 
-                            : 'bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20'
-                        }`}>
-                          {lesion.recommendation}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {data.examinedLesions.map((lesion, i) => {
+                    const evalRes = calculateTDS(lesion);
+
+                    return (
+                      <tr key={lesion.id || i} className={i % 2 === 0 ? 'bg-white' : 'bg-[#FBF9F6]'}>
+                        <td className="p-2 text-center font-bold text-[#C5A059]">{i + 1}</td>
+                        <td className="p-2 font-bold text-[#2C2A29]">
+                          <div>{lesion.location}</div>
+                          {lesion.coords && (
+                            <span className="text-[8px] text-[#8C857B] font-mono">
+                              Pin: {lesion.coords.view === 'front' ? 'Vpredu' : lesion.coords.view === 'back' ? 'Zozadu' : 'Tvár'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2 font-mono whitespace-nowrap">{lesion.sizeMm || '---'}</td>
+                        <td className="p-2 text-[9px] leading-tight">
+                          <div><strong className="text-[#8C857B]">A:</strong> {lesion.asymmetry} | <strong className="text-[#8C857B]">B:</strong> {lesion.borders}</div>
+                          <div><strong className="text-[#8C857B]">C:</strong> {lesion.color} | <strong className="text-[#8C857B]">E:</strong> {lesion.evolution}</div>
+                          {lesion.dermoscopyFeatures.length > 0 && (
+                            <div className="mt-0.5 text-[#C5A059] font-medium text-[8px]">
+                              {lesion.dermoscopyFeatures.join(', ')}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2 text-center whitespace-nowrap">
+                          <span className={`inline-block px-1.5 py-0.5 rounded font-mono font-bold text-[9px] border ${
+                            evalRes.risk === 'high' 
+                              ? 'bg-rose-100 text-rose-800 border-rose-300' 
+                              : evalRes.risk === 'moderate'
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}>
+                            TDS {evalRes.score.toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-[10px]">
+                          <div className="font-bold text-[#2C2A29]">{lesion.conclusion}</div>
+                          <span className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-medium ${
+                            lesion.recommendation.includes('excízia') 
+                              ? 'bg-rose-100 text-rose-800 font-bold border border-rose-200' 
+                              : 'bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20'
+                          }`}>
+                            {lesion.recommendation}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -281,7 +305,7 @@ export default function DermatologyExamPrintView({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#E8E2D9] text-xs">
           <div>
             <strong className="text-[#8C857B] uppercase text-[8px] block">Vykonané ambulantné výkony:</strong>
-            <p className="font-semibold text-[#2C2A29] mt-0.5">{data.performedProcedures || 'Dermatoskopia celého tela'}</p>
+            <p className="font-semibold text-[#2C2A29] mt-0.5">{data.performedProcedures || 'Celotelová digitálna dermatoskopia'}</p>
           </div>
           <div>
             <strong className="text-[#C5A059] uppercase text-[8px] font-bold block">Plánovaná kontrola:</strong>

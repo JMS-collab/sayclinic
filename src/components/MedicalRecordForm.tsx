@@ -13,10 +13,11 @@ import { SurgeryConsentTemplateManager } from './SurgeryConsentTemplateManager';
 import PrescriptionModule from './PrescriptionModule';
 import DermatologyExamEditor from './dermatology/DermatologyExamEditor';
 import DermatologyExamPrintView from './dermatology/DermatologyExamPrintView';
-import { DermatologyExamData, INITIAL_DERMATOLOGY_DATA } from './dermatology/dermatologyTypes';
+import { DermatologyExamData, INITIAL_DERMATOLOGY_DATA, DermLesion } from './dermatology/dermatologyTypes';
 import NevusExcisionEditor from './dermatology/NevusExcisionEditor';
 import NevusExcisionPrintView from './dermatology/NevusExcisionPrintView';
-import { NevusExcisionData, INITIAL_NEVUS_EXCISION_DATA } from './dermatology/nevusExcisionTypes';
+import { NevusExcisionData, INITIAL_NEVUS_EXCISION_DATA, ExcisionLesionItem } from './dermatology/nevusExcisionTypes';
+import PatientDriveFiles from './PatientDriveFiles';
 import { Sliders, Save, RotateCcw, Check } from './Icons';
 import { InventoryService, InventoryItem } from '../services/inventoryService';
 import { FinanceBillingService } from '../services/financeBillingService';
@@ -709,9 +710,43 @@ export default function MedicalRecordForm({ onRecordCreated, initialPatient, all
 
   // DERMATOLOGICKÉ VYŠETRENIE
   const [dermatologyData, setDermatologyData] = useState<DermatologyExamData>(INITIAL_DERMATOLOGY_DATA);
+  const [showDermDriveModal, setShowDermDriveModal] = useState(false);
 
   // EXCÍZIA NÉVOV (CHIRURGICKY / LASEROM)
   const [nevusExcisionData, setNevusExcisionData] = useState<NevusExcisionData>(INITIAL_NEVUS_EXCISION_DATA);
+
+  // 1-KLIK PREVOD Z DERMATOLÓGIE NA EXCÍZIU
+  const handleTransferDermToExcision = (lesionsToTransfer: DermLesion[]) => {
+    if (!lesionsToTransfer || lesionsToTransfer.length === 0) return;
+
+    const mappedItems: ExcisionLesionItem[] = lesionsToTransfer.map((lesion, idx) => {
+      const isLaser = lesion.recommendation.toLowerCase().includes('laser');
+      return {
+        id: `lesion-transferred-${Date.now()}-${idx}`,
+        location: lesion.location || 'Neznáma lokalita',
+        typeOrDiagnosis: lesion.conclusion || 'Melanocytový névus',
+        method: isLaser ? 'laser_vaporizacia' : 'chirurgicka_excizia',
+        methodLabel: isLaser ? 'CO2 Laserové odstránenie' : 'Chirurgická excízia in toto',
+        histology: !isLaser,
+        histologyCode: !isLaser ? `Nádobka č. ${idx + 1}: ${lesion.location}` : undefined,
+        sutureType: isLaser ? 'Bez sutúry' : 'Intradermálna pokračujúca sutúra (Prolene 5-0)',
+        sutureRemovalDays: isLaser ? 'Bez stehov' : '10 – 12 dní (trup) / 5 – 7 dní (tvár)',
+        price: isLaser ? 50 : (idx === 0 ? 90 : 50)
+      };
+    });
+
+    setNevusExcisionData(prev => ({
+      ...prev,
+      items: mappedItems,
+      indication: `Dermatologická indikácia: suspektné kožné lézie (${mappedItems.length}x) vyšetrené dermatoskopicky`
+    }));
+
+    setDocType('zaznam_excizia_nevov');
+  };
+
+  const handleOpenPrescriptionFromDerm = () => {
+    setDocType('lekarsky_recept');
+  };
 
   // DOHODA O CENE - ROZŠÍRENÉ ŠPECIFICKÉ ÚDAJE
   const [patientCitizenship, setPatientCitizenship] = useState('Slovenská republika');
@@ -1549,27 +1584,29 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
       }
 
       // 3. Zalogovanie prádla pri dohode o cene / cenovej ponuke / objednávke
-      selectedItems.forEach(item => {
-        if (SERVICES_DATABASE.aftercareAndGarments.some(g => g.id === item.id)) {
-          InventoryService.logMaterialUsage({
-            patientId: resolvedPatientId,
-            patientName: clientName,
-            patientBirthNumber: birthNumber,
-            sourceType: 'pradlo',
-            procedureName: `Vydané pooperačné prádlo (${procedureNameStr})`,
-            itemName: item.name,
-            category: 'kompresivne_pradlo',
-            quantity: 1,
-            unit: 'ks',
-            performerName: doctor,
-            notes: `Zaradené v kalkulácii: ${item.price} €`
-          });
-          autoLoggedCount++;
-        }
-      });
+      if (docType !== 'dermatologicke_vysetrenie') {
+        selectedItems.forEach(item => {
+          if (SERVICES_DATABASE.aftercareAndGarments.some(g => g.id === item.id)) {
+            InventoryService.logMaterialUsage({
+              patientId: resolvedPatientId,
+              patientName: clientName,
+              patientBirthNumber: birthNumber,
+              sourceType: 'pradlo',
+              procedureName: `Vydané pooperačné prádlo (${procedureNameStr})`,
+              itemName: item.name,
+              category: 'kompresivne_pradlo',
+              quantity: 1,
+              unit: 'ks',
+              performerName: doctor,
+              notes: `Zaradené v kalkulácii: ${item.price} €`
+            });
+            autoLoggedCount++;
+          }
+        });
+      }
 
       // 4. Zalogovanie explicitne zvolených položiek zo skladu
-      if (usedMaterialsToDeduct.length > 0) {
+      if (docType !== 'dermatologicke_vysetrenie' && usedMaterialsToDeduct.length > 0) {
         usedMaterialsToDeduct.forEach(mat => {
           InventoryService.logMaterialUsage({
             patientId: resolvedPatientId,
@@ -2217,7 +2254,7 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
           {/* ======================================================= */}
           {/* ĽAVÁ ČASŤ - FORMULÁR LEKÁRA                             */}
           {/* ======================================================= */}
-          <div className="lg:col-span-6 bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-5 print:hidden">
+          <div className={`${showDerm ? 'lg:col-span-7 xl:col-span-8' : 'lg:col-span-6'} bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm space-y-5 print:hidden`}>
             
             <form onSubmit={handleSubmit} className="space-y-4">
             {/* ZÁKLADNÉ ÚDAJE */}
@@ -2551,6 +2588,10 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
                 data={dermatologyData}
                 onChange={setDermatologyData}
                 mkchDatabase={mkchDatabase}
+                patientName={patientName}
+                onTransferToExcision={handleTransferDermToExcision}
+                onOpenPrescription={handleOpenPrescriptionFromDerm}
+                onOpenPatientDrive={() => setShowDermDriveModal(true)}
               />
             )}
 
@@ -4352,7 +4393,7 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
             )}
 
             {/* VOLITEĽNÝ ODPIS MATERIÁLU PRE AMBULANTNÉ VÝKONY A KONTROLY */}
-            {docType !== 'operacny_protokol' && (
+            {docType !== 'operacny_protokol' && docType !== 'dermatologicke_vysetrenie' && (
               <div className="border border-[#E8E2D9] rounded-xl p-3.5 bg-[#FAF7F2] space-y-2">
                 <div className="flex flex-wrap justify-between items-center gap-1">
                   <span className="text-[10px] uppercase font-bold text-[#C5A059] flex items-center gap-1.5">
@@ -4515,7 +4556,7 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
         {/* ======================================================= */}
         {/* PRAVÁ ČASŤ - NÁHĽAD (Tlačený dokument)                  */}
         {/* ======================================================= */}
-        <div className="lg:col-span-6 bg-[#FBF9F6] p-8 rounded-2xl border border-[#E8E2D9] shadow-sm flex flex-col print:p-0 print:border-none print:shadow-none print:bg-white print:block">
+        <div className={`${showDerm ? 'lg:col-span-5 xl:col-span-4' : 'lg:col-span-6'} bg-[#FBF9F6] p-8 rounded-2xl border border-[#E8E2D9] shadow-sm flex flex-col print:p-0 print:border-none print:shadow-none print:bg-white print:block`}>
           
           <div className="flex justify-between items-center mb-4 print:hidden gap-3">
              <div className="flex items-center gap-2">
@@ -5793,6 +5834,32 @@ Pacient/ka bola detailne poučená o charaktere výkonu, rizikách a pooperačno
           setTimeout(() => setTemplateSaveFeedback(null), 3000);
         }}
       />
+
+      {/* MODÁLNE OKNO GOOGLE DRIVE PRE DERMATOLÓGIU */}
+      {showDermDriveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 print:hidden">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 border border-[#E8E2D9] shadow-2xl max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-[#E8E2D9]">
+              <div>
+                <h3 className="font-brand text-xs uppercase font-bold text-[#2C2A29] tracking-wider">
+                  Google Drive Fotodokumentácia & Archív
+                </h3>
+                <p className="text-[10px] text-[#8C857B]">
+                  Dermatoskopické snímky a dokumentácia pre: {patientName || 'Neznámy pacient'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDermDriveModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <PatientDriveFiles patientName={patientName || 'Neznámy pacient'} />
+          </div>
+        </div>
+      )}
     </>
   );
 }

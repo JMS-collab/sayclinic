@@ -88,7 +88,7 @@ PRAVIDLÁ KLINICKEJ PRAXE SAY CLINIC:
 1. Plán musí pokrývať presne 12 po sebe idúcich mesiacov počnúc aktuálnym mesiacom (${SLOVAK_MONTHS[currentMonthIdx]} ${currentYear}).
 2. Zohľadni sezónnosť:
    - JESEŇ & ZIMA (Október - Február): ideálne na fotoprotektívne rizikové zákroky (Ablatívny a frakčný CO2 laser, vaskulárny laser, hlboké chemické peelingy, intenzívny microneedling s retinoidmi).
-   - JAR (Marec - Máj): prechodné obdobie, biostimulátory (polynukleotidy, Sculptra, Radiesse), hydratačné skinboostery, refresh botulotoxínu pred letom.
+   - JAR (Marec - Máj): prechodné obdobie, biostimulátory a polynukleotidy (Rejuran, Profhilo), hydratačné skinboostery (Restylane Vital), refresh botulotoxínu pred letom.
    - LETO (Jún - August): ZÁKAZ ablatívnych laserov a fotosenzibilizujúcich peelingov! Prioritou je intenzívna antioxidačná ochrana (Vitamín C, kyselina ferulová), SPF 50+, hĺbková hydratácia (nezosieťovaná kyselina hyalurónová) a jemná mezoterapia.
 3. Injekčná estetika:
    - Botulotoxín (aplikácia typicky každých 4 až 6 mesiacov na glabelu, čelo a vejáriky).

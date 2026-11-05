@@ -873,6 +873,79 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
   // -----------------------------------------------------------------------
   // 7. INJEKČNÁ & REGENERATÍVNA ESTETICKÁ MEDICÍNA
   // -----------------------------------------------------------------------
+  // A. VÝPLNE KYSELINOU HYALURÓNOVOU (RESTYLANE & TEOSYAL REDENSITY II)
+  {
+    id: 'restylane_classic_1ml',
+    name: 'Restylane 1 ml (Lidocaine)',
+    price: 290,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Klasická výplň jemných a stredných vrások, glabéla, periorál (NASHA technológia)'
+  },
+  {
+    id: 'restylane_lyft_1ml',
+    name: 'Restylane Lyft 1 ml (líca, zygoma, hlboké ryhy & brada)',
+    price: 290,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Hlboká volumizácia lícnych kostí (zygoma), obnova opory strednej tretiny tváre a lifting'
+  },
+  {
+    id: 'restylane_kysse_1ml',
+    name: 'Restylane Kysse 1 ml (modelácia a objem pier)',
+    price: 290,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Prirodzená definícia kontúr, Amorovho luku a zväčšenie objemu tela pier (OBT technológia)'
+  },
+  {
+    id: 'restylane_volyme_1ml',
+    name: 'Restylane Volyme 1 ml (obnova objemu tváre & spánky)',
+    price: 290,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Hlboká volumizácia strednej tretiny tváre, líc a spánkových prepadov'
+  },
+  {
+    id: 'restylane_defyne_1ml',
+    name: 'Restylane Defyne 1 ml (dynamické ryhy, brada & sánka)',
+    price: 290,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Dynamická výplň hlbokých mimických rýh, kontúry sánky a projekcie brady'
+  },
+  {
+    id: 'restylane_refyne_1ml',
+    name: 'Restylane Refyne 1 ml (dynamické jemné línie)',
+    price: 290,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Jemné až stredné dynamické línie a vrásky s vysokou mimickou flexibilitou'
+  },
+  {
+    id: 'restylane_vital_1ml',
+    name: 'Restylane Skinboosters Vital 1 ml',
+    price: 300,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Hĺbková mikroskopická hydratácia a obnova elasticity dermis (tvár, krk, dekolt)'
+  },
+  {
+    id: 'teosyal_redensity2_1ml',
+    name: 'Teosyal PureSense Redensity II 1 ml (kruhy pod očami & Tear Trough)',
+    price: 300,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Špecializovaný gél na kruhy pod očami a slzné ryhy s dermo-reštrukturalizačným komplexom bez opuchov'
+  },
   {
     id: 'ha_05ml',
     name: 'Aplikácia kyseliny hyalurónovej - 0,5 ml',
@@ -884,12 +957,12 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
   },
   {
     id: 'ha_1ml',
-    name: 'Aplikácia kyseliny hyalurónovej - 1 ml',
+    name: 'Aplikácia kyseliny hyalurónovej - 1 ml (všeobecná)',
     price: 290,
     currency: '€',
     category: 'injectables_aesthetics',
     categoryLabel: 'Injekčná estetika 💉',
-    description: 'Prémiová sieťovaná HA (pery, nasolabiálne ryhy, lícne kosti)'
+    description: 'Prémiová sieťovaná HA (Restylane / Teosyal)'
   },
   {
     id: 'ha_additional_ml',
@@ -901,49 +974,53 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
     description: 'Zvýhodnená cena pre každý ďalší ml výplne v jednom sedení'
   },
   {
+    id: 'hyaluronidase_150ui',
+    name: 'Aplikácia hyaluronidázy 150 UI',
+    price: 80,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Enzymatické rozpustenie nesprávne aplikovanej kyseliny hyalurónovej'
+  },
+
+  // B. DOPIČ MATERIÁLU
+  {
     id: 'material_addition_client_owned',
-    name: 'Doplnenie už zakúpeného materiálu (aplikácia)',
+    name: 'Doplnenie už zakúpeného materiálu (dopich zo skladu)',
     price: 50,
     currency: '€',
     category: 'injectables_aesthetics',
     categoryLabel: 'Injekčná estetika 💉',
-    description: 'Aplikácia vopred odloženého materiálu do 4 týždňov'
+    description: 'Aplikácia vopred odloženého materiálu klientky z klientskeho depozitu skladu SAY CLINIC'
   },
+
+  // C. BOTULOTOXÍN (BOTOX / DYSPORT)
   {
     id: 'botox_1_area',
-    name: 'Botox - 1 oblasť (kontrola a mikrodokorekcia do 14 dní v cene)',
+    name: 'Botox / Dysport - 1 oblasť (kontrola a mikrodokorekcia do 14 dní v cene)',
     price: 120,
     currency: '€',
     category: 'injectables_aesthetics',
     categoryLabel: 'Injekčná estetika 💉',
-    description: 'Glabela (vráska hnevu), čelo alebo očné vejáriky s bezplatnou kontrolou'
+    description: 'Glabéla (vráska hnevu), čelo alebo očné vejáriky s bezplatnou kontrolou'
   },
   {
     id: 'botox_2_areas',
-    name: 'Botox - 2 oblasti (–10 % kombinačná zľava)',
+    name: 'Botox / Dysport - 2 oblasti (–10 % kombinačná zľava)',
     price: 216,
     currency: '€',
     category: 'injectables_aesthetics',
     categoryLabel: 'Injekčná estetika 💉',
-    description: 'Napr. čelo + glabela alebo glabela + očné vejáriky'
+    description: 'Napr. čelo + glabéla alebo glabéla + očné vejáriky'
   },
   {
     id: 'botox_3_areas_full_upper',
-    name: 'Botox - 3 oblasti / celá horná tretina (–10 % zľava)',
+    name: 'Botox / Dysport - 3 oblasti / celá horná tretina (–10 % zľava)',
     price: 324,
     currency: '€',
     category: 'injectables_aesthetics',
     categoryLabel: 'Injekčná estetika 💉',
-    description: 'Kompletná horná tretina: čelo, glabela a očné vejáriky'
-  },
-  {
-    id: 'botox_hyperhidrosis_axilla',
-    name: 'Botox - Odstránenie potenia v podpaží (hyperhidróza)',
-    price: 400,
-    currency: '€',
-    category: 'injectables_aesthetics',
-    categoryLabel: 'Injekčná estetika 💉',
-    description: 'Blokáda potných žliaz na 6 až 9 mesiacov'
+    description: 'Kompletná horná tretina: čelo, glabéla a očné vejáriky'
   },
   {
     id: 'botox_masseter_slimming',
@@ -954,6 +1031,17 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
     categoryLabel: 'Injekčná estetika 💉',
     description: 'Uvoľnenie žuvacieho svalu pri škrípaní zubov a zoštíhlenie sánky'
   },
+  {
+    id: 'botox_hyperhidrosis_axilla',
+    name: 'Botox - Odstránenie potenia v podpaží (hyperhidróza)',
+    price: 400,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Blokáda potných žliaz na 6 až 9 mesiacov'
+  },
+
+  // D. PDRN & POLYNUKLEOTIDY & BIOREMODELÁCIA
   {
     id: 'rejuran_healer_2ml',
     name: 'Rejuran Healer (Polynukleotidy PN 2 ml - celá tvár)',
@@ -974,7 +1062,7 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
   },
   {
     id: 'rejuran_s_scar_1ml',
-    name: 'Rejuran S - Atrofické jazvy (Polynukleotidy PN 1 ml)',
+    name: 'Rejuran S - Atrofické jazvy & akné (Polynukleotidy PN 1 ml)',
     price: 190,
     currency: '€',
     category: 'injectables_aesthetics',
@@ -991,13 +1079,13 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
     description: 'Hĺbková hydratácia nezosieťovanou HA kombinovaná s lososími nukleotidmi pre "glass skin"'
   },
   {
-    id: 'exosomes_asce_face',
-    name: 'Exozómy ASCE+ / ExoCoBio (tvár - infúzia po laseri / mikroneedling)',
-    price: 320,
+    id: 'philart_nucleofill',
+    name: 'PhilArt / Nucleofill (Polynukleotidy 2 ml)',
+    price: 300,
     currency: '€',
     category: 'injectables_aesthetics',
     categoryLabel: 'Injekčná estetika 💉',
-    description: 'Lyofilizované kmeňové exozómy na bunkovú komunikáciu, protizápalové hojenie a tvorbu kolagénu'
+    description: 'Hĺbkový bunkový biostimulátor na spevnenie strednej vrstvy kože'
   },
   {
     id: 'profhilo_2ml',
@@ -1008,51 +1096,19 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
     categoryLabel: 'Injekčná estetika 💉',
     description: 'Čistá termicky hybridná HA stimulujúca 4 typy kolagénu bez zmeny čŕt tváre'
   },
+
+  // E. EXOZÓMY
   {
-    id: 'radiesse_1_5ml',
-    name: 'Radiesse (hydroxyapatit vápenatý CaHA 1,5 ml)',
-    price: 390,
+    id: 'exosomes_asce_face',
+    name: 'Exozómy ASCE+ / ExoCoBio (tvár - regeneratívna infúzia)',
+    price: 320,
     currency: '€',
     category: 'injectables_aesthetics',
     categoryLabel: 'Injekčná estetika 💉',
-    description: 'Vektorový biostimulačný lifting kontúr sánky s dlhodobou tvorbou kolagénu I a III'
+    description: 'Lyofilizované kmeňové exozómy na bunkovú komunikáciu, protizápalové hojenie a tvorbu kolagénu'
   },
-  {
-    id: 'philart_nucleofill',
-    name: 'PhilArt / Nucleofill (Polynukleotidy 2 ml)',
-    price: 300,
-    currency: '€',
-    category: 'injectables_aesthetics',
-    categoryLabel: 'Injekčná estetika 💉',
-    description: 'Hĺbkový bunkový biostimulátor na spevnenie strednej vrstvy kože'
-  },
-  {
-    id: 'sculptra',
-    name: 'Sculptra (kyselina poly-L-mliečna PLLA)',
-    price: 450,
-    currency: '€',
-    category: 'injectables_aesthetics',
-    categoryLabel: 'Injekčná estetika 💉',
-    description: 'Globálna objemová kolagenéza s preukázaným účinkom až na 24 mesiacov'
-  },
-  {
-    id: 'biorepeel_prx_t33',
-    name: 'Medicínsky peeling BioRePeel / PRX-T33',
-    price: 90,
-    currency: '€',
-    category: 'injectables_aesthetics',
-    categoryLabel: 'Injekčná estetika 💉',
-    description: 'Bipolárny biorevitalizačný peeling bez poškodenia epitelu a bez olupovania'
-  },
-  {
-    id: 'tca_peel_medical',
-    name: 'Lekársky chemický peeling TCA',
-    price: 110,
-    currency: '€',
-    category: 'injectables_aesthetics',
-    categoryLabel: 'Injekčná estetika 💉',
-    description: 'Stredne hlboký peeling na melazmu, pigmentácie a fotostarnutie'
-  },
+
+  // F. MICRONEEDLING (DERMAPEN 4)
   {
     id: 'dermapen_microneedling',
     name: 'Dermapen 4 / Lekársky microneedling s mezo-sérom',
@@ -1063,49 +1119,78 @@ export const CLINIC_PRICE_LIST: ClinicPriceItem[] = [
     description: 'Mikroihličková mezoterapia s personalizovaným vitamínovým kokteilom'
   },
   {
-    id: 'skinbooster_1ml',
-    name: 'Skinbooster 1 ml (Restylane / Teosyal)',
-    price: 300,
+    id: 'dermapen_exosomes',
+    name: 'Dermapen 4 + Exozómy ASCE+ (kombinované ošetrenie)',
+    price: 390,
     currency: '€',
     category: 'injectables_aesthetics',
     categoryLabel: 'Injekčná estetika 💉',
-    description: 'Hĺbková mikroskopická hydratácia dermis'
+    description: 'Lekársky microneedling Dermapen 4 s hĺbkovým vpravovaním lyofilizovaných kmeňových exozómov ASCE+'
   },
+
+  // G. CO2 LASER (DEKA TETRA)
   {
-    id: 'hyaluronidase_150ui',
-    name: 'Aplikácia hyaluronidázy 150 UI',
-    price: 80,
+    id: 'co2_laser_coolpeel_face',
+    name: 'CoolPeel® (DEKA Tetra CO2 laser) - celá tvár',
+    price: 220,
     currency: '€',
     category: 'injectables_aesthetics',
     categoryLabel: 'Injekčná estetika 💉',
-    description: 'Enzymatické rozpustenie nesprávne aplikovanej kyseliny hyalurónovej'
+    description: 'Subablatívny CO2 laser s ultra-krátkym pulzom, bez popálenia, nulový downtime a žiarivá pleť'
   },
   {
-    id: 'corticosteroids_application',
-    name: 'Kortikosteroidy (jazvy / keloidy)',
+    id: 'co2_laser_coolpeel_face_neck',
+    name: 'CoolPeel® (DEKA Tetra CO2 laser) - tvár + krk',
+    price: 360,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Komplexná rejuvenizácia tváre a krku subablatívnym CO2 laserom bez rekonvalescencie'
+  },
+  {
+    id: 'co2_laser_fractional_face',
+    name: 'Frakčný CO2 laser resurfacing (DEKA Tetra) - celá tvár',
+    price: 380,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Hĺbkový ablatívny frakčný resurfacing na jazvy po akné a hlbšie vrásky'
+  },
+  {
+    id: 'co2_laser_madonna_lift_periorbital',
+    name: 'Frakčný CO2 laser - očné okolie / viečka (Madonna lift)',
+    price: 200,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Neinvazívny laserový lifting pokožky očných viečok (Madonna lift)'
+  },
+  {
+    id: 'co2_laser_acne_scars_local',
+    name: 'Frakčný CO2 laser - jazvy po akné / lokálne jazvy',
+    price: 120,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Cielená laserová remodelácia chirurgických jaziev a jaziev po akné'
+  },
+  {
+    id: 'co2_laser_lesion_removal',
+    name: 'CO2 laser - Odstránenie kožných lézií / výrastkov (1. lézia)',
+    price: 50,
+    currency: '€',
+    category: 'injectables_aesthetics',
+    categoryLabel: 'Injekčná estetika 💉',
+    description: 'Bezkrvné laserové odstránenie fibrómu, seboroickej keratózy alebo vírusovej bradavice'
+  },
+  {
+    id: 'co2_laser_lesion_additional',
+    name: 'CO2 laser - Každá ďalšia kožná lézia / výrastok v sedení',
     price: 20,
     currency: '€',
     category: 'injectables_aesthetics',
     categoryLabel: 'Injekčná estetika 💉',
-    description: 'Intraléziová aplikácia triamcinolónu na sploštenie hypertrofickej jazvy'
-  },
-  {
-    id: 'say_preop_prep_kit',
-    name: 'SAY Pre-Op Skin Barrier Prep Kit',
-    price: 85,
-    currency: '€',
-    category: 'injectables_aesthetics',
-    categoryLabel: 'Injekčná estetika 💉',
-    description: 'Predoperačná príprava bariéry pleti (čistenie, antioxidanty a hydratácia)'
-  },
-  {
-    id: 'say_postop_recovery_kit',
-    name: 'SAY Post-Op Recovery Kit (masky, arnika, Lipoelastic scar gel, SPF 50+)',
-    price: 95,
-    currency: '€',
-    category: 'injectables_aesthetics',
-    categoryLabel: 'Injekčná estetika 💉',
-    description: 'Kompletný domáci regeneračný set po estetických a chirurgických výkonoch'
+    description: 'Zvýhodnená cena pre 2. a ďalšiu kožnú léziu odstránenú v rovnakom sedení'
   },
 
   // -----------------------------------------------------------------------

@@ -26,7 +26,6 @@ import {
 
 import femaleBustFront from '../assets/images/sculpture_front_perfect_1788381191502.jpg';
 import femaleBustProfile from '../assets/images/sculpture_profile_perfect_1788381207260.jpg';
-import { FacialMusclesOverlay } from './sculpture/FacialMusclesOverlay';
 import { convert2DPointTo3D, VectorPoint3D } from '../utils/aestheticCoordinates';
 
 export type SculptureViewType = 'front' | 'profile_left' | 'profile_right';
@@ -44,15 +43,6 @@ export interface AestheticProductDef {
 
 export const AESTHETIC_PRODUCTS: AestheticProductDef[] = [
   {
-    name: 'Radiesse (+) 1.5ml (CaHA Vektoring & Lifting)',
-    shortName: 'Radiesse (+) 1.5ml',
-    type: 'biostimulator',
-    lot: 'RAD-150-332',
-    color: '#D97706',
-    defaultUnit: 'ml',
-    defaultUnits: 0.3
-  },
-  {
     name: 'Sculptra 10ml (PLLA Neokolagenéza)',
     shortName: 'Sculptra 10ml',
     type: 'biostimulator',
@@ -60,6 +50,24 @@ export const AESTHETIC_PRODUCTS: AestheticProductDef[] = [
     color: '#C5A059',
     defaultUnit: 'ml',
     defaultUnits: 0.5
+  },
+  {
+    name: 'Restylane 1ml (Lidocaine - Vrásky & Glabéla)',
+    shortName: 'Restylane 1ml',
+    type: 'filler',
+    lot: 'RST-CLA-101A',
+    color: '#E11D48',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1
+  },
+  {
+    name: 'Restylane Lyft 1ml (Zygoma, Líca & Brada)',
+    shortName: 'Restylane Lyft 1ml',
+    type: 'filler',
+    lot: 'RST-LYF-202B',
+    color: '#DB2777',
+    defaultUnit: 'ml',
+    defaultUnits: 0.2
   },
   {
     name: 'Restylane Kysse 1ml (Pery & Periorál)',
@@ -71,22 +79,49 @@ export const AESTHETIC_PRODUCTS: AestheticProductDef[] = [
     defaultUnits: 0.1
   },
   {
-    name: 'Juvederm Voluma 1ml (Zygoma & Brada)',
-    shortName: 'Juvederm Voluma 1ml',
+    name: 'Restylane Volyme 1ml (Objem tváre & Spánky)',
+    shortName: 'Restylane Volyme 1ml',
     type: 'filler',
-    lot: 'JUV-VOL-8812',
-    color: '#EC4899',
+    lot: 'RST-VOL-303C',
+    color: '#C026D3',
     defaultUnit: 'ml',
     defaultUnits: 0.2
   },
   {
-    name: 'Juvederm Volift 1ml (Nasolabiál & Vrásky)',
-    shortName: 'Juvederm Volift 1ml',
+    name: 'Restylane Defyne 1ml (Hlboké ryhy & Sánka)',
+    shortName: 'Restylane Defyne 1ml',
     type: 'filler',
-    lot: 'JUV-VFT-1102',
-    color: '#EC4899',
+    lot: 'RST-DEF-404D',
+    color: '#9333EA',
     defaultUnit: 'ml',
     defaultUnits: 0.2
+  },
+  {
+    name: 'Restylane Refyne 1ml (Dynamické mimické línie)',
+    shortName: 'Restylane Refyne 1ml',
+    type: 'filler',
+    lot: 'RST-REF-505E',
+    color: '#A855F7',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1
+  },
+  {
+    name: 'Restylane Skinboosters Vital 1ml',
+    shortName: 'Restylane Vital 1ml',
+    type: 'meso',
+    lot: 'RST-VIT-606F',
+    color: '#06B6D4',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1
+  },
+  {
+    name: 'Teosyal PureSense Redensity II 1ml (Kruhy pod očami & Tear Trough)',
+    shortName: 'Teosyal Redensity II 1ml',
+    type: 'filler',
+    lot: 'TEO-RD2-707G',
+    color: '#F43F5E',
+    defaultUnit: 'ml',
+    defaultUnits: 0.1
   },
   {
     name: 'Profhilo H+L 2ml (Bioremodelácia BAP)',
@@ -227,9 +262,6 @@ export function Sculpture2DViewer({
 
   // Visual Guides & Layers toggle
   const [showAnatomicalGuides, setShowAnatomicalGuides] = useState(false);
-  const [showMuscleLayer, setShowMuscleLayer] = useState(false);
-  const [muscleOpacity, setMuscleOpacity] = useState(0.55);
-  const [showMuscleLabels, setShowMuscleLabels] = useState(true);
 
   // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
@@ -487,11 +519,11 @@ export function Sculpture2DViewer({
       }
       if (y >= 340 && y < 420) {
         if (x > 275 && x < 325) return 'Hrot nosa & Columella';
-        if (x <= 235) return 'Zygoma Ľavá (Lícna kosť / BAP bod 1 / Radiesse / Sculptra)';
-        if (x >= 365) return 'Zygoma Pravá (Lícna kosť / BAP bod 1 / Radiesse / Sculptra)';
+        if (x <= 235) return 'Zygoma Ľavá (Lícna kosť / BAP bod 1 / Restylane Lyft)';
+        if (x >= 365) return 'Zygoma Pravá (Lícna kosť / BAP bod 1 / Restylane Lyft)';
         if (x < 275 && y > 380) return 'Nosová báza Ľ (Alar base / BAP bod 2)';
         if (x > 325 && y > 380) return 'Nosová báza P (Alar base / BAP bod 2)';
-        return x < 300 ? 'Líce Ľ (Malar fat pad / Sculptra / Radiesse)' : 'Líce P (Malar fat pad / Sculptra / Radiesse)';
+        return x < 300 ? 'Líce Ľ (Malar fat pad / Restylane Volyme)' : 'Líce P (Malar fat pad / Restylane Volyme)';
       }
       if (y >= 420 && y < 480) {
         if (x >= 255 && x <= 345) {
@@ -501,12 +533,12 @@ export function Sculpture2DViewer({
         return x < 300 ? 'Nasolabiálna ryha Ľavá' : 'Nasolabiálna ryha Pravá';
       }
       if (y >= 480 && y < 540) {
-        if (x > 255 && x < 345) return 'Brada (Mentum / m. mentalis – BAP bod 4 / Restylane)';
-        return x < 300 ? 'Sánka Ľavá (Jawline / Radiesse / Gonion)' : 'Sánka Pravá (Jawline / Radiesse / Gonion)';
+        if (x > 255 && x < 345) return 'Brada (Mentum / m. mentalis – BAP bod 4 / Restylane Defyne)';
+        return x < 300 ? 'Sánka Ľavá (Jawline / Restylane Defyne / Gonion)' : 'Sánka Pravá (Jawline / Restylane Defyne / Gonion)';
       }
       if (y >= 540 && y < 660) {
-        if (x < 225) return 'Mandibulárny uhol Ľ (Gonion – BAP bod 5 / Radiesse)';
-        if (x > 375) return 'Mandibulárny uhol P (Gonion – BAP bod 5 / Radiesse)';
+        if (x < 225) return 'Mandibulárny uhol Ľ (Gonion – BAP bod 5 / Restylane Defyne)';
+        if (x > 375) return 'Mandibulárny uhol P (Gonion – BAP bod 5 / Restylane Defyne)';
         return 'Submentálna zóna & Krk (Platysma / Profhilo)';
       }
       return 'Krk & Klavikulárna zóna (Kľúčne kosti)';
@@ -518,9 +550,9 @@ export function Sculpture2DViewer({
       if (y < 260) return `Čelo a spánok (${side} profil – Dysport)`;
       if (y >= 260 && y < 290) return `Glabela a obočie (${side})`;
       if (y >= 290 && y < 350) return `Orbitálny okraj & Periorbitálne vejáriky (${side})`;
-      if (y >= 350 && y < 430) return `Zygoma & Líce (${side} – Radiesse / Sculptra / Profhilo)`;
+      if (y >= 350 && y < 430) return `Zygoma & Líce (${side} – Restylane Lyft / Volyme / Profhilo)`;
       if (y >= 430 && y < 495) return `Pery (Restylane Kysse) & Nasolabiál (${side})`;
-      if (y >= 495 && y < 565) return `Mandibulárna kontúra & Brada (${side} – Radiesse Jawline)`;
+      if (y >= 495 && y < 565) return `Mandibulárna kontúra & Brada (${side} – Restylane Defyne)`;
       if (y >= 565 && y < 660) return `Cervikomentálny uhol & Platysma (${side})`;
       return `Krk & Dekolt (${side})`;
     }
@@ -751,7 +783,6 @@ export function Sculpture2DViewer({
     const zone = detectAnatomicalZone(currentDrawStart, currentView);
 
     if (activeTool === 'vector' || activeTool === 'threads') {
-      const isRadiesse = currentProduct.name.toLowerCase().includes('radiesse');
       const newVec: Vector2DItem = {
         id: `vec_${Date.now()}`,
         type: 'vector',
@@ -764,7 +795,7 @@ export function Sculpture2DViewer({
         zoneName: `Kanylový vektor (${zone})`,
         productName: currentProduct.name,
         lotNumber: currentProduct.lot,
-        details: isRadiesse ? 'Kanyla 25G • 0.25ml retrográdny vektor' : `Lineárna aplikácia kanylou ~${Math.round(dist / 12)}cm`,
+        details: `Lineárna kanyla 25G ~${Math.round(dist / 12)}cm`,
         createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       pushHistory([...vectors, newVec]);
@@ -874,54 +905,8 @@ export function Sculpture2DViewer({
           })}
         </div>
 
-        {/* SVALY TVÁRE, ANATOMICKÁ MRIEŽKA & POČET VEKTOROV */}
+        {/* ANATOMICKÁ MRIEŽKA & POČET VEKTOROV */}
         <div className="flex items-center gap-2 text-xs text-[#8C857B] px-1 font-medium flex-wrap">
-          {/* Tlačidlo vrstvy svalov tváre */}
-          <button
-            type="button"
-            onClick={() => setShowMuscleLayer(!showMuscleLayer)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer shadow-2xs ${
-              showMuscleLayer 
-                ? 'bg-rose-700 text-white shadow-xs ring-2 ring-rose-400/40' 
-                : 'bg-white text-[#2C2A29] border border-[#E8E2D9] hover:border-rose-400 hover:text-rose-700'
-            }`}
-            title="Zobraziť / skryť jemne priehľadnú vrstvu svalov tváre (M. frontalis, corrugator, orbicularis, masseter...)"
-          >
-            <Activity className="w-3.5 h-3.5 text-rose-500" />
-            <span>Svaly tváre</span>
-          </button>
-
-          {/* Posuvník jemnej priehľadnosti svalovej vrstvy */}
-          {showMuscleLayer && (
-            <div className="flex items-center gap-2 bg-[#FAF8F5] px-2.5 py-1 rounded-xl border border-rose-200 shadow-2xs animate-in fade-in">
-              <span className="text-[10px] font-bold text-rose-800">Priehľadnosť:</span>
-              <input
-                type="range"
-                min="0.15"
-                max="0.90"
-                step="0.05"
-                value={muscleOpacity}
-                onChange={(e) => setMuscleOpacity(parseFloat(e.target.value))}
-                className="w-16 h-1.5 bg-rose-200 accent-rose-600 rounded-lg cursor-pointer"
-                title={`Priehľadnosť svalov: ${Math.round(muscleOpacity * 100)}%`}
-              />
-              <span className="text-[10px] font-mono font-bold text-rose-800 w-7 text-right">
-                {Math.round(muscleOpacity * 100)}%
-              </span>
-
-              <button
-                type="button"
-                onClick={() => setShowMuscleLabels(!showMuscleLabels)}
-                className={`text-[9.5px] px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
-                  showMuscleLabels ? 'bg-rose-700 text-white' : 'bg-white text-rose-700 border border-rose-300'
-                }`}
-                title="Zapnúť / vypnúť anatomické názvy svalov"
-              >
-                Názvy
-              </button>
-            </div>
-          )}
-
           <button
             type="button"
             onClick={() => setShowAnatomicalGuides(!showAnatomicalGuides)}
@@ -1045,7 +1030,7 @@ export function Sculpture2DViewer({
                   { color: '#3B82F6', name: 'Modrá (Dysport)' },
                   { color: '#EC4899', name: 'Ružová (Restylane Kysse)' },
                   { color: '#10B981', name: 'Zelená (Profhilo)' },
-                  { color: '#D97706', name: 'Jantárová (Radiesse)' },
+                  { color: '#DB2777', name: 'Malinová (Restylane Lyft)' },
                   { color: '#C5A059', name: 'Zlatá (Sculptra)' },
                   { color: '#2C2A29', name: 'Tmavá (Marker)' }
                 ].map(c => (
@@ -1179,7 +1164,7 @@ export function Sculpture2DViewer({
 
           // Paleta farieb pre rýchlu zmenu farby vektora/bodu
           const paletteColors = [
-            { color: '#D97706', name: 'Jantár (Radiesse)' },
+            { color: '#DB2777', name: 'Malinová (Restylane Lyft)' },
             { color: '#C5A059', name: 'Zlato (Sculptra)' },
             { color: '#EC4899', name: 'Ružová (Restylane / Kysse)' },
             { color: '#10B981', name: 'Zelená (Profhilo)' },
@@ -1624,27 +1609,6 @@ export function Sculpture2DViewer({
               <rect x="0" y="0" width="600" height="800" fill="url(#bustVignette)" className="pointer-events-none" />
             </g>
 
-            {/* B. SVALOVÁ ANATÓMIA TVÁRE (JEMNE PRIEHĽADNÁ VRSTVA) */}
-            {showMuscleLayer && (
-              <g clipPath="url(#bustRoundedClip)" id="facial_muscles_container">
-                {currentView === 'profile_right' ? (
-                  <g transform="translate(600, 0) scale(-1, 1)">
-                    <FacialMusclesOverlay
-                      view="profile_left"
-                      opacity={muscleOpacity}
-                      showLabels={showMuscleLabels}
-                    />
-                  </g>
-                ) : (
-                  <FacialMusclesOverlay
-                    view={currentView}
-                    opacity={muscleOpacity}
-                    showLabels={showMuscleLabels}
-                  />
-                )}
-              </g>
-            )}
-
             {/* B. ANATOMICKÁ MRIEŽKA & VODIACE LÍNIE (OVERLAY) */}
             {showAnatomicalGuides && (
               <g id="anatomical_guidelines" opacity="0.65" strokeDasharray="3 3" className="pointer-events-none">
@@ -1756,8 +1720,8 @@ export function Sculpture2DViewer({
                     {notches}
 
                     {/* Cannula puncture hub (entry point - draggable) */}
-                    <circle cx={sx} cy={sy} r="6" fill="#2C2A29" stroke={vec.color} strokeWidth="2" />
-                    <circle cx={sx} cy={sy} r="2" fill="#FFFFFF" />
+                    <circle cx={sx} cy={sy} r="4" fill="#2C2A29" stroke={vec.color} strokeWidth="1.5" />
+                    <circle cx={sx} cy={sy} r="1.5" fill="#FFFFFF" />
                     <circle
                       cx={sx}
                       cy={sy}
@@ -1853,8 +1817,8 @@ export function Sculpture2DViewer({
                       />
                     ))}
                     {/* Insertion Point (draggable) */}
-                    <circle cx={sx} cy={sy} r="6.5" fill="#2C2A29" stroke={vec.color} strokeWidth="2.5" />
-                    <circle cx={sx} cy={sy} r="2" fill="#FFFFFF" />
+                    <circle cx={sx} cy={sy} r="4.5" fill="#2C2A29" stroke={vec.color} strokeWidth="1.5" />
+                    <circle cx={sx} cy={sy} r="1.5" fill="#FFFFFF" />
                     <circle
                       cx={sx}
                       cy={sy}
@@ -1916,7 +1880,7 @@ export function Sculpture2DViewer({
                     <circle
                       cx={vec.startPoint.x}
                       cy={vec.startPoint.y}
-                      r="18"
+                      r="12"
                       fill="transparent"
                       className="cursor-move"
                     />
@@ -1926,67 +1890,66 @@ export function Sculpture2DViewer({
                       <circle
                         cx={vec.startPoint.x}
                         cy={vec.startPoint.y}
-                        r={isDraggingThis ? "18" : "14"}
+                        r={isDraggingThis ? "10" : "8"}
                         fill={vec.color}
-                        opacity={isDraggingThis ? "0.5" : "0.35"}
+                        opacity={isDraggingThis ? "0.4" : "0.25"}
                         stroke={isDraggingThis ? "#2C2A29" : "none"}
-                        strokeWidth="1.5"
-                        strokeDasharray={isDraggingThis ? "3 3" : "none"}
+                        strokeWidth="1"
                       />
                     )}
-                    {/* Outer ring */}
+                    {/* Outer ring - MALÝ JEMNÝ BOD PRE BOTOX / AESTHETICS */}
                     <circle
                       cx={vec.startPoint.x}
                       cy={vec.startPoint.y}
-                      r="7.5"
+                      r="3.5"
                       fill={vec.color}
                       stroke="#FFFFFF"
-                      strokeWidth="2"
+                      strokeWidth="1"
                     />
                     {/* Center nucleus */}
                     <circle
                       cx={vec.startPoint.x}
                       cy={vec.startPoint.y}
-                      r="2.5"
+                      r="1.2"
                       fill="#FFFFFF"
                     />
 
-                    {/* DÁVKOVANIE / POČET JEDNOTIEK BADGE */}
+                    {/* DÁVKOVANIE / POČET JEDNOTIEK BADGE (KOMPAKTNÝ MICRO-TAG) */}
                     {vec.units !== undefined && vec.units !== null ? (
                       <g
-                        transform={`translate(${vec.startPoint.x + 8}, ${vec.startPoint.y - 8})`}
+                        transform={`translate(${vec.startPoint.x + 5}, ${vec.startPoint.y - 5})`}
                         className="pointer-events-none select-none"
                       >
                         <rect
-                          x="-2"
-                          y="-10"
-                          width={String(vec.units).length > 2 ? 36 : 28}
-                          height="14"
-                          rx="5"
+                          x="-1"
+                          y="-7"
+                          width={String(vec.units).length > 2 ? 24 : 18}
+                          height="10"
+                          rx="3"
                           fill="#2C2A29"
                           stroke={vec.color}
-                          strokeWidth="1.2"
+                          strokeWidth="0.8"
                         />
                         <text
-                          x={String(vec.units).length > 2 ? 16 : 12}
+                          x={String(vec.units).length > 2 ? 11 : 8}
                           y="0.5"
                           textAnchor="middle"
                           fill="#FFFFFF"
-                          fontSize="8.5"
+                          fontSize="7"
                           fontWeight="bold"
                           fontFamily="sans-serif"
                         >
-                          {vec.units}{vec.unitsUnit === 'ml' ? 'ml' : vec.unitsUnit === 'Speywood' ? 'Sp' : vec.unitsUnit === 'nití' ? 'n' : 'U'}
+                          {vec.units}{vec.unitsUnit === 'ml' ? 'm' : vec.unitsUnit === 'Speywood' ? 'S' : vec.unitsUnit === 'nití' ? 'n' : 'U'}
                         </text>
                       </g>
                     ) : (
                       /* Ak jednotky nie sú zadané a bod je vybraný, ukáž index */
                       isSelected && (
                         <text
-                          x={vec.startPoint.x + 9}
-                          y={vec.startPoint.y - 7}
+                          x={vec.startPoint.x + 6}
+                          y={vec.startPoint.y - 5}
                           fill="#2C2A29"
-                          fontSize="9"
+                          fontSize="7.5"
                           fontWeight="bold"
                           className="pointer-events-none select-none"
                         >

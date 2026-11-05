@@ -197,6 +197,31 @@ export interface OpiateLogEntry {
   recordedBy: string; // Meno zapisujúceho pracovníka
 }
 
+// =========================================================================
+// KLIENTSKÝ DEPOZIT MATERIÁLU (ZOSTATKY OŠETRENÍ PRE PACIENTKY)
+// =========================================================================
+export interface PatientMaterialDepotItem {
+  id: string;
+  patientId: string;
+  patientName: string;
+  patientBirthNumber?: string;
+  materialName: string;
+  category?: string;
+  lotNumber?: string;
+  totalVolume: number;
+  usedVolume: number;
+  remainingVolume: number;
+  unit: string; // 'ml' | 'Speywood' | 'IU' | 'ampulka'
+  dateCreated: string; // YYYY-MM-DD
+  doctorName: string;
+  storageLocation: string; // napr. "Chladnička zákrokovňa - box Klienti"
+  status: 'active' | 'consumed' | 'expired' | 'discarded';
+  sessionId?: string;
+  consumedDate?: string;
+  consumedSessionId?: string;
+  notes?: string;
+}
+
 // Katalóg klinických opiátov v trezore SAY CLINIC (čistý počiatočný stav pripravený na reálny príjem)
 export const INITIAL_OPIATES: OpiateItem[] = [
   {
@@ -1166,5 +1191,92 @@ export class InventoryService {
     const logs = this.getOpiateLogs();
     const updated = logs.filter(l => l.id !== logId);
     this.saveOpiateLogs(updated);
+  }
+
+  // =========================================================================
+  // KLIENTSKÝ DEPOZIT MATERIÁLU (ZOSTATKY OŠETRENÍ PRE PACIENTKY)
+  // =========================================================================
+  private static STORAGE_KEY_PATIENT_DEPOT = 'say_clinic_patient_material_depot';
+
+  public static getPatientDepots(): PatientMaterialDepotItem[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem(this.STORAGE_KEY_PATIENT_DEPOT);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Chyba načítania klientskeho depozitu:', e);
+    }
+    return [];
+  }
+
+  public static savePatientDepots(items: PatientMaterialDepotItem[]): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(this.STORAGE_KEY_PATIENT_DEPOT, JSON.stringify(items));
+      window.dispatchEvent(new CustomEvent('say_clinic_patient_depot_changed', { detail: items }));
+      RealtimeSyncService.publish('patient_depot', items);
+    } catch (e) {
+      console.error('Chyba ukladania klientskeho depozitu:', e);
+    }
+  }
+
+  public static getPatientDepot(patientId: string): PatientMaterialDepotItem[] {
+    const all = this.getPatientDepots();
+    return all.filter(item => item.patientId === patientId);
+  }
+
+  public static getActivePatientDepot(patientId: string): PatientMaterialDepotItem[] {
+    const all = this.getPatientDepots();
+    return all.filter(item => item.patientId === patientId && item.status === 'active' && item.remainingVolume > 0);
+  }
+
+  public static addPatientDepotItem(item: Omit<PatientMaterialDepotItem, 'id' | 'dateCreated' | 'status'> & { id?: string; dateCreated?: string; status?: 'active' | 'consumed' | 'expired' | 'discarded' }): PatientMaterialDepotItem {
+    const now = new Date();
+    const dateCreated = item.dateCreated || now.toISOString().split('T')[0];
+    const newItem: PatientMaterialDepotItem = {
+      id: item.id || `depot-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      dateCreated,
+      status: item.status || 'active',
+      ...item
+    };
+
+    const existing = this.getPatientDepots();
+    const updated = [newItem, ...existing];
+    this.savePatientDepots(updated);
+    return newItem;
+  }
+
+  public static consumeDepotItem(depotId: string, usedVolume: number, sessionId?: string): void {
+    const all = this.getPatientDepots();
+    const now = new Date().toISOString().split('T')[0];
+    const updated = all.map(it => {
+      if (it.id === depotId) {
+        const newRemaining = Math.max(0, Math.round((it.remainingVolume - usedVolume) * 100) / 100);
+        return {
+          ...it,
+          remainingVolume: newRemaining,
+          status: (newRemaining <= 0 ? 'consumed' : 'active') as 'active' | 'consumed',
+          consumedDate: now,
+          consumedSessionId: sessionId || it.consumedSessionId
+        };
+      }
+      return it;
+    });
+    this.savePatientDepots(updated);
+  }
+
+  public static discardDepotItem(depotId: string, reason?: string): void {
+    const all = this.getPatientDepots();
+    const updated = all.map(it => {
+      if (it.id === depotId) {
+        return {
+          ...it,
+          status: 'discarded' as const,
+          notes: (it.notes ? it.notes + ' • ' : '') + `Zlikvidované: ${reason || 'exspirácia/vyradenie'}`
+        };
+      }
+      return it;
+    });
+    this.savePatientDepots(updated);
   }
 }

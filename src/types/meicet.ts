@@ -167,7 +167,7 @@ export interface MeicetSkincareProduct {
   pharmacyBrand?: boolean; // voľnopredajná lekárenská dermokozmetika
   externalProviderNote?: string;
   alreadyOwned?: boolean; // Klient už produkt vlastní doma (nezapočítava sa do sumy nákupu)
-  galenicForm?: 'gel' | 'serum' | 'fluid' | 'emulsion' | 'cream' | 'balm' | 'rx' | 'other'; // Textúra / galenická forma
+  galenicForm?: 'gel' | 'serum' | 'fluid' | 'emulsion' | 'cream' | 'balm' | 'lotion' | 'pads' | 'rich_cream' | 'rx' | 'other'; // Textúra / galenická forma
 }
 
 export interface MeicetPathophysiologyIssue {
