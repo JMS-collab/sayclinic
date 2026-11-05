@@ -66,6 +66,28 @@ export interface MeicetAnamnesisContext {
   lifestyleNotes?: string;
 }
 
+export interface TreatmentPhaseProtocol {
+  sessionsCount: number;         // napr. 4
+  interval: string;              // napr. "1x týždenne" | "každé 2 týždne" | "každé 3–4 týždne"
+  intervalDays?: number;         // 7, 14, 21, 28
+  phaseGoal?: string;            // "Intenzívna kúra: rýchla bunková obnova a potlačenie erytému"
+}
+
+export interface TreatmentMaintenanceProtocol {
+  interval: string;              // napr. "1x za 6 mesiacov" | "1x ročne (jeseň/zima)"
+  intervalMonths?: number;       // 6, 12
+  phaseGoal?: string;            // "Dlhodobé udržanie kolagénovej matrix a prevencia relapsu"
+}
+
+export interface TreatmentProtocol {
+  isSeries: boolean;             // true ak má procedúra viac sedení
+  induction: TreatmentPhaseProtocol;
+  maintenance?: TreatmentMaintenanceProtocol;
+  summaryDisplay: string;        // "Kúra: 4x (1x týždenne) ➔ Udržiavanie: 1x za 6 mesiacov"
+  pricePerSession?: number;      // cena za 1 sedenie (napr. 140 €)
+  packagePrice?: number;         // cena za celú sériu (napr. 560 €)
+}
+
 export interface MeicetTreatmentPlanItem {
   id: string;
   name: string;
@@ -81,6 +103,14 @@ export interface MeicetTreatmentPlanItem {
   isMeicetScan?: boolean;
   isExternal?: boolean; // procedúra mimo portfólia SAY CLINIC
   externalProviderNote?: string; // napr. 'Externé dermatologické pracovisko'
+  // Dvojfázový protokol ošetrenia (Intenzívna kúra + Udržiavanie)
+  protocol?: TreatmentProtocol;
+  sessionsCount?: number;
+  intervalWeeks?: number;
+  maintenanceIntervalMonths?: number;
+  downtime?: string;
+  pricePerSession?: number;
+  packagePrice?: number;
 }
 
 export interface MeicetSeasonalSchedule {
@@ -172,6 +202,9 @@ export interface MeicetProcedureMechanismEducation {
   targetLayer: string; // napr. 'Superficiálna epidermis', 'Dermis (papilárna/retikulárna)', 'Cievny plexus'
   mechanismOfAction: string; // napr. 'Selektívna fototermolýza oxyhemoglobínu', 'Aktivácia fibroblastov cez CD44'
   whyIndicated: string;
+  inductionProtocol?: string; // napr. "Intenzívna kúra: 4 sedenia s odstupom 1 týždeň"
+  maintenanceProtocol?: string; // napr. "Udržiavacia kúra: 1 sedenie každých 6 mesiacov"
+  fullCycleDescription?: string; // napr. "4x týždenne ➔ potom 1x za 6 mesiacov"
 }
 
 export interface MeicetClinicalEducation {

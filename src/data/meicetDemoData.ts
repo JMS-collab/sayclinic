@@ -1,4 +1,4 @@
-import { MeicetAnalysisResult, MeicetSkinMetrics, MeicetAnamnesisContext, MeicetSkincareProduct, SkincareTier } from '@/types/meicet';
+import { MeicetAnalysisResult, MeicetSkinMetrics, MeicetAnamnesisContext, MeicetSkincareProduct, SkincareTier, MeicetTreatmentPlanItem, MeicetSeasonalSchedule } from '@/types/meicet';
 import { getClinicPrice } from '@/data/clinicPriceList';
 import { MeicetClinicalEducationService } from '@/services/meicetClinicalEducationService';
 
@@ -744,6 +744,23 @@ export function createDemoMeicetResult(
     anamnesis
   } as any);
 
+  const enrichTreatment = (trt: any): MeicetTreatmentPlanItem => {
+    const protocol = trt.protocol || MeicetClinicalEducationService.buildStandardProcedureProtocol(trt.name, trt.estimatedPrice);
+    const sessions = trt.sessionsCount || protocol?.induction?.sessionsCount || 1;
+    const intervalW = trt.intervalWeeks || (protocol?.induction?.intervalDays ? Math.round(protocol.induction.intervalDays / 7) : 2);
+    const maintMonths = trt.maintenanceIntervalMonths || protocol?.maintenance?.intervalMonths || 6;
+    return {
+      ...trt,
+      protocol,
+      sessionsCount: sessions,
+      intervalWeeks: intervalW,
+      maintenanceIntervalMonths: maintMonths,
+      frequency: protocol?.summaryDisplay || trt.frequency || '1 sedenie',
+      pricePerSession: trt.pricePerSession || protocol?.pricePerSession || trt.estimatedPrice,
+      packagePrice: trt.packagePrice || protocol?.packagePrice || (trt.estimatedPrice ? trt.estimatedPrice * sessions : undefined)
+    };
+  };
+
   return {
     id: `meicet-${Date.now()}`,
     patientId,
@@ -788,7 +805,7 @@ export function createDemoMeicetResult(
           synergyWithSurgeries:
             'Pravidelná biostimulácia polynukleotidmi a udržiavanie zdravej kožnej bariéry výrazne zlepšuje kvalitu a elasticitu dermis.'
         },
-    annualSchedule: isSensitiveDry
+    annualSchedule: (isSensitiveDry
       ? [
           {
             quarter: 'Q1 (Zima / Jar)',
@@ -1116,7 +1133,11 @@ export function createDemoMeicetResult(
               }
             ]
           }
-        ],
+        ]
+    ).map(season => ({
+      ...season,
+      treatments: season.treatments.map(enrichTreatment)
+    })) as MeicetSeasonalSchedule[],
     skincareRoutine: {
       selectedTier: preferredTier,
       highEnd: {

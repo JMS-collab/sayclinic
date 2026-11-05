@@ -6,7 +6,8 @@ import {
   MeicetActiveIngredientEducation, 
   MeicetProcedureMechanismEducation,
   MeicetSkincareProduct,
-  MeicetSkincareTierRoutine
+  MeicetSkincareTierRoutine,
+  TreatmentProtocol
 } from '@/types/meicet';
 
 export class MeicetClinicalEducationService {
@@ -561,6 +562,223 @@ export class MeicetClinicalEducationService {
     };
   }
 
+  /**
+   * Zostaví štandardný klinický dvojfázový protokol (intenzívna kúra & udržiavací režim)
+   * pre procedúru na základe jej názvu a ceny.
+   */
+  public static buildStandardProcedureProtocol(procedureName: string, estimatedPrice?: number): TreatmentProtocol {
+    const nameLower = (procedureName || '').toLowerCase();
+    const basePrice = estimatedPrice || 140;
+
+    // 1. Polynukleotidy (Rejuran Healer / Rejuran I / PDRN)
+    if (nameLower.includes('rejuran') || nameLower.includes('polynukleotid') || nameLower.includes('pdrn')) {
+      return {
+        isSeries: true,
+        induction: {
+          sessionsCount: 3,
+          interval: 'každé 3–4 týždne',
+          intervalDays: 21,
+          phaseGoal: 'Intenzívna DNA rekonštrukcia: 3 sedenia s odstupom 3–4 týždňov na saturáciu dermis a naštartovanie novotvorby kolagénu.'
+        },
+        maintenance: {
+          interval: '1x za 6 mesiacov',
+          intervalMonths: 6,
+          phaseGoal: 'Konsolidácia dermálnej hustoty a dlhodobé udržanie extracelulárnej matrix.'
+        },
+        summaryDisplay: 'Kúra: 3x (každé 3–4 týždne) ➔ Udržiavanie: 1x za 6 mesiacov',
+        pricePerSession: basePrice,
+        packagePrice: Math.round(basePrice * 3 * 0.92)
+      };
+    }
+
+    // 2. Bioremodelácia (Profhilo)
+    if (nameLower.includes('profhilo') || nameLower.includes('bioremodel')) {
+      return {
+        isSeries: true,
+        induction: {
+          sessionsCount: 2,
+          interval: 's odstupom 30 dní',
+          intervalDays: 30,
+          phaseGoal: 'Iniciálny hydro-lifting: 2 sedenia v 5 BAP bodoch na masívnu hydratáciu a aktiváciu 4 typov kolagénu.'
+        },
+        maintenance: {
+          interval: '1x za 6 mesiacov',
+          intervalMonths: 6,
+          phaseGoal: 'Udržiavací biostimulačný cyklus pre dlhodobú hydratačnú ochranu.'
+        },
+        summaryDisplay: 'Kúra: 2x (odstup 30 dní) ➔ Udržiavanie: 1x za 6 mesiacov',
+        pricePerSession: basePrice,
+        packagePrice: Math.round(basePrice * 2 * 0.93)
+      };
+    }
+
+    // 3. Cievny laser (Excel V+, cievky, rosacea, erytém)
+    if (nameLower.includes('cievny') || nameLower.includes('vascular') || nameLower.includes('excel v') || nameLower.includes('rosacea')) {
+      return {
+        isSeries: true,
+        induction: {
+          sessionsCount: 3,
+          interval: 'každé 3–4 týždne',
+          intervalDays: 21,
+          phaseGoal: 'Intenzívna vaskulárna fototermolýza: postupné koagulovanie a uzatváranie dilatovaných kapilár bez prehriatia epidermy.'
+        },
+        maintenance: {
+          interval: '1x ročne (jeseň/zima)',
+          intervalMonths: 12,
+          phaseGoal: 'Sezónna stabilizácia ciev pred zimnými mrazmi a teplotnými šokmi.'
+        },
+        summaryDisplay: 'Kúra: 3–4x (každé 3–4 týždne) ➔ Udržiavanie: 1x ročne pred zimou',
+        pricePerSession: basePrice,
+        packagePrice: Math.round(basePrice * 3 * 0.9)
+      };
+    }
+
+    // 4. Dermapen 4 / Lekársky microneedling
+    if (nameLower.includes('dermapen') || nameLower.includes('microneedling') || nameLower.includes('mikroihličk')) {
+      return {
+        isSeries: true,
+        induction: {
+          sessionsCount: 4,
+          interval: 'každé 2 týždne',
+          intervalDays: 14,
+          phaseGoal: 'Kumulatívna indukcia kolagénu (CIT): 4 sedenia na vyrovnanie textúry, stiahnutie pórov a prestavbu jazvičiek.'
+        },
+        maintenance: {
+          interval: '1x za 3–6 mesiacov',
+          intervalMonths: 4,
+          phaseGoal: 'Udržiavací stimul pre rovnomerný reliéf pleti.'
+        },
+        summaryDisplay: 'Kúra: 4x (každé 2 týždne) ➔ Udržiavanie: 1x za 3–6 mesiacov',
+        pricePerSession: basePrice,
+        packagePrice: Math.round(basePrice * 4 * 0.88)
+      };
+    }
+
+    // 5. Biorevitalizácia pleti / Mezoterapia
+    if (nameLower.includes('biorevital') || nameLower.includes('mezoterapia') || nameLower.includes('skinbooster')) {
+      return {
+        isSeries: true,
+        induction: {
+          sessionsCount: 4,
+          interval: '1x týždenne až každé 2 týždne',
+          intervalDays: 10,
+          phaseGoal: 'Hĺbková hydratačná a vitamínová infúzia pre unavenú a dehydrovanú pleť.'
+        },
+        maintenance: {
+          interval: '1x za 6 mesiacov',
+          intervalMonths: 6,
+          phaseGoal: 'Pravidelný hydratačný refresh dermis.'
+        },
+        summaryDisplay: 'Kúra: 4x (každých 7–14 dní) ➔ Udržiavanie: 1x za 6 mesiacov',
+        pricePerSession: basePrice,
+        packagePrice: Math.round(basePrice * 4 * 0.88)
+      };
+    }
+
+    // 6. Exozómy (ASCE+)
+    if (nameLower.includes('exozóm') || nameLower.includes('exosome') || nameLower.includes('asce')) {
+      return {
+        isSeries: true,
+        induction: {
+          sessionsCount: 3,
+          interval: 'každé 2–3 týždne',
+          intervalDays: 17,
+          phaseGoal: 'Bunková signalizačná obnova: regenerácia kmeňovými exozómami a rýchle zhojenie zápalov.'
+        },
+        maintenance: {
+          interval: '1x za 6 mesiacov',
+          intervalMonths: 6,
+          phaseGoal: 'Posilnenie bunkovej odolnosti a bariéry.'
+        },
+        summaryDisplay: 'Kúra: 3x (každé 2–3 týždne) ➔ Udržiavanie: 1x za 6 mesiacov',
+        pricePerSession: basePrice,
+        packagePrice: Math.round(basePrice * 3 * 0.9)
+      };
+    }
+
+    // 7. Frakčný laser / CoolPeel CO2
+    if (nameLower.includes('coolpeel') || nameLower.includes('frakčný') || nameLower.includes('co2')) {
+      return {
+        isSeries: true,
+        induction: {
+          sessionsCount: 2,
+          interval: 's odstupom 6 týždňov (zimné mesiace)',
+          intervalDays: 42,
+          phaseGoal: 'Ablatívny resurfacing povrchu pleti bez tepelného poškodenia okolia v nízkom UV indexe.'
+        },
+        maintenance: {
+          interval: '1x ročne (jeseň/zima)',
+          intervalMonths: 12,
+          phaseGoal: 'Každoročný zimný laserový audit textúry a jemných vrások.'
+        },
+        summaryDisplay: 'Kúra: 2x (odstup 6 týždňov) ➔ Udržiavanie: 1x ročne v zime',
+        pricePerSession: basePrice,
+        packagePrice: Math.round(basePrice * 2 * 0.93)
+      };
+    }
+
+    // 8. Botulotoxín
+    if (nameLower.includes('botox') || nameLower.includes('botulotoxín')) {
+      return {
+        isSeries: false,
+        induction: {
+          sessionsCount: 1,
+          interval: '1 sedenie (kontrola do 14 dní v cene)',
+          intervalDays: 14,
+          phaseGoal: 'Cielená myorelaxácia hyperaktívnych mimických svalov glabelly, čela a očného okolia.'
+        },
+        maintenance: {
+          interval: '1x za 4–6 mesiacov',
+          intervalMonths: 5,
+          phaseGoal: 'Aplikácia pred plným obnovením svalového tonusu na zamedzenie vzniku statických rýh.'
+        },
+        summaryDisplay: '1x aplikácia (kontrola do 14 dní) ➔ Udržiavanie: každých 4–6 mesiacov',
+        pricePerSession: basePrice,
+        packagePrice: basePrice
+      };
+    }
+
+    // 9. Sculptra (PLLA stimulátor)
+    if (nameLower.includes('sculptra') || nameLower.includes('plla')) {
+      return {
+        isSeries: true,
+        induction: {
+          sessionsCount: 2,
+          interval: 's odstupom 6–8 týždňov',
+          intervalDays: 50,
+          phaseGoal: 'Hĺbková kolagénová stimulácia poly-L-mliečnou kyselinou s postupným nárastom objemu.'
+        },
+        maintenance: {
+          interval: '1x za 18–24 mesiacov',
+          intervalMonths: 20,
+          phaseGoal: 'Dlhodobý vektorový lifting.'
+        },
+        summaryDisplay: 'Kúra: 2 sedenia (odstup 2 mesiace) ➔ Udržiavanie: o 18–24 mesiacov',
+        pricePerSession: basePrice,
+        packagePrice: Math.round(basePrice * 2 * 0.93)
+      };
+    }
+
+    // Všeobecný predvolený protokol pre ostatné ošetrenia
+    return {
+      isSeries: false,
+      induction: {
+        sessionsCount: 1,
+        interval: 'podľa indikácie lekára',
+        intervalDays: 14,
+        phaseGoal: 'Klinické dermatologické ošetrenie podľa stavu pleti.'
+      },
+      maintenance: {
+        interval: '1x za 6 mesiacov',
+        intervalMonths: 6,
+        phaseGoal: 'Udržiavací režim.'
+      },
+      summaryDisplay: '1x vstupné sedenie ➔ Udržiavanie: 1x za 6 mesiacov',
+      pricePerSession: basePrice,
+      packagePrice: basePrice
+    };
+  }
+
   public static synthesizeClinicalEducation(report: MeicetAnalysisResult): MeicetClinicalEducation {
     const { metrics, anamnesis } = report;
     const issues: MeicetPathophysiologyIssue[] = [];
@@ -627,7 +845,10 @@ export class MeicetClinicalEducationService {
         category: 'laser',
         targetLayer: 'Subpapilárna dermis (cievny plexus)',
         mechanismOfAction: 'Selektívna fototermolýza: laserový lúč 532 nm je selektívne absorbovaný oxyhemoglobínom v dilatovanej cievke. Tepelná energia koaguluje stenu kapiláry bez poškodenia okolitej kože, cievka skolabuje a organizmus ju fagocytózou bezpečne vstrebe.',
-        whyIndicated: 'Konzervatívna kozmetika nedokáže odstrániť trvalo dilatované cievky (teleangiektázie); laser je jediná kauzálna metóda na ich trvalú elimináciu.'
+        whyIndicated: 'Konzervatívna kozmetika nedokáže odstrániť trvalo dilatované cievky (teleangiektázie); laser je jediná kauzálna metóda na ich trvalú elimináciu.',
+        inductionProtocol: 'Intenzívna kúra: 3–4 sedenia v 3–4 týždňových intervaloch na postupné zatváranie kapilár bez rizika tepelného preťaženia.',
+        maintenanceProtocol: 'Udržiavací režim: 1 sedenie ročne (jeseň/zima) pred začiatkom mrazov.',
+        fullCycleDescription: 'Kúra: 3–4x (každé 3–4 týždne) ➔ Udržiavanie: 1x ročne pred zimou'
       });
     }
 
@@ -668,7 +889,10 @@ export class MeicetClinicalEducationService {
         category: 'injectable',
         targetLayer: 'Hlboká retikulárna dermis & extracelulárna matrica',
         mechanismOfAction: 'Polynukleotidy (PDRN) aktivujú purinergné receptory A2A na povrchu fibroblastov, čím stimulujú syntézu endogénneho kolagénu a reťazcov DNA bez tvorby jazvovitého tkaniva. Hybridná HA (Profhilo) spúšťa hydro-lifting cez CD44 receptory.',
-        whyIndicated: 'Priama injekčná biostimulácia obnovuje biologický vek buniek v hĺbke, kam lokálne séra nedosiahnu.'
+        whyIndicated: 'Priama injekčná biostimulácia obnovuje biologický vek buniek v hĺbke, kam lokálne séra nedosiahnu.',
+        inductionProtocol: 'Intenzívna kúra: 3 sedenia (Rejuran) s odstupom 3–4 týždňov alebo 2 sedenia (Profhilo) s odstupom 30 dní.',
+        maintenanceProtocol: 'Udržiavací režim: 1 sedenie každých 6 mesiacov na kompenzáciu prirodzenej biodegradácie.',
+        fullCycleDescription: 'Kúra: 2–3x ➔ Udržiavanie: 1x za 6 mesiacov'
       });
     }
 
@@ -699,7 +923,10 @@ export class MeicetClinicalEducationService {
         category: 'skin_care',
         targetLayer: 'Stratum corneum a folikulárne ústia',
         mechanismOfAction: 'Vortexová vákuová technológia bez mechanického traumatu uvoľňuje keratínové zátky, odstraňuje zoxidovaný maz a infunduje antioxidanty a peptidy priamo do vyčistených pórov.',
-        whyIndicated: 'Šetrné hĺbkové čistenie bez rizika ruptúry cievok (na rozdiel od klasického mechanického stláčania).'
+        whyIndicated: 'Šetrné hĺbkové čistenie bez rizika ruptúry cievok (na rozdiel od klasického mechanického stláčania).',
+        inductionProtocol: 'Iniciálna hĺbková hydro-očista a evakuácia mazu z komedónov.',
+        maintenanceProtocol: 'Udržiavací režim: 1x za 4–6 týždňov pre prevenciu folikulárnej retencie.',
+        fullCycleDescription: '1x za mesiac alebo pred laserovým/injekčným zákrokom'
       });
     }
 

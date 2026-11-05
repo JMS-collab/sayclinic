@@ -374,17 +374,33 @@ export function MeicetReportPdfDocument({ report, selectedTier }: MeicetReportPd
               </p>
               <div className="space-y-1">
                 {season.treatments.map((t, tIdx) => (
-                  <div key={tIdx} className="flex justify-between items-center text-[10px] py-1 px-1.5 rounded bg-[#FAF8F5]">
+                  <div key={tIdx} className="flex justify-between items-center text-[10px] py-1.5 px-2 rounded bg-[#FAF8F5] border border-[#F0EBE1]">
                     <div>
                       <strong className="text-[#2C2A29]">{t.name}</strong> ({t.seasonOrMonth}) - <span className="text-[#8C857B]">{t.targetArea}</span>
                       <p className="text-[9px] text-[#8C857B]">{t.reasoning}</p>
+                      {t.protocol?.summaryDisplay ? (
+                        <p className="text-[9px] font-semibold text-[#8C6D2D] mt-0.5">
+                          🔬 Protokol: {t.protocol.summaryDisplay}
+                        </p>
+                      ) : (t.sessionsCount || t.frequency) ? (
+                        <p className="text-[9px] font-semibold text-[#8C6D2D] mt-0.5">
+                          🔬 Protokol: {t.sessionsCount ? `${t.sessionsCount}x` : ''} {t.frequency || ''}
+                          {t.maintenanceIntervalMonths ? ` ➔ Udržiavanie: 1x/${t.maintenanceIntervalMonths}m` : ''}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="text-right shrink-0 ml-2">
                       <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-white border border-[#E8E2D9]">
                         {t.priority}
                       </span>
-                      {t.estimatedPrice ? (
-                        <span className="text-[10px] font-bold block text-[#2C2A29]">{t.estimatedPrice} €</span>
+                      {t.packagePrice ? (
+                        <span className="text-[10px] font-bold block text-[#2C2A29]">
+                          {t.packagePrice} € <span className="text-[8px] font-normal text-[#8C857B]">(kúra)</span>
+                        </span>
+                      ) : t.estimatedPrice ? (
+                        <span className="text-[10px] font-bold block text-[#2C2A29]">
+                          {t.pricePerSession ? `${t.pricePerSession} € / sed.` : `${t.estimatedPrice} €`}
+                        </span>
                       ) : null}
                     </div>
                   </div>

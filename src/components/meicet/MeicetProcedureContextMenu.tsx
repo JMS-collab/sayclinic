@@ -20,6 +20,7 @@ interface MeicetProcedureContextMenuProps {
   currentQuarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter';
   onClose: () => void;
   onSwapProcedure: () => void;
+  onEditProtocol?: () => void;
   onMoveQuarter: (targetQuarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter') => void;
   onChangePriority: (priority: 'vysoká' | 'odporúčaná' | 'udržiavacia') => void;
   onToggleExternal: () => void;
@@ -34,6 +35,7 @@ export const MeicetProcedureContextMenu: React.FC<MeicetProcedureContextMenuProp
   currentQuarterKey,
   onClose,
   onSwapProcedure,
+  onEditProtocol,
   onMoveQuarter,
   onChangePriority,
   onToggleExternal,
@@ -130,6 +132,28 @@ export const MeicetProcedureContextMenu: React.FC<MeicetProcedureContextMenuProp
             <div className="text-[10px] text-[#8C837A]">Výber z katalógu laserov a injekcií</div>
           </div>
         </button>
+
+        {/* ÚPRAVA PROTOKOLU (KÚRA & UDRŽIAVANIE) */}
+        {onEditProtocol && (
+          <button
+            type="button"
+            onClick={() => {
+              onEditProtocol();
+              onClose();
+            }}
+            className="w-full text-left px-3 py-2 rounded-xl hover:bg-[#FAF7F2] hover:text-[#8C6D2D] transition-colors flex items-center gap-2.5 font-medium cursor-pointer group"
+          >
+            <div className="w-6 h-6 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              <Sparkles className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <div className="font-bold text-[#2C2A29] group-hover:text-[#8C6D2D]">Upraviť protokol sedení...</div>
+              <div className="text-[10px] text-[#8C837A] truncate max-w-[200px]">
+                {treatment.protocol?.summaryDisplay || `Kúra: ${treatment.sessionsCount || 1}x ➔ Udržiavanie`}
+              </div>
+            </div>
+          </button>
+        )}
 
         {/* PRESUN DO KVARTÁLU */}
         <div className="relative">

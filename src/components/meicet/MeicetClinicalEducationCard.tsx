@@ -307,6 +307,32 @@ export const MeicetClinicalEducationCard: React.FC<MeicetClinicalEducationCardPr
                       </span>
                       {proc.whyIndicated}
                     </div>
+
+                    {/* Protokol sedení a udržiavacia fáza */}
+                    {(proc.inductionProtocol || proc.maintenanceProtocol || proc.fullCycleDescription) && (
+                      <div className="mt-2.5 p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200/70 text-[11px] text-emerald-950 leading-relaxed">
+                        <span className="font-bold text-emerald-900 block mb-1">
+                          🔄 Odporúčaný terapeutický cyklus (kúra & udržiavanie):
+                        </span>
+                        {proc.inductionProtocol && (
+                          <div className="flex items-start gap-1.5 text-xs font-semibold text-emerald-900 mb-1">
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-200/80 text-[10px] font-bold shrink-0">1. Fáza (Kúra)</span>
+                            <span className="font-medium text-[11px] text-emerald-950">{proc.inductionProtocol}</span>
+                          </div>
+                        )}
+                        {proc.maintenanceProtocol && (
+                          <div className="flex items-start gap-1.5 text-xs font-semibold text-emerald-900 mb-1">
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-200/80 text-[10px] font-bold shrink-0">2. Fáza (Udržiavanie)</span>
+                            <span className="font-medium text-[11px] text-emerald-950">{proc.maintenanceProtocol}</span>
+                          </div>
+                        )}
+                        {proc.fullCycleDescription && (
+                          <p className="text-[10px] text-emerald-800 italic mt-1">
+                            {proc.fullCycleDescription}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -318,7 +344,7 @@ export const MeicetClinicalEducationCard: React.FC<MeicetClinicalEducationCardPr
             <div className="flex items-center gap-2">
               <Info className="w-4 h-4 text-[#C5A059] shrink-0" />
               <span>
-                <strong>Tip pre lekára aj klienta:</strong> Kliknutím <strong>pravým tlačidlom myši</strong> na ľubovoľný produkt alebo procedúru v pláne nižšie môžete vymeniť položku za alternatívu, upraviť frekvenciu alebo označiť produkty, ktoré už klient vlastní doma.
+                <strong>Tip pre lekára aj klienta:</strong> Kliknutím <strong>pravým tlačidlom myši</strong> na ľubovoľný produkt alebo procedúru v pláne nižšie môžete vymeniť položku za alternatívu, upraviť frekvenciu, upraviť protokol sedení (kúra/udržiavanie) alebo označiť produkty, ktoré už klient vlastní doma.
               </span>
             </div>
           </div>

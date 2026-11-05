@@ -45,6 +45,8 @@ import { MeicetProductSwapModal } from './MeicetProductSwapModal';
 import { MeicetTitrationEditModal } from './MeicetTitrationEditModal';
 import { MeicetProcedureContextMenu } from './MeicetProcedureContextMenu';
 import { MeicetProcedureSwapModal } from './MeicetProcedureSwapModal';
+import { ProcedureProtocolEditModal } from './ProcedureProtocolEditModal';
+import { TreatmentSeriesBookingModal } from './TreatmentSeriesBookingModal';
 
 interface MeicetViewerProps {
   report: MeicetAnalysisResult;
@@ -173,6 +175,24 @@ export function MeicetViewer({
     isOpen: false,
     treatment: null,
     quarterKey: 'q1_spring'
+  });
+
+  const [procedureProtocolModal, setProcedureProtocolModal] = useState<{
+    isOpen: boolean;
+    treatment: MeicetTreatmentPlanItem | null;
+    quarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter';
+  }>({
+    isOpen: false,
+    treatment: null,
+    quarterKey: 'q1_spring'
+  });
+
+  const [seriesBookingModal, setSeriesBookingModal] = useState<{
+    isOpen: boolean;
+    treatment: MeicetTreatmentPlanItem | null;
+  }>({
+    isOpen: false,
+    treatment: null
   });
 
   // Klinická edukatívna syntéza EBM
@@ -551,6 +571,23 @@ export function MeicetViewer({
     }
   };
 
+  // 9. Aktualizácia protokolu procedúry (kúra / sedenia / udržiavanie / ceny)
+  const handleUpdateProcedure = (
+    updatedTreatment: MeicetTreatmentPlanItem,
+    quarterKey: 'q1_spring' | 'q2_summer' | 'q3_autumn' | 'q4_winter'
+  ) => {
+    const updatedQuarter = (annualSchedule[quarterKey] || []).map((item: any) => 
+      item.id === updatedTreatment.id ? updatedTreatment : item
+    );
+    const updatedSchedule = {
+      ...annualSchedule,
+      [quarterKey]: updatedQuarter
+    };
+    if (onUpdateReport) {
+      onUpdateReport({ ...report, annualSchedule: updatedSchedule });
+    }
+  };
+
   const allAnnualProcedures = [
     ...(annualSchedule?.q1_spring || []),
     ...(annualSchedule?.q2_summer || []),
@@ -707,8 +744,17 @@ export function MeicetViewer({
     }
   };
 
-  // Naplánovanie ošetrenia do kalendára kliniky
+  // Naplánovanie ošetrenia do kalendára kliniky (jednotlivo alebo ako celá kúra/séria)
   const handleScheduleItem = (treatment: MeicetTreatmentPlanItem) => {
+    const isMultiSession = (treatment.sessionsCount && treatment.sessionsCount > 1) || treatment.protocol?.isSeries;
+    if (isMultiSession) {
+      setSeriesBookingModal({
+        isOpen: true,
+        treatment
+      });
+      return;
+    }
+
     if (onScheduleTreatment) {
       onScheduleTreatment({
         title: treatment.name,
@@ -722,6 +768,18 @@ export function MeicetViewer({
         notes: `Zákrok z ročného plánu pleti Meicet Pro-A: ${treatment.name} (${treatment.seasonOrMonth}). Cieľ: ${treatment.targetArea}. Dôvod: ${treatment.reasoning}`
       });
       setBookedTreatments(prev => ({ ...prev, [treatment.id]: true }));
+    }
+  };
+
+  // Naplánovanie celej série termínov z modálu do kalendára kliniky
+  const handleBookSeriesEvents = (events: Partial<CalendarEvent>[]) => {
+    if (onScheduleTreatment && events.length > 0) {
+      events.forEach(evt => {
+        onScheduleTreatment(evt);
+      });
+      if (seriesBookingModal.treatment) {
+        setBookedTreatments(prev => ({ ...prev, [seriesBookingModal.treatment!.id]: true }));
+      }
     }
   };
 
@@ -2016,10 +2074,20 @@ export function MeicetViewer({
                             <div className="flex items-center gap-2 shrink-0">
                               <div className="text-right">
                                 <span className={`text-base font-serif font-bold block ${isExt ? 'text-stone-600' : 'text-[#8C6D2D]'}`}>
-                                  {isExt ? `~${(item as any).price ?? (item as any).estimatedPrice ?? 0} €` : `${(item as any).price ?? (item as any).estimatedPrice ?? 0} €`}
+                                  {isExt 
+                                    ? `~${(item as any).packagePrice || (item as any).price || (item as any).estimatedPrice || 0} €` 
+                                    : `${(item as any).packagePrice || (item as any).price || (item as any).estimatedPrice || 0} €`}
                                 </span>
                                 <span className="text-[10px] text-[#8C837A] block">
-                                  {isExt ? 'odhadom mimo kliniky' : `Rekonvalescencia: ${(item as any).downtime || (item as any).recovery || 'Bez obmedzenia'}`}
+                                  {item.packagePrice ? (
+                                    <span className="text-[#8C6D2D] font-medium">
+                                      Kúra {item.sessionsCount || 1}x {item.pricePerSession ? `(${item.pricePerSession} € / sed.)` : ''}
+                                    </span>
+                                  ) : isExt ? (
+                                    'odhadom mimo kliniky'
+                                  ) : (
+                                    `Rekonvalescencia: ${(item as any).downtime || (item as any).recovery || 'Bez obmedzenia'}`
+                                  )}
                                 </span>
                               </div>
 
@@ -2066,10 +2134,62 @@ export function MeicetViewer({
                             </p>
                           )}
 
+                          {/* Dvojfázový terapeutický protokol a vizuálny stepper sedení */}
+                          {(item.protocol || (item.sessionsCount && item.sessionsCount > 1)) && (
+                            <div className="mt-2.5 p-2.5 rounded-xl bg-white border border-[#E8E2D9] space-y-1.5 shadow-2xs">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <div className="flex items-center gap-1.5 font-bold text-[#2C2A29]">
+                                  <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                                  <span>Terapeutický protokol cyklu:</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setProcedureProtocolModal({
+                                      isOpen: true,
+                                      treatment: item,
+                                      quarterKey: season.key
+                                    });
+                                  }}
+                                  className="text-[10px] text-[#8C6D2D] hover:underline font-bold cursor-pointer"
+                                >
+                                  Upraviť protokol...
+                                </button>
+                              </div>
+
+                              <div className="text-[11px] text-[#5A524C] font-medium">
+                                {item.protocol?.summaryDisplay || (
+                                  `Kúra: ${item.sessionsCount || 4}x (${item.frequency || (item.intervalWeeks ? `1x za ${item.intervalWeeks} týždne` : '1x týždenne')})` +
+                                  (item.maintenanceIntervalMonths ? ` ➔ Udržiavanie: 1x za ${item.maintenanceIntervalMonths} mesiacov` : '')
+                                )}
+                              </div>
+
+                              {/* Vizuálny stepper sedení */}
+                              <div className="flex items-center gap-1 flex-wrap pt-1">
+                                {Array.from({ length: Math.min(item.sessionsCount || 4, 8) }).map((_, sIdx) => (
+                                  <span 
+                                    key={sIdx} 
+                                    className="px-2 py-0.5 rounded-md bg-[#FAF7F2] border border-[#E8E2D9] text-[10px] font-bold text-[#2C2A29] flex items-center gap-1"
+                                  >
+                                    <span>{sIdx + 1}. sedenie</span>
+                                    {sIdx < (item.sessionsCount || 4) - 1 && <span className="text-[#C5A059] font-normal">➔</span>}
+                                  </span>
+                                ))}
+                                {(item.protocol?.maintenance || item.maintenanceIntervalMonths) && (
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+                                    <span>🛡️ Udržiavanie ({item.protocol?.maintenance?.interval || `1x za ${item.maintenanceIntervalMonths} mes.`})</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-[#E8E2D9]">
                             <span className="text-[11px] font-medium text-[#6B635B]">
-                              Počet sedení: <strong>{item.sessionsCount}x</strong>
-                              {item.intervalWeeks ? ` (interval ${item.intervalWeeks} týž.)` : ''}
+                              Počet sedení: <strong>{item.sessionsCount || 1}x</strong>
+                              {item.intervalWeeks ? ` (${item.intervalWeeks} týž. rozostup)` : ''}
+                              {item.maintenanceIntervalMonths ? ` • Udržiavanie: 1x/${item.maintenanceIntervalMonths}m` : ''}
                             </span>
 
                             {isExt ? (
@@ -2085,7 +2205,7 @@ export function MeicetViewer({
                                   className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                                     isBooked
                                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                      : 'bg-[#2C2A29] hover:bg-[#3A3836] text-white'
+                                      : 'bg-[#2C2A29] hover:bg-[#3A3836] text-white shadow-xs'
                                   }`}
                                 >
                                   {isBooked ? (
@@ -2096,7 +2216,11 @@ export function MeicetViewer({
                                   ) : (
                                     <>
                                       <CalendarPlus className="w-3.5 h-3.5 text-[#C5A059]" />
-                                      <span>Objednať do kalendára</span>
+                                      <span>
+                                        {(item.sessionsCount && item.sessionsCount > 1) || item.protocol?.isSeries
+                                          ? `Objednať sériu (${item.sessionsCount}x)`
+                                          : 'Objednať do kalendára'}
+                                      </span>
                                     </>
                                   )}
                                 </button>
@@ -2246,6 +2370,13 @@ export function MeicetViewer({
         treatment={procedureContextMenu.treatment}
         currentQuarterKey={procedureContextMenu.quarterKey}
         onClose={() => setProcedureContextMenu(prev => ({ ...prev, isOpen: false }))}
+        onEditProtocol={() => {
+          setProcedureProtocolModal({
+            isOpen: true,
+            treatment: procedureContextMenu.treatment,
+            quarterKey: procedureContextMenu.quarterKey
+          });
+        }}
         onSwapProcedure={() => {
           setProcedureSwapModal({
             isOpen: true,
@@ -2287,6 +2418,28 @@ export function MeicetViewer({
         onSelectAlternative={(newProc) => {
           handleSwapProcedureItem(newProc, procedureSwapModal.quarterKey);
         }}
+      />
+
+      {/* Modál pre úpravu terapeutického protokolu sedení (kúra, intervaly, udržiavanie, ceny) */}
+      <ProcedureProtocolEditModal
+        isOpen={procedureProtocolModal.isOpen}
+        treatment={procedureProtocolModal.treatment}
+        quarterKey={procedureProtocolModal.quarterKey}
+        onClose={() => setProcedureProtocolModal(prev => ({ ...prev, isOpen: false }))}
+        onSave={(updatedTreatment) => {
+          handleUpdateProcedure(updatedTreatment, procedureProtocolModal.quarterKey);
+          setProcedureProtocolModal(prev => ({ ...prev, isOpen: false }));
+        }}
+      />
+
+      {/* Modál pre plánovanie celej série termínov do kalendára kliniky */}
+      <TreatmentSeriesBookingModal
+        isOpen={seriesBookingModal.isOpen}
+        treatment={seriesBookingModal.treatment}
+        patientName={report.patientName}
+        patientId={report.patientId}
+        onClose={() => setSeriesBookingModal({ isOpen: false, treatment: null })}
+        onBookEvents={handleBookSeriesEvents}
       />
 
       {/* Skrytý A4 DOM kontajner pre spoľahlivé generovanie Base64 PDF na Google Drive */}
